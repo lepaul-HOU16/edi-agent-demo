@@ -16,6 +16,8 @@
     "@aws-sdk/client-s3": "^3.787.0",
     "@aws-sdk/client-secrets-manager": "^3.726.1",
     "@aws-sdk/s3-request-presigner": "^3.787.0",
+    "@cloudscape-design/components": "^3.0.1025",
+    "@cloudscape-design/global-styles": "^1.0.44",
     "@emotion/cache": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@langchain/aws": "^0.1.11",
@@ -39,7 +41,8 @@
     "react-chartjs-2": "^5.3.0",
     "react-dom": "^18.2.0",
     "react-markdown": "^9.0.3",
-    "remark-gfm": "^4.0.1"
+    "remark-gfm": "^4.0.1",
+    "sass": "^1.89.2"
   },
   "devDependencies": {
     "@aws-amplify/backend": "^1.14.0",
