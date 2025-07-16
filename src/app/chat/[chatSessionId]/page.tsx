@@ -4,9 +4,11 @@ import React, { useEffect, useState } from 'react';
 
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
-import { Typography, Paper, Divider, IconButton, Tooltip, useTheme, useMediaQuery } from '@mui/material';
+import { Typography, Paper, Divider, IconButton, Tooltip, List, ListItem, useTheme, useMediaQuery } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import PsychologyIcon from '@mui/icons-material/Psychology';
+import { Message } from '../../../../utils/types';
+import ChatMessage from '../../../components/ChatMessage';
 
 import ContentLayout from '@cloudscape-design/components/content-layout';
 import Header from '@cloudscape-design/components/header';
@@ -41,6 +43,7 @@ function Page({
     const [showChainOfThought, setShowChainOfThought] = useState(false);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const [messages, setMessages] = useState<Message[]>([]);
 
     const setActiveChatSessionAndUpload = async (newChatSession: Schema["ChatSession"]["createType"]) => {
         const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
@@ -103,322 +106,328 @@ function Page({
             alert("Failed to create chat session.");
         }
     }
-    
+
     return (
         <div style={{ margin: '36px 80px 0' }}>
-                <ContentLayout
-                    disableOverlap
-                    headerVariant="divider"
-                    header={
-                        <Header
-                            variant="h1"
-                            description=""
-                        >
-                            Workspace - Insights
-                        </Header>
-                    }
-                />
-                <div className="reset-chat">
-                    <Grid
-                        disableGutters
-                        gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
+            <ContentLayout
+                disableOverlap
+                headerVariant="divider"
+                header={
+                    <Header
+                        variant="h1"
+                        description=""
                     >
-                        <div className='panel-header'>
-                            <SegmentedControl
-                                selectedId={selectedId}
-                                onChange={({ detail }) =>
-                                    setSelectedId(detail.selectedId)
-                                }
-                                label="Segmented control with only icons"
-                                options={[
-                                    {
-                                        iconName: "gen-ai",
-                                        iconAlt: "Segment 1",
-                                        id: "seg-1"
-                                    },
-                                    {
-                                        iconName: "transcript",
-                                        iconAlt: "Segment 2",
-                                        id: "seg-2"
-                                    }
-                                ]}
-                            />
-                        </div>
-                        <div style={{ textAlign: 'left', marginLeft: '23px' }}>
-                            <IconButton
-                                onClick={handleCreateNewChat}
-                                color="primary"
-                                size="large"
-                            >
-                                <RestartAlt />
-                            </IconButton>
-                            {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
-                        </div>
-                    </Grid>
-                </div>
+                        Workspace - Insights
+                    </Header>
+                }
+            />
+            <div className="reset-chat">
                 <Grid
                     disableGutters
                     gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
                 >
-                    {selectedId === "seg-1" ? (
-                        <div className='panel'>
-                            <Container
-                                footer=""
-                                header="AI-Powered Workflow Recommendations"
+                    <div className='panel-header'>
+                        <SegmentedControl
+                            selectedId={selectedId}
+                            onChange={({ detail }) =>
+                                setSelectedId(detail.selectedId)
+                            }
+                            label="Segmented control with only icons"
+                            options={[
+                                {
+                                    iconName: "gen-ai",
+                                    iconAlt: "Segment 1",
+                                    id: "seg-1"
+                                },
+                                {
+                                    iconName: "transcript",
+                                    iconAlt: "Segment 2",
+                                    id: "seg-2"
+                                }
+                            ]}
+                        />
+                    </div>
+                    <div style={{ textAlign: 'left', marginLeft: '23px' }}>
+                        <IconButton
+                            onClick={handleCreateNewChat}
+                            color="primary"
+                            size="large"
+                        >
+                            <RestartAlt />
+                        </IconButton>
+                        {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
+                    </div>
+                </Grid>
+            </div>
+            <Grid
+                disableGutters
+                gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
+            >
+                {selectedId === "seg-1" ? (
+                    <div className='panel'>
+                        <Container
+                            footer=""
+                            header="AI-Powered Workflow Recommendations"
+                        >
+                            <Box
+                                variant="h2"
+                                margin={{ bottom: 'l' }}
                             >
-                                <Box
-                                    variant="h2"
-                                    margin={{ bottom: 'l' }}
-                                >
-                                    Accelerate Your Data Analysis
-                                </Box>
-                                <Box margin={{ bottom: 'm' }}>
-                                    Discover automated, AI-powered workflows tailored for geoscientists to
-                                    interpret assets and expedite your data-driven analysis in data collections.
-                                </Box>
-                                <Cards
-                                    header=""
-                                    selectionType="single"
-                                    trackBy="name"
-                                    cardDefinition={{
-                                        header: item => item.name,
-                                        sections: [
-                                            {
-                                                id: 'description',
-                                                header: 'Description',
-                                                content: item => item.description,
+                                Accelerate Your Data Analysis
+                            </Box>
+                            <Box margin={{ bottom: 'm' }}>
+                                Discover automated, AI-powered workflows tailored for geoscientists to
+                                interpret assets and expedite your data-driven analysis in data collections.
+                            </Box>
+                            <Cards
+                                header=""
+                                selectionType="single"
+                                trackBy="name"
+                                cardDefinition={{
+                                    header: item => item.name,
+                                    sections: [
+                                        {
+                                            id: 'description',
+                                            header: 'Description',
+                                            content: item => item.description,
+                                        },
+                                        {
+                                            id: 'prompt',
+                                        }
+
+                                    ],
+                                }}
+                                onSelectionChange={({ detail }) => {
+                                    setSelectedItems(detail?.selectedItems ?? [])
+                                    setUserInput(detail?.selectedItems[0]?.prompt || '')
+                                }}
+                                selectedItems={selectedItems}
+                                items={[
+                                    {
+                                        name: 'Wind Farm Performance Optimizer',
+                                        description: 'Monitor and analyze fleet-wide wind farm production metrics, comparing actual vs forecasted output to maximize energy generation and ROI.',
+                                        prompt: 'I manage a fleet of wind farms and want to maximize energy production while minimizing operational expense. Let me check our fleet performance for this quarter. Compare the actual production to the forecasted production for each wind farm. Generate the necessary time series data and render a dashboard to visualize the performance of each wind farm.',
+                                    },
+                                    {
+                                        name: 'Wellsite Compressor Maintenance AI',
+                                        description: 'Smart scheduling system that analyzes historical compressor data to optimize maintenance timing and reduce operational costs in the San Juan basin.',
+                                        prompt: 'Create a demo to optimize the maintenance schedule for a fleet of wellsite compressors in the San Juan basin. Generate non-optimized data with historic maintenance events, compressor failures, and time series compressor data. Analyze the data to find an optimized maintenance plan and estimate the cost savings. Create a comprehensive report and render it for visualization.',
+                                    },
+                                    {
+                                        name: 'Frac Design Intelligence',
+                                        description: 'Advanced analytics platform analyzing 10,000+ well completion designs to determine optimal fracking parameters for maximum production outcomes.',
+                                        prompt: 'I compare completion designs and oil production data for an upstream oil company. Generate 10,000 well fracturing completion designs (well spacing, lateral length, perforation cluster spacing, pumped water volumes, pumped proppand sand lbs, number of fracing stages) Generate production data for these wells. There should be a relationship between the completion design and production numbers. The production should loosely follow a hyperbolic decline and have some noise. After generating the data, perform an analysis to determine optimal completion design parameters to maximize production. Create a comprehensive report and render it for visualization.',
+                                    },
+                                    {
+                                        name: 'Smart Home Resource Monitor',
+                                        description: 'Real-time utility monitoring system that detects anomalies, identifies efficiency opportunities, and provides actionable cost-saving recommendations.',
+                                        prompt: 'Create a demo for analyzing, reporting, and recommending actions based on smart home electricity and water meters. Generate time series sensor data. Look for anomalies in the data (including leak events) and opportunities to increase energy effeciency. Create a report with an analysis of the data, with recommendations for how to optimize resources usage, including financial metrics.',
+                                    }
+                                ]}
+                                loadingText="Loading resources"
+                                cardsPerRow={[{ cards: 1 }, { minWidth: 500, cards: 1 }]}
+                                entireCardClickable={true}
+                                firstIndex={1}
+                            // selectedIndex="0"
+                            />
+                            <div style={{ marginTop: '8px' }}></div>
+                            <Button
+                                onClick={async () => {
+                                    try {
+                                        const selectedChatSessionId = activeChatSession.id;
+                                        console.log("Selected Chat Session ID:", selectedChatSessionId);
+
+                                        const newMessage: Schema['ChatMessage']['createType'] = {
+                                            role: 'human',
+                                            content: {
+                                                text: userInput
                                             },
-                                            {
-                                                id: 'prompt',
-                                            }
-
-                                        ],
-                                    }}
-                                    onSelectionChange={({ detail }) => {
-                                        setSelectedItems(detail?.selectedItems ?? [])
-                                        setUserInput(detail?.selectedItems[0]?.prompt || '')
-                                    }}
-                                    selectedItems={selectedItems}
-                                    items={[
-                                        {
-                                            name: 'Wind Farm Performance Optimizer',
-                                            description: 'Monitor and analyze fleet-wide wind farm production metrics, comparing actual vs forecasted output to maximize energy generation and ROI.',
-                                            prompt: 'I manage a fleet of wind farms and want to maximize energy production while minimizing operational expense. Let me check our fleet performance for this quarter. Compare the actual production to the forecasted production for each wind farm. Generate the necessary time series data and render a dashboard to visualize the performance of each wind farm.',
-                                        },
-                                        {
-                                            name: 'Wellsite Compressor Maintenance AI',
-                                            description: 'Smart scheduling system that analyzes historical compressor data to optimize maintenance timing and reduce operational costs in the San Juan basin.',
-                                            prompt: 'Create a demo to optimize the maintenance schedule for a fleet of wellsite compressors in the San Juan basin. Generate non-optimized data with historic maintenance events, compressor failures, and time series compressor data. Analyze the data to find an optimized maintenance plan and estimate the cost savings. Create a comprehensive report and render it for visualization.',
-                                        },
-                                        {
-                                            name: 'Frac Design Intelligence',
-                                            description: 'Advanced analytics platform analyzing 10,000+ well completion designs to determine optimal fracking parameters for maximum production outcomes.',
-                                            prompt: 'I compare completion designs and oil production data for an upstream oil company. Generate 10,000 well fracturing completion designs (well spacing, lateral length, perforation cluster spacing, pumped water volumes, pumped proppand sand lbs, number of fracing stages) Generate production data for these wells. There should be a relationship between the completion design and production numbers. The production should loosely follow a hyperbolic decline and have some noise. After generating the data, perform an analysis to determine optimal completion design parameters to maximize production. Create a comprehensive report and render it for visualization.',
-                                        },
-                                        {
-                                            name: 'Smart Home Resource Monitor',
-                                            description: 'Real-time utility monitoring system that detects anomalies, identifies efficiency opportunities, and provides actionable cost-saving recommendations.',
-                                            prompt: 'Create a demo for analyzing, reporting, and recommending actions based on smart home electricity and water meters. Generate time series sensor data. Look for anomalies in the data (including leak events) and opportunities to increase energy effeciency. Create a report with an analysis of the data, with recommendations for how to optimize resources usage, including financial metrics.',
+                                            chatSessionId: selectedChatSessionId!,
                                         }
-                                    ]}
-                                    loadingText="Loading resources"
-                                    cardsPerRow={[{ cards: 1 }, { minWidth: 500, cards: 1 }]}
-                                    entireCardClickable={true}
-                                    firstIndex={1}
-                                // selectedIndex="0"
-                                />
-                                <div style={{ marginTop: '8px' }}></div>
-                                <Button
-                                    onClick={async () => {
-                                        try {
-                                            const selectedChatSessionId = activeChatSession.id;
-                                            console.log("Selected Chat Session ID:", selectedChatSessionId);
 
-                                            const newMessage: Schema['ChatMessage']['createType'] = {
-                                                role: 'human',
-                                                content: {
-                                                    text: userInput
-                                                },
-                                                chatSessionId: selectedChatSessionId!,
-                                            }
+                                        await sendMessage({
+                                            chatSessionId: selectedChatSessionId!,
+                                            newMessage: newMessage,
+                                        });
+                                        setUserInput('');
+                                    } catch (error) {
+                                        console.error("Failed to send message:", error);
+                                    }
+                                }}
 
-                                            await sendMessage({
-                                                chatSessionId: selectedChatSessionId!,
-                                                newMessage: newMessage,
-                                            });
-                                            setUserInput('');
-                                        } catch (error) {
-                                            console.error("Failed to send message:", error);
-                                        }
-                                    }}
-
-                                    variant="normal"
-                                    fullWidth={true}
-                                >
-                                    Apply workflow
-                                </Button>
-                                <Box margin={{ top: 'l' }}>
-                                    <div style={{ marginTop: '14px' }}>
-                                        <Alert
-                                            statusIconAriaLabel="Info"
-                                            type="info"
-                                            header="Powered by Agentic AI"
-                                        >
-                                            These workflows are continuously learning from your latest data to provide
-                                            more accurate geoscientific recommendations.
-                                        </Alert>
-                                    </div>
-                                </Box>
-                            </Container>
-                        </div>
-                    ) : (
-                        <div className='panel'>
-                            <Container
-                                footer=""
-                                header="Chain of Thought - Process Log"
+                                variant="normal"
+                                fullWidth={true}
                             >
-                                
-                            </Container>
-                        </div>
-                    )}
+                                Apply workflow
+                            </Button>
+                            <Box margin={{ top: 'l' }}>
+                                <div style={{ marginTop: '14px' }}>
+                                    <Alert
+                                        statusIconAriaLabel="Info"
+                                        type="info"
+                                        header="Powered by Agentic AI"
+                                    >
+                                        These workflows are continuously learning from your latest data to provide
+                                        more accurate geoscientific recommendations.
+                                    </Alert>
+                                </div>
+                            </Box>
+                        </Container>
+                    </div>
+                ) : (
+                    // Chain of Thought here
+                    <div className='panel'>
+                        <Container
+                            footer=""
+                            header="Chain of Thought - Process Log"
+                        >
+                            <List>
+                                {[
+                                    // ...messages,
+                                    ...(messages ? messages : []),
+                                ]
+                                    .filter((message) => {
+                                        // if (showChainOfThought) return true
+                                        switch (message.role) {
+                                            case 'ai':
+                                                return !message.responseComplete
+                                            case 'tool':
+                                                return !['renderAssetTool', 'userInputTool', 'createProject'].includes(message.toolName!);
+                                            default:
+                                                return false;
+                                        }
+                                    })
+                                    .map((message) => (
+                                        <ListItem key={message.id}>
+                                            <ChatMessage
+                                                message={message}
+                                                // onRegenerateMessage={message.role === 'human' ? handleRegenerateMessage : undefined}
+                                            />
+                                        </ListItem>
+                                    ))}
+                                {/* <div ref={messagesEndRef} /> */}
+                            </List>
+                        </Container>
+                    </div>
+                )}
 
 
-                    <div className='convo'>
+                <div className='convo'>
+                    <div style={{
+                        height: '100%',
+                        display: 'flex',
+                        overflow: 'hidden',
+                        padding: '16px'
+                    }}>
+                        {/* Main chat area - always full width with padding for desktop drawer */}
                         <div style={{
                             height: '100%',
-                            display: 'flex',
-                            overflow: 'hidden',
-                            padding: '16px'
+                            width: '100%',
+                            position: 'relative',
+                            transition: theme.transitions.create(['padding-right'], {
+                                easing: theme.transitions.easing.easeOut,
+                                duration: theme.transitions.duration.standard,
+                            }),
+                            paddingRight: fileDrawerOpen && !isMobile ? '45%' : '0'
                         }}>
-                            {/* Main chat area - always full width with padding for desktop drawer */}
-                            <div style={{
-                                height: '100%',
-                                width: '100%',
-                                position: 'relative',
-                                transition: theme.transitions.create(['padding-right'], {
-                                    easing: theme.transitions.easing.easeOut,
-                                    duration: theme.transitions.duration.standard,
-                                }),
-                                paddingRight: fileDrawerOpen && !isMobile ? '45%' : '0'
-                            }}>
-                                <div>
-                                    <div style={{
-                                        padding: '24px',
-                                        borderBottom: '1px solid rgba(0,0,0,0.08)',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center'
-                                    }}>
+                            <div>
+                                <div className='toggles'>
+                                    {/* Chain of Thought */}
+                                    {/* <Tooltip title={showChainOfThought ? "Hide Chain of Thought" : "Show Chain of Thought"}>
+                                        <IconButton
+                                            onClick={() => setShowChainOfThought(!showChainOfThought)}
+                                            color="primary"
+                                            size="large"
+                                            sx={{
+                                                bgcolor: showChainOfThought ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
+                                                zIndex: 1300 // Ensure button is above drawer
+                                            }}
+                                        >
+                                            <PsychologyIcon />
+                                        </IconButton>
+                                    </Tooltip> */}
 
-                                        <EditableTextBox
-                                            object={activeChatSession}
-                                            fieldPath="name"
-                                            onUpdate={setActiveChatSessionAndUpload}
-                                            typographyVariant="h3"
-                                        />
-                                        <div style={{
-                                            display: 'flex',
-                                            gap: '8px',
-                                            justifyContent: 'flex-end'
-                                        }}>
-                                        </div>
-                                    </div>
-
-                                    <div className='toggles'>
-                                        {/* Chain of Thought */}
-                                        <Tooltip title={showChainOfThought ? "Hide Chain of Thought" : "Show Chain of Thought"}>
-                                            <IconButton
-                                                onClick={() => setShowChainOfThought(!showChainOfThought)}
-                                                color="primary"
-                                                size="large"
-                                                sx={{
-                                                    bgcolor: showChainOfThought ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                                                    zIndex: 1300 // Ensure button is above drawer
-                                                }}
-                                            >
-                                                <PsychologyIcon />
-                                            </IconButton>
-                                        </Tooltip>
-
-                                        {/* File Drawer */}
-                                        <Tooltip title={fileDrawerOpen ? "Hide Files" : "View Files"}>
-                                            <IconButton
-                                                onClick={() => setFileDrawerOpen(!fileDrawerOpen)}
-                                                color="primary"
-                                                size="large"
-                                                sx={{
-                                                    bgcolor: fileDrawerOpen ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                                                    zIndex: 1300 // Ensure button is above drawer
-                                                }}
-                                            >
-                                                <FolderIcon />
-                                            </IconButton>
-                                        </Tooltip>
-                                    </div>
-
-                                    {/* <Divider /> */}
-
-                                    <div style={{
-                                        display: 'flex',
-                                        flexDirection: 'column',
-                                        overflow: 'hidden',
-                                        padding: '24px',
-                                        flex: 1
-                                    }}>
-                                        {/* <ChatBox
-                                            chatSessionId={activeChatSession.id}
-                                            showChainOfThought={showChainOfThought}
-                                        /> */}
-                                        <ChatBox
-                                            chatSessionId={activeChatSession.id}
-                                            showChainOfThought={showChainOfThought}
-                                            onInputChange={setUserInput}
-                                            userInput={userInput}
-                                        />
-
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Floating file button for mobile - only show when drawer is closed */}
-                            {isMobile && !fileDrawerOpen && (
-                                <div
-                                    style={{
-                                        position: 'fixed',
-                                        bottom: '16px',
-                                        right: '16px',
-                                        zIndex: 1100
-                                    }}
-                                >
-                                    <Tooltip title="View Files">
+                                    {/* File Drawer */}
+                                    <Tooltip title={fileDrawerOpen ? "Hide Files" : "View Files"}>
                                         <IconButton
                                             onClick={() => setFileDrawerOpen(!fileDrawerOpen)}
                                             color="primary"
                                             size="large"
                                             sx={{
-                                                bgcolor: 'white',
-                                                boxShadow: '0 3px 5px rgba(0,0,0,0.2)',
-                                                '&:hover': {
-                                                    bgcolor: 'white',
-                                                }
+                                                bgcolor: fileDrawerOpen ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
+                                                zIndex: 1300 // Ensure button is above drawer
                                             }}
                                         >
                                             <FolderIcon />
                                         </IconButton>
                                     </Tooltip>
                                 </div>
-                            )}
 
-                            {/* File Drawer - completely different handling for mobile vs desktop */}
-                            <FileDrawer
-                                open={fileDrawerOpen}
-                                onClose={() => setFileDrawerOpen(false)}
-                                chatSessionId={activeChatSession.id}
-                                variant={drawerVariant}
-                            />
+                                {/* <Divider /> */}
+
+                                <div style={{
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    overflow: 'hidden',
+                                    padding: '24px',
+                                    flex: 1
+                                }}>
+                                    {/* <ChatBox
+                                            chatSessionId={activeChatSession.id}
+                                            showChainOfThought={showChainOfThought}
+                                        /> */}
+                                    <ChatBox
+                                        chatSessionId={activeChatSession.id}
+                                        showChainOfThought={showChainOfThought}
+                                        onInputChange={setUserInput}
+                                        userInput={userInput}
+                                        messages={messages}
+                                        setMessages={setMessages}
+                                    />
+
+                                </div>
+                            </div>
                         </div>
+
+                        {/* Floating file button for mobile - only show when drawer is closed */}
+                        {isMobile && !fileDrawerOpen && (
+                            <div
+                                style={{
+                                    position: 'fixed',
+                                    bottom: '16px',
+                                    right: '16px',
+                                    zIndex: 1100
+                                }}
+                            >
+                                <Tooltip title="View Files">
+                                    <IconButton
+                                        onClick={() => setFileDrawerOpen(!fileDrawerOpen)}
+                                        color="primary"
+                                        size="large"
+                                        sx={{
+                                            bgcolor: 'white',
+                                            boxShadow: '0 3px 5px rgba(0,0,0,0.2)',
+                                            '&:hover': {
+                                                bgcolor: 'white',
+                                            }
+                                        }}
+                                    >
+                                        <FolderIcon />
+                                    </IconButton>
+                                </Tooltip>
+                            </div>
+                        )}
+
+                        {/* File Drawer - completely different handling for mobile vs desktop */}
+                        <FileDrawer
+                            open={fileDrawerOpen}
+                            onClose={() => setFileDrawerOpen(false)}
+                            chatSessionId={activeChatSession.id}
+                            variant={drawerVariant}
+                        />
                     </div>
-                </Grid >
+                </div>
+            </Grid >
         </div>
     );
 }
