@@ -47,10 +47,16 @@ const ChatBox = (params: {
   showChainOfThought: boolean,
   onInputChange: (input: string) => void,  // Add this new prop
   userInput: string,  // Add this new prop
+  messages?: Message[],  // Make messages optional
+  setMessages?: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void  // Make setMessages optional
 }) => {
   const { chatSessionId, showChainOfThought } = params
+  const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  
+  // Use provided messages and setMessages if available, otherwise use local state
+  const messages = params.messages || localMessages;
+  const setMessages = params.setMessages || setLocalMessages;
 
-  const [messages, setMessages] = useState<Message[]>([]);
   const [, setResponseStreamChunks] = useState<(Schema["recieveResponseStreamChunk"]["returnType"] | null)[]>([]);
   const [streamChunkMessage, setStreamChunkMessage] = useState<Message>();
   // const [userInput, setUserInput] = useState<string>('');
@@ -363,11 +369,12 @@ const ChatBox = (params: {
 
         <List>
           {[
-            ...messages,
+            // ...messages,
+            ...(messages ? messages : []),
             ...(streamChunkMessage ? [streamChunkMessage] : [])
           ]
             .filter((message) => {
-              if (showChainOfThought) return true
+              // if (showChainOfThought) return true
               switch (message.role) {
                 case 'ai':
                   return message.responseComplete
