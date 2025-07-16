@@ -11,26 +11,33 @@ import ConfigureAmplify from '@/components/ConfigureAmplify';
 import Providers from '@/components/Providers';
 // import TopNavBar from '@/components/TopNavBar';
 
+import IconButton from '@mui/material/IconButton';
+import Button from '@cloudscape-design/components/button';
 import TopNavigation from "@cloudscape-design/components/top-navigation";
+import Grid from '@cloudscape-design/components/grid';
 
 import "./globals.css";
 import "@aws-amplify/ui-react/styles.css";
 import { FileSystemProvider } from "@/contexts/FileSystemContext";
 
 import './app.scss';
+import { type Schema } from "@/../amplify/data/resource";
+import { generateClient } from 'aws-amplify/api';
 
+const amplifyClient = generateClient<Schema>();
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
+// Remove useRouter from the top-level scope
 
 // Removed export of metadata from client component
 
 export default function RootLayout({
   children,
-}: Readonly<{
+}: {
   children: React.ReactNode;
-}>) {
+}) {
   return (
     <html lang="en">
       <body
@@ -49,6 +56,7 @@ export default function RootLayout({
                   overflow: 'hidden'
                 }}>
                   {/* <TopNavBar /> */}
+
                   <TopNavigation
                     identity={{
                       href: '/',

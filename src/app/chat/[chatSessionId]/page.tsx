@@ -18,12 +18,15 @@ import Grid from '@cloudscape-design/components/grid';
 import Cards from '@cloudscape-design/components/cards';
 import Button from '@cloudscape-design/components/button';
 import Alert from '@cloudscape-design/components/alert';
+import { useRouter } from 'next/navigation';
+import RestartAlt from '@mui/icons-material/RestartAlt';
 
 import ChatBox from "@/components/ChatBox"
 import EditableTextBox from '@/components/EditableTextBox';
 import { withAuth } from '@/components/WithAuth';
 import FileDrawer from '@/components/FileDrawer';
 import { sendMessage } from '../../../../utils/amplifyUtils';
+import zIndex from '@mui/material/styles/zIndex';
 
 const amplifyClient = generateClient<Schema>();
 
@@ -66,28 +69,43 @@ function Page({
     const drawerVariant = "temporary";
 
     // Add state for segmented control
-    const [selectedId, setSelectedId] = useState("1");
+    const [selectedId, setSelectedId] = useState("seg-1");
     const [selectedItems, setSelectedItems] = React.useState([{ name: "", description: "", prompt: "" }]);
 
     if (!activeChatSession || !activeChatSession.id) {
         return (
-            <Box sx={{
+            <div style={{
                 display: 'flex',
+                position: 'absolute',
                 justifyContent: 'center',
                 alignItems: 'center',
-                height: '100%'
+                height: '100%',
+                zIndex: '1200',
             }}>
                 <Paper elevation={3} sx={{ p: 4, borderRadius: 2, textAlign: 'center' }}>
                     <Typography variant="h6">Loading your chat session...</Typography>
                 </Paper>
-            </Box>
-            // <ContentLayout />
+            </div>
         );
     }
 
+    const router = useRouter();
+
+    const handleCreateNewChat = async () => {
+        try {
+            // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
+            amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+
+            const newChatSession = await amplifyClient.models.ChatSession.create({});
+            router.push(`/chat/${newChatSession.data!.id}`);
+        } catch (error) {
+            console.error("Error creating chat session:", error);
+            alert("Failed to create chat session.");
+        }
+    }
+    
     return (
         <div style={{ margin: '36px 80px 0' }}>
-            <>
                 <ContentLayout
                     disableOverlap
                     headerVariant="divider"
@@ -100,130 +118,180 @@ function Page({
                         </Header>
                     }
                 />
+                <div className="reset-chat">
+                    <Grid
+                        disableGutters
+                        gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
+                    >
+                        <div className='panel-header'>
+                            <SegmentedControl
+                                selectedId={selectedId}
+                                onChange={({ detail }) =>
+                                    setSelectedId(detail.selectedId)
+                                }
+                                label="Segmented control with only icons"
+                                options={[
+                                    {
+                                        iconName: "gen-ai",
+                                        iconAlt: "Segment 1",
+                                        id: "seg-1"
+                                    },
+                                    {
+                                        iconName: "transcript",
+                                        iconAlt: "Segment 2",
+                                        id: "seg-2"
+                                    }
+                                ]}
+                            />
+                        </div>
+                        <div style={{ textAlign: 'left', marginLeft: '23px' }}>
+                            <IconButton
+                                onClick={handleCreateNewChat}
+                                color="primary"
+                                size="large"
+                            >
+                                <RestartAlt />
+                            </IconButton>
+                            {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
+                        </div>
+                    </Grid>
+                </div>
                 <Grid
                     disableGutters
                     gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
                 >
-                    <div className='panel'>
-                        <Container
-                            footer=""
-                            header="AI-Powered Workflow Recommendations"
-                        >
-                            <Box
-                                variant="h2"
-                                margin={{ bottom: 'l' }}
+                    {selectedId === "seg-1" ? (
+                        <div className='panel'>
+                            <Container
+                                footer=""
+                                header="AI-Powered Workflow Recommendations"
                             >
-                                Accelerate Your Data Analysis
-                            </Box>
-                            <Box margin={{ bottom: 'm' }}>
-                                Discover automated, AI-powered workflows tailored for geoscientists to
-                                interpret assets and expedite your data-driven analysis in data collections.
-                            </Box>
-                            <Cards
-                                header=""
-                                selectionType="single"
-                                trackBy="name"
-                                cardDefinition={{
-                                    header: item => item.name,
-                                    sections: [
+                                <Box
+                                    variant="h2"
+                                    margin={{ bottom: 'l' }}
+                                >
+                                    Accelerate Your Data Analysis
+                                </Box>
+                                <Box margin={{ bottom: 'm' }}>
+                                    Discover automated, AI-powered workflows tailored for geoscientists to
+                                    interpret assets and expedite your data-driven analysis in data collections.
+                                </Box>
+                                <Cards
+                                    header=""
+                                    selectionType="single"
+                                    trackBy="name"
+                                    cardDefinition={{
+                                        header: item => item.name,
+                                        sections: [
+                                            {
+                                                id: 'description',
+                                                header: 'Description',
+                                                content: item => item.description,
+                                            },
+                                            {
+                                                id: 'prompt',
+                                            }
+
+                                        ],
+                                    }}
+                                    onSelectionChange={({ detail }) => {
+                                        setSelectedItems(detail?.selectedItems ?? [])
+                                        setUserInput(detail?.selectedItems[0]?.prompt || '')
+                                    }}
+                                    selectedItems={selectedItems}
+                                    items={[
                                         {
-                                            id: 'description',
-                                            header: 'Description',
-                                            content: item => item.description,
+                                            name: 'Wind Farm Performance Optimizer',
+                                            description: 'Monitor and analyze fleet-wide wind farm production metrics, comparing actual vs forecasted output to maximize energy generation and ROI.',
+                                            prompt: 'I manage a fleet of wind farms and want to maximize energy production while minimizing operational expense. Let me check our fleet performance for this quarter. Compare the actual production to the forecasted production for each wind farm. Generate the necessary time series data and render a dashboard to visualize the performance of each wind farm.',
                                         },
                                         {
-                                            id: 'prompt',
+                                            name: 'Wellsite Compressor Maintenance AI',
+                                            description: 'Smart scheduling system that analyzes historical compressor data to optimize maintenance timing and reduce operational costs in the San Juan basin.',
+                                            prompt: 'Create a demo to optimize the maintenance schedule for a fleet of wellsite compressors in the San Juan basin. Generate non-optimized data with historic maintenance events, compressor failures, and time series compressor data. Analyze the data to find an optimized maintenance plan and estimate the cost savings. Create a comprehensive report and render it for visualization.',
+                                        },
+                                        {
+                                            name: 'Frac Design Intelligence',
+                                            description: 'Advanced analytics platform analyzing 10,000+ well completion designs to determine optimal fracking parameters for maximum production outcomes.',
+                                            prompt: 'I compare completion designs and oil production data for an upstream oil company. Generate 10,000 well fracturing completion designs (well spacing, lateral length, perforation cluster spacing, pumped water volumes, pumped proppand sand lbs, number of fracing stages) Generate production data for these wells. There should be a relationship between the completion design and production numbers. The production should loosely follow a hyperbolic decline and have some noise. After generating the data, perform an analysis to determine optimal completion design parameters to maximize production. Create a comprehensive report and render it for visualization.',
+                                        },
+                                        {
+                                            name: 'Smart Home Resource Monitor',
+                                            description: 'Real-time utility monitoring system that detects anomalies, identifies efficiency opportunities, and provides actionable cost-saving recommendations.',
+                                            prompt: 'Create a demo for analyzing, reporting, and recommending actions based on smart home electricity and water meters. Generate time series sensor data. Look for anomalies in the data (including leak events) and opportunities to increase energy effeciency. Create a report with an analysis of the data, with recommendations for how to optimize resources usage, including financial metrics.',
                                         }
+                                    ]}
+                                    loadingText="Loading resources"
+                                    cardsPerRow={[{ cards: 1 }, { minWidth: 500, cards: 1 }]}
+                                    entireCardClickable={true}
+                                    firstIndex={1}
+                                // selectedIndex="0"
+                                />
+                                <div style={{ marginTop: '8px' }}></div>
+                                <Button
+                                    onClick={async () => {
+                                        try {
+                                            const selectedChatSessionId = activeChatSession.id;
+                                            console.log("Selected Chat Session ID:", selectedChatSessionId);
 
-                                    ],
-                                }}
-                                onSelectionChange={({ detail }) => {
-                                    setSelectedItems(detail?.selectedItems ?? [])
-                                    setUserInput(detail?.selectedItems[0]?.prompt || '')
-                                }}
-                                selectedItems={selectedItems}
-                                items={[
-                                    {
-                                        name: 'Wind Farm Performance Optimizer',
-                                        description: 'Monitor and analyze fleet-wide wind farm production metrics, comparing actual vs forecasted output to maximize energy generation and ROI.',
-                                        prompt: 'I manage a fleet of wind farms and want to maximize energy production while minimizing operational expense. Let me check our fleet performance for this quarter. Compare the actual production to the forecasted production for each wind farm. Generate the necessary time series data and render a dashboard to visualize the performance of each wind farm.',
-                                    },
-                                    {
-                                        name: 'Wellsite Compressor Maintenance AI',
-                                        description: 'Smart scheduling system that analyzes historical compressor data to optimize maintenance timing and reduce operational costs in the San Juan basin.',
-                                        prompt: 'Create a demo to optimize the maintenance schedule for a fleet of wellsite compressors in the San Juan basin. Generate non-optimized data with historic maintenance events, compressor failures, and time series compressor data. Analyze the data to find an optimized maintenance plan and estimate the cost savings. Create a comprehensive report and render it for visualization.',
-                                    },
-                                    {
-                                        name: 'Frac Design Intelligence',
-                                        description: 'Advanced analytics platform analyzing 10,000+ well completion designs to determine optimal fracking parameters for maximum production outcomes.',
-                                        prompt: 'I compare completion designs and oil production data for an upstream oil company. Generate 10,000 well fracturing completion designs (well spacing, lateral length, perforation cluster spacing, pumped water volumes, pumped proppand sand lbs, number of fracing stages) Generate production data for these wells. There should be a relationship between the completion design and production numbers. The production should loosely follow a hyperbolic decline and have some noise. After generating the data, perform an analysis to determine optimal completion design parameters to maximize production. Create a comprehensive report and render it for visualization.',
-                                    },
-                                    {
-                                        name: 'Smart Home Resource Monitor',
-                                        description: 'Real-time utility monitoring system that detects anomalies, identifies efficiency opportunities, and provides actionable cost-saving recommendations.',
-                                        prompt: 'Create a demo for analyzing, reporting, and recommending actions based on smart home electricity and water meters. Generate time series sensor data. Look for anomalies in the data (including leak events) and opportunities to increase energy effeciency. Create a report with an analysis of the data, with recommendations for how to optimize resources usage, including financial metrics.',
-                                    }
-                                ]}
-                                loadingText="Loading resources"
-                                cardsPerRow={[{ cards: 1 }, { minWidth: 500, cards: 1 }]}
-                                entireCardClickable={true}
-                                firstIndex={1}
-                            // selectedIndex="0"
-                            />
-                            <div style={{ marginTop: '8px' }}></div>
-                            <Button
-                                onClick={async () => {
-                                    try {
-                                        const selectedChatSessionId = activeChatSession.id;
-                                        console.log("Selected Chat Session ID:", selectedChatSessionId);
+                                            const newMessage: Schema['ChatMessage']['createType'] = {
+                                                role: 'human',
+                                                content: {
+                                                    text: userInput
+                                                },
+                                                chatSessionId: selectedChatSessionId!,
+                                            }
 
-                                        const newMessage: Schema['ChatMessage']['createType'] = {
-                                            role: 'human',
-                                            content: {
-                                                text: userInput
-                                            },
-                                            chatSessionId: selectedChatSessionId!,
+                                            await sendMessage({
+                                                chatSessionId: selectedChatSessionId!,
+                                                newMessage: newMessage,
+                                            });
+                                            setUserInput('');
+                                        } catch (error) {
+                                            console.error("Failed to send message:", error);
                                         }
+                                    }}
 
-                                        await sendMessage({
-                                            chatSessionId: selectedChatSessionId!,
-                                            newMessage: newMessage,
-                                        });
-                                        setUserInput('');
-                                    } catch (error) {
-                                        console.error("Failed to send message:", error);
-                                    }
-                                }}
-
-                                variant="normal"
-                                fullWidth={true}
+                                    variant="normal"
+                                    fullWidth={true}
+                                >
+                                    Apply workflow
+                                </Button>
+                                <Box margin={{ top: 'l' }}>
+                                    <div style={{ marginTop: '14px' }}>
+                                        <Alert
+                                            statusIconAriaLabel="Info"
+                                            type="info"
+                                            header="Powered by Agentic AI"
+                                        >
+                                            These workflows are continuously learning from your latest data to provide
+                                            more accurate geoscientific recommendations.
+                                        </Alert>
+                                    </div>
+                                </Box>
+                            </Container>
+                        </div>
+                    ) : (
+                        <div className='panel'>
+                            <Container
+                                footer=""
+                                header="Chain of Thought - Process Log"
                             >
-                                Apply workflow
-                            </Button>
-                            <Box margin={{ top: 'l' }}>
-                                <div style={{ marginTop: '14px' }}>
-                                    <Alert
-                                        statusIconAriaLabel="Info"
-                                        type="info"
-                                        header="Powered by Agentic AI"
-                                    >
-                                        These workflows are continuously learning from your latest data to provide
-                                        more accurate geoscientific recommendations.
-                                    </Alert>
-                                </div>
-                            </Box>
-                        </Container>
-                    </div>
+                                
+                            </Container>
+                        </div>
+                    )}
+
 
                     <div className='convo'>
-                        <Box sx={{
+                        <div style={{
                             height: '100%',
                             display: 'flex',
                             overflow: 'hidden',
-                            p: 2
+                            padding: '16px'
                         }}>
                             {/* Main chat area - always full width with padding for desktop drawer */}
-                            <Box sx={{
+                            <div style={{
                                 height: '100%',
                                 width: '100%',
                                 position: 'relative',
@@ -231,14 +299,11 @@ function Page({
                                     easing: theme.transitions.easing.easeOut,
                                     duration: theme.transitions.duration.standard,
                                 }),
-                                ...(fileDrawerOpen && !isMobile && {
-                                    paddingRight: '45%'
-                                })
+                                paddingRight: fileDrawerOpen && !isMobile ? '45%' : '0'
                             }}>
                                 <div>
-                                    <Box sx={{
-                                        p: 3,
-                                        backgroundColor: '#fff',
+                                    <div style={{
+                                        padding: '24px',
                                         borderBottom: '1px solid rgba(0,0,0,0.08)',
                                         display: 'flex',
                                         justifyContent: 'space-between',
@@ -251,13 +316,13 @@ function Page({
                                             onUpdate={setActiveChatSessionAndUpload}
                                             typographyVariant="h3"
                                         />
-                                        <Box sx={{
+                                        <div style={{
                                             display: 'flex',
-                                            gap: 1,
+                                            gap: '8px',
                                             justifyContent: 'flex-end'
                                         }}>
-                                        </Box>
-                                    </Box>
+                                        </div>
+                                    </div>
 
                                     <div className='toggles'>
                                         {/* Chain of Thought */}
@@ -293,12 +358,11 @@ function Page({
 
                                     {/* <Divider /> */}
 
-                                    <Box sx={{
+                                    <div style={{
                                         display: 'flex',
                                         flexDirection: 'column',
                                         overflow: 'hidden',
-                                        p: 3,
-                                        backgroundColor: '#f8f9fa',
+                                        padding: '24px',
                                         flex: 1
                                     }}>
                                         {/* <ChatBox
@@ -312,17 +376,17 @@ function Page({
                                             userInput={userInput}
                                         />
 
-                                    </Box>
+                                    </div>
                                 </div>
-                            </Box>
+                            </div>
 
                             {/* Floating file button for mobile - only show when drawer is closed */}
                             {isMobile && !fileDrawerOpen && (
-                                <Box
-                                    sx={{
+                                <div
+                                    style={{
                                         position: 'fixed',
-                                        bottom: 16,
-                                        right: 16,
+                                        bottom: '16px',
+                                        right: '16px',
                                         zIndex: 1100
                                     }}
                                 >
@@ -342,7 +406,7 @@ function Page({
                                             <FolderIcon />
                                         </IconButton>
                                     </Tooltip>
-                                </Box>
+                                </div>
                             )}
 
                             {/* File Drawer - completely different handling for mobile vs desktop */}
@@ -352,11 +416,10 @@ function Page({
                                 chatSessionId={activeChatSession.id}
                                 variant={drawerVariant}
                             />
-                        </Box>
+                        </div>
                     </div>
                 </Grid >
-            </>
-        </div >
+        </div>
     );
 }
 
