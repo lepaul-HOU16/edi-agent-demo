@@ -25,7 +25,6 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
     if (!filePath) {
       return (
         <Box sx={{
-          backgroundColor: theme.palette.grey[200],
           padding: theme.spacing(1),
           borderRadius: theme.shape.borderRadius,
         }}>
@@ -38,7 +37,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
 
     return (
       <Box sx={{
-        backgroundColor: theme.palette.grey[50],
+        // backgroundColor: theme.palette.grey[50],
         padding: theme.spacing(2),
         borderRadius: theme.shape.borderRadius,
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
@@ -55,7 +54,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
             display: 'flex',
             alignItems: 'center',
             gap: theme.spacing(1),
-            color: theme.palette.primary.main
+            // color: theme.palette.primary.main
           }}>
             <DescriptionIcon />
             <Typography variant="subtitle1" fontWeight="medium">
@@ -96,8 +95,8 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
         {/* Asset Preview */}
         <Box sx={{
           border: `1px solid ${theme.palette.grey[300]}`,
-          borderRadius: theme.shape.borderRadius,
-          backgroundColor: theme.palette.common.white,
+          // borderRadius: theme.shape.borderRadius,
+          // backgroundColor: theme.palette.common.white,
           width: '100%',
           height: '700px',
           overflow: 'hidden'
@@ -114,7 +113,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
   } catch (error) {
     return (
       <Box sx={{
-        backgroundColor: theme.palette.grey[200],
+        // backgroundColor: theme.palette.grey[200],
         padding: theme.spacing(1),
         borderRadius: theme.shape.borderRadius,
       }}>

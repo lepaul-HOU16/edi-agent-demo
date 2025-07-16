@@ -161,6 +161,8 @@ export default function FileViewer({
             border: 'none',
             margin: 0,
             padding: 0,
+            height: '698px',
+            width: '100%',
           }}
           title="File Viewer"
           onLoad={() => setIframeLoading(false)}

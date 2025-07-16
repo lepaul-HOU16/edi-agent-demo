@@ -9,6 +9,9 @@ interface PageProps {
   };
 }
 
+// Set cache control headers to prevent caching large files
+export const dynamic = 'force-dynamic'; // Disable static optimization
+
 export async function GET(request: Request, { params }: PageProps) {
   try {
     // return NextResponse.json({hello: "world"})
@@ -24,11 +27,20 @@ export async function GET(request: Request, { params }: PageProps) {
     console.log('Signed URL: ', signedUrl)
 
     const fileResponse = await fetch(signedUrl);
-
-    // return NextResponse.json({signedUrl: signedUrl.toString()})
-    // return "Hello World"
-    // return signedUrl
-    return fileResponse
+    
+    // Create a new response with the file content and no-cache headers
+    const response = new NextResponse(fileResponse.body, {
+      status: fileResponse.status,
+      statusText: fileResponse.statusText,
+      headers: {
+        ...Object.fromEntries(fileResponse.headers),
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      },
+    });
+    
+    return response;
 
     // // Redirect to the signed URL for direct file access
     // return NextResponse.redirect(signedUrl);

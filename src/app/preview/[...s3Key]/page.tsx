@@ -138,15 +138,17 @@ export default function FilePage({ params }: PageProps) {
         page-break-inside: avoid !important;
       }
       
-      /* Give iframes a minimum height to ensure content is visible */
+      /* Give iframes a fixed width and height to ensure content is visible */
       iframe {
         max-width: 100% !important;
         width: 650px !important; /* Fixed width to prevent overflow */
-        min-height: 500px !important;
-        height: auto !important;
+        min-width: 650px !important;
+        min-height: 800px !important;
+        height: 800px !important;
         display: block !important;
         margin: 0 auto !important;
         page-break-inside: avoid !important;
+        border: none !important;
       }
       
       /* Specific styling for plots - NO TRANSFORM SCALING */
@@ -415,10 +417,9 @@ export default function FilePage({ params }: PageProps) {
             </div>
           `);
         } else {
-          // For other file types
           printWindow.document.write(`
             <div class="plot-container">
-              <iframe src="${fileUrl.toString()}" style="width:650px; max-width:100%; min-height:800px; height:auto; border:none;" />
+              <iframe src="${fileUrl.toString()}" width="650" height="800" style="width:650px; max-width:100%; min-width:650px; min-height:800px; height:800px; border:none; display:block; margin:0 auto;" frameBorder="0"></iframe>
             </div>
           `);
         }
