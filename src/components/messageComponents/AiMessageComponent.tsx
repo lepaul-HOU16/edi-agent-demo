@@ -34,11 +34,11 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
         </ReactMarkdown>
         {message.toolCalls && message.toolCalls !== '[]' && (
           <div style={{
-            backgroundColor: theme.palette.grey[100],
-            padding: theme.spacing(1),
-            borderRadius: theme.shape.borderRadius,
+            // backgroundColor: theme.palette.grey[100],
+            // padding: theme.spacing(1),
+            // borderRadius: theme.shape.borderRadius,
             marginTop: theme.spacing(1),
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            // boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
           }}>
             <Typography variant="subtitle2" color="textSecondary" gutterBottom>
               Tool Calls

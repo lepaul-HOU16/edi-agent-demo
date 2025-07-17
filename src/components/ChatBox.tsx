@@ -16,31 +16,7 @@ import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 const amplifyClient = generateClient<Schema>();
 
-// const DefaultPrompts = ({ onSelectPrompt }: { onSelectPrompt: (prompt: string) => void }) => {
-//   return (
-//     <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
-//       <Typography variant="h6" sx={{ mb: 2 }}>
-//         Try these prompts to get started:
-//       </Typography>
-//       {defaultPrompts.map((prompt, index) => (
-//         <Paper
-//           key={index}
-//           onClick={() => onSelectPrompt(prompt)}
-//           sx={{
-//             p: 2,
-//             cursor: 'pointer',
-//             '&:hover': {
-//               backgroundColor: 'action.hover',
-//             },
-//             transition: 'background-color 0.2s',
-//           }}
-//         >
-//           <Typography>{prompt}</Typography>
-//         </Paper>
-//       ))}
-//     </Box>
-//   );
-// };
+// DefaultPrompts component removed
 
 const ChatBox = (params: {
   chatSessionId: string,
@@ -427,119 +403,26 @@ const ChatBox = (params: {
           ></ButtonDropdown>
         </div>
       </div>
-
-
-
-      {/* <Box sx={{ position: 'fixed' }}>
-        {!isScrolledToBottom && (
-          <Fab
-            color="primary"
-            size="small"
-            onClick={scrollToBottom}
-            sx={{
-              position: 'absolute',
-              bottom: '100%',
-              right: 16,
-              marginBottom: 2,
-              zIndex: 1400,
-              opacity: 0.8,
-              '&:hover': {
-                opacity: 1
-              }
-            }}
-          >
-            <KeyboardArrowDownIcon />
-          </Fab>
-        )}
-        <Paper
-          variant="outlined"
+      
+      {!isScrolledToBottom && (
+        <Fab
+          color="primary"
+          size="small"
+          onClick={scrollToBottom}
           sx={{
-            position: 'relative',
+            position: 'fixed',
+            bottom: 120,
+            right: 20,
             zIndex: 1400,
-            backgroundColor: 'white',
+            opacity: 0.8,
+            '&:hover': {
+              opacity: 1
+            }
           }}
         >
-          <PromptInput
-            onChange={(e) => setUserInput(e.target.value)}
-            value={userInput}
-            actionButtonAriaLabel="Send message"
-            actionButtonIconName="send"
-            ariaLabel="Prompt input with action button"
-            placeholder="Ask a question"
-          />
-        </Paper> */}
-      {/* <TextField
-            fullWidth
-            multiline
-            variant="standard"
-            placeholder="Ask a question"
-            value={userInput}
-            onChange={(e) => setUserInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                handleSend(userInput);
-              }
-            }}
-            disabled={isLoading}
-            sx={{
-              '& .MuiInputBase-root': {
-                maxHeight: '200px',
-                overflowY: 'auto',
-                alignItems: 'flex-start',
-                padding: '8px 14px',
-                '&:before, &:after': {
-                  display: 'none'
-                }
-              },
-              '& .MuiInputBase-input': {
-                maxHeight: 'none',
-                margin: 0,
-                padding: 0
-              }
-            }}
-          /> */}
-
-      {/* <Button 
-          variant="contained" 
-          color={isLoading ? "secondary" : "primary"} 
-          onClick={() => handleSend(userInput)} 
-          sx={{ 
-            marginTop: '8px', 
-            width: '100%',
-            position: 'relative',
-            zIndex: 1400,
-            overflow: 'hidden',
-            ...(isLoading && {
-              '&::after': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent)',
-                animation: 'ripple 1.5s infinite',
-              },
-              '@keyframes ripple': {
-                '0%': {
-                  transform: 'translateX(-100%)',
-                },
-                '100%': {
-                  transform: 'translateX(100%)',
-                },
-              },
-            })
-          }}
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={20} color="inherit" thickness={4} />
-              <span>Processing...</span>
-            </Box>
-          ) : 'Send'}
-        </Button> 
-      </Box>*/}
+          <KeyboardArrowDownIcon />
+        </Fab>
+      )}
     </Box>
   );
 };

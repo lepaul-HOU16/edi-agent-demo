@@ -598,10 +598,10 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
     // Render the complete chart
     return (
         <div style={{
-            backgroundColor: theme.palette.grey[50],
-            padding: theme.spacing(2),
+            // backgroundColor: theme.palette.grey[50],
+            // padding: theme.spacing(2),
             borderRadius: theme.shape.borderRadius,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+            // boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
             width: '100%'
         }}>
             <div style={{
