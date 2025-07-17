@@ -16,19 +16,13 @@ interface AiMessageComponentProps {
 }
 
 const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme }) => {
-  const aiMessageStyle = {
-    backgroundColor: theme.palette.grey[200],
-    padding: theme.spacing(1),
-    borderRadius: theme.shape.borderRadius,
-  };
-
   return (
     <div style={{
       display: 'flex',
       flexDirection: 'column',
       width: '100%'
     }}>
-      <div style={aiMessageStyle}>
+      <div>
         <ReactMarkdown remarkPlugins={[remarkGfm]}>
           {message.content?.text}
         </ReactMarkdown>
@@ -62,19 +56,19 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
               
               return (
                 <div key={toolCall.id || index} style={{
-                  backgroundColor: theme.palette.common.white,
-                  padding: theme.spacing(1),
-                  borderRadius: theme.shape.borderRadius,
-                  marginBottom: theme.spacing(1)
+                  // backgroundColor: theme.palette.common.white,
+                  // padding: theme.spacing(1),
+                  // borderRadius: theme.shape.borderRadius,
+                  // marginBottom: theme.spacing(1)
                 }}>
                   <Typography variant="body2" color="primary" fontWeight="bold" style={{ display: 'flex', alignItems: 'center' }}>
                     <BuildIcon fontSize="small" style={{ marginRight: theme.spacing(0.5) }} />
                     {toolCall.name}
                   </Typography>
                   <div style={{
-                    backgroundColor: theme.palette.grey[50],
-                    padding: theme.spacing(1),
-                    borderRadius: theme.shape.borderRadius,
+                    // backgroundColor: theme.palette.grey[50],
+                    // padding: theme.spacing(1),
+                    // borderRadius: theme.shape.borderRadius,
                     fontFamily: 'monospace',
                     fontSize: '0.85rem',
                     marginTop: theme.spacing(0.5)
