@@ -24,7 +24,7 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
   const [deletionProgress, setDeletionProgress] = useState<number>(0);
 
   const humanMessageStyle = {
-    backgroundColor: theme.palette.primary.light,
+    backgroundColor: 'rgb(0 108 224)',
     color: theme.palette.primary.contrastText,
     padding: theme.spacing(1),
     borderRadius: theme.shape.borderRadius,
