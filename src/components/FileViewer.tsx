@@ -1,5 +1,5 @@
 "use client"
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getUrl } from 'aws-amplify/storage';
 import { CircularProgress } from '@mui/material';
 import AceEditor from 'react-ace';
@@ -34,6 +34,36 @@ export default function FileViewer({
   const [error, setError] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileContentType, setFileContentType] = useState<string | null>(null);
+  
+  // Create refs for iframes
+  const nonTextIframeRef = useRef<HTMLIFrameElement>(null);
+  const htmlIframeRef = useRef<HTMLIFrameElement>(null);
+  
+  // Function to resize iframe based on content
+  const resizeIframeToContent = useCallback((iframe: HTMLIFrameElement | null) => {
+    if (!iframe) return;
+    
+    try {
+      // Try to access iframe content - this will work for same-origin iframes
+      const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+      if (iframeDoc) {
+        // Set height based on the scroll height of the document body or documentElement
+        const height = Math.max(
+          iframeDoc.body?.scrollHeight || 0,
+          iframeDoc.documentElement?.scrollHeight || 0
+        );
+        
+        if (height > 0) {
+          iframe.style.height = `${height}px`;
+        }
+      }
+    } catch (e) {
+      // For cross-origin iframes, we can't access the content directly
+      // Set a reasonable default height
+      console.warn('Could not resize iframe (likely cross-origin):', e);
+      iframe.style.height = '800px';
+    }
+  }, []);
 
   const fileExtension = s3Key.split('.').pop()?.toLowerCase() || 'text';
   const isHtmlFile = fileExtension === 'html';
@@ -68,8 +98,8 @@ export default function FileViewer({
         // Pass content type back to parent
         onContentTypeChange?.(contentType);
 
-        const text = await fileResponse.text()
-        setFileContent(text)
+        const text = await fileResponse.text();
+        setFileContent(text);
 
         // If content is not already set, set it for edit mode
         if (!content) {
@@ -144,28 +174,167 @@ export default function FileViewer({
       );
     }
 
-    // Render HTML files in iframe when not in edit mode
+    // Render HTML files directly in a div instead of an iframe
+    // We'll use a simple iframe with a fixed height for now
+    // This is a fallback solution that should work reliably
+    
     return (
-      <div className="w-full h-full relative">
+      <div className="w-full relative">
         {iframeLoading && (
           <div className="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75 z-10">
             <CircularProgress />
           </div>
         )}
-
         <iframe
-          srcDoc={fileContent || ""}
-          // src={selectedFileUrl?.toString()}
-          className="w-full h-full"
+          ref={htmlIframeRef}
+          srcDoc={`
+<style>
+/* Ensure content fits within viewport width */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  overflow-x: hidden; /* Prevent horizontal scrolling */
+}
+
+/* Make all content fit within container */
+img, video, table, pre, div {
+  max-width: 100% !important;
+  height: auto !important;
+}
+
+/* Ensure tables don't overflow */
+table {
+  display: block;
+  overflow-x: auto;
+  white-space: nowrap;
+}
+
+/* Force line breaks for long text */
+* {
+  word-wrap: break-word;
+  box-sizing: border-box;
+}
+</style>
+${fileContent || ""}
+<script>
+// Function to handle iframe resizing
+function handleIframeResizing() {
+  // Send message to parent with document height
+  function updateHeight() {
+    const height = Math.max(
+      document.body.scrollHeight,
+      document.documentElement.scrollHeight
+    );
+    window.parent.postMessage({ type: 'resize', height }, '*');
+  }
+  
+  // Find and handle all iframes in the document
+  function handleNestedIframes() {
+    const iframes = document.querySelectorAll('iframe');
+    
+    iframes.forEach(iframe => {
+      // Set initial styles for nested iframes
+      iframe.style.width = '100%';
+      iframe.style.border = 'none';
+      iframe.style.overflow = 'hidden';
+      
+      // Try to access iframe content if same origin
+      try {
+        // Add load event to resize iframe when content loads
+        iframe.onload = function() {
+          try {
+            // Try to access iframe document (will fail for cross-origin)
+            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            
+            // If we can access it, inject our resize script and styles
+            if (iframeDoc && iframeDoc.body) {
+              // Add scaling styles to the iframe content
+              const style = iframeDoc.createElement('style');
+              style.textContent = "html, body { margin: 0; padding: 0; width: 100%; overflow-x: hidden; } " +
+                "img, video, table, pre, div { max-width: 100% !important; height: auto !important; } " +
+                "table { display: block; overflow-x: auto; white-space: nowrap; } " +
+                "* { word-wrap: break-word; box-sizing: border-box; }";
+              iframeDoc.head.appendChild(style);
+              
+              // Create a script element to inject our resize code
+              const script = iframeDoc.createElement('script');
+              script.textContent = handleIframeResizing.toString() + ';handleIframeResizing();';
+              iframeDoc.body.appendChild(script);
+              
+              // Set initial height based on content
+              const height = Math.max(
+                iframeDoc.body.scrollHeight,
+                iframeDoc.documentElement.scrollHeight
+              );
+              if (height > 0) {
+                iframe.style.height = height + 'px';
+              }
+            }
+          } catch (e) {
+            console.warn('Could not access iframe content (likely cross-origin)');
+          }
+          
+          // Update parent height after iframe loads
+          setTimeout(updateHeight, 100);
+        };
+        
+        // For already loaded iframes
+        if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+          iframe.onload();
+        }
+      } catch (e) {
+        console.warn('Could not access iframe (likely cross-origin)');
+      }
+    });
+  }
+  
+  // Set up event listeners for this document
+  window.addEventListener('load', function() {
+    updateHeight();
+    handleNestedIframes();
+  });
+  window.addEventListener('resize', updateHeight);
+  
+  // Handle messages from nested iframes
+  window.addEventListener('message', function(event) {
+    if (event.data && event.data.type === 'resize') {
+      // When a nested iframe resizes, update our height too
+      setTimeout(updateHeight, 50);
+    }
+  });
+  
+  // Initial calls
+  if (document.readyState === 'complete') {
+    updateHeight();
+    handleNestedIframes();
+  }
+  
+  // Also try to update after images and other resources load
+  setTimeout(updateHeight, 100);
+  setTimeout(handleNestedIframes, 100);
+  setTimeout(updateHeight, 500);
+  setTimeout(updateHeight, 1000);
+}
+
+// Execute the function
+handleIframeResizing();
+</script>
+          `}
+          className="w-full"
           style={{
             border: 'none',
             margin: 0,
             padding: 0,
-            height: '698px',
             width: '100%',
+            height: '100px', // Initial height, will be adjusted
+            overflow: 'hidden' // Hide scrollbars
           }}
-          title="File Viewer"
-          onLoad={() => setIframeLoading(false)}
+          title="HTML File Viewer"
+          onLoad={() => {
+            setIframeLoading(false);
+            resizeIframeToContent(htmlIframeRef.current);
+          }}
         />
       </div>
     );
@@ -221,9 +390,9 @@ export default function FileViewer({
         <pre
           className="w-full h-full overflow-auto p-4 whitespace-pre font-mono text-sm"
           style={{
-            backgroundColor: '#f5f5f5',
-            border: '1px solid #e0e0e0',
-            borderRadius: '4px',
+            // backgroundColor: '#f5f5f5',
+            // border: '1px solid #e0e0e0',
+            // borderRadius: '4px',
           }}
         >
           {fileContent}
@@ -232,25 +401,82 @@ export default function FileViewer({
     );
   }
 
-  // For non-text files, use the iframe as before
+  // For non-text files, we still need to use an iframe
+  
+  // Add event listener for messages from iframe
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'resize') {
+        const iframe = isHtmlFile ? htmlIframeRef.current : nonTextIframeRef.current;
+        if (iframe && event.data.height) {
+          // Add a small buffer to account for potential margins/padding
+          const heightWithBuffer = event.data.height + 20;
+          iframe.style.height = `${heightWithBuffer}px`;
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isHtmlFile]);
+  
+  // For non-HTML files, create a wrapper with CSS to ensure content fits
   return (
-    <div className="w-full h-full relative">
+    <div className="w-full relative">
       {iframeLoading && (
         <div className="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75 z-10">
           <CircularProgress />
         </div>
       )}
-      <iframe
-        src={selectedFileUrl?.toString()}
-        className="w-full h-full"
+      <div 
+        className="w-full"
         style={{
-          border: 'none',
-          margin: 0,
-          padding: 0,
+          overflow: 'hidden',
+          position: 'relative'
         }}
-        title="File Viewer"
-        onLoad={() => setIframeLoading(false)}
-      />
+      >
+        <iframe
+          ref={nonTextIframeRef}
+          src={selectedFileUrl?.toString()}
+          className="w-full"
+          style={{
+            border: 'none',
+            margin: 0,
+            padding: 0,
+            width: '100%',
+            height: '500px', // Initial height
+            overflow: 'hidden', // Hide scrollbars to prevent scrolling
+            transform: 'scale(1)', // Initial scale
+            transformOrigin: 'top left'
+          }}
+          title="File Viewer"
+          onLoad={() => {
+            setIframeLoading(false);
+            // For non-HTML files loaded via URL, we can try to resize but it may not work for cross-origin content
+            resizeIframeToContent(nonTextIframeRef.current);
+            
+            // Try to add a load event listener to handle cross-origin iframe content
+            try {
+              const iframe = nonTextIframeRef.current;
+              if (iframe) {
+                // For PDF files, set a taller default height
+                if (s3Key.toLowerCase().endsWith('.pdf')) {
+                  iframe.style.height = '1200px';
+                }
+                
+                // For image files, try to scale to fit
+                if (/\.(jpg|jpeg|png|gif|svg|webp)$/i.test(s3Key)) {
+                  iframe.style.width = '100%';
+                  iframe.style.height = 'auto';
+                  iframe.style.maxHeight = '90vh';
+                }
+              }
+            } catch (e) {
+              console.warn('Error handling iframe content:', e);
+            }
+          }}
+        />
+      </div>
     </div>
   );
 }

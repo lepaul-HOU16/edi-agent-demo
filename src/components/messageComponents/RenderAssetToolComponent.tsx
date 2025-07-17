@@ -94,11 +94,10 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
 
         {/* Asset Preview */}
         <Box sx={{
-          border: `1px solid ${theme.palette.grey[300]}`,
+          // border: `1px solid ${theme.palette.grey[300]}`,
           // borderRadius: theme.shape.borderRadius,
           // backgroundColor: theme.palette.common.white,
           width: '100%',
-          height: '700px',
           overflow: 'hidden'
         }}>
           <Box sx={{
