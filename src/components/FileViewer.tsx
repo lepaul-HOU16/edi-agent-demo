@@ -54,7 +54,8 @@ export default function FileViewer({
         );
         
         if (height > 0) {
-          iframe.style.height = `${height}px`;
+          // Add 5 extra pixels to prevent scrollbars
+          iframe.style.height = `${height + 5}px`;
         }
       }
     } catch (e) {
@@ -268,7 +269,8 @@ function handleIframeResizing() {
                 iframeDoc.documentElement.scrollHeight
               );
               if (height > 0) {
-                iframe.style.height = height + 'px';
+                // Add 5 extra pixels to prevent scrollbars
+                iframe.style.height = (height + 5) + 'px';
               }
             }
           } catch (e) {
@@ -410,7 +412,8 @@ handleIframeResizing();
         const iframe = isHtmlFile ? htmlIframeRef.current : nonTextIframeRef.current;
         if (iframe && event.data.height) {
           // Add a small buffer to account for potential margins/padding
-          const heightWithBuffer = event.data.height + 20;
+          // Increased by 5 extra pixels to prevent scrollbars
+          const heightWithBuffer = event.data.height + 25;
           iframe.style.height = `${heightWithBuffer}px`;
         }
       }

@@ -44,6 +44,13 @@
         border-top-right-radius: 0px!important;
         height: calc(100vh - 200px);
         overflow-y: auto;
+        overflow-x: hidden;
+        /* Hide scrollbars across all browsers */
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+        &::-webkit-scrollbar {
+            display: none;  /* Chrome, Safari and Opera */
+        }
     }
 }
 .convo {
@@ -53,6 +60,12 @@
     overflow-y: auto;
     display: flex;
     flex-direction: column;
+    /* Hide scrollbars across all browsers */
+    -ms-overflow-style: none;  /* IE and Edge */
+    scrollbar-width: none;  /* Firefox */
+    &::-webkit-scrollbar {
+        display: none;  /* Chrome, Safari and Opera */
+    }
 
     .messages-container {
         margin: 0;
