@@ -9,8 +9,8 @@ import ChatMessage from './ChatMessage';
 
 import { defaultPrompts } from '@/constants/defaultPrompts';
 
-import PromptInput from '@cloudscape-design/components/prompt-input';
 import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
+import ExpandablePromptInput from './ExpandablePromptInput';
 
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
@@ -375,15 +375,14 @@ const ChatBox = (params: {
 
       <div className='controls'>
         <div className='input-bkgd'>
-          <PromptInput
-            onChange={({ detail }) => params.onInputChange(detail.value)}
+          <ExpandablePromptInput
+            onChange={(value) => params.onInputChange(value)}
             onAction={() => handleSend(params.userInput)}
             value={params.userInput}
             actionButtonAriaLabel="Send message"
             actionButtonIconName="send"
             ariaLabel="Prompt input with action button"
             placeholder="Ask a question"
-            maxRows={1}
           />
           <Typography
             variant="inherit"

@@ -298,11 +298,11 @@ function Page({
                             header="Chain of Thought - Process Log"
                         >
                             <List>
-                                {[
-                                    // ...messages,
-                                    ...(messages ? messages : []),
-                                ]
-                                    .filter((message) => {
+                                {(() => {
+                                    const filteredMessages = [
+                                        // ...messages,
+                                        ...(messages ? messages : []),
+                                    ].filter((message) => {
                                         // if (showChainOfThought) return true
                                         switch (message.role) {
                                             case 'ai':
@@ -312,15 +312,29 @@ function Page({
                                             default:
                                                 return false;
                                         }
-                                    })
-                                    .map((message) => (
+                                    });
+
+                                    if (filteredMessages.length === 0) {
+                                        return (
+                                            <ListItem>
+                                                <div style={{ width: '100%', textAlign: 'center', padding: '20px' }}>
+                                                    <Box variant="h3" color="text-status-inactive">
+                                                        No process log available yet. AI thinking steps will appear here.
+                                                    </Box>
+                                                </div>
+                                            </ListItem>
+                                        );
+                                    }
+
+                                    return filteredMessages.map((message) => (
                                         <ListItem key={message.id}>
                                             <ChatMessage
                                                 message={message}
                                             // onRegenerateMessage={message.role === 'human' ? handleRegenerateMessage : undefined}
                                             />
                                         </ListItem>
-                                    ))}
+                                    ));
+                                })()}
                                 {/* <div ref={messagesEndRef} /> */}
                             </List>
                         </Container>
