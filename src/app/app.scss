@@ -99,3 +99,20 @@
     align-items: center;
     justify-content: flex-end;
 }
+
+.brea {
+    display: flex;
+    align-items: center;
+    margin-left: 40px;
+    
+    /* Fix for Cloudscape BreadcrumbGroup */
+    .awsui-breadcrumb-group {
+        width: auto;
+        display: inline-block;
+    }
+    
+    /* Ensure breadcrumb items display properly */
+    .awsui-breadcrumb-group-item {
+        display: inline-block;
+    }
+}
