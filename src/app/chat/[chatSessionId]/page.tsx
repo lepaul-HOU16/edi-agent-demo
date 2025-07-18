@@ -165,27 +165,15 @@ function Page({
                         />
                     </div>
                     <div className='brea'>
-                        <div>
-                            <BreadcrumbGroup
-                                items={[
-                                    { text: 'Data Catalog', href: '#' },
-                                    { text: 'Data Collection: Barrow', href: '#' },
-                                    { text: 'Workspace', href: '#' },
-                                    { text: 'Canvas: Insights', href: '#' }
-                                ]}
-                                ariaLabel="Breadcrumbs"
-                            />
-                        </div>
-                        <div style={{marginLeft: '20px'}}>
-                            <IconButton
-                                onClick={handleCreateNewChat}
-                                color="primary"
-                                size="large"
-                            >
-                                <RestartAlt />
-                            </IconButton>
-                            {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
-                        </div>
+                        <BreadcrumbGroup
+                            items={[
+                                { text: 'Data Catalog', href: '#' },
+                                { text: 'Data Collection: Barrow', href: '#' },
+                                { text: 'Workspace', href: '#' },
+                                { text: 'Canvas: Insights', href: '#' }
+                            ]}
+                            ariaLabel="Breadcrumbs"
+                        />
                     </div>
                 </Grid>
             </div>
@@ -389,6 +377,17 @@ function Page({
                                     </Tooltip> */}
 
                                 {/* File Drawer */}
+                                 <div style={{marginLeft: '20px'}}>
+                                    <IconButton
+                                        onClick={handleCreateNewChat}
+                                        color="primary"
+                                        size="large"
+                                    >
+                                        <RestartAlt />
+                                    </IconButton>
+                                    {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
+                                </div>
+                                
                                 <Tooltip title={fileDrawerOpen ? "Hide Files" : "View Files"}>
                                     <IconButton
                                         onClick={() => setFileDrawerOpen(!fileDrawerOpen)}

@@ -107,6 +107,11 @@ export default function RootLayout({
                         iconName: 'gen-ai',
                         items: [
                           {
+                            id: 'list',
+                            text: 'Show All Canvases',
+                            href: '/listChats',
+                          },
+                          {
                             id: 'ws',
                             text: 'Canvases',
                             items: [
@@ -140,43 +145,15 @@ export default function RootLayout({
                         items: [
                           {
                             id: 'team',
-                            text: 'Team',
-                            href: '9c410c82ecd3b295323fb0542e67bb5076cbb05f#/pages/209228815/simulate/no-panels?mode=i',
-                          },
-                          {
-                            id: 'export',
-                            text: 'Export',
-                            href: 'a840ad2ee0fb50ae52d45a6ee495ea3b4b0dabe6#/pages/201912794/simulate/no-panels?mode=i',
+                            text: 'Team Administration',
+                            href: '',
                           },
                           {
                             id: 'status',
-                            text: 'System Status',
-                            href: '9c410c82ecd3b295323fb0542e67bb5076cbb05f#/pages/209765582/simulate/no-panels?mode=i',
-                          },
-                          {
-                            id: 'iq',
-                            text: 'EDI IQ',
-                            href: '',
-                          },
-                          {
-                            id: 'transformer',
-                            text: 'EDI Transformer',
-                            href: '',
-                          },
-                          {
-                            id: 'q',
-                            text: 'Q Business Suite',
+                            text: 'Platform Configurations',
                             href: '',
                           },
                         ],
-                      },
-                      {
-                        type: 'button',
-                        iconName: 'notification',
-                        title: 'Notifications',
-                        ariaLabel: 'Notifications (unread)',
-                        badge: true,
-                        disableUtilityCollapse: false,
                       },
                       {
                         type: 'menu-dropdown',
@@ -184,18 +161,6 @@ export default function RootLayout({
                         description: 'email@example.com',
                         iconName: 'user-profile',
                         items: [
-                          {
-                            id: 'profile',
-                            text: 'Profile',
-                          },
-                          {
-                            id: 'preferences',
-                            text: 'Preferences',
-                          },
-                          {
-                            id: 'security',
-                            text: 'Security',
-                          },
                           {
                             id: 'support-group',
                             text: 'Support',

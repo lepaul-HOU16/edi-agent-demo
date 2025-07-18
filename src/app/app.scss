@@ -31,9 +31,10 @@
 
 .toggles {
     position: fixed;
-    top: 86px;
+    top: 78px;
     right: 69px;
     z-index: 10;
+    display: flex;
 }
 
 .panel {
