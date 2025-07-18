@@ -18,7 +18,7 @@
 
 body {
   color: var(--foreground);
-  background-color: white!important;
+  background-color: #F2F3F3;
   font-family: Arial, Helvetica, sans-serif;
 }
 
@@ -53,4 +53,19 @@ table, th, td {
 th, td {
   padding: 8px;
   text-align: left;
+}
+
+/* Override for AWS UI component background */
+.awsui_layout_5gtk3_lpv1b_145.awsui_is-visual-refresh_5gtk3_lpv1b_204 > .awsui_background_5gtk3_lpv1b_159.awsui_has-default-background_5gtk3_lpv1b_204:not(#\9) {
+  background-color: unset !important;
+}
+
+.awsui_segment-part_8cbea_rg0r6_326:not(#\9) {
+  background-color: transparent!important;
+}
+.awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161:not(#\9), .awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161.awsui_disabled_8cbea_rg0r6_193:not(#\9) {
+  background: transparent;
+}
+.awsui_segment_8cbea_rg0r6_161:not(#\9):nth-child(1) {
+  background: transparent;
 }
