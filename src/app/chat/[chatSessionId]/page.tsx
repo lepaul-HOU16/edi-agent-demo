@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
-import { Typography, Paper, Divider, IconButton, Tooltip, List, ListItem, useTheme, useMediaQuery } from '@mui/material';
+import { Typography, Paper, Divider, IconButton, Tooltip, List, ListItem, useTheme, useMediaQuery, Breadcrumbs } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import PsychologyIcon from '@mui/icons-material/Psychology';
 import { Message } from '../../../../utils/types';
@@ -23,6 +23,7 @@ import Alert from '@cloudscape-design/components/alert';
 import Icon from '@cloudscape-design/components/icon';
 import { useRouter } from 'next/navigation';
 import RestartAlt from '@mui/icons-material/RestartAlt';
+import BreadcrumbGroup from '@cloudscape-design/components/breadcrumb-group';
 
 import ChatBox from "@/components/ChatBox"
 import EditableTextBox from '@/components/EditableTextBox';
@@ -163,15 +164,28 @@ function Page({
                             ]}
                         />
                     </div>
-                    <div style={{ textAlign: 'left', marginLeft: '23px' }}>
-                        <IconButton
-                            onClick={handleCreateNewChat}
-                            color="primary"
-                            size="large"
-                        >
-                            <RestartAlt />
-                        </IconButton>
-                        {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
+                    <div className='brea'>
+                        <div>
+                            <BreadcrumbGroup
+                                items={[
+                                    { text: 'Data Catalog', href: '#' },
+                                    { text: 'Data Collection: Barrow', href: '#' },
+                                    { text: 'Workspace', href: '#' },
+                                    { text: 'Canvas: Insights', href: '#' }
+                                ]}
+                                ariaLabel="Breadcrumbs"
+                            />
+                        </div>
+                        <div style={{marginLeft: '20px'}}>
+                            <IconButton
+                                onClick={handleCreateNewChat}
+                                color="primary"
+                                size="large"
+                            >
+                                <RestartAlt />
+                            </IconButton>
+                            {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
+                        </div>
                     </div>
                 </Grid>
             </div>
