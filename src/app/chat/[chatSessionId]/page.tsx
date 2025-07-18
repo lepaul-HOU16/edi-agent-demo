@@ -355,7 +355,7 @@ function Page({
                             easing: theme.transitions.easing.easeOut,
                             duration: theme.transitions.duration.standard,
                         }),
-                        paddingRight: fileDrawerOpen && !isMobile ? '45%' : '0'
+                        paddingRight: fileDrawerOpen && !isMobile ? '0' : '0'
                     }}>
                         <div style={{
                             paddingBottom: '160px',
@@ -387,7 +387,7 @@ function Page({
                                     </IconButton>
                                     {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
                                 </div>
-                                
+
                                 <Tooltip title={fileDrawerOpen ? "Hide Files" : "View Files"}>
                                     <IconButton
                                         onClick={() => setFileDrawerOpen(!fileDrawerOpen)}
