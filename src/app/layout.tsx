@@ -1,20 +1,24 @@
 'use client';
 
 import { Inter } from "next/font/google";
+import { useState, useEffect } from 'react';
 
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
-import theme from '../theme';
+import themes from '../theme';
 
 import ConfigureAmplify from '@/components/ConfigureAmplify';
 import Providers from '@/components/Providers';
 // import TopNavBar from '@/components/TopNavBar';
 
 import IconButton from '@mui/material/IconButton';
+import DarkModeIcon from '@mui/icons-material/DarkMode';
+import LightModeIcon from '@mui/icons-material/LightMode';
 import Button from '@cloudscape-design/components/button';
 import TopNavigation from "@cloudscape-design/components/top-navigation";
 import Grid from '@cloudscape-design/components/grid';
+import { applyMode, Mode } from '@cloudscape-design/global-styles';
 
 import "./globals.css";
 import "@aws-amplify/ui-react/styles.css";
@@ -38,8 +42,33 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const [darkMode, setDarkMode] = useState<boolean>(false);
+  
+  useEffect(() => {
+    // Apply the mode when component mounts and when darkMode changes
+    applyMode(darkMode ? Mode.Dark : Mode.Light);
+    
+    // Try to load the preference from localStorage if available
+    if (typeof window !== 'undefined') {
+      const savedMode = localStorage.getItem('darkMode');
+      if (savedMode !== null) {
+        setDarkMode(savedMode === 'true');
+      }
+    }
+  }, [darkMode]);
+  
+  const toggleDarkMode = () => {
+    const newMode = !darkMode;
+    setDarkMode(newMode);
+    
+    // Save preference to localStorage if available
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('darkMode', String(newMode));
+    }
+  };
+  
   return (
-    <html lang="en">
+    <html lang="en" data-mode={darkMode ? 'dark' : 'light'}>
       <body
         className={`${inter.variable} antialiased`}
       >
@@ -47,7 +76,7 @@ export default function RootLayout({
           <ConfigureAmplify />
           <FileSystemProvider>
             <Providers>
-              <ThemeProvider theme={theme}>
+              <ThemeProvider theme={darkMode ? themes.dark : themes.light}>
                 <CssBaseline />
                 <div style={{
                   display: 'flex',
@@ -156,6 +185,15 @@ export default function RootLayout({
                         ],
                       },
                       {
+                        type: 'button',
+                        iconSvg: darkMode ? 
+                          <LightModeIcon sx={{ fontSize: '16px', color: 'currentColor' }} /> : 
+                          <DarkModeIcon sx={{ fontSize: '16px', color: 'currentColor' }} />,
+                        ariaLabel: darkMode ? 'Switch to light mode' : 'Switch to dark mode',
+                        title: darkMode ? 'Switch to light mode' : 'Switch to dark mode',
+                        onClick: toggleDarkMode,
+                      },
+                      {
                         type: 'menu-dropdown',
                         text: 'User Name',
                         description: 'email@example.com',
@@ -211,5 +249,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-

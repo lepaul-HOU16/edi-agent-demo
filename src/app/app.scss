@@ -1,8 +1,18 @@
+// Dark mode variables
+:root {
+    --bg-light: rgba(255, 255, 255, 0.80);
+    --bg-dark: rgba(30, 30, 30, 0.90);
+    --shadow-light: 0px 1px 25px rgba(0, 0, 0, 0.13);
+    --shadow-dark: 0px 1px 25px rgba(255, 255, 255, 0.07);
+    --text-light: #000000;
+    --text-dark: #FFFFFF;
+}
+
 .controls {
     width: 51%;
     height: auto;
-    background-color: rgba(255, 255, 255, 0.80);
-    box-shadow: 0px 1px 25px rgba(0, 0, 0, 0.13);
+    background-color: var(--bg-light);
+    box-shadow: var(--shadow-light);
     display: flex;
     align-items: center;
     border-radius: 14px;
@@ -41,7 +51,7 @@
     margin-top: -1px;
 
     > div {
-        box-shadow: 0px 1px 25px rgba(0, 0, 0, 0.13);
+        box-shadow: var(--shadow-light);
         border-top-left-radius: 0px!important;
         border-top-right-radius: 0px!important;
         height: calc(100vh - 200px);
@@ -77,7 +87,7 @@
 
         > div:first-child {
             padding: 0;
-            background-color: white;
+            background-color: transparent;
         }
         ul {
             padding-top: 0;
@@ -127,4 +137,21 @@
 }
 .main-svg {
     background: transparent !important;
+}
+
+/* Dark mode styles */
+[data-mode="dark"] {
+    .controls {
+        background-color: var(--bg-dark);
+        box-shadow: var(--shadow-dark);
+        color: var(--text-dark);
+    }
+    
+    .panel > div {
+        box-shadow: var(--shadow-dark);
+    }
+    
+    .convo {
+        color: var(--text-dark);
+    }
 }
