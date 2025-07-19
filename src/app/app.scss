@@ -118,3 +118,13 @@
         display: inline-block;
     }
 }
+
+
+
+/* Make iframe backgrounds transparent within .convo elements */
+.convo iframe {
+    background-color: transparent !important;
+}
+.main-svg {
+    background: transparent !important;
+}
