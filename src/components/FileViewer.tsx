@@ -188,6 +188,15 @@ export default function FileViewer({
         )}
         <iframe
           ref={htmlIframeRef}
+          style={{
+            border: 'none',
+            margin: 0,
+            padding: 0,
+            width: '100%',
+            height: '100px', // Initial height, will be adjusted
+            overflow: 'hidden', // Hide scrollbars
+            background: 'transparent' // Make iframe background transparent
+          }}
           srcDoc={`
 <style>
 /* Ensure content fits within viewport width */
@@ -196,6 +205,7 @@ html, body {
   padding: 0;
   width: 100%;
   overflow-x: hidden; /* Prevent horizontal scrolling */
+  background: transparent !important; /* Make background transparent */
 }
 
 /* Make all content fit within container */
@@ -215,6 +225,11 @@ table {
 * {
   word-wrap: break-word;
   box-sizing: border-box;
+}
+
+/* Ensure SVG elements have transparent backgrounds */
+svg {
+  background: transparent !important;
 }
 </style>
 ${fileContent || ""}
@@ -252,10 +267,11 @@ function handleIframeResizing() {
             if (iframeDoc && iframeDoc.body) {
               // Add scaling styles to the iframe content
               const style = iframeDoc.createElement('style');
-              style.textContent = "html, body { margin: 0; padding: 0; width: 100%; overflow-x: hidden; } " +
+              style.textContent = "html, body { margin: 0; padding: 0; width: 100%; overflow-x: hidden; background: transparent !important; } " +
                 "img, video, table, pre, div { max-width: 100% !important; height: auto !important; } " +
                 "table { display: block; overflow-x: auto; white-space: nowrap; } " +
-                "* { word-wrap: break-word; box-sizing: border-box; }";
+                "* { word-wrap: break-word; box-sizing: border-box; } " +
+                "svg { background: transparent !important; }";
               iframeDoc.head.appendChild(style);
               
               // Create a script element to inject our resize code
@@ -324,14 +340,6 @@ handleIframeResizing();
 </script>
           `}
           className="w-full"
-          style={{
-            border: 'none',
-            margin: 0,
-            padding: 0,
-            width: '100%',
-            height: '100px', // Initial height, will be adjusted
-            overflow: 'hidden' // Hide scrollbars
-          }}
           title="HTML File Viewer"
           onLoad={() => {
             setIframeLoading(false);
@@ -450,7 +458,8 @@ handleIframeResizing();
             height: '500px', // Initial height
             overflow: 'hidden', // Hide scrollbars to prevent scrolling
             transform: 'scale(1)', // Initial scale
-            transformOrigin: 'top left'
+            transformOrigin: 'top left',
+            background: 'transparent' // Make iframe background transparent
           }}
           title="File Viewer"
           onLoad={() => {

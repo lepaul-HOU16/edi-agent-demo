@@ -84,10 +84,11 @@ function Page({
                 position: 'absolute',
                 justifyContent: 'center',
                 alignItems: 'center',
+                width: '100%',
                 height: '100%',
                 zIndex: '1200',
             }}>
-                <Paper elevation={3} sx={{ p: 4, borderRadius: 2, textAlign: 'center' }}>
+                <Paper elevation={3} sx={{ p: 6, borderRadius: 2, textAlign: 'center' }}>
                     <Typography variant="h6">Loading your chat session...</Typography>
                 </Paper>
             </div>
