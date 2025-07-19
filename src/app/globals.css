@@ -18,8 +18,19 @@
 
 body {
   color: var(--foreground);
-  background-color: #F2F3F3;
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Dark mode specific styles */
+[data-mode="dark"] {
+  background-color: #121212;
+  color: #FFFFFF;
+}
+
+/* Light mode specific styles */
+[data-mode="light"] {
+  background-color: #F2F3F3;
+  color: #16191F;
 }
 
 ul, ol {
