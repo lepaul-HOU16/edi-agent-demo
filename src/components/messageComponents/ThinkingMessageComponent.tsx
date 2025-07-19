@@ -14,13 +14,13 @@ const ThinkingMessageComponent: React.FC<ThinkingComponentProps> = ({ message, t
             // display: 'flex',
             // flexDirection: 'column',
             width: '100%',
-            maxHeight: '100px',
+            // maxHeight: '100px',
             overflowY: 'auto'
         }}>
             <div style={{
-                backgroundColor: theme.palette.grey[100],
+                // backgroundColor: theme.palette.grey[100],
                 padding: theme.spacing(0.75),
-                borderRadius: theme.shape.borderRadius,
+                // borderRadius: theme.shape.borderRadius,
                 opacity: 0.8,
             }}>
                 <Typography variant="body2" color="text.secondary">
