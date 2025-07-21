@@ -102,6 +102,11 @@ export default function RootLayout({
                         iconName: 'map',
                         items: [
                           {
+                            id: 'catalog-main',
+                            text: 'View All Data',
+                            href: '/catalog',
+                          },
+                          {
                             id: 'dc',
                             text: 'Data Collections',
                             items: [
@@ -137,7 +142,7 @@ export default function RootLayout({
                         items: [
                           {
                             id: 'list',
-                            text: 'Show All Canvases',
+                            text: 'View All Canvases',
                             href: '/listChats',
                           },
                           {

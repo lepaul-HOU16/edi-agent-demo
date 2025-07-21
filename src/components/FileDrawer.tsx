@@ -50,7 +50,8 @@ interface FileDrawerProps {
 const FileDrawer: React.FC<FileDrawerProps> = ({
   open,
   onClose,
-  chatSessionId
+  chatSessionId,
+  variant = 'temporary'
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
