@@ -15,7 +15,7 @@ async function main() {
 
     do {
         const listObjectsResponse = await s3Client.send(new ListObjectsV2Command({
-            Bucket: outputs.storage.bucket_name,
+            Bucket: outputs.storage.bucketName,
             Prefix: prefix,
             MaxKeys: 1000,
             ContinuationToken: continuationToken
@@ -48,9 +48,9 @@ async function main() {
             await Promise.all(
                 smallPdfYamlFiles.slice(i, i + BATCH_SIZE).filter(file => file && file.Key).map(file =>
                     s3Client.send(new CopyObjectCommand({
-                        Bucket: outputs.storage.bucket_name,
+                        Bucket: outputs.storage.bucketName,
                         Key: file.Key!.slice(0,file.Key!.length - 5),
-                        CopySource: `/${outputs.storage.bucket_name}/${file.Key!.slice(0,file.Key!.length - 5)}`,
+                        CopySource: `/${outputs.storage.bucketName}/${file.Key!.slice(0,file.Key!.length - 5)}`,
                         ContentType: 'application/pdf',
                         MetadataDirective: 'REPLACE'
                     }))

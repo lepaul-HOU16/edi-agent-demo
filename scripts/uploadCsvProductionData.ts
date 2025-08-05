@@ -144,7 +144,7 @@ export const uploadCsvProductionData = async (config: UploadConfig): Promise<Upl
 if (require.main === module) {
     const config: UploadConfig = {
         wellApiNumber: '30-045-29202',
-        bucketName: outputs.storage.bucket_name,
+        bucketName: outputs.storage.bucketName,
         prefix: 'global/test/production-data'
     };
 

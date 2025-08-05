@@ -252,7 +252,7 @@ if (require.main === module) {
     const config: UploadConfig = {
         wellApiNumber: '30-045-34358',
         associatedPools: '[71280] AZTEC PICTURED CLIFFS (GAS); [71629] BASIN FRUITLAND COAL (GAS)',
-        bucketName: outputs.storage.bucket_name,
+        bucketName: outputs.storage.bucketName,
         prefix: 'global/test/production-data',
         credentials: {
             UserName: process.env.EMNRD_API_USERNAME || '',

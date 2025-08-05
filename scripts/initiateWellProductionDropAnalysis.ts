@@ -30,7 +30,7 @@ process.env.ATHENA_WORKGROUP_NAME = outputs?.custom?.athenaWorkgroupName;
 console.log("Storage Bucket: ", process.env.STORAGE_BUCKET_NAME);
 console.log("Athena Workgroup: ", process.env.ATHENA_WORKGROUP_NAME);
 
-const s3Client = new S3Client({ region: outputs.storage.aws_region });
+const s3Client = new S3Client({ region: outputs.storage.region });
 
 interface ProductionRecord {
     api: string;

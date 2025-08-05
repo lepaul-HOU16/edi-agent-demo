@@ -8,7 +8,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command } fr
 import { createReadStream } from 'fs';
 import { pipeline } from 'stream/promises';
 
-const s3Client = new S3Client({ region: outputs.storage.aws_region });
+const s3Client = new S3Client({ region: outputs.storage.region });
 
 interface ProductionRecord {
     api: string;
@@ -49,7 +49,7 @@ const extractPDFLinks = async (wellFileUrl: string) => {
 };
 
 const main = async () => {
-    const storageBucketName = outputs.storage.bucket_name;
+    const storageBucketName = outputs.storage.bucketName;
     const productionDropTablePath = path.join(__dirname, '../tmp/fittedProductionDrops.csv');
 
     // Create tmp directory for downloads if it doesn't exist

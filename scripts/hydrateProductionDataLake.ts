@@ -15,7 +15,7 @@ interface WellData {
 
 async function processWellsFile(filePath: string) {
     // Check for required environment variables
-    const bucketName = outputs.storage.bucket_name;
+    const bucketName = outputs.storage.bucketName;
     const apiUsername = process.env.EMNRD_API_USERNAME;
     const apiPassword = process.env.EMNRD_API_PASSWORD;
 
