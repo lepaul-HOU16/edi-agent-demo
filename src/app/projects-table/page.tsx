@@ -33,7 +33,6 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import KeyboardArrowUpIcon from '@mui/icons-material/KeyboardArrowUp';
 import ChatIcon from '@mui/icons-material/Chat';
-const amplifyClient = generateClient<Schema>();
 
 // import { withAuth } from '@/components/WithAuth';
 
@@ -128,6 +127,7 @@ const ExpandableRow = ({ project, onDelete, onStatusChange }: ExpandableRowProps
         handleStatusClose();
 
         try {
+            const amplifyClient = generateClient<Schema>();
             await amplifyClient.models.Project.update({
                 id: project.id!,
                 status: newStatus
@@ -421,6 +421,7 @@ const Page = () => {
             //     // }
             // });
 
+            const amplifyClient = generateClient<Schema>();
             const result = await amplifyClient.models.Project.list({
                 authMode: userSub ? "userPool" : "identityPool", //This allows unauthenticated users to read projects
             });
@@ -450,6 +451,7 @@ const Page = () => {
 
     const handleDeleteProject = async (projectId: string, projectName: string) => {
         if (window.confirm(`Are you sure you want to delete the project "${projectName}"?`)) {
+            const amplifyClient = generateClient<Schema>();
             await amplifyClient.models.Project.delete({ id: projectId });
             setProjects(projects.filter(p => p.id !== projectId));
         }

@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OSDU Standalone Login</title>
+  <script src="https://cdn.jsdelivr.net/npm/aws-amplify@6.0.12/dist/aws-amplify.min.js"></script>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .container {
+      max-width: 400px;
+      width: 100%;
+      padding: 30px;
+      background-color: white;
+      border-radius: 8px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 30px;
+      color: #333;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: 500;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 16px;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+    .error {
+      color: #dc3545;
+      margin-top: 15px;
+      text-align: center;
+    }
+    .success {
+      color: #28a745;
+      margin-top: 15px;
+      text-align: center;
+    }
+    .hidden {
+      display: none;
+    }
+    .debug {
+      margin-top: 30px;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+    .debug h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+    }
+    .debug pre {
+      white-space: pre-wrap;
+      word-break: break-all;
+      background-color: #eee;
+      padding: 10px;
+      border-radius: 4px;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>OSDU Login</h1>
+    
+    <!-- Sign In Form -->
+    <div id="signInForm">
+      <div class="form-group">
+        <label for="username">Username</label>
+        <input type="text" id="username" placeholder="Enter your username">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="Enter your password">
+      </div>
+      <button id="signInButton">Sign In</button>
+    </div>
+    
+    <!-- New Password Form (initially hidden) -->
+    <div id="newPasswordForm" class="hidden">
+      <div class="form-group">
+        <label for="newPassword">New Password</label>
+        <input type="password" id="newPassword" placeholder="Enter new password">
+      </div>
+      <div class="form-group">
+        <label for="confirmPassword">Confirm Password</label>
+        <input type="password" id="confirmPassword" placeholder="Confirm new password">
+      </div>
+      <button id="changePasswordButton">Change Password</button>
+    </div>
+    
+    <div id="errorMessage" class="error hidden"></div>
+    <div id="successMessage" class="success hidden"></div>
+    
+    <div class="debug">
+      <h3>Debug Information</h3>
+      <pre id="debugInfo">Waiting for action...</pre>
+    </div>
+  </div>
+
+  <script>
+    // Get environment variables from URL parameters for testing
+    const urlParams = new URLSearchParams(window.location.search);
+    const region = urlParams.get('region') || 'us-east-1';
+    const userPoolId = urlParams.get('userPoolId') || 'us-east-1_eVNfQH4nW';
+    const clientId = urlParams.get('clientId') || '6tfcegqsn1ug591ltbrjefna19';
+    
+    // Debug info
+    document.getElementById('debugInfo').textContent = 
+      `Region: ${region}\nUser Pool ID: ${userPoolId}\nClient ID: ${clientId}`;
+    
+    // Configure Amplify
+    const { Amplify, signIn, confirmSignIn } = aws_amplify;
+    
+    Amplify.configure({
+      Auth: {
+        Cognito: {
+          region: region,
+          userPoolId: userPoolId,
+          userPoolClientId: clientId
+        }
+      }
+    });
+    
+    // Elements
+    const signInForm = document.getElementById('signInForm');
+    const newPasswordForm = document.getElementById('newPasswordForm');
+    const errorMessage = document.getElementById('errorMessage');
+    const successMessage = document.getElementById('successMessage');
+    const debugInfo = document.getElementById('debugInfo');
+    
+    // Sign In Handler
+    document.getElementById('signInButton').addEventListener('click', async () => {
+      const username = document.getElementById('username').value;
+      const password = document.getElementById('password').value;
+      
+      if (!username || !password) {
+        showError('Please enter both username and password');
+        return;
+      }
+      
+      try {
+        // Clear messages
+        clearMessages();
+        
+        // Disable button
+        document.getElementById('signInButton').disabled = true;
+        
+        // Log attempt
+        debugLog(`Attempting to sign in with username: ${username}`);
+        
+        // Sign in
+        const signInOutput = await signIn({
+          username,
+          password
+        });
+        
+        // Log result
+        debugLog('Sign in result: ' + JSON.stringify(signInOutput, null, 2));
+        
+        if (signInOutput.isSignedIn) {
+          showSuccess('Sign in successful! Redirecting...');
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        } else if (
+          signInOutput.nextStep?.signInStep === 'CONFIRM_SIGN_IN' && 
+          signInOutput.nextStep?.challengeName === 'NEW_PASSWORD_REQUIRED'
+        ) {
+          showSuccess('You need to set a new password');
+          signInForm.classList.add('hidden');
+          newPasswordForm.classList.remove('hidden');
+        } else {
+          showError('Sign in failed. Please check your credentials.');
+        }
+      } catch (error) {
+        debugLog('Sign in error: ' + JSON.stringify(error, null, 2));
+        showError(error.message || 'Sign in failed');
+      } finally {
+        document.getElementById('signInButton').disabled = false;
+      }
+    });
+    
+    // Change Password Handler
+    document.getElementById('changePasswordButton').addEventListener('click', async () => {
+      const newPassword = document.getElementById('newPassword').value;
+      const confirmPassword = document.getElementById('confirmPassword').value;
+      
+      if (!newPassword) {
+        showError('Please enter a new password');
+        return;
+      }
+      
+      if (newPassword !== confirmPassword) {
+        showError('Passwords do not match');
+        return;
+      }
+      
+      try {
+        // Clear messages
+        clearMessages();
+        
+        // Disable button
+        document.getElementById('changePasswordButton').disabled = true;
+        
+        // Log attempt
+        debugLog('Attempting to confirm sign in with new password');
+        
+        // Confirm sign in with new password
+        const confirmSignInOutput = await confirmSignIn({
+          challengeResponse: newPassword
+        });
+        
+        // Log result
+        debugLog('Confirm sign in result: ' + JSON.stringify(confirmSignInOutput, null, 2));
+        
+        if (confirmSignInOutput.isSignedIn) {
+          showSuccess('Password changed successfully! Redirecting...');
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 2000);
+        } else {
+          showError('Failed to change password. Please try again.');
+        }
+      } catch (error) {
+        debugLog('Confirm sign in error: ' + JSON.stringify(error, null, 2));
+        showError(error.message || 'Failed to change password');
+      } finally {
+        document.getElementById('changePasswordButton').disabled = false;
+      }
+    });
+    
+    // Helper functions
+    function showError(message) {
+      errorMessage.textContent = message;
+      errorMessage.classList.remove('hidden');
+      successMessage.classList.add('hidden');
+    }
+    
+    function showSuccess(message) {
+      successMessage.textContent = message;
+      successMessage.classList.remove('hidden');
+      errorMessage.classList.add('hidden');
+    }
+    
+    function clearMessages() {
+      errorMessage.classList.add('hidden');
+      successMessage.classList.add('hidden');
+    }
+    
+    function debugLog(message) {
+      console.log(message);
+      debugInfo.textContent += '\n\n' + message;
+      debugInfo.scrollTop = debugInfo.scrollHeight;
+    }
+  </script>
+</body>
+</html>

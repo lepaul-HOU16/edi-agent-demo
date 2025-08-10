@@ -27,8 +27,6 @@ import {
 ChartJS.register(LinearScale, LogarithmicScale, PointElement, Tooltip, Legend);
 import GasIcon from '@mui/icons-material/Waves';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-const amplifyClient = generateClient<Schema>();
-
 // Format large numbers with commas and handle millions/billions
 const formatCurrency = (value: number): string => {
     if (value >= 1_000_000_000) {
@@ -165,6 +163,8 @@ const Page = () => {
         if (!selectedProject) return
 
         try {
+            const amplifyClient = generateClient<Schema>();
+
             await amplifyClient.models.Project.update({
                 id: selectedProject.id!,
                 status: newStatus
@@ -187,6 +187,7 @@ const Page = () => {
     useEffect(() => {
         const fetchProjects = async () => {
             const { userSub } = await fetchAuthSession();
+            const amplifyClient = generateClient<Schema>();
             const result = await amplifyClient.models.Project.list({
                 authMode: userSub ? "userPool" : "identityPool",
             });
@@ -219,6 +220,8 @@ const Page = () => {
 
     const handleDeleteProject = async (projectId: string, projectName: string) => {
         if (window.confirm(`Are you sure you want to delete the project "${projectName}"?`)) {
+            const amplifyClient = generateClient<Schema>();
+
             await amplifyClient.models.Project.delete({ id: projectId });
             setProjects(projects.filter(p => p.id !== projectId));
         }

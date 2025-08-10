@@ -12,15 +12,14 @@ import Grid from "@cloudscape-design/components/grid";
 
 import { useRouter } from 'next/navigation';
 
-import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
-import { useAuthenticator } from '@aws-amplify/ui-react';
+import { useAuth } from '../contexts/OidcAuthContext';
+import { safeGenerateClient } from '../utils/amplifyTest';
+import { logError } from '../utils/errorHandling';
 import Subsurface from '../app/login/edi-bkgd.jpg';
-
-const amplifyClient = generateClient<Schema>();
 const LandingPage = () => {
   const router = useRouter();
-  const { authStatus } = useAuthenticator(context => [context.authStatus]);
+  const { isAuthenticated } = useAuth();
 
   return (
     <div
@@ -41,9 +40,6 @@ const LandingPage = () => {
       <ContentLayout
       defaultPadding
       disableOverlap
-      headerBackgroundStyle={mode =>
-        `center center/cover url("/hero-header-${mode}.png")`
-      }
       header={
         <Box padding={{ vertical: "xxxl" }}>
           <Grid
@@ -79,17 +75,33 @@ const LandingPage = () => {
                   size="xs"
                 >
                   <Button variant="primary" onClick={async () => {
-                      if (authStatus === 'authenticated') {
-                        const newChatSession = await amplifyClient.models.ChatSession.create({});
-                        router.push(`/chat/${newChatSession.data!.id}`);
-                      } else {
-                        router.push('/auth');
+                      try {
+                        if (isAuthenticated) {
+                          console.log('Creating safe Amplify client...');
+                          const amplifyClient = await safeGenerateClient<Schema>();
+                          console.log('Amplify client created successfully');
+                          console.log('Available models:', Object.keys(amplifyClient.models || {}));
+                          console.log('Creating ChatSession...');
+                          const newChatSession = await amplifyClient.models.ChatSession.create({});
+                          console.log('ChatSession created:', newChatSession);
+                          if (newChatSession.data?.id) {
+                            router.push(`/chat/${newChatSession.data.id}`);
+                          } else {
+                            throw new Error('ChatSession creation failed - no ID returned');
+                          }
+                        } else {
+                          router.push('/auth');
+                        }
+                      } catch (error) {
+                        logError('Error in button click handler', error);
+                        console.error('Full error details:', error);
+                        alert(`Error creating chat session: ${error instanceof Error ? error.message : 'Unknown error'}. Please check the console for details.`);
                       }
                     }}>
                     Start a new chat
                   </Button>
                   <Button onClick={() => {
-                      if (authStatus === 'authenticated') {
+                      if (isAuthenticated) {
                         router.push('/listChats');
                       } else {
                         router.push('/auth');

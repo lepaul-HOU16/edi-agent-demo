@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 
-import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
+import { safeGenerateClient } from '../../../utils/amplifyTest';
 import { Typography, Paper, Divider, IconButton, Tooltip, List, ListItem, useTheme, useMediaQuery, Breadcrumbs } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import PsychologyIcon from '@mui/icons-material/Psychology';
@@ -32,8 +32,6 @@ import FileDrawer from '@/components/FileDrawer';
 import { sendMessage } from '../../../../utils/amplifyUtils';
 import zIndex from '@mui/material/styles/zIndex';
 
-const amplifyClient = generateClient<Schema>();
-
 function Page({
     params,
 }: {
@@ -48,6 +46,7 @@ function Page({
     const [messages, setMessages] = useState<Message[]>([]);
 
     const setActiveChatSessionAndUpload = async (newChatSession: Schema["ChatSession"]["createType"]) => {
+        const amplifyClient = await safeGenerateClient();
         const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
             id: (await params).chatSessionId,
             ...newChatSession
@@ -61,6 +60,7 @@ function Page({
         const fetchChatSession = async () => {
             const chatSessionId = (await params).chatSessionId
             if (chatSessionId) {
+                const amplifyClient = await safeGenerateClient<Schema>();
                 const { data: newChatSessionData } = await amplifyClient.models.ChatSession.get({
                     id: chatSessionId
                 });
@@ -100,9 +100,12 @@ function Page({
     const handleCreateNewChat = async () => {
         try {
             // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
+            const amplifyClient = await safeGenerateClient<Schema>();
+
             amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
 
-            const newChatSession = await amplifyClient.models.ChatSession.create({});
+            const amplifyClient2 = await safeGenerateClient<Schema>();
+            const newChatSession = await amplifyClient2.models.ChatSession.create({});
             router.push(`/chat/${newChatSession.data!.id}`);
         } catch (error) {
             console.error("Error creating chat session:", error);

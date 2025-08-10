@@ -1,18 +1,18 @@
 import React, { useEffect } from 'react';
-import { useAuthenticator } from '@aws-amplify/ui-react';
+import { useAuth } from '@/contexts/OidcAuthContext';
 import { redirect } from 'next/navigation';
 
 export function withAuth<P extends object>(Component: React.ComponentType<P>) {
   return function AuthProtected(props: P) {
-    const { authStatus } = useAuthenticator(context => [context.authStatus]);
+    const { isAuthenticated } = useAuth();
 
     useEffect(() => {
-      if (authStatus === 'unauthenticated') {
+      if (!isAuthenticated) {
         redirect('/auth')
       }
-    }, [authStatus]);
+    }, [isAuthenticated]);
 
-    if (authStatus === 'authenticated') {
+    if (isAuthenticated) {
       return <Component {...props} />;
     }
 

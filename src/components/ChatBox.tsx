@@ -14,8 +14,6 @@ import ExpandablePromptInput from './ExpandablePromptInput';
 
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
-const amplifyClient = generateClient<Schema>();
-
 // DefaultPrompts component removed
 
 const ChatBox = (params: {
@@ -51,6 +49,7 @@ const ChatBox = (params: {
   useEffect(() => {
     const messageSubscriptionHandler = async () => {
       console.log('Creating message subscription for garden: ', params.chatSessionId)
+      const amplifyClient = generateClient<Schema>();
       const messagesSub = amplifyClient.models.ChatMessage.observeQuery({
         filter: {
           chatSessionId: { eq: params.chatSessionId }
@@ -87,6 +86,7 @@ const ChatBox = (params: {
     const nextPage = page + 1;
 
     try {
+      const amplifyClient = generateClient<Schema>();
       const result = await amplifyClient.models.ChatMessage.list({
         filter: {
           chatSessionId: { eq: params.chatSessionId }
@@ -151,6 +151,7 @@ const ChatBox = (params: {
   useEffect(() => {
     const responseStreamChunkSubscriptionHandler = async () => {
       console.log('Creating response stream chunk subscription for garden: ', params.chatSessionId)
+      const amplifyClient = generateClient<Schema>();
       const responseStreamChunkSub = amplifyClient.subscriptions.recieveResponseStreamChunk({ chatSessionId: params.chatSessionId }).subscribe({
         error: (error) => console.error('Error subscribing stream chunks: ', error),
         next: (newChunk) => {
@@ -214,6 +215,7 @@ const ChatBox = (params: {
 
     try {
       // Get all messages after the selected message's timestamp
+      const amplifyClient = generateClient<Schema>();
       const { data: messagesToDelete } = await amplifyClient.models.ChatMessage.listChatMessageByChatSessionIdAndCreatedAt({
         chatSessionId: params.chatSessionId,
         createdAt: { ge: messageToRegenerate.createdAt }
@@ -242,6 +244,8 @@ const ChatBox = (params: {
           .filter(msg => msg !== null && msg !== undefined && msg.id)  // Add null/undefined check
           .map(async (msgToDelete) => {
             if (msgToDelete.id) {
+              const amplifyClient = generateClient<Schema>();
+
               await amplifyClient.models.ChatMessage.delete({
                 id: msgToDelete.id
               });

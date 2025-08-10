@@ -8,13 +8,11 @@ import FolderIcon from '@mui/icons-material/Folder';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import ChatBox from "@/components/ChatBox";
 import ChatMessage from '@/components/ChatMessage';
-import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
+import { safeGenerateClient } from '../../utils/amplifyTest';
 import { sendMessage } from '../../../utils/amplifyUtils';
 import maplibregl, { Map as MaplibreMap } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css'; // Import the CSS for the map
-
-const amplifyClient = generateClient<Schema>();
 
 interface DataCollection {
   id: string;
@@ -36,7 +34,7 @@ export default function CatalogPage() {
   const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>({ id: "default" });
   // Determine color scheme based on theme mode
   const colorScheme = theme.palette.mode === 'dark' ? 'dark' : 'light';
-  
+
   // Drawer variant only matters for mobile now
   const drawerVariant = "temporary";
 
@@ -75,14 +73,17 @@ export default function CatalogPage() {
   const handleCreateNewChat = async () => {
     try {
       // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+      // const amplifyClient = await safeGenerateClient();
 
-      const newChatSession = await amplifyClient.models.ChatSession.create({});
+      // amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+
+      // const amplifyClient2 = await safeGenerateClient<Schema>();
+      // const newChatSession = await amplifyClient2.models.ChatSession.create({});
       // Use router.push here if you want to navigate
       // router.push(`/chat/${newChatSession.data!.id}`);
-      if (newChatSession.data) {
-        setActiveChatSession({ ...newChatSession.data });
-      }
+      // if (newChatSession.data) {
+      //   setActiveChatSession({ ...newChatSession.data });
+      // }
     } catch (error) {
       console.error("Error creating chat session:", error);
       alert("Failed to create chat session.");
@@ -113,7 +114,7 @@ export default function CatalogPage() {
       });
       mapRef.current.addControl(scale, 'top-right');
       mapRef.current.addControl(new maplibregl.NavigationControl(), "top-left");
-      
+
       // Create a custom geocoder control compatible with MapLibre GL
       // We'll create a simple search box that will be styled to match the map
       const geocoderContainer = document.createElement('div');
@@ -121,7 +122,7 @@ export default function CatalogPage() {
       geocoderContainer.style.margin = '10px';
       geocoderContainer.style.width = '240px';
       geocoderContainer.style.zIndex = '1';
-      
+
       const searchInput = document.createElement('input');
       searchInput.type = 'text';
       searchInput.placeholder = 'Search for locations';
@@ -131,12 +132,12 @@ export default function CatalogPage() {
       searchInput.style.border = '1px solid #ccc';
       searchInput.style.boxShadow = '0 0 0 2px rgba(0,0,0,0.1)';
       searchInput.style.fontSize = '14px';
-      
+
       geocoderContainer.appendChild(searchInput);
-      
+
       // Add the custom geocoder control to the map
       mapRef.current.getContainer().querySelector('.maplibregl-ctrl-top-left')?.appendChild(geocoderContainer);
-      
+
       // Add event listener for the search input
       searchInput.addEventListener('keypress', (e) => {
         if (e.key === 'Enter' && mapRef.current) {
@@ -148,13 +149,13 @@ export default function CatalogPage() {
               if (data.Results && data.Results.length > 0) {
                 const result = data.Results[0];
                 const coordinates = result.Place.Geometry.Point;
-                
+
                 // Fly to the location
                 mapRef.current?.flyTo({
                   center: coordinates,
                   zoom: 12
                 });
-                
+
                 // Add a marker at the location
                 if (mapRef.current) {
                   const marker = new maplibregl.Marker()
@@ -168,7 +169,7 @@ export default function CatalogPage() {
             });
         }
       });
-      
+
       // Ensure the map renders properly by triggering a resize after initialization
       setTimeout(() => {
         if (mapRef.current) {
@@ -178,7 +179,7 @@ export default function CatalogPage() {
     } else {
       // Update the map style when colorScheme changes
       mapRef.current.setStyle(`https://maps.geo.${region}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${colorScheme}`);
-      
+
       // Resize the map when style changes to ensure proper rendering
       setTimeout(() => {
         if (mapRef.current) {
@@ -186,16 +187,16 @@ export default function CatalogPage() {
         }
       }, 100);
     }
-    
+
     // Add window resize handler
     const handleResize = () => {
       if (mapRef.current) {
         mapRef.current.resize();
       }
     };
-    
+
     window.addEventListener('resize', handleResize);
-    
+
     return () => {
       window.removeEventListener('resize', handleResize);
       if (mapRef.current) {
@@ -204,7 +205,7 @@ export default function CatalogPage() {
       }
     };
   }, [colorScheme]); // Add colorScheme to dependency array to update map when theme changes
-  
+
   return (
     <div style={{ margin: '36px 80px 0' }}>
       <ContentLayout

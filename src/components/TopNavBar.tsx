@@ -5,19 +5,15 @@ import { useRouter } from 'next/navigation';
 import { AppBar, Toolbar, Typography, Button, Menu, MenuItem, IconButton } from '@mui/material';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 
-import { useAuthenticator } from '@aws-amplify/ui-react';
-import { useUserAttributes } from '@/components/UserAttributesProvider';
+import { useAuth } from '@/contexts/OidcAuthContext';
 
 import { type Schema } from "@/../amplify/data/resource";
 import { generateClient } from 'aws-amplify/api';
-const amplifyClient = generateClient<Schema>();
-
 const TopNavBar: React.FC = () => {
   const router = useRouter();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
-  const { signOut, authStatus } = useAuthenticator(context => [context.user, context.authStatus]);
-  const { userAttributes } = useUserAttributes();
+  const { isAuthenticated, user, logout } = useAuth();
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -30,6 +26,8 @@ const TopNavBar: React.FC = () => {
   const handleCreateNewChat = async () => {
     try {
       // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
+      const amplifyClient = generateClient<Schema>();
+
       amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
 
       const newChatSession = await amplifyClient.models.ChatSession.create({});
@@ -50,7 +48,26 @@ const TopNavBar: React.FC = () => {
           <Link href="/projects" passHref>
             <Button color="inherit">Projects</Button>
           </Link>
-          {authStatus === 'authenticated' && (
+          <Link href="/schemas" passHref>
+            <Button color="inherit">Schemas</Button>
+          </Link>
+          <Link href="/legal-tags" passHref>
+            <Button color="inherit">Legal Tags</Button>
+          </Link>
+          <Link href="/entitlements" passHref>
+            <Button color="inherit">Entitlements</Button>
+          </Link>
+          {process.env.NODE_ENV === 'development' && (
+            <>
+              <Link href="/test-schemas" passHref>
+                <Button color="inherit">Test</Button>
+              </Link>
+              <Link href="/auth-debug" passHref>
+                <Button color="inherit">Auth Debug</Button>
+              </Link>
+            </>
+          )}
+          {isAuthenticated && (
             <>
               <Link href="/listChats" passHref>
                 <Button color="inherit">List Chats</Button>
@@ -60,7 +77,7 @@ const TopNavBar: React.FC = () => {
           )}
         </Typography>
         <div>
-          {authStatus === 'authenticated' ? (
+          {isAuthenticated ? (
             <>
               <IconButton
                 size="large"
@@ -89,14 +106,14 @@ const TopNavBar: React.FC = () => {
                 open={Boolean(anchorEl)}
                 onClose={handleClose}
               >
-                {userAttributes?.email && (
+                {user?.email && (
                   <MenuItem disabled>
                     <Typography variant="body2" color="inherit">
-                      {userAttributes.email}
+                      {user.email}
                     </Typography>
                   </MenuItem>
                 )}
-                <MenuItem onClick={signOut}>Logout</MenuItem>
+                <MenuItem onClick={logout}>Logout</MenuItem>
               </Menu>
             </>
           ) : (

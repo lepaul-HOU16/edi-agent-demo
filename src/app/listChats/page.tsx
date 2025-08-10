@@ -3,11 +3,10 @@ import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 // import { Link } from '@mui/material';
 import { Authenticator, useAuthenticator } from '@aws-amplify/ui-react';
-import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
+import { safeGenerateClient } from '../../utils/amplifyTest';
 import { Box, Button, Card, CardContent, Typography } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
-const amplifyClient = generateClient<Schema>();
 
 import { withAuth } from '@/components/WithAuth';
 
@@ -17,6 +16,7 @@ const Page = () => {
 
     useEffect(() => {
         const fetchChatSessions = async () => {
+            const amplifyClient = await safeGenerateClient<Schema>();
             const result = await amplifyClient.models.ChatSession.list({
                 filter: {
                     owner: {
@@ -52,6 +52,7 @@ const Page = () => {
                                     color="secondary"
                                     onClick={async () => {
                                         if (window.confirm(`Are you sure you want to delete the chat "${chatSession.name}"?`)) {
+                                            const amplifyClient = await safeGenerateClient<Schema>();
                                             await amplifyClient.models.ChatSession.delete({ id: chatSession.id! });
                                             setChatSessions(chatSessions.filter(c => c.id !== chatSession.id));
                                         }
