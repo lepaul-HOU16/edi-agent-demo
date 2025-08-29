@@ -223,24 +223,24 @@ function Page({
                                 selectedItems={selectedItems}
                                 items={[
                                     {
-                                        name: 'Wind Farm Performance Optimizer',
-                                        description: 'Monitor and analyze fleet-wide wind farm production metrics, comparing actual vs forecasted output to maximize energy generation and ROI.',
-                                        prompt: 'I manage a fleet of wind farms and want to maximize energy production while minimizing operational expense. Let me check our fleet performance for this quarter. Compare the actual production to the forecasted production for each wind farm. Generate the necessary time series data and render a dashboard to visualize the performance of each wind farm.',
+                                        name: 'Clay Volume Calculator',
+                                        description: 'Advanced analysis tool for calculating clay volume from gamma ray logs with multiple method options and quality control visualization.',
+                                        prompt: 'Calculate clay volume from gamma ray log data using both linear and non-linear methods (Clavier/Stieber). Generate synthetic gamma ray log data with values between 0-150 API units, including clean sand baseline (20 API) and shale baseline (120 API). Compare results between different calculation methods, perform quality control for outliers, and generate a comprehensive visualization showing the clay volume curve alongside the original gamma ray data. Include statistical analysis of the results and recommendations for optimal method selection.',
                                     },
                                     {
-                                        name: 'Wellsite Compressor Maintenance AI',
-                                        description: 'Smart scheduling system that analyzes historical compressor data to optimize maintenance timing and reduce operational costs in the San Juan basin.',
-                                        prompt: 'Create a demo to optimize the maintenance schedule for a fleet of wellsite compressors in the San Juan basin. Generate non-optimized data with historic maintenance events, compressor failures, and time series compressor data. Analyze the data to find an optimized maintenance plan and estimate the cost savings. Create a comprehensive report and render it for visualization.',
+                                        name: 'Porosity Analysis Suite',
+                                        description: 'Integrated tool for determining total porosity using density-neutron crossplot analysis with advanced lithology corrections.',
+                                        prompt: 'Generate synthetic density and neutron logs for a carbonate reservoir section. Create a density-neutron crossplot analysis including matrix density of 2.71 g/cc and fluid density of 1.0 g/cc. Apply limestone-to-dolomite lithology corrections. Calculate total porosity values and generate crossplot visualization with porosity overlay. Include uncertainty analysis and quality control flags for gas-affected zones. Provide statistical summary of porosity distribution by lithology.',
                                     },
                                     {
-                                        name: 'Frac Design Intelligence',
-                                        description: 'Advanced analytics platform analyzing 10,000+ well completion designs to determine optimal fracking parameters for maximum production outcomes.',
-                                        prompt: 'I compare completion designs and oil production data for an upstream oil company. Generate 10,000 well fracturing completion designs (well spacing, lateral length, perforation cluster spacing, pumped water volumes, pumped proppand sand lbs, number of fracing stages) Generate production data for these wells. There should be a relationship between the completion design and production numbers. The production should loosely follow a hyperbolic decline and have some noise. After generating the data, perform an analysis to determine optimal completion design parameters to maximize production. Create a comprehensive report and render it for visualization.',
+                                        name: 'Water Saturation Analyzer',
+                                        description: 'Comprehensive water saturation calculation system using Archie\'s equation with temperature and pressure corrections.',
+                                        prompt: 'Calculate water saturation for a sandstone reservoir using Archie\'s equation. Generate synthetic data for porosity (0.1-0.3), true formation resistivity (0.2-2000 ohm-m), and formation temperature (150-200°F). Use standard parameters: m=2, n=2, a=1, and calculate Rw with temperature corrections. Generate water saturation profile versus depth, including uncertainty analysis. Create visualization comparing water saturation with resistivity and porosity logs. Provide zones of high confidence versus zones requiring additional validation.',
                                     },
                                     {
-                                        name: 'Smart Home Resource Monitor',
-                                        description: 'Real-time utility monitoring system that detects anomalies, identifies efficiency opportunities, and provides actionable cost-saving recommendations.',
-                                        prompt: 'Create a demo for analyzing, reporting, and recommending actions based on smart home electricity and water meters. Generate time series sensor data. Look for anomalies in the data (including leak events) and opportunities to increase energy effeciency. Create a report with an analysis of the data, with recommendations for how to optimize resources usage, including financial metrics.',
+                                        name: 'Multi-Mineral Composition Analyzer',
+                                        description: 'Advanced mineral analysis platform integrating multiple log inputs for accurate formation composition determination.',
+                                        prompt: 'Perform multi-mineral analysis using synthetic log data including density, neutron, sonic, and photoelectric factor logs. Set up mineral model matrix for a system with quartz, calcite, dolomite, and clay minerals. Generate synthetic logs consistent with a mixed carbonate-clastic sequence. Apply simultaneous equation solving to determine mineral volumes. Create visualization showing mineral proportions versus depth. Include quality control indicators and uncertainty analysis. Compare results with synthetic core data points for validation.',
                                     }
                                 ]}
                                 loadingText="Loading resources"

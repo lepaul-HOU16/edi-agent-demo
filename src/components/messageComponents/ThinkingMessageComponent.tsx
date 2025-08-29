@@ -11,16 +11,15 @@ interface ThinkingComponentProps {
 const ThinkingMessageComponent: React.FC<ThinkingComponentProps> = ({ message, theme }) => {
     return (
         <div style={{
-            // display: 'flex',
-            // flexDirection: 'column',
+            display: 'flex',
+            flexDirection: 'column',
             width: '100%',
-            // maxHeight: '100px',
             overflowY: 'auto'
         }}>
             <div style={{
-                // backgroundColor: theme.palette.grey[100],
+                backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
                 padding: theme.spacing(0.75),
-                // borderRadius: theme.shape.borderRadius,
+                borderRadius: theme.shape.borderRadius,
                 opacity: 0.8,
             }}>
                 <Typography variant="body2" color="text.secondary">

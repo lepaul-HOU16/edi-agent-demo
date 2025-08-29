@@ -18,7 +18,9 @@ import { userInputTool } from "../tools/userInputTool";
 import { pysparkTool } from "../tools/athenaPySparkTool";
 import { renderAssetTool } from "../tools/renderAssetTool";
 import { createProjectTool } from "../tools/createProjectTool";
-// import { permeabilityCalculator } from "../tools/customWorkshopTool";
+import { permeabilityCalculator } from "../tools/customWorkshopTool";
+import { plotDataTool } from "../tools/plotDataTool";
+import { petrophysicsSystemMessage } from "./petrophysicsSystemMessage";
 
 import { Schema } from '../../data/resource';
 
@@ -134,6 +136,8 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             ...s3FileManagementTools,
             userInputTool,
             createProjectTool,
+            permeabilityCalculator,
+            plotDataTool,
             pysparkTool({
                 additionalToolDescription: `
                             By default, plots will have a lograthmic y axis and a white backgrount.
@@ -168,7 +172,25 @@ pio.templates.default = "white_clean_log"
             tools: agentTools,
         });
 
-        let systemMessageContent = `
+        // Check if the user wants to use the petrophysics system message
+        // We'll check if the first human message contains keywords related to petrophysics
+        let usesPetrophysics = false;
+        
+        // Look for petrophysics-related keywords in the first human message
+        if (chatSessionMessages.length > 0 && chatSessionMessages[0] instanceof HumanMessage) {
+            const firstMessageContent = getLangChainMessageTextContent(chatSessionMessages[0]);
+            if (firstMessageContent) {
+                const firstMessage = firstMessageContent.toLowerCase();
+                const petrophysicsKeywords = ['petrophysics', 'well log', 'formation', 'porosity', 'permeability', 'las file', 'reservoir'];
+                usesPetrophysics = petrophysicsKeywords.some(keyword => firstMessage.includes(keyword.toLowerCase()));
+            }
+        }
+        
+        // Log which system message is being used
+        console.log(`Using ${usesPetrophysics ? 'petrophysics' : 'default'} system message`);
+        
+        // Choose the appropriate system message
+        let systemMessageContent = usesPetrophysics ? petrophysicsSystemMessage : `
 You are a helpful llm agent showing a demo workflow. 
 Use markdown formatting for your responses (like **bold**, *italic*, ## headings, etc.), but DO NOT wrap your response in markdown code blocks.
 Today's date is ${new Date().toLocaleDateString()}.
