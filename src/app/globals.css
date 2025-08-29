@@ -4,6 +4,13 @@
 
 @import '@cloudscape-design/global-styles/index.css';
 
+/* Remove borders, padding, and margins from all iframes */
+iframe {
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
 :root {
   --background: #ffffff;
   --foreground: #171717;
@@ -77,6 +84,4 @@ th, td {
 .awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161:not(#\9), .awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161.awsui_disabled_8cbea_rg0r6_193:not(#\9) {
   background: transparent;
 }
-.awsui_segment_8cbea_rg0r6_161:not(#\9):nth-child(1) {
-  background: transparent;
-}
+/* Removed specific styling for first segment to ensure consistent behavior */

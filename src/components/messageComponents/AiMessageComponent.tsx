@@ -42,11 +42,11 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
           </ReactMarkdown>
           {message.toolCalls && message.toolCalls !== '[]' && (
             <div style={{
-              // backgroundColor: theme.palette.grey[100],
-              // padding: theme.spacing(1),
-              // borderRadius: theme.shape.borderRadius,
+              backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
+              padding: theme.spacing(1),
+              borderRadius: theme.shape.borderRadius,
               marginTop: theme.spacing(1),
-              // boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
             }}>
               <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                 Tool Calls
@@ -70,19 +70,19 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
                 
                 return (
                   <div key={toolCall.id || index} style={{
-                    // backgroundColor: theme.palette.common.white,
-                    // padding: theme.spacing(1),
-                    // borderRadius: theme.shape.borderRadius,
-                    // marginBottom: theme.spacing(1)
+                    backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[900] : theme.palette.common.white,
+                    padding: theme.spacing(1),
+                    borderRadius: theme.shape.borderRadius,
+                    marginBottom: theme.spacing(1)
                   }}>
                     <Typography variant="body2" color="primary" fontWeight="bold" style={{ display: 'flex', alignItems: 'center' }}>
                       <BuildIcon fontSize="small" style={{ marginRight: theme.spacing(0.5) }} />
                       {toolCall.name}
                     </Typography>
                     <div style={{
-                      // backgroundColor: theme.palette.grey[50],
-                      // padding: theme.spacing(1),
-                      // borderRadius: theme.shape.borderRadius,
+                      backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[50],
+                      padding: theme.spacing(1),
+                      borderRadius: theme.shape.borderRadius,
                       fontFamily: 'monospace',
                       fontSize: '0.85rem',
                       marginTop: theme.spacing(0.5)

@@ -84,6 +84,12 @@ export default function FileViewer({
     const s3KeyDecoded = s3Key.split('/').map((item: string) => decodeURIComponent(item)).join('/');
     console.log('getting file from s3 Key: ', s3KeyDecoded);
 
+    // Check if this is an HTML file that needs special handling
+    const isHtmlFile = s3Key.toLowerCase().endsWith('.html');
+    if (isHtmlFile) {
+      console.log('Loading HTML file with special handling');
+    }
+
     getUrl({
       path: s3KeyDecoded,
     }).then(async (response: { url: URL }) => {
@@ -91,7 +97,19 @@ export default function FileViewer({
       onUrlChange?.(response.url);
 
       try {
-        // Check the content type
+        // For HTML files, use a direct URL approach
+        if (isHtmlFile) {
+          // Create a direct file URL that will use our route handler with proper content type
+          const directFileUrl = `/file/${s3KeyDecoded}`;
+          console.log('Using direct file URL for HTML file:', directFileUrl);
+          setSelectedFileUrl(new URL(directFileUrl, window.location.origin));
+          setFileContentType('text/html');
+          onContentTypeChange?.('text/html');
+          setLoading(false);
+          return;
+        }
+
+        // Normal handling for other files
         const fileResponse = await fetch(response.url);
         const contentType = fileResponse.headers.get('Content-Type');
         setFileContentType(contentType)
@@ -106,21 +124,6 @@ export default function FileViewer({
         if (!content) {
           onContentChange?.(text);
         }
-
-        // // If it's a text-based file or CSV/XML/HTML, display as text
-        // if (contentType?.startsWith('text/') || 
-        //     contentType === 'application/octet-stream' ||
-        //     ['csv', 'xml', 'json', 'txt', 'md', 'html'].includes(s3KeyDecoded.split('.').pop()?.toLowerCase() || '')
-        //   ) {
-        //   const text = await fileResponse.text();
-        //   setFileContent(text);
-        //   // If content is not already set, set it for edit mode
-        //   if (!content) {
-        //     onContentChange?.(text);
-        //   }
-        // } else {
-        //   setFileContent(null);
-        // }
       } catch (error) {
         console.error('Error fetching file content:', error);
         setError('Failed to load file content. Please try again later.');

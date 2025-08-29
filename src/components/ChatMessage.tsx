@@ -24,6 +24,7 @@ import DuckDuckGoSearchToolComponent from './messageComponents/DuckDuckGoSearchT
 import WebBrowserToolComponent from './messageComponents/WebBrowserToolComponent';
 import CreateProjectToolComponent from './messageComponents/CreateProjectToolComponent';
 import CustomWorkshopComponent from './messageComponents/CustomWorkshopComponent'
+import { PlotDataToolComponent } from '../components/PlotDataToolComponent';
 
 const ChatMessage = (params: {
     message: Message,
@@ -121,8 +122,14 @@ const ChatMessage = (params: {
                     return <DuckDuckGoSearchToolComponent content={message.content} theme={theme} />;
                 case 'webBrowserTool':
                     return <WebBrowserToolComponent content={message.content} theme={theme} />;
-                // case 'permeabilityCalculator':
-                //     return <CustomWorkshopComponent content={message.content} theme={theme} />;
+                case 'plotDataTool':
+                    return <PlotDataToolComponent 
+                        content={message.content} 
+                        theme={theme} 
+                        chatSessionId={message.chatSessionId || ''} 
+                    />;
+                case 'permeabilityCalculator':
+                    return <CustomWorkshopComponent content={message.content} theme={theme} />;
                 default:
                     return <DefaultToolMessageComponent message={message} />;
             }

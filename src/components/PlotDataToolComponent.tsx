@@ -19,6 +19,12 @@ ChartJS.register(
   Legend
 );
 
+// Set default Chart.js options for transparent backgrounds
+ChartJS.defaults.backgroundColor = 'transparent';
+ChartJS.defaults.borderColor = 'rgba(0,0,0,0.1)';
+ChartJS.defaults.color = '#666';
+ChartJS.defaults.plugins.tooltip.backgroundColor = 'rgba(0,0,0,0.7)';
+
 // Import Message type for content prop
 import { Message } from '@/../utils/types';
 
@@ -333,10 +339,16 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
         const options: any = {
             responsive: true,
             maintainAspectRatio: false,
+            backgroundColor: 'transparent',
             plugins: {
                 legend: {
                     position: 'top' as const,
                     display: true, // Always show legend when there are multiple series
+                    labels: {
+                        boxWidth: 12,
+                        usePointStyle: true,
+                        padding: 20,
+                    },
                 },
                 title: {
                     display: true,
@@ -394,7 +406,12 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                     },
                     grid: {
                         display: true,
-                        color: theme.palette.grey[200]
+                        color: 'rgba(0,0,0,0.05)',
+                        drawOnChartArea: true,
+                        drawTicks: false
+                    },
+                    ticks: {
+                        color: theme.palette.text.secondary
                     }
                 },
                 y: {
@@ -413,7 +430,12 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                     },
                     grid: {
                         display: true,
-                        color: theme.palette.grey[200]
+                        color: 'rgba(0,0,0,0.05)',
+                        drawOnChartArea: true,
+                        drawTicks: false
+                    },
+                    ticks: {
+                        color: theme.palette.text.secondary
                     }
                 }
             }
@@ -434,8 +456,14 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                     }
                 },
                 grid: {
-                    drawOnChartArea: false // only want the grid lines for one axis to show up
+                    display: true,
+                    color: 'rgba(0,0,0,0.05)',
+                    drawOnChartArea: false, // only want the grid lines for one axis to show up
+                    drawTicks: false
                 },
+                ticks: {
+                    color: theme.palette.text.secondary
+                }
             };
             
             console.log('Added secondary Y axis for:', plotData.yAxisColumns[1].column);
@@ -576,10 +604,10 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
     if (loading) {
         return (
             <div style={{
-                backgroundColor: theme.palette.grey[50],
+                backgroundColor: 'transparent',
                 padding: theme.spacing(2),
                 borderRadius: theme.shape.borderRadius,
-                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                border: `1px solid ${theme.palette.grey[300]}`,
                 width: '100%',
                 display: 'flex',
                 flexDirection: 'column',
@@ -621,7 +649,7 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                 border: `1px solid ${theme.palette.grey[300]}`,
                 borderRadius: theme.shape.borderRadius,
                 padding: theme.spacing(2),
-                backgroundColor: theme.palette.common.white,
+                backgroundColor: 'transparent',
                 height: '350px',
                 width: '100%'
             }}>
@@ -646,4 +674,4 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
             </div>
         </div>
     );
-}; 
+};
