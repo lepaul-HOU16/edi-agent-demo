@@ -64,7 +64,24 @@ function Page({
                 const { data: newChatSessionData } = await amplifyClient.models.ChatSession.get({
                     id: chatSessionId
                 });
-                if (newChatSessionData) setActiveChatSession({ ...newChatSessionData, name: newChatSessionData.name || "" });
+                if (newChatSessionData) {
+                    // If no name is provided, create a default name with date and time
+                    if (!newChatSessionData.name) {
+                        const defaultName = `New Canvas - ${new Date().toLocaleString()}`;
+                        // Save the default name to the database
+                        const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
+                            id: chatSessionId,
+                            name: defaultName
+                        });
+                        if (updatedChatSession) {
+                            setActiveChatSession(updatedChatSession);
+                        } else {
+                            setActiveChatSession({ ...newChatSessionData, name: defaultName });
+                        }
+                    } else {
+                        setActiveChatSession(newChatSessionData);
+                    }
+                }
             }
         }
         fetchChatSession()
@@ -102,7 +119,11 @@ function Page({
             // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
             amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
 
-            const newChatSession = await amplifyClient.models.ChatSession.create({});
+            // Create a default name with date and time for the new chat session
+            const defaultName = `New Canvas - ${new Date().toLocaleString()}`;
+            const newChatSession = await amplifyClient.models.ChatSession.create({
+                name: defaultName
+            });
             router.push(`/chat/${newChatSession.data!.id}`);
         } catch (error) {
             console.error("Error creating chat session:", error);
@@ -358,6 +379,12 @@ function Page({
                         }),
                         paddingRight: fileDrawerOpen && !isMobile ? '0' : '0'
                     }}>
+                        <EditableTextBox
+                            object={activeChatSession}
+                            fieldPath="name"
+                            onUpdate={setActiveChatSessionAndUpload}
+                            typographyVariant="h5"
+                        />
                         <div style={{
                             paddingBottom: '160px',
                         }}>

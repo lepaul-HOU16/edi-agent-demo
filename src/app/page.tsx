@@ -78,24 +78,33 @@ const LandingPage = () => {
                   direction="horizontal"
                   size="xs"
                 >
-                  <Button variant="primary" onClick={async () => {
-                      if (authStatus === 'authenticated') {
-                        const newChatSession = await amplifyClient.models.ChatSession.create({});
-                        router.push(`/chat/${newChatSession.data!.id}`);
-                      } else {
-                        router.push('/auth');
-                      }
-                    }}>
+                  <Button onClick={async () => {
+                    if (authStatus === 'authenticated') {
+                      const newChatSession = await amplifyClient.models.ChatSession.create({});
+                      router.push(`/chat/${newChatSession.data!.id}`);
+                    } else {
+                      router.push('/auth');
+                    }
+                  }}>
                     Start a new chat
                   </Button>
                   <Button onClick={() => {
-                      if (authStatus === 'authenticated') {
-                        router.push('/listChats');
-                      } else {
-                        router.push('/auth');
-                      }
-                    }}>
+                    if (authStatus === 'authenticated') {
+                      router.push('/listChats');
+                    } else {
+                      router.push('/auth');
+                    }
+                  }}>
                     Browse chats
+                  </Button>
+                  <Button variant="primary" onClick={async () => {
+                    if (authStatus === 'authenticated') {
+                      router.push('/catalog');
+                    } else {
+                      router.push('/auth');
+                    }
+                  }}>
+                    Explore the Data Catalog
                   </Button>
                 </SpaceBetween>
               </Box>

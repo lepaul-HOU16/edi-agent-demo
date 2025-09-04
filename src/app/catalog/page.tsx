@@ -11,7 +11,11 @@ import ChatMessage from '@/components/ChatMessage';
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 import { sendMessage } from '../../../utils/amplifyUtils';
-import maplibregl, { Map as MaplibreMap } from 'maplibre-gl';
+import maplibregl, { 
+  Map as MaplibreMap, 
+  GeoJSONSource,
+  MapMouseEvent
+} from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css'; // Import the CSS for the map
 
 const amplifyClient = generateClient<Schema>();
@@ -23,6 +27,8 @@ interface DataCollection {
   dateCreated: string;
   owner: string;
 }
+
+// GeoJSON types removed
 
 export default function CatalogPage() {
   const [selectedId, setSelectedId] = useState("seg-1");
@@ -93,103 +99,68 @@ export default function CatalogPage() {
   const mapName = "EdiTestMap";
   const region = "us-east-1";
   const style = "Standard";
+  const mapColorScheme = theme.palette.mode === 'dark' ? "Dark" : "Light";
 
   // Store map instance in a ref so it persists across renders
   const mapRef = React.useRef<MaplibreMap | null>(null);
+  
+  // MultiPolygon-related functions removed
 
   useEffect(() => {
-    if (!mapRef.current) {
-      mapRef.current = new maplibregl.Map({
-        container: "map",
-        style: `https://maps.geo.${region}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${colorScheme}`,
-        center: [3.151419, 56.441028],
-        zoom: 4,
-      });
+    // Initialize or reinitialize map when selectedId is "seg-1" or when theme changes
+    if (selectedId === "seg-1") {
+      // If map container exists but map isn't initialized or needs to be reinitialized
+      const mapContainer = document.getElementById("map");
+      if (mapContainer && (!mapRef.current || mapRef.current.getContainer() !== mapContainer)) {
+        // Clean up previous map instance if it exists
+        if (mapRef.current) {
+          mapRef.current.remove();
+          mapRef.current = null;
+        }
+        
+        // Create new map instance
+        mapRef.current = new maplibregl.Map({
+          container: "map",
+          style: `https://maps.geo.${region}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`,
+          center: [3.151419, 56.441028],
+          zoom: 4,
+        });
 
-      // Add scale control with metric units (kilometers)
-      const scale = new maplibregl.ScaleControl({
-        maxWidth: 200,
-        unit: 'metric'
-      });
-      mapRef.current.addControl(scale, 'top-right');
-      mapRef.current.addControl(new maplibregl.NavigationControl(), "top-left");
-      
-      // Create a custom geocoder control compatible with MapLibre GL
-      // We'll create a simple search box that will be styled to match the map
-      const geocoderContainer = document.createElement('div');
-      geocoderContainer.className = 'maplibre-geocoder';
-      geocoderContainer.style.margin = '10px';
-      geocoderContainer.style.width = '240px';
-      geocoderContainer.style.zIndex = '1';
-      
-      const searchInput = document.createElement('input');
-      searchInput.type = 'text';
-      searchInput.placeholder = 'Search for locations';
-      searchInput.style.width = '100%';
-      searchInput.style.padding = '8px 12px';
-      searchInput.style.borderRadius = '4px';
-      searchInput.style.border = '1px solid #ccc';
-      searchInput.style.boxShadow = '0 0 0 2px rgba(0,0,0,0.1)';
-      searchInput.style.fontSize = '14px';
-      
-      geocoderContainer.appendChild(searchInput);
-      
-      // Add the custom geocoder control to the map
-      mapRef.current.getContainer().querySelector('.maplibregl-ctrl-top-left')?.appendChild(geocoderContainer);
-      
-      // Add event listener for the search input
-      searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && mapRef.current) {
-          const query = searchInput.value;
-          // Use Amazon Location Service to search for the location
-          fetch(`https://places.geo.${region}.amazonaws.com/v2/places/text/search?key=${apiKey}&text=${encodeURIComponent(query)}`)
-            .then(response => response.json())
-            .then(data => {
-              if (data.Results && data.Results.length > 0) {
-                const result = data.Results[0];
-                const coordinates = result.Place.Geometry.Point;
-                
-                // Fly to the location
-                mapRef.current?.flyTo({
-                  center: coordinates,
-                  zoom: 12
-                });
-                
-                // Add a marker at the location
-                if (mapRef.current) {
-                  const marker = new maplibregl.Marker()
-                    .setLngLat(coordinates)
-                    .addTo(mapRef.current);
-                }
-              }
-            })
-            .catch(error => {
-              console.error('Error searching for location:', error);
-            });
-        }
-      });
-      
-      // Ensure the map renders properly by triggering a resize after initialization
-      setTimeout(() => {
-        if (mapRef.current) {
-          mapRef.current.resize();
-        }
-      }, 100);
-    } else {
-      // Update the map style when colorScheme changes
-      mapRef.current.setStyle(`https://maps.geo.${region}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${colorScheme}`);
-      
-      // Resize the map when style changes to ensure proper rendering
-      setTimeout(() => {
-        if (mapRef.current) {
-          mapRef.current.resize();
-        }
-      }, 100);
+        // Add scale control with metric units (kilometers)
+        const scale = new maplibregl.ScaleControl({
+          maxWidth: 200,
+          unit: 'metric'
+        });
+        mapRef.current.addControl(scale, 'top-right');
+        mapRef.current.addControl(new maplibregl.NavigationControl(), "top-left");
+        
+        // Wait for the map to load before adding sources and layers
+        mapRef.current.on('load', () => {
+          // Map initialization without MultiPolygon features
+        });
+        
+        // Ensure the map renders properly by triggering a resize after initialization
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.resize();
+          }
+        }, 100);
+      } else if (mapRef.current) {
+        // If map already exists, just update the style and resize
+        mapRef.current.setStyle(`https://maps.geo.${region}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`);
+        
+        // Resize the map to ensure proper rendering
+        setTimeout(() => {
+          if (mapRef.current) {
+            mapRef.current.resize();
+          }
+        }, 100);
+      }
     }
     
     // Add window resize handler
     const handleResize = () => {
-      if (mapRef.current) {
+      if (mapRef.current && selectedId === "seg-1") {
         mapRef.current.resize();
       }
     };
@@ -198,12 +169,10 @@ export default function CatalogPage() {
     
     return () => {
       window.removeEventListener('resize', handleResize);
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
+      // We don't remove the map on unmount anymore, as we want to preserve it when switching tabs
+      // It will be properly cleaned up when needed in the effect logic above
     };
-  }, [colorScheme]); // Add colorScheme to dependency array to update map when theme changes
+  }, [colorScheme, mapColorScheme, selectedId]);
   
   return (
     <div style={{ margin: '36px 80px 0' }}>
@@ -277,7 +246,7 @@ export default function CatalogPage() {
       >
         {selectedId === "seg-1" ? (
           <div className='panel'>
-            <div id="map" />
+            <div id="map" style={{ width: '100%', height: 'calc(100vh - 200px)', borderRadius: '0 0 16px 16px' }} />
           </div>
         ) : (
           // Chain of Thought here
