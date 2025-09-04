@@ -2,6 +2,7 @@
 
 import { Inter } from "next/font/google";
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v15-appRouter';
 import { ThemeProvider } from '@mui/material/styles';
@@ -27,6 +28,7 @@ import { FileSystemProvider } from "@/contexts/FileSystemContext";
 import './app.scss';
 import { type Schema } from "@/../amplify/data/resource";
 import { generateClient } from 'aws-amplify/api';
+import { sendMessage } from '@/../utils/amplifyUtils';
 
 const amplifyClient = generateClient<Schema>();
 const inter = Inter({
@@ -43,6 +45,52 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const [darkMode, setDarkMode] = useState<boolean>(false);
+  const router = useRouter();
+
+  const handleCreateNewChat = async () => {
+    try {
+      // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
+      amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+
+      const newChatSession = await amplifyClient.models.ChatSession.create({});
+      router.push(`/chat/${newChatSession.data!.id}`);
+    } catch (error) {
+      console.error("Error creating chat session:", error);
+      alert("Failed to create chat session.");
+    }
+  };
+
+  const handleCreatePetrophysicsChat = async () => {
+    try {
+      // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
+      amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+
+      const newChatSession = await amplifyClient.models.ChatSession.create({});
+      
+      if (newChatSession.data && newChatSession.data.id) {
+        // Send an initial message with petrophysics keywords to trigger the petrophysics system message
+        const initialMessage: Schema['ChatMessage']['createType'] = {
+          role: 'human',
+          content: {
+            text: "I need help with petrophysical analysis. Please show me the available tools and capabilities."
+          },
+          chatSessionId: newChatSession.data.id,
+        };
+        
+        // Send the initial message
+        await sendMessage({
+          chatSessionId: newChatSession.data.id,
+          newMessage: initialMessage,
+        });
+        
+        // Navigate to the new chat session
+        router.push(`/chat/${newChatSession.data.id}`);
+      }
+    } catch (error) {
+      console.error("Error creating petrophysics chat session:", error);
+      alert("Failed to create petrophysics chat session.");
+    }
+  };
   
   useEffect(() => {
     // Apply the mode when component mounts and when darkMode changes
@@ -150,8 +198,9 @@ export default function RootLayout({
                             text: 'Canvases',
                             items: [
                               {
-                                id: 'ws1',
-                                text: 'Petrophysical Analysis',
+                            id: 'ws1',
+                            text: 'Petrophysical Analysis',
+                            href: '/petrophysical-analysis',
                               },
                               {
                                 id: 'ws2',
@@ -167,6 +216,7 @@ export default function RootLayout({
                             id: 'ws-new',
                             text: 'Create New Canvas',
                             iconName: 'add-plus',
+                            href: '/create-new-chat',
                           },
                         ],
                       },
