@@ -267,7 +267,10 @@ function Page({
                                 }}
                                 onSelectionChange={({ detail }) => {
                                     setSelectedItems(detail?.selectedItems ?? [])
-                                    setUserInput(detail?.selectedItems[0]?.prompt || '')
+                                    // Defer state update to avoid updating component during render
+                                    setTimeout(() => {
+                                        setUserInput(detail?.selectedItems[0]?.prompt || '')
+                                    }, 0)
                                 }}
                                 selectedItems={selectedItems}
                                 items={[
