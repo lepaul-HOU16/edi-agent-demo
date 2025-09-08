@@ -97,7 +97,7 @@ export default function FileViewer({
       onUrlChange?.(response.url);
 
       try {
-        // For HTML files, use a direct URL approach
+        // For HTML files, fetch content through our route handler
         if (isHtmlFile) {
           // Create a direct file URL that will use our route handler with proper content type
           const directFileUrl = `/file/${s3KeyDecoded}`;
@@ -105,6 +105,25 @@ export default function FileViewer({
           setSelectedFileUrl(new URL(directFileUrl, window.location.origin));
           setFileContentType('text/html');
           onContentTypeChange?.('text/html');
+          
+          // Fetch the HTML content through our route handler
+          try {
+            const htmlResponse = await fetch(directFileUrl);
+            if (htmlResponse.ok) {
+              const htmlContent = await htmlResponse.text();
+              setFileContent(htmlContent);
+              if (!content) {
+                onContentChange?.(htmlContent);
+              }
+            } else {
+              console.error('Failed to fetch HTML content:', htmlResponse.status, htmlResponse.statusText);
+              setError('Failed to load HTML file content');
+            }
+          } catch (htmlError) {
+            console.error('Error fetching HTML content:', htmlError);
+            setError('Failed to load HTML file content');
+          }
+          
           setLoading(false);
           return;
         }
@@ -178,10 +197,8 @@ export default function FileViewer({
       );
     }
 
-    // Render HTML files directly in a div instead of an iframe
-    // We'll use a simple iframe with a fixed height for now
-    // This is a fallback solution that should work reliably
-    
+    // Use direct iframe loading for HTML files - this resolves blank content issues
+    console.log('Rendering HTML file with direct URL loading');
     return (
       <div className="w-full relative">
         {iframeLoading && (
@@ -191,162 +208,22 @@ export default function FileViewer({
         )}
         <iframe
           ref={htmlIframeRef}
+          src={`/file/${s3Key.split('/').map((item: string) => decodeURIComponent(item)).join('/')}`}
           style={{
             border: 'none',
             margin: 0,
             padding: 0,
             width: '100%',
-            height: '100px', // Initial height, will be adjusted
-            overflow: 'hidden', // Hide scrollbars
-            background: 'transparent' // Make iframe background transparent
+            minHeight: '600px',
+            height: '100vh',
+            overflow: 'auto'
           }}
-          srcDoc={`
-<style>
-/* Ensure content fits within viewport width */
-html, body {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  overflow-x: hidden; /* Prevent horizontal scrolling */
-  background: transparent !important; /* Make background transparent */
-}
-
-/* Make all content fit within container */
-img, video, table, pre, div {
-  max-width: 100% !important;
-  height: auto !important;
-}
-
-/* Ensure tables don't overflow */
-table {
-  display: block;
-  overflow-x: auto;
-  white-space: nowrap;
-}
-
-/* Force line breaks for long text */
-* {
-  word-wrap: break-word;
-  box-sizing: border-box;
-}
-
-/* Ensure SVG elements have transparent backgrounds */
-svg {
-  background: transparent !important;
-}
-</style>
-${fileContent || ""}
-<script>
-// Function to handle iframe resizing
-function handleIframeResizing() {
-  // Send message to parent with document height
-  function updateHeight() {
-    const height = Math.max(
-      document.body.scrollHeight,
-      document.documentElement.scrollHeight
-    );
-    window.parent.postMessage({ type: 'resize', height }, '*');
-  }
-  
-  // Find and handle all iframes in the document
-  function handleNestedIframes() {
-    const iframes = document.querySelectorAll('iframe');
-    
-    iframes.forEach(iframe => {
-      // Set initial styles for nested iframes
-      iframe.style.width = '100%';
-      iframe.style.border = 'none';
-      iframe.style.overflow = 'hidden';
-      
-      // Try to access iframe content if same origin
-      try {
-        // Add load event to resize iframe when content loads
-        iframe.onload = function() {
-          try {
-            // Try to access iframe document (will fail for cross-origin)
-            const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-            
-            // If we can access it, inject our resize script and styles
-            if (iframeDoc && iframeDoc.body) {
-              // Add scaling styles to the iframe content
-              const style = iframeDoc.createElement('style');
-              style.textContent = "html, body { margin: 0; padding: 0; width: 100%; overflow-x: hidden; background: transparent !important; } " +
-                "img, video, table, pre, div { max-width: 100% !important; height: auto !important; } " +
-                "table { display: block; overflow-x: auto; white-space: nowrap; } " +
-                "* { word-wrap: break-word; box-sizing: border-box; } " +
-                "svg { background: transparent !important; }";
-              iframeDoc.head.appendChild(style);
-              
-              // Create a script element to inject our resize code
-              const script = iframeDoc.createElement('script');
-              script.textContent = handleIframeResizing.toString() + ';handleIframeResizing();';
-              iframeDoc.body.appendChild(script);
-              
-              // Set initial height based on content
-              const height = Math.max(
-                iframeDoc.body.scrollHeight,
-                iframeDoc.documentElement.scrollHeight
-              );
-              if (height > 0) {
-                // Add 5 extra pixels to prevent scrollbars
-                iframe.style.height = (height + 5) + 'px';
-              }
-            }
-          } catch (e) {
-            console.warn('Could not access iframe content (likely cross-origin)');
-          }
-          
-          // Update parent height after iframe loads
-          setTimeout(updateHeight, 100);
-        };
-        
-        // For already loaded iframes
-        if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
-          iframe.onload();
-        }
-      } catch (e) {
-        console.warn('Could not access iframe (likely cross-origin)');
-      }
-    });
-  }
-  
-  // Set up event listeners for this document
-  window.addEventListener('load', function() {
-    updateHeight();
-    handleNestedIframes();
-  });
-  window.addEventListener('resize', updateHeight);
-  
-  // Handle messages from nested iframes
-  window.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'resize') {
-      // When a nested iframe resizes, update our height too
-      setTimeout(updateHeight, 50);
-    }
-  });
-  
-  // Initial calls
-  if (document.readyState === 'complete') {
-    updateHeight();
-    handleNestedIframes();
-  }
-  
-  // Also try to update after images and other resources load
-  setTimeout(updateHeight, 100);
-  setTimeout(handleNestedIframes, 100);
-  setTimeout(updateHeight, 500);
-  setTimeout(updateHeight, 1000);
-}
-
-// Execute the function
-handleIframeResizing();
-</script>
-          `}
           className="w-full"
           title="HTML File Viewer"
+          sandbox="allow-same-origin allow-scripts allow-forms allow-downloads"
           onLoad={() => {
             setIframeLoading(false);
-            resizeIframeToContent(htmlIframeRef.current);
+            console.log('HTML iframe loaded successfully');
           }}
         />
       </div>
