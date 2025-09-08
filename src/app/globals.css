@@ -81,3 +81,36 @@ th, td {
   background: transparent;
 }
 /* Removed specific styling for first segment to ensure consistent behavior */
+
+/* Card styling for fixed height and button positioning */
+.fixed-height-cards [data-awsui-cards-card] {
+  height: 190px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* Style for card headers with text truncation */
+.fixed-height-cards [data-awsui-cards-card-header] {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Position for action buttons at the bottom of cards */
+.fixed-height-cards [id="actions"] {
+  position: absolute !important;
+  bottom: 16px !important;
+  left: 16px !important;
+  right: 16px !important;
+}
+
+/* Text truncation for card content */
+.fixed-height-cards [id="description"] div {
+  height: 80px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
+}
