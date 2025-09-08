@@ -1,8 +1,6 @@
 import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { readFile, writeFile } from "./s3ToolBox";
-import { getChatSessionId } from "./toolUtils";
-import * as path from "path";
+import { readFile } from "./s3ToolBox";
 
 // Schema for plot data tool
 const plotDataToolSchema = z.object({
@@ -62,9 +60,8 @@ export const plotDataTool = tool(
                     }
                 }
                 
-                // Process multiple files and return the result
-                const result = await processMultipleFiles(dataSeries, plotType, title, xAxisLabel, yAxisLabel);
-                return result;
+                await processMultipleFiles(dataSeries, plotType, title, xAxisLabel, yAxisLabel);
+                return params;
             }
             
             // Handle single file path or array of file paths with same column structure
@@ -111,15 +108,14 @@ export const plotDataTool = tool(
                     };
                 });
                 
-                // Process multiple files and return the result
-                const result = await processMultipleFiles(generatedDataSeries, plotType, title, xAxisLabel, yAxisLabel);
-                return result;
+                await processMultipleFiles(generatedDataSeries, plotType, title, xAxisLabel, yAxisLabel);
+                return params;
             }
             
             // Single file case - use the original implementation
             const singleFilePath = normalizedFilePaths[0];
-            const result = await processSingleFile(singleFilePath, xAxisColumn, yAxisColumns, plotType, title, xAxisLabel, yAxisLabel, tooltipColumn);
-            return result;
+            await processSingleFile(singleFilePath, xAxisColumn, yAxisColumns, plotType, title, xAxisLabel, yAxisLabel, tooltipColumn);
+            return params;
         } catch (error: any) {
             return JSON.stringify({
                 error: `Error processing plot data: ${error.message}`,
@@ -184,9 +180,6 @@ interface SeriesConfig {
 
 // Helper function to process a single file
 async function processSingleFile(filePath: string, xAxisColumn?: string, yAxisColumns?: any, plotType: string = "line", title?: string, xAxisLabel?: string, yAxisLabel?: string, tooltipColumn?: string) {
-    // Generate a unique filename for the HTML file
-    const fileBaseName = filePath.split('/').pop()?.split('.')[0] || 'data';
-    const htmlFileName = `plots/${plotType}_${fileBaseName}_${Date.now()}.html`;
     // Read the CSV file
     const fileContent = await readFile.invoke({ filename: filePath });
     const fileData = JSON.parse(fileContent);
@@ -297,170 +290,6 @@ async function processSingleFile(filePath: string, xAxisColumn?: string, yAxisCo
             suggestion: "Check if the CSV file contains valid data"
         });
     }
-    
-    // Extract x-axis data
-    const xAxisData = dataRows.map(row => row.x);
-    
-    // Process y-axis data for each series
-    const seriesData = normalizedYColumns.map((yCol, index) => {
-        return {
-            label: yCol.label || yCol.column,
-            column: yCol.column,
-            color: yCol.color,
-            data: dataRows.map(row => row.y[index].value),
-            tooltipData: dataRows.map(row => row.y[index].tooltip),
-            xData: xAxisData,
-            sourceFile: filePath
-        };
-    });
-    
-    // Create plot configuration
-    const plotConfig = {
-        messageContentType: 'plot_data',
-        plotType,
-        title: title || `${normalizedYColumns.map(y => y.label || y.column).join(', ')} vs ${finalXAxisColumn}`,
-        xAxis: {
-            label: xAxisLabel || finalXAxisColumn,
-            data: xAxisData
-        },
-        series: seriesData,
-        sourceFiles: [filePath],
-        isMultiSource: false
-    };
-    
-    // Generate HTML with Plotly
-    const htmlContent = await generatePlotlyHtml(plotConfig);
-    
-    // Save HTML file to S3
-    const chatSessionId = getChatSessionId();
-    if (!chatSessionId) {
-        return JSON.stringify({
-            error: "No chat session ID found",
-            suggestion: "Make sure you're in a valid chat session"
-        });
-    }
-    
-    try {
-        // Write the HTML file
-        const writeResult = await writeFile.invoke({
-            filename: htmlFileName,
-            content: htmlContent
-        });
-        
-        const writeResultObj = JSON.parse(writeResult);
-        if (writeResultObj.error) {
-            throw new Error(writeResultObj.error);
-        }
-        
-        // Return success with file path
-        return JSON.stringify({
-            ...plotConfig,
-            htmlFile: htmlFileName,
-            renderType: 'asset'
-        });
-    } catch (error: any) {
-        return JSON.stringify({
-            error: `Failed to save HTML file: ${error.message}`,
-            suggestion: "Check S3 permissions and try again"
-        });
-    }
-}
-
-// Function to generate HTML with Plotly visualization
-async function generatePlotlyHtml(plotConfig: any): Promise<string> {
-    const { plotType, title, xAxis, series } = plotConfig;
-    
-    // Create data array for Plotly
-    const plotlyData = series.map((s: any) => {
-        // For multi-file data, we need to align the data with the common x-axis
-        const xValues = s.xData || xAxis.data;
-        const yValues = s.data;
-        
-        // Create the trace object based on plot type
-        const trace: any = {
-            name: s.label,
-            x: xValues,
-            y: yValues,
-            type: plotType === 'bar' ? 'bar' : 'scatter',
-            mode: plotType === 'scatter' ? 'markers' : 'lines',
-        };
-        
-        // Add color if specified
-        if (s.color) {
-            trace.marker = { color: s.color };
-            trace.line = { color: s.color };
-        }
-        
-        // Add tooltip data if available
-        if (s.tooltipData && s.tooltipData.some((t: any) => t !== undefined)) {
-            trace.text = s.tooltipData;
-            trace.hoverinfo = 'text+name';
-        }
-        
-        return trace;
-    });
-    
-    // Create layout for Plotly
-    const layout = {
-        title: title || 'Data Visualization',
-        xaxis: {
-            title: xAxis.label || '',
-        },
-        yaxis: {
-            title: series.length === 1 ? series[0].column : '',
-        },
-        hovermode: 'closest',
-        margin: { t: 50, r: 50, b: 100, l: 100 },
-        showlegend: series.length > 1,
-    };
-    
-    // Generate HTML with embedded Plotly
-    const html = `
-<!DOCTYPE html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <title>${title || 'Data Visualization'}</title>
-    <script src="https://cdn.plot.ly/plotly-2.24.1.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f8f9fa;
-        }
-        .plot-container {
-            width: 100%;
-            height: 600px;
-            background-color: white;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-            border-radius: 4px;
-            overflow: hidden;
-        }
-        .source-info {
-            margin-top: 15px;
-            font-size: 12px;
-            color: #666;
-        }
-    </style>
-</head>
-<body>
-    <div class="plot-container" id="plot"></div>
-    <div class="source-info">
-        Source: ${series.map((s: any) => s.sourceFile).filter((v: any, i: number, a: any[]) => a.indexOf(v) === i).join(', ')}
-    </div>
-    
-    <script>
-        const data = ${JSON.stringify(plotlyData)};
-        const layout = ${JSON.stringify(layout)};
-        
-        Plotly.newPlot('plot', data, layout, {responsive: true});
-    </script>
-</body>
-</html>
-`;
-    
-    return html;
 }
 
 // Helper function to process multiple files
@@ -607,8 +436,8 @@ async function processMultipleFiles(dataSeries: SeriesConfig[], plotType: string
         ? `${dataSeries[0].yAxisColumn} vs ${dataSeries[0].xAxisColumn}`
         : `Comparison of multiple data series`;
 
-    // Create plot configuration
-    const plotConfig = {
+    // Return the plot configuration with multiple series from multiple files
+    return JSON.stringify({
         messageContentType: 'plot_data',
         plotType,
         title: title || defaultTitle,
@@ -619,46 +448,5 @@ async function processMultipleFiles(dataSeries: SeriesConfig[], plotType: string
         series: allSeries,
         sourceFiles,
         isMultiSource: true
-    };
-    
-    // Generate HTML with Plotly
-    const htmlContent = await generatePlotlyHtml(plotConfig);
-    
-    // Generate a unique filename for the HTML file
-    const fileBaseName = sourceFiles.map(f => path.basename(f, '.csv')).join('_');
-    const htmlFileName = `plots/${plotType}_data_${fileBaseName}_${Date.now()}.html`;
-    
-    // Save HTML file to S3
-    const chatSessionId = getChatSessionId();
-    if (!chatSessionId) {
-        return JSON.stringify({
-            error: "No chat session ID found",
-            suggestion: "Make sure you're in a valid chat session"
-        });
-    }
-    
-    try {
-        // Write the HTML file
-        const writeResult = await writeFile.invoke({
-            filename: htmlFileName,
-            content: htmlContent
-        });
-        
-        const writeResultObj = JSON.parse(writeResult);
-        if (writeResultObj.error) {
-            throw new Error(writeResultObj.error);
-        }
-        
-        // Return success with file path
-        return JSON.stringify({
-            ...plotConfig,
-            htmlFile: htmlFileName,
-            renderType: 'asset'
-        });
-    } catch (error: any) {
-        return JSON.stringify({
-            error: `Failed to save HTML file: ${error.message}`,
-            suggestion: "Check S3 permissions and try again"
-        });
-    }
+    });
 }
