@@ -266,6 +266,53 @@ backend.reActAgentFunction.addEnvironment(
   awsMcpToolsFunctionUrl.url
 );
 
+// Grant the Amplify app IAM permissions to access S3 bucket
+// This allows the Next.js app in production to access S3 files
+const unauthenticatedS3Policy = new iam.PolicyDocument({
+  statements: [
+    new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      resources: [
+        backend.storage.resources.bucket.bucketArn,
+        `${backend.storage.resources.bucket.bucketArn}/*`,
+      ],
+    })
+  ]
+});
+
+const authenticatedS3Policy = new iam.PolicyDocument({
+  statements: [
+    new iam.PolicyStatement({
+      effect: iam.Effect.ALLOW,
+      actions: [
+        "s3:GetObject",
+        "s3:ListBucket",
+        "s3:PutObject",
+        "s3:DeleteObject"
+      ],
+      resources: [
+        backend.storage.resources.bucket.bucketArn,
+        `${backend.storage.resources.bucket.bucketArn}/*`,
+      ],
+    })
+  ]
+});
+
+// Create managed policies and attach them to the roles
+const unauthenticatedS3ManagedPolicy = new iam.ManagedPolicy(backend.stack, 'UnauthenticatedS3Policy', {
+  document: unauthenticatedS3Policy,
+  roles: [backend.auth.resources.unauthenticatedUserIamRole]
+});
+
+const authenticatedS3ManagedPolicy = new iam.ManagedPolicy(backend.stack, 'AuthenticatedS3Policy', {
+  document: authenticatedS3Policy,
+  roles: [backend.auth.resources.authenticatedUserIamRole]
+});
+
 awsMcpToolsFunctionUrl
 
 new PdfToYamlConstruct(backend.stack, 'PdfToYamlConstruct', {
