@@ -244,9 +244,9 @@ function Page({
                                 selectedItems={selectedItems}
                                 items={[
                                     {
-                                        name: 'Clay Volume Calculator',
-                                        description: 'Advanced analysis tool for calculating clay volume from gamma ray logs with multiple method options and quality control visualization.',
-                                        prompt: 'Calculate clay volume from gamma ray log data using both linear and non-linear methods (Clavier/Stieber). Generate synthetic gamma ray log data with values between 0-150 API units, including clean sand baseline (20 API) and shale baseline (120 API). Compare results between different calculation methods, perform quality control for outliers, and generate a comprehensive visualization showing the clay volume curve alongside the original gamma ray data. Include statistical analysis of the results and recommendations for optimal method selection.',
+                                        name: 'Shale Volume Calculator',
+                                        description: 'Advanced analysis tool for calculating shale volume from gamma ray logs with multiple method options and quality control visualization.',
+                                        prompt: 'Calculate shale volume from gamma ray log data using both linear and non-linear methods (Clavier/Stieber). Generate synthetic gamma ray log data with values between 0-150 API units, including clean sand baseline (20 API) and shale baseline (120 API). Compare results between different calculation methods, perform quality control for outliers, and generate a comprehensive visualization showing the shale volume curve alongside the original gamma ray data. Include statistical analysis of the results and recommendations for optimal method selection.',
                                     },
                                     {
                                         name: 'Porosity Analysis Suite',
