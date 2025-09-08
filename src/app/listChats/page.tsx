@@ -19,29 +19,32 @@ const Page = () => {
     const [chatSessions, setChatSessions] = useState<Schema["ChatSession"]["createType"][]>([]);
     const [selectedItems, setSelectedItems] = useState<Schema["ChatSession"]["createType"][]>([]);
 
+    // Function to fetch and refresh chat sessions
+    const fetchChatSessions = async () => {
+        const result = await amplifyClient.models.ChatSession.list({
+            filter: {
+                owner: {
+                    contains: user.userId
+                }
+            }
+        });
+        const sortedChatSessions = result.data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+        // Add default title for untitled chats
+        const processedSessions = sortedChatSessions.map(session => {
+            if (!session.name) {
+                const date = new Date(session.createdAt);
+                const formattedDate = date.toLocaleString();
+                return { ...session, name: `Untitled - ${formattedDate}` };
+            }
+            return session;
+        });
+
+        setChatSessions(processedSessions);
+        return processedSessions;
+    };
+
     useEffect(() => {
-        const fetchChatSessions = async () => {
-            const result = await amplifyClient.models.ChatSession.list({
-                filter: {
-                    owner: {
-                        contains: user.userId
-                    }
-                }
-            });
-            const sortedChatSessions = result.data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-
-            // Add default title for untitled chats
-            const processedSessions = sortedChatSessions.map(session => {
-                if (!session.name) {
-                    const date = new Date(session.createdAt);
-                    const formattedDate = date.toLocaleString();
-                    return { ...session, name: `Untitled - ${formattedDate}` };
-                }
-                return session;
-            });
-
-            setChatSessions(processedSessions);
-        };
         fetchChatSessions();
     }, [user.userId]);
 
@@ -49,10 +52,16 @@ const Page = () => {
         if (selectedItems.length === 0) return;
 
         if (window.confirm(`Are you sure you want to delete ${selectedItems.length} selected chat${selectedItems.length > 1 ? 's' : ''}?`)) {
-            for (const item of selectedItems) {
+            // Create a copy of the selected items to use after deletion
+            const itemsToDelete = [...selectedItems];
+            
+            // Delete all selected items
+            for (const item of itemsToDelete) {
                 await amplifyClient.models.ChatSession.delete({ id: item.id! });
             }
-            setChatSessions(chatSessions.filter(c => !selectedItems.some(s => s.id === c.id)));
+            
+            // Refresh the chat sessions from the server
+            await fetchChatSessions();
             setSelectedItems([]);
         }
     };
@@ -118,7 +127,9 @@ const Page = () => {
                                     onClick={async () => {
                                         if (window.confirm(`Are you sure you want to delete the chat "${item.name}"?`)) {
                                             await amplifyClient.models.ChatSession.delete({ id: item.id! });
-                                            setChatSessions(chatSessions.filter(c => c.id !== item.id));
+                                            
+                                            // Refresh the chat sessions from the server
+                                            await fetchChatSessions();
                                         }
                                     }}
                                 >
