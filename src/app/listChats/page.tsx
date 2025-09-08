@@ -103,6 +103,7 @@ const Page = () => {
                             WebkitBoxOrient: 'vertical',
                             lineHeight: '1.5em', /* Consistent line height for better control */
                             marginBottom: '16px',
+                            height: '150px',
                         }}>
                             {/* Use a default message if no description is available */}
                             {item.name ? `Chat session: ${item.name}` : "No description available."}
@@ -118,7 +119,7 @@ const Page = () => {
                             position: 'absolute',
                             bottom: '16px',
                             left: '16px',
-                            right: '16px'
+                            right: '16px',
                         }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                 <Button
