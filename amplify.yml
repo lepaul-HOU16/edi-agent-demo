@@ -3,29 +3,16 @@ backend:
   phases:
     build:
       commands:
+        - '# Execute Amplify CLI with the helper script'
         - amplifyPush --simple
 frontend:
   phases:
     preBuild:
       commands:
         - npm ci
-        # Ensure AWS credentials are available for build process
-        - echo "Build environment check..."
-        - echo "NODE_ENV=$NODE_ENV"
-        - echo "AWS_REGION=$AWS_REGION"
     build:
       commands:
         - npm run build
-    postBuild:
-      commands:
-        # Test S3 connectivity after build
-        - echo "Testing S3 connectivity..."
-        - |
-          if [ -f "amplify_outputs.json" ]; then
-            echo "amplify_outputs.json found"
-          else
-            echo "Warning: amplify_outputs.json not found"
-          fi
   artifacts:
     baseDirectory: .next
     files:
@@ -34,22 +21,3 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
-  customHeaders:
-    - pattern: '/api/**'
-      headers:
-        - key: 'Cache-Control'
-          value: 'no-cache, no-store, must-revalidate'
-        - key: 'Pragma'
-          value: 'no-cache'
-        - key: 'Expires'
-          value: '0'
-    - pattern: '/file/**'
-      headers:
-        - key: 'Cache-Control'
-          value: 'no-cache, no-store, must-revalidate'
-        - key: 'Access-Control-Allow-Origin'
-          value: '*'
-        - key: 'Access-Control-Allow-Methods'
-          value: 'GET, OPTIONS'
-        - key: 'Access-Control-Allow-Headers'
-          value: 'Content-Type, Authorization'

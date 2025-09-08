@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
-import { createS3Client, getEnvironmentInfo } from '@/utils/awsConfig';
 
 interface PageProps {
   params: {
@@ -44,22 +43,22 @@ export async function GET(request: Request, { params }: PageProps) {
 
     console.log(`[S3 Route] Processing request for: ${s3KeyDecoded}`);
 
-    // Initialize S3 client and get configuration
-    let s3Client: any;
-    let bucketName: string;
+    // Load configuration
+    const outputs = require('@/../amplify_outputs.json');
+    const bucketName = outputs.storage.bucket_name;
+    const region = outputs.storage.aws_region;
+
+    // Initialize S3 client
+    let s3Client: S3Client;
     try {
-      const s3Config = createS3Client();
-      s3Client = s3Config.client;
-      bucketName = s3Config.bucketName;
-      console.log(`[S3 Route] S3 client initialized for region: ${s3Config.region}`);
-      console.log(`[S3 Route] Environment info:`, getEnvironmentInfo());
+      s3Client = new S3Client({ region });
+      console.log(`[S3 Route] S3 client initialized for region: ${region}`);
     } catch (error) {
       console.error('[S3 Route] Failed to initialize S3 client:', error);
       return NextResponse.json(
         { 
           error: 'S3 client initialization failed',
-          details: error instanceof Error ? error.message : 'Unknown error',
-          environment: getEnvironmentInfo()
+          details: error instanceof Error ? error.message : 'Unknown error'
         },
         { status: 500 }
       );
