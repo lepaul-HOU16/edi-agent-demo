@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { ListObjectsV2Command } from '@aws-sdk/client-s3';
-import { createS3Client, getEnvironmentInfo } from '@/utils/awsConfig';
+import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
 
 export async function GET() {
   const startTime = Date.now();
@@ -8,29 +7,14 @@ export async function GET() {
   try {
     console.log('[S3 Health Check] Starting S3 connectivity check...');
 
-    // Get environment info
-    const envCheck = getEnvironmentInfo();
+    // Load configuration
+    const outputs = require('@/../amplify_outputs.json');
+    const bucketName = outputs.storage.bucket_name;
+    const region = outputs.storage.aws_region;
 
-    // Initialize S3 client with proper credential handling
-    let s3Client: any;
-    let bucketName: string;
-    let region: string;
-    
-    try {
-      const s3Config = createS3Client();
-      s3Client = s3Config.client;
-      bucketName = s3Config.bucketName;
-      region = s3Config.region;
-      console.log(`[S3 Health Check] S3 client initialized for region: ${region}`);
-    } catch (error) {
-      return NextResponse.json({
-        status: 'error',
-        error: 'S3 client initialization failed',
-        details: error instanceof Error ? error.message : 'Unknown error',
-        environment: envCheck,
-        timestamp: new Date().toISOString()
-      }, { status: 500 });
-    }
+    // Initialize S3 client
+    const s3Client = new S3Client({ region });
+    console.log(`[S3 Health Check] S3 client initialized for region: ${region}`);
 
     // Test S3 connectivity by listing objects (limit to 1 to minimize cost)
     try {
@@ -54,7 +38,6 @@ export async function GET() {
           isTruncated: listResponse.IsTruncated || false,
           responseTime: `${duration}ms`
         },
-        environment: envCheck,
         timestamp: new Date().toISOString()
       });
 
@@ -69,24 +52,16 @@ export async function GET() {
       if (s3Error instanceof Error) {
         if (s3Error.name === 'AccessDenied') {
           errorType = 'access_denied';
-          troubleshooting = envCheck.isProduction ? [
-            'Check Amplify app IAM role permissions for S3',
-            'Verify S3 bucket policy allows list operations from Amplify',
-            'Ensure the bucket exists and is accessible from production environment'
-          ] : [
+          troubleshooting = [
             'Check IAM permissions for the current AWS credentials',
             'Verify S3 bucket policy allows list operations',
             'Ensure the bucket exists and is accessible'
           ];
         } else if (s3Error.name === 'CredentialsError' || s3Error.message.includes('credentials')) {
           errorType = 'credentials_error';
-          troubleshooting = envCheck.isProduction ? [
-            'Verify Amplify app has proper IAM role attached',
-            'Check if the execution role has S3 permissions',
-            'Ensure the bucket policy allows access from the Amplify app'
-          ] : [
+          troubleshooting = [
             'Set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY environment variables',
-            'Run "aws configure" to set up AWS CLI credentials',
+            'Check if IAM role is properly configured (for production)',
             'Verify AWS credentials are not expired'
           ];
         } else if (s3Error.name === 'NoSuchBucket') {
@@ -112,7 +87,6 @@ export async function GET() {
         errorType,
         details: s3Error instanceof Error ? s3Error.message : 'Unknown S3 error',
         config: { bucketName, region },
-        environment: envCheck,
         troubleshooting,
         responseTime: `${duration}ms`,
         timestamp: new Date().toISOString()

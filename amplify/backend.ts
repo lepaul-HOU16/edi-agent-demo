@@ -16,7 +16,7 @@ import { fileURLToPath } from 'url';
 
 import { PdfToYamlConstruct } from './custom/pdfToYamlConstruct';
 import { McpServerConstruct } from './custom/mcpServer';
-import mcp from 'middy-mcp';
+
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -313,31 +313,7 @@ const authenticatedS3ManagedPolicy = new iam.ManagedPolicy(backend.stack, 'Authe
   roles: [backend.auth.resources.authenticatedUserIamRole]
 });
 
-// Create IAM role for Amplify app execution (for production deployment)
-const amplifyAppExecutionRole = new iam.Role(backend.stack, 'AmplifyAppExecutionRole', {
-  assumedBy: new iam.ServicePrincipal('amplify.amazonaws.com'),
-  description: 'Role for Amplify app to access S3 in production',
-  managedPolicies: [
-    iam.ManagedPolicy.fromAwsManagedPolicyName('service-role/AmplifyBackendDeployFullAccess')
-  ]
-});
 
-// Add S3 permissions to the Amplify execution role
-amplifyAppExecutionRole.addToPolicy(
-  new iam.PolicyStatement({
-    effect: iam.Effect.ALLOW,
-    actions: [
-      "s3:GetObject",
-      "s3:ListBucket",
-      "s3:PutObject",
-      "s3:DeleteObject"
-    ],
-    resources: [
-      backend.storage.resources.bucket.bucketArn,
-      `${backend.storage.resources.bucket.bucketArn}/*`,
-    ],
-  })
-);
 
 awsMcpToolsFunctionUrl
 
@@ -365,7 +341,7 @@ backend.addOutput({
     apiKeyArn: apiKey.keyArn,
     mcpAgentInvokerUrl: mcpAgentInvokerFunctionUrl.url,
     mcpFunctionUrl: awsMcpToolsFunctionUrl.url,
-    amplifyAppExecutionRoleArn: amplifyAppExecutionRole.roleArn
+
   }
 });
 
