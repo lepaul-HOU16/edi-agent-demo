@@ -48,44 +48,67 @@ function Page({
     const [messages, setMessages] = useState<Message[]>([]);
 
     const setActiveChatSessionAndUpload = async (newChatSession: Schema["ChatSession"]["createType"]) => {
-        const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
-            id: (await params).chatSessionId,
-            ...newChatSession
-        });
+        try {
+            const resolvedParams = await params;
+            const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
+                id: resolvedParams.chatSessionId,
+                ...newChatSession
+            });
 
-        if (updatedChatSession) setActiveChatSession(updatedChatSession);
+            if (updatedChatSession) setActiveChatSession(updatedChatSession);
+        } catch (error) {
+            console.error('Error updating chat session:', error);
+        }
     }
 
     //Get the chat session info
     useEffect(() => {
+        let isMounted = true;
+        
         const fetchChatSession = async () => {
-            const chatSessionId = (await params).chatSessionId
-            if (chatSessionId) {
+            try {
+                const resolvedParams = await params;
+                const chatSessionId = resolvedParams.chatSessionId;
+                
+                if (!isMounted || !chatSessionId) return;
+                
                 const { data: newChatSessionData } = await amplifyClient.models.ChatSession.get({
                     id: chatSessionId
                 });
-                if (newChatSessionData) {
-                    // If no name is provided, create a default name with date and time
-                    if (!newChatSessionData.name) {
-                        const defaultName = `New Canvas - ${new Date().toLocaleString()}`;
-                        // Save the default name to the database
-                        const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
-                            id: chatSessionId,
-                            name: defaultName
-                        });
+                
+                if (!isMounted || !newChatSessionData) return;
+                
+                // If no name is provided, create a default name with date and time
+                if (!newChatSessionData.name) {
+                    const defaultName = `New Canvas - ${new Date().toLocaleString()}`;
+                    // Save the default name to the database
+                    const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
+                        id: chatSessionId,
+                        name: defaultName
+                    });
+                    if (isMounted) {
                         if (updatedChatSession) {
                             setActiveChatSession(updatedChatSession);
                         } else {
                             setActiveChatSession({ ...newChatSessionData, name: defaultName });
                         }
-                    } else {
+                    }
+                } else {
+                    if (isMounted) {
                         setActiveChatSession(newChatSessionData);
                     }
                 }
+            } catch (error) {
+                console.error('Error fetching chat session:', error);
             }
         }
-        fetchChatSession()
-    }, [params]);
+        
+        fetchChatSession();
+        
+        return () => {
+            isMounted = false;
+        };
+    }, []);
 
     // Drawer variant only matters for mobile now
     const drawerVariant = "temporary";
