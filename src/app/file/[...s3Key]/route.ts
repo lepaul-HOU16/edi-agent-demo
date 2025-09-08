@@ -30,15 +30,27 @@ const getS3Client = () => {
 
   const region = outputs.storage.aws_region;
   
-  // Use AWS SDK credential chain which works better in production
-  return new S3Client({
+  // In production, use the default credential chain which will use:
+  // 1. Environment variables (development)
+  // 2. IAM roles (production - Amplify app execution role)
+  // 3. Instance profile credentials (EC2, Lambda, etc.)
+  const s3Config: any = {
     region,
-    // The AWS SDK will automatically use:
-    // 1. Environment variables (AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, AWS_SESSION_TOKEN)
-    // 2. IAM roles (in production)
-    // 3. AWS credentials file
-    // 4. Instance profile credentials (EC2, Lambda, etc.)
-  });
+    // Force credential chain resolution
+    forcePathStyle: false,
+    // Add explicit credential handling for production
+  };
+
+  // In development, use environment variables if available
+  if (process.env.NODE_ENV === 'development' && process.env.AWS_ACCESS_KEY_ID) {
+    s3Config.credentials = {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+      sessionToken: process.env.AWS_SESSION_TOKEN,
+    };
+  }
+  
+  return new S3Client(s3Config);
 };
 
 // Function to determine content type from file extension

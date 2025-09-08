@@ -50,10 +50,24 @@ export async function GET() {
       NODE_ENV: process.env.NODE_ENV || 'not set'
     };
 
-    // Initialize S3 client
+    // Initialize S3 client with proper credential handling
     let s3Client: S3Client;
     try {
-      s3Client = new S3Client({ region });
+      const s3Config: any = {
+        region,
+        forcePathStyle: false,
+      };
+
+      // In development, use environment variables if available
+      if (process.env.NODE_ENV === 'development' && process.env.AWS_ACCESS_KEY_ID) {
+        s3Config.credentials = {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+          sessionToken: process.env.AWS_SESSION_TOKEN,
+        };
+      }
+      
+      s3Client = new S3Client(s3Config);
       console.log(`[S3 Health Check] S3 client initialized for region: ${region}`);
     } catch (error) {
       return NextResponse.json({
