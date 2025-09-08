@@ -140,17 +140,22 @@ function Page({
     const handleCreateNewChat = async () => {
         try {
             // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-            amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+            await amplifyClient.queries.invokeReActAgent({ chatSessionId: "initialize" });
 
             // Create a default name with date and time for the new chat session
             const defaultName = `New Canvas - ${new Date().toLocaleString()}`;
             const newChatSession = await amplifyClient.models.ChatSession.create({
                 name: defaultName
             });
-            router.push(`/chat/${newChatSession.data!.id}`);
+            
+            if (newChatSession.data?.id) {
+                router.push(`/chat/${newChatSession.data.id}`);
+            } else {
+                throw new Error('Failed to create chat session - no ID returned');
+            }
         } catch (error) {
             console.error("Error creating chat session:", error);
-            alert("Failed to create chat session.");
+            alert("Failed to create chat session. Please try again.");
         }
     }
 

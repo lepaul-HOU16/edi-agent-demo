@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { S3Client, GetObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { createS3Client, getEnvironmentInfo } from '@/utils/awsConfig';
 
 interface PageProps {
   params: {
@@ -10,48 +11,6 @@ interface PageProps {
 
 // Set cache control headers to prevent caching large files
 export const dynamic = 'force-dynamic'; // Disable static optimization
-
-// Function to safely load outputs
-const loadOutputs = () => {
-  try {
-    return require('@/../amplify_outputs.json');
-  } catch (error) {
-    console.warn('amplify_outputs.json not found - this is expected during initial build');
-    return null;
-  }
-};
-
-// Initialize S3 client with proper credential handling
-const getS3Client = () => {
-  const outputs = loadOutputs();
-  if (!outputs || !outputs.storage) {
-    throw new Error('S3 configuration not found in amplify_outputs.json');
-  }
-
-  const region = outputs.storage.aws_region;
-  
-  // In production, use the default credential chain which will use:
-  // 1. Environment variables (development)
-  // 2. IAM roles (production - Amplify app execution role)
-  // 3. Instance profile credentials (EC2, Lambda, etc.)
-  const s3Config: any = {
-    region,
-    // Force credential chain resolution
-    forcePathStyle: false,
-    // Add explicit credential handling for production
-  };
-
-  // In development, use environment variables if available
-  if (process.env.NODE_ENV === 'development' && process.env.AWS_ACCESS_KEY_ID) {
-    s3Config.credentials = {
-      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-      sessionToken: process.env.AWS_SESSION_TOKEN,
-    };
-  }
-  
-  return new S3Client(s3Config);
-};
 
 // Function to determine content type from file extension
 const getContentType = (filename: string): string => {
@@ -85,42 +44,22 @@ export async function GET(request: Request, { params }: PageProps) {
 
     console.log(`[S3 Route] Processing request for: ${s3KeyDecoded}`);
 
-    // Load configuration
-    const outputs = loadOutputs();
-    if (!outputs || !outputs.storage) {
-      console.error('[S3 Route] Missing storage configuration in amplify_outputs.json');
-      return NextResponse.json(
-        { 
-          error: 'Storage configuration not found',
-          details: 'amplify_outputs.json is missing or does not contain storage configuration'
-        },
-        { status: 500 }
-      );
-    }
-
-    const bucketName = outputs.storage.bucket_name;
-    if (!bucketName) {
-      console.error('[S3 Route] Bucket name not found in configuration');
-      return NextResponse.json(
-        { 
-          error: 'Bucket configuration missing',
-          details: 'Bucket name not found in storage configuration'
-        },
-        { status: 500 }
-      );
-    }
-
-    // Initialize S3 client
-    let s3Client: S3Client;
+    // Initialize S3 client and get configuration
+    let s3Client: any;
+    let bucketName: string;
     try {
-      s3Client = getS3Client();
-      console.log(`[S3 Route] S3 client initialized for region: ${outputs.storage.aws_region}`);
+      const s3Config = createS3Client();
+      s3Client = s3Config.client;
+      bucketName = s3Config.bucketName;
+      console.log(`[S3 Route] S3 client initialized for region: ${s3Config.region}`);
+      console.log(`[S3 Route] Environment info:`, getEnvironmentInfo());
     } catch (error) {
       console.error('[S3 Route] Failed to initialize S3 client:', error);
       return NextResponse.json(
         { 
           error: 'S3 client initialization failed',
-          details: error instanceof Error ? error.message : 'Unknown error'
+          details: error instanceof Error ? error.message : 'Unknown error',
+          environment: getEnvironmentInfo()
         },
         { status: 500 }
       );

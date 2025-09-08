@@ -11,6 +11,7 @@ import themes from '../theme';
 
 import ConfigureAmplify from '@/components/ConfigureAmplify';
 import Providers from '@/components/Providers';
+import ErrorBoundary from '@/components/ErrorBoundary';
 // import TopNavBar from '@/components/TopNavBar';
 
 import IconButton from '@mui/material/IconButton';
@@ -50,20 +51,24 @@ export default function RootLayout({
   const handleCreateNewChat = async () => {
     try {
       // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+      await amplifyClient.queries.invokeReActAgent({ chatSessionId: "initialize" });
 
       const newChatSession = await amplifyClient.models.ChatSession.create({});
-      router.push(`/chat/${newChatSession.data!.id}`);
+      if (newChatSession.data?.id) {
+        router.push(`/chat/${newChatSession.data.id}`);
+      } else {
+        throw new Error('Failed to create chat session - no ID returned');
+      }
     } catch (error) {
       console.error("Error creating chat session:", error);
-      alert("Failed to create chat session.");
+      alert("Failed to create chat session. Please try again.");
     }
   };
 
   const handleCreatePetrophysicsChat = async () => {
     try {
       // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+      await amplifyClient.queries.invokeReActAgent({ chatSessionId: "initialize" });
 
       const newChatSession = await amplifyClient.models.ChatSession.create({});
       
@@ -122,16 +127,17 @@ export default function RootLayout({
       >
         <AppRouterCacheProvider>
           <ConfigureAmplify />
-          <FileSystemProvider>
-            <Providers>
-              <ThemeProvider theme={darkMode ? themes.dark : themes.light}>
-                <CssBaseline />
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  height: '100vh',
-                  overflow: 'hidden'
-                }}>
+          <ErrorBoundary>
+            <FileSystemProvider>
+              <Providers>
+                <ThemeProvider theme={darkMode ? themes.dark : themes.light}>
+                  <CssBaseline />
+                  <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '100vh',
+                    overflow: 'hidden'
+                  }}>
                   {/* <TopNavBar /> */}
 
                   <TopNavigation
@@ -289,16 +295,17 @@ export default function RootLayout({
                       },
                     ]}
                   />
-                  <div style={{
-                    flexGrow: 1,
-                    overflow: 'auto'
-                  }}>
-                    {children}
+                    <div style={{
+                      flexGrow: 1,
+                      overflow: 'auto'
+                    }}>
+                      {children}
+                    </div>
                   </div>
-                </div>
-              </ThemeProvider>
-            </Providers>
-          </FileSystemProvider>
+                </ThemeProvider>
+              </Providers>
+            </FileSystemProvider>
+          </ErrorBoundary>
         </AppRouterCacheProvider>
       </body>
     </html>
