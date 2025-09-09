@@ -59,6 +59,7 @@ amplify/backend/function/*/src/node_modules/
 amplify/backend/hosting/amplifyhosting/amplifyhosting-*
 amplify/backend/predictions/
 amplify/backend/storage/*/parameters.json
+.amplify/
 
 # aws exports
 aws-exports.js
