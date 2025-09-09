@@ -1149,6 +1149,10 @@ def determine_aggregation() -> str:
         response = agent("Determine how to aggregate the response.")
         response_text = str(response)
 
+        if response_text[-2:] == '\n':
+            response_text = response_text[:-2]
+
+
         output_data['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'] = response_text
 
         print(f'Agent: AggregateBy: Results: {response_text}')
