@@ -356,12 +356,18 @@ export default function FileViewer({
                   iframe.style.height = '1200px';
                 }
                 
-                // For image files, scale to show full image at 100% width
+                // For image files, scale to show full image without height constraints
                 if (/\.(jpg|jpeg|png|gif|svg|webp)$/i.test(s3Key)) {
                   iframe.style.width = '100%';
                   iframe.style.height = 'auto';
                   iframe.style.maxHeight = 'none';
+                  iframe.style.minHeight = 'auto';
                   iframe.style.objectFit = 'contain';
+                  // Remove any viewport height constraints
+                  iframe.style.removeProperty('max-height');
+                  iframe.style.removeProperty('min-height');
+                  // Set a more flexible height that allows full image display
+                  iframe.style.height = 'fit-content';
                 }
               }
             } catch (e) {
