@@ -4,8 +4,6 @@ backend:
     build:
       commands:
         - '# Generate outputs for Amplify Gen 2 project'
-        - apt-get update
-        - apt-get install -y build-essential python3 python3-pip
         - export NVM_DIR="$HOME/.nvm"
         - '[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"'
         - '[ -s "$NVM_DIR/bash_completion" ] && \. "$NVM_DIR/bash_completion"'
@@ -13,8 +11,6 @@ backend:
         - echo "Node version after nvm use:" && node --version
         - echo "NPM version after nvm use:" && npm --version
         - npm install --include=optional
-        - npm uninstall @parcel/watcher
-        - npm install @parcel/watcher --build-from-source
         - npx ampx generate outputs --app-id d1eeg2gu6ddc3z --branch main
 frontend:
   phases:
