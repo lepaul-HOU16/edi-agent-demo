@@ -25,7 +25,10 @@
     "@langchain/aws": "^0.1.11",
     "@langchain/community": "^0.3.28",
     "@langchain/langgraph": "^0.2.44",
+<<<<<<< HEAD
     "@langchain/mcp-adapters": "^0.5.2",
+=======
+>>>>>>> 9cc2d94 (merge back into main)
     "@mapbox/mapbox-gl-geocoder": "^5.0.3",
     "@mui/icons-material": "^6.4.2",
     "@mui/material": "^6.3.1",
@@ -63,7 +66,6 @@
     "@eslint/eslintrc": "^3",
     "@middy/core": "^6.1.6",
     "@middy/http-error-handler": "^6.1.6",
-    "@modelcontextprotocol/sdk": "^1.9.0",
     "@types/aws4": "^1.11.6",
     "@types/chai": "^5.2.1",
     "@types/jsdom": "^21.1.7",
@@ -89,7 +91,6 @@
     "itypescript": "^0.4.0",
     "jsdom": "^26.1.0",
     "jsonschema": "^1.5.0",
-    "middy-mcp": "^0.0.1",
     "mocha": "^11.1.0",
     "pdf-lib": "^1.17.1",
     "postcss": "^8",
