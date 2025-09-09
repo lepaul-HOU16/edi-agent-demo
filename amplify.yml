@@ -12,7 +12,7 @@ frontend:
         - nvm use 20
         - npm ci --production=false
         - npm rebuild
-        - npm ls @parcel/watcher || echo "Warning: @parcel/watcher not found"
+        - 'npm ls @parcel/watcher || echo "Warning: @parcel/watcher not found"'
         - npm ls || true
         - echo "Node version:" && node --version
         - echo "NPM version:" && npm --version
