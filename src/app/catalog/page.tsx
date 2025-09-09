@@ -1,24 +1,59 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Alert, BreadcrumbGroup, Cards, Container, ContentLayout, Grid, Header, SpaceBetween, Table, Box, Button, Pagination, SegmentedControl } from '@cloudscape-design/components';
 import { useTheme, IconButton, Tooltip, List, ListItem, useMediaQuery } from '@mui/material';
 import FileDrawer from '@/components/FileDrawer';
 import FolderIcon from '@mui/icons-material/Folder';
 import RestartAlt from '@mui/icons-material/RestartAlt';
-import ChatBox from "@/components/ChatBox";
+import CatalogChatBox from "@/components/CatalogChatBox";
 import ChatMessage from '@/components/ChatMessage';
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 import { sendMessage } from '../../../utils/amplifyUtils';
+import { v4 as uuidv4 } from 'uuid';
+import { Message } from '../../../utils/types';
 import maplibregl, { 
   Map as MaplibreMap, 
   GeoJSONSource,
-  MapMouseEvent
+  MapMouseEvent,
+  MapLayerMouseEvent
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css'; // Import the CSS for the map
+import { parseUrl } from "@aws-sdk/url-parser";
+import { HttpRequest } from "@aws-sdk/protocol-http";
+import { SignatureV4 } from "@aws-sdk/signature-v4";
+import { Sha256 } from "@aws-crypto/sha256-browser";
 
 const amplifyClient = generateClient<Schema>();
+
+
+// Lambda function URL and AWS configuration
+const LAMBDA_MAP_URL = "https://jxhidrelljrdxx57pcuuofy2yi0tvsdg.lambda-url.us-east-1.on.aws/";
+const LAMBDA_SEARCH_URL = "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/"
+const REGION = "us-east-1";
+const SERVICE = "lambda";
+
+const AISearchSecrets = {
+    // AWS Cognito configuration
+    region: "us-east-1", // Replace with your actual region
+    edi_username: "edi-user", // Replace with your actual username
+    edi_password: "Asd!1edi", // Replace with your actual password
+    edi_client_id: "7se4hblptk74h59ghbb694ovj4", // Replace with your actual client ID
+    edi_client_secret: "k7iq7mnm4k0rp5hmve7ceb8dajkj9vulavetg90epn7an5sekfi", // Replace with your actual client secret
+    edi_partition: "osdu", // Replace with your actual partition ID
+    
+    // EDI API endpoints
+    edi_search_url: "https://osdu.vavourak.people.aws.dev/api/search/v2/query/", // Replace with your actual search URL
+
+    // Search services
+    search_api_key: "Wnve19VMRQ2Kd20j4URAT3yiUuRTzto96jepwnTL",
+    search_ws_url: "wss://dtcu734ffg.execute-api.us-east-1.amazonaws.com/demo/",
+    
+    // AWS credentials for Lambda access
+    AWS_ACCESS_KEY_ID: "AKIAWCYYAFVUY2KWAFM4",
+    AWS_SECRET_ACCESS_KEY: "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",
+};
 
 interface DataCollection {
   id: string;
@@ -28,7 +63,11 @@ interface DataCollection {
   owner: string;
 }
 
-// GeoJSON types removed
+// GeoJSON types
+interface GeoJSONData {
+  wells: any | null;
+  seismic: any | null;
+}
 
 export default function CatalogPage() {
   const [selectedId, setSelectedId] = useState("seg-1");
@@ -37,9 +76,13 @@ export default function CatalogPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [fileDrawerOpen, setFileDrawerOpen] = useState(false);
   const [userInput, setUserInput] = useState<string>('');
-  const [messages, setMessages] = useState<any[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [showChainOfThought, setShowChainOfThought] = useState(false);
-  const [activeChatSession, setActiveChatSession] = useState<any>({ id: "default" });
+  const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>({ id: "default" });
+  // Map data state
+  const [mapData, setMapData] = useState<GeoJSONData>({ wells: null, seismic: null });
+  const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
+  const [error, setError] = useState<Error | null>(null);
   // Determine color scheme based on theme mode
   const colorScheme = theme.palette.mode === 'dark' ? 'dark' : 'light';
   
@@ -50,34 +93,86 @@ export default function CatalogPage() {
   const dataCollections: DataCollection[] = [
     {
       id: 'dc1',
-      name: 'Cuu Long Basin',
-      description: 'Seismic and well data from the Cuu Long Basin',
+      name: 'Barrow',
+      description: 'Seismic and well data from the Barrow region',
       dateCreated: '2025-05-15',
       owner: 'Energy Research Team'
     },
     {
       id: 'dc2',
-      name: 'Nam Con Son Basin',
-      description: 'Comprehensive dataset of the Nam Con Son Basin',
+      name: 'Beagle Sub-basin',
+      description: 'Comprehensive dataset of the Beagle Sub-basin area',
       dateCreated: '2025-04-22',
       owner: 'Exploration Division'
     },
+    {
+      id: 'dc3',
+      name: 'Capreolus',
+      description: 'Production and reservoir data from Capreolus field',
+      dateCreated: '2025-03-10',
+      owner: 'Production Analytics'
+    },
+    {
+      id: 'dc4',
+      name: 'Dampier Study',
+      description: 'Environmental and geological study of the Dampier area',
+      dateCreated: '2025-02-28',
+      owner: 'Environmental Research'
+    }
   ];
+
+
+  // Function to sign a request with AWS SigV4
+  async function signRequest(url: string, method: string, body: any) {
+    try {
+      // Parse the URL
+      const parsedUrl = parseUrl(url);
+      
+      // Create the HTTP request object
+      const request = new HttpRequest({
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.path,
+        protocol: parsedUrl.protocol,
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          host: parsedUrl.hostname,
+        },
+        body: JSON.stringify(body),
+      });
+
+      // Create the SigV4 signer
+      const signer = new SignatureV4({
+        credentials: {
+          accessKeyId: AISearchSecrets.AWS_ACCESS_KEY_ID,
+          secretAccessKey: AISearchSecrets.AWS_SECRET_ACCESS_KEY
+        },
+        region: REGION,
+        service: SERVICE,
+        sha256: Sha256,
+      });
+
+      // Sign the request
+      const signedRequest = await signer.sign(request);
+
+      return {
+        url,
+        method,
+        headers: signedRequest.headers,
+        body, // Return the original body object, not stringified again
+      };
+    } catch (error) {
+      throw error;
+    }
+  }
 
   const handleCreateNewChat = async () => {
     try {
-      // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
-
-      const newChatSession = await amplifyClient.models.ChatSession.create({});
-      // Use router.push here if you want to navigate
-      // router.push(`/chat/${newChatSession.data!.id}`);
-      if (newChatSession.data) {
-        setActiveChatSession({ ...newChatSession.data });
-      }
+      // Clear the messages state to reset the conversation
+      setMessages([]);
     } catch (error) {
-      console.error("Error creating chat session:", error);
-      alert("Failed to create chat session.");
+      console.error("Error resetting chat:", error);
+      alert("Failed to reset chat.");
     }
   }
 
@@ -89,6 +184,268 @@ export default function CatalogPage() {
 
   // Store map instance in a ref so it persists across renders
   const mapRef = React.useRef<MaplibreMap | null>(null);
+  // Store source IDs to avoid duplicates
+  const sourcesRef = React.useRef({
+    wells: 'wells-source',
+    seismic: 'seismic-source'
+  });
+  
+  // Function to handle user input from chat and send to Lambda for search
+  const handleChatSearch = useCallback(async (prompt: string) => {
+    setIsLoadingMapData(true);
+    setError(null);
+    
+    try {
+      // Create the payload for the POST request
+      const payload = { prompt: prompt };
+      
+      // Sign the request with AWS SigV4
+      const signedRequest = await signRequest(LAMBDA_SEARCH_URL, 'POST', payload);
+      
+      // Make the fetch request to the Lambda function URL with signed headers
+      const response = await fetch(signedRequest.url, {
+        method: signedRequest.method,
+        headers: signedRequest.headers,
+        body: JSON.stringify(signedRequest.body),
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      // Get the raw response text first
+      const responseText = await response.text();
+      console.log('Raw search response text:', responseText.substring(0, 200) + '...');
+      
+      // Try to parse the response text
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+        console.log('Parsed search response structure:', responseData);
+      } catch (error) {
+        console.error('Error parsing search response text:', error);
+        throw new Error('Invalid JSON response from search server');
+      }
+      
+      // Extract the GeoJSON data from the response
+      let geoJsonData;
+      
+      if (responseData.body && typeof responseData.body === 'string') {
+        try {
+          const parsedBody = JSON.parse(responseData.body);
+          geoJsonData = parsedBody.geojson;
+        } catch (error) {
+          console.error('Error parsing responseData.body string:', error);
+          throw new Error('Invalid JSON in response body');
+        }
+      } else if (responseData.body && typeof responseData.body === 'object') {
+        geoJsonData = responseData.body.geojson;
+      } else if (responseData.geojson) {
+        geoJsonData = responseData.geojson;
+      } else {
+        console.error('Unexpected response structure:', responseData);
+        throw new Error('Could not find GeoJSON data in response');
+      }
+      
+      console.log('Extracted GeoJSON data:', geoJsonData);
+      
+      // Update the map with the new GeoJSON data
+      if (geoJsonData && mapRef.current) {
+        // Update wells data if available
+        if (geoJsonData.type === 'FeatureCollection' && geoJsonData.metadata?.type === 'wells') {
+          // If the wells source already exists, update it
+          if (mapRef.current.getSource(sourcesRef.current.wells)) {
+            (mapRef.current.getSource(sourcesRef.current.wells) as GeoJSONSource).setData(geoJsonData);
+          } else {
+            // Otherwise, add the source and layer
+            mapRef.current.addSource(sourcesRef.current.wells, {
+              type: 'geojson',
+              data: geoJsonData
+            });
+            
+            mapRef.current.addLayer({
+              id: 'wells-layer',
+              type: 'circle',
+              source: sourcesRef.current.wells,
+              paint: {
+                'circle-radius': 5,
+                'circle-color': '#ff0000',
+                'circle-stroke-width': 1,
+                'circle-stroke-color': '#ffffff'
+              }
+            });
+            
+            // Add click event for wells layer
+            mapRef.current.on('click', 'wells-layer', (e: MapLayerMouseEvent) => {
+              if (!e.features || e.features.length === 0) return;
+              
+              const coordinates = e.lngLat;
+              const properties = e.features[0].properties;
+              const name = properties?.name || 'Unnamed Well';
+              
+              // Create popup content with available metadata
+              const popupContent = document.createElement('div');
+              popupContent.innerHTML = `
+                <h3>${name}</h3>
+                ${properties ? Object.entries(properties)
+                  .filter(([key]) => key !== 'name') // Skip name as it's already in the title
+                  .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
+                  .join('') : 'No additional metadata available'}
+              `;
+              
+              // Create and show popup
+              new maplibregl.Popup()
+                .setLngLat(coordinates)
+                .setDOMContent(popupContent)
+                .addTo(mapRef.current!);
+            });
+            
+            // Change cursor to pointer when hovering over wells
+            mapRef.current.on('mouseenter', 'wells-layer', () => {
+              if (mapRef.current) {
+                mapRef.current.getCanvas().style.cursor = 'pointer';
+              }
+            });
+            
+            // Change cursor back when leaving wells
+            mapRef.current.on('mouseleave', 'wells-layer', () => {
+              if (mapRef.current) {
+                mapRef.current.getCanvas().style.cursor = '';
+              }
+            });
+          }
+          
+          // Add a new message to show the search results
+          const newMessage: Message = {
+            id: uuidv4(),
+            role: "ai",
+            content: {
+              text: `Found ${geoJsonData.features.length} wells matching your search criteria. The map has been updated to show these wells.`
+            },
+            responseComplete: true,
+            createdAt: new Date().toISOString()
+          };
+          
+          setMessages(prevMessages => [...prevMessages, newMessage]);
+        }
+      }
+      
+      return geoJsonData;
+    } catch (error) {
+      console.error('Error fetching search data:', error instanceof Error ? error : new Error(String(error)));
+      setError(error instanceof Error ? error : new Error(String(error)));
+      
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: uuidv4(),
+        role: "ai",
+        content: {
+          text: `Error processing your search: ${error instanceof Error ? error.message : String(error)}`
+        },
+        responseComplete: true,
+        createdAt: new Date().toISOString()
+      };
+      
+      setMessages(prevMessages => [...prevMessages, errorMessage]);
+      return null;
+    } finally {
+      setIsLoadingMapData(false);
+    }
+  }, []);
+
+  // Function to fetch map data from Lambda
+  const fetchMapData = useCallback(async () => {
+    setIsLoadingMapData(true);
+    setError(null);
+    
+    try {
+      // Create the payload for the POST request
+      const payload = { type: "get_all_map_data" };
+      
+      // Sign the request with AWS SigV4
+      const signedRequest = await signRequest(LAMBDA_MAP_URL, 'POST', payload);
+      
+      // Make the fetch request to the Lambda function URL with signed headers
+      const response = await fetch(signedRequest.url, {
+        method: signedRequest.method,
+        headers: signedRequest.headers,
+        body: JSON.stringify(signedRequest.body),
+        mode: 'cors',
+        credentials: 'omit'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+      
+      // Get the raw response text first
+      const responseText = await response.text();
+      console.log('Raw response text:', responseText.substring(0, 200) + '...');
+      
+      // Try to parse the response text
+      let responseData;
+      try {
+        responseData = JSON.parse(responseText);
+        console.log('Parsed response structure:', responseData);
+      } catch (error) {
+        console.error('Error parsing response text:', error);
+        throw new Error('Invalid JSON response from server');
+      }
+      
+      // Determine the correct data structure
+      let geoData;
+      
+      // Case 1: responseData is directly the wells/seismic structure
+      if (responseData.wells && responseData.seismic) {
+        console.log('Case 1: Direct wells/seismic structure');
+        geoData = responseData;
+      }
+      // Case 2: responseData has a body property that's already an object
+      else if (responseData.body && typeof responseData.body === 'object') {
+        console.log('Case 2: Body is already an object');
+        geoData = responseData.body;
+      }
+      // Case 3: responseData has a body property that's a JSON string
+      else if (responseData.body && typeof responseData.body === 'string') {
+        console.log('Case 3: Body is a string, attempting to parse');
+        try {
+          geoData = JSON.parse(responseData.body);
+        } catch (error) {
+          console.error('Error parsing responseData.body string:', error);
+          throw new Error('Invalid JSON in response body');
+        }
+      }
+      // Case 4: Unexpected structure
+      else {
+        console.error('Unexpected response structure:', responseData);
+        throw new Error('Unexpected response structure from server');
+      }
+      
+      console.log('Final geoData structure:', geoData);
+      
+      // Set the map data state, ensuring we have valid data
+      setMapData({
+        wells: geoData.wells || null,
+        seismic: geoData.seismic || null
+      });
+      
+      // Log what we're setting in the state
+      console.log('Setting mapData state:', {
+        wells: geoData.wells ? 'present' : 'missing',
+        seismic: geoData.seismic ? 'present' : 'missing'
+      });
+      
+      return geoData;
+    } catch (error) {
+      console.error('Error fetching map data:', error instanceof Error ? error : new Error(String(error)));
+      setError(error instanceof Error ? error : new Error(String(error)));
+      return null;
+    } finally {
+      setIsLoadingMapData(false);
+    }
+  }, []);
   
   // MultiPolygon-related functions removed
 
@@ -108,8 +465,8 @@ export default function CatalogPage() {
         mapRef.current = new maplibregl.Map({
           container: "map",
           style: `https://maps.geo.${region}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`,
-          center: [3.151419, 56.441028],
-          zoom: 4,
+          center: [108.300, 14.000], // 13.929305410576353, 108.31485104240228
+          zoom: 5,
         });
 
         // Add scale control with metric units (kilometers)
@@ -123,6 +480,141 @@ export default function CatalogPage() {
         // Wait for the map to load before adding sources and layers
         mapRef.current.on('load', () => {
           // Map initialization without MultiPolygon features
+          
+          // Fetch map data when the map loads
+          fetchMapData().then(geoData => {
+            if (!geoData || !mapRef.current) return;
+            
+            // Add sources and layers for wells if available
+            if (geoData.wells) {
+              // Add wells source if it doesn't exist
+              if (!mapRef.current.getSource(sourcesRef.current.wells)) {
+                mapRef.current.addSource(sourcesRef.current.wells, {
+                  type: 'geojson',
+                  data: geoData.wells
+                });
+                
+              // Add wells layer
+              mapRef.current.addLayer({
+                id: 'wells-layer',
+                type: 'circle',
+                source: sourcesRef.current.wells,
+                paint: {
+                  'circle-radius': 5,
+                  'circle-color': '#ff0000',
+                  'circle-stroke-width': 1,
+                  'circle-stroke-color': '#ffffff'
+                }
+              });
+              
+              // Add click event for wells layer
+              mapRef.current.on('click', 'wells-layer', (e: MapLayerMouseEvent) => {
+                if (!e.features || e.features.length === 0) return;
+                
+                const coordinates = e.lngLat;
+                const properties = e.features[0].properties;
+                const name = properties?.name || 'Unnamed Well';
+                
+                // Create popup content with available metadata
+                const popupContent = document.createElement('div');
+                popupContent.innerHTML = `
+                  <h3>${name}</h3>
+                  ${properties ? Object.entries(properties)
+                    .filter(([key]) => key !== 'name') // Skip name as it's already in the title
+                    .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
+                    .join('') : 'No additional metadata available'}
+                `;
+                
+                // Create and show popup
+                new maplibregl.Popup()
+                  .setLngLat(coordinates)
+                  .setDOMContent(popupContent)
+                  .addTo(mapRef.current!);
+              });
+              
+              // Change cursor to pointer when hovering over wells
+              mapRef.current.on('mouseenter', 'wells-layer', () => {
+                if (mapRef.current) {
+                  mapRef.current.getCanvas().style.cursor = 'pointer';
+                }
+              });
+              
+              // Change cursor back when leaving wells
+              mapRef.current.on('mouseleave', 'wells-layer', () => {
+                if (mapRef.current) {
+                  mapRef.current.getCanvas().style.cursor = '';
+                }
+              });
+              } else {
+                // Update existing source
+                (mapRef.current.getSource(sourcesRef.current.wells) as GeoJSONSource).setData(geoData.wells);
+              }
+            }
+            
+            // Add sources and layers for seismic if available
+            if (geoData.seismic) {
+              // Add seismic source if it doesn't exist
+              if (!mapRef.current.getSource(sourcesRef.current.seismic)) {
+                mapRef.current.addSource(sourcesRef.current.seismic, {
+                  type: 'geojson',
+                  data: geoData.seismic
+                });
+                
+              // Add seismic layer
+              mapRef.current.addLayer({
+                id: 'seismic-layer',
+                type: 'line',
+                source: sourcesRef.current.seismic,
+                paint: {
+                  'line-color': '#0000ff',
+                  'line-width': 2
+                }
+              });
+              
+              // Add click event for seismic layer
+              mapRef.current.on('click', 'seismic-layer', (e: MapLayerMouseEvent) => {
+                if (!e.features || e.features.length === 0) return;
+                
+                const coordinates = e.lngLat;
+                const properties = e.features[0].properties;
+                const name = properties?.name || 'Unnamed Seismic Grid';
+                
+                // Create popup content with available metadata
+                const popupContent = document.createElement('div');
+                popupContent.innerHTML = `
+                  <h3>${name}</h3>
+                  ${properties ? Object.entries(properties)
+                    .filter(([key]) => key !== 'name') // Skip name as it's already in the title
+                    .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
+                    .join('') : 'No additional metadata available'}
+                `;
+                
+                // Create and show popup
+                new maplibregl.Popup()
+                  .setLngLat(coordinates)
+                  .setDOMContent(popupContent)
+                  .addTo(mapRef.current!);
+              });
+              
+              // Change cursor to pointer when hovering over seismic lines
+              mapRef.current.on('mouseenter', 'seismic-layer', () => {
+                if (mapRef.current) {
+                  mapRef.current.getCanvas().style.cursor = 'pointer';
+                }
+              });
+              
+              // Change cursor back when leaving seismic lines
+              mapRef.current.on('mouseleave', 'seismic-layer', () => {
+                if (mapRef.current) {
+                  mapRef.current.getCanvas().style.cursor = '';
+                }
+              });
+              } else {
+                // Update existing source
+                (mapRef.current.getSource(sourcesRef.current.seismic) as GeoJSONSource).setData(geoData.seismic);
+              }
+            }
+          });
         });
         
         // Ensure the map renders properly by triggering a resize after initialization
@@ -158,7 +650,7 @@ export default function CatalogPage() {
       // We don't remove the map on unmount anymore, as we want to preserve it when switching tabs
       // It will be properly cleaned up when needed in the effect logic above
     };
-  }, [colorScheme, mapColorScheme, selectedId]);
+  }, [colorScheme, mapColorScheme, selectedId, fetchMapData]);
   
   return (
     <div style={{ margin: '36px 80px 0' }}>
@@ -232,6 +724,42 @@ export default function CatalogPage() {
       >
         {selectedId === "seg-1" ? (
           <div className='panel'>
+            {isLoadingMapData && (
+              <div style={{ 
+                position: 'absolute', 
+                top: '50%', 
+                left: '50%', 
+                transform: 'translate(-50%, -50%)',
+                zIndex: 10,
+                backgroundColor: 'rgba(255, 255, 255, 0.7)',
+                padding: '15px',
+                width: '200px',
+                height: '200px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '4px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                <span>Loading map data...</span>
+              </div>
+            )}
+            {error && (
+              <div style={{ 
+                position: 'absolute', 
+                top: '10px', 
+                left: '50%', 
+                transform: 'translateX(-50%)',
+                zIndex: 10,
+                backgroundColor: 'rgba(255, 0, 0, 0.1)',
+                color: 'red',
+                padding: '10px 20px',
+                borderRadius: '4px',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                <span>Error loading map data: {error.message}</span>
+              </div>
+            )}
             <div id="map" style={{ width: '100%', height: 'calc(100vh - 200px)', borderRadius: '0 0 16px 16px' }} />
           </div>
         ) : (
@@ -352,13 +880,17 @@ export default function CatalogPage() {
                                                 chatSessionId={activeChatSession.id}
                                                 showChainOfThought={showChainOfThought}
                                             /> */}
-              <ChatBox
-                chatSessionId={activeChatSession.id || ""}
-                showChainOfThought={showChainOfThought}
+              <CatalogChatBox
                 onInputChange={setUserInput}
                 userInput={userInput}
                 messages={messages}
                 setMessages={setMessages}
+                onSendMessage={async (message: string) => {
+                  if (selectedId === "seg-1" && message) {
+                    // Process the user's message for map search
+                    await handleChatSearch(message);
+                  }
+                }}
               />
 
             </div>
