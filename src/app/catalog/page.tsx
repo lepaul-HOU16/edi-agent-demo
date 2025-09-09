@@ -894,7 +894,7 @@ export default function CatalogPage() {
               />
 
             </div>
-          </div>
+          </div> 
 
           {/* Floating file button for mobile - only show when drawer is closed */}
           {isMobile && !fileDrawerOpen && (

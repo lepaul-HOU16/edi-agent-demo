@@ -154,9 +154,9 @@ def perform_wellbore_to_well_lookup(wellbore_ids, headers):
         'limit': 1,
     }
 
-    # print(f'wellbore_to_well_lookup: full_query={full_query}')
+    print(f'full_query_wellbores={full_query_wellbores}')
     response_wellbores = requests.post(edi_search_url, headers=headers, json=full_query_wellbores).json()
-    # print(f'wellbore_to_well_lookup: test query response={response_wellbores}')
+    print(f'response_wellbores={response_wellbores}')
 
     well_ids = [item['key'][:-1] for item in response_wellbores['aggregations']]
 
@@ -173,13 +173,14 @@ def perform_wellbore_to_well_lookup(wellbore_ids, headers):
 
     full_query_wells = {
         'kind': ['*:*:master-data--Well:*'],
-        'query': query,
         "returnedFields": ['id', 'data.NameAliases.AliasName', 'data.SpatialLocation.Wgs84Coordinates.geometries.coordinates'],
         'limit': 1000,
+        'query': query,
     }
+    print(f'full_query_wells=\n{full_query_wells}')
 
     response_wells = requests.post(edi_search_url, headers=headers, json=full_query_wells).json()
-    # print(f'response_wells=\n{response_wells}')
+    print(f'response_wells=\n{response_wells}')
 
     # Convert each well to GeoJSON Feature
     geojson_features = [convert_well_to_geojson(well) for well in response_wells['results']]
