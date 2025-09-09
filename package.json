@@ -3,15 +3,17 @@
   "version": "0.1.0",
   "private": true,
   "overrides": {
-    "zeromq": false
+    "zeromq": false,
+    "@parcel/watcher": false
   },
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev", 
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "mocha --require tsx test/**/*.ts",
-    "test:specific": "mocha --require tsx"
+    "test:specific": "mocha --require tsx",
+    "postinstall": "rm -rf node_modules/@parcel/watcher || true"
   },
   "dependencies": {
     "@aws-amplify/backend-output-schemas": "^1.4.0",
