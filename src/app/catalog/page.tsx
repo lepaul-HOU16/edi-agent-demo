@@ -20,40 +20,7 @@ import maplibregl, {
   MapLayerMouseEvent
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css'; // Import the CSS for the map
-import { parseUrl } from "@aws-sdk/url-parser";
-import { HttpRequest } from "@aws-sdk/protocol-http";
-import { SignatureV4 } from "@aws-sdk/signature-v4";
-import { Sha256 } from "@aws-crypto/sha256-browser";
-
 const amplifyClient = generateClient<Schema>();
-
-
-// Lambda function URL and AWS configuration
-const LAMBDA_MAP_URL = "https://jxhidrelljrdxx57pcuuofy2yi0tvsdg.lambda-url.us-east-1.on.aws/";
-const LAMBDA_SEARCH_URL = "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/"
-const REGION = "us-east-1";
-const SERVICE = "lambda";
-
-const AISearchSecrets = {
-    // AWS Cognito configuration
-    region: "us-east-1", // Replace with your actual region
-    edi_username: "edi-user", // Replace with your actual username
-    edi_password: "Asd!1edi", // Replace with your actual password
-    edi_client_id: "7se4hblptk74h59ghbb694ovj4", // Replace with your actual client ID
-    edi_client_secret: "k7iq7mnm4k0rp5hmve7ceb8dajkj9vulavetg90epn7an5sekfi", // Replace with your actual client secret
-    edi_partition: "osdu", // Replace with your actual partition ID
-    
-    // EDI API endpoints
-    edi_search_url: "https://osdu.vavourak.people.aws.dev/api/search/v2/query/", // Replace with your actual search URL
-
-    // Search services
-    // search_api_key: "Wnve19VMRQ2Kd20j4URAT3yiUuRTzto96jepwnTL",
-    // search_ws_url: "wss://dtcu734ffg.execute-api.us-east-1.amazonaws.com/demo/",
-    
-    // AWS credentials for Lambda access
-    i: "AKIAWCYYAFVUY2KWAFM4",
-    k: "yAcU4z0/Xgdxbn9OxBnK8faT8QybcVmfuOaWYtV1",
-};
 
 interface DataCollection {
   id: string;
@@ -78,7 +45,7 @@ export default function CatalogPage() {
   const [userInput, setUserInput] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [showChainOfThought, setShowChainOfThought] = useState(false);
-  const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>({ id: "default" });
+  const [activeChatSession, setActiveChatSession] = useState({ id: "default" });
   // Map data state
   const [mapData, setMapData] = useState<GeoJSONData>({ wells: null, seismic: null });
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
@@ -122,50 +89,6 @@ export default function CatalogPage() {
   ];
 
 
-  // Function to sign a request with AWS SigV4
-  async function signRequest(url: string, method: string, body: any) {
-    try {
-      // Parse the URL
-      const parsedUrl = parseUrl(url);
-      
-      // Create the HTTP request object
-      const request = new HttpRequest({
-        hostname: parsedUrl.hostname,
-        path: parsedUrl.path,
-        protocol: parsedUrl.protocol,
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          host: parsedUrl.hostname,
-        },
-        body: JSON.stringify(body),
-      });
-
-      // Create the SigV4 signer
-      const signer = new SignatureV4({
-        credentials: {
-          accessKeyId: AISearchSecrets.i,
-          secretAccessKey: AISearchSecrets.k
-        },
-        region: REGION,
-        service: SERVICE,
-        sha256: Sha256,
-      });
-
-      // Sign the request
-      const signedRequest = await signer.sign(request);
-
-      return {
-        url,
-        method,
-        headers: signedRequest.headers,
-        body, // Return the original body object, not stringified again
-      };
-    } catch (error) {
-      throw error;
-    }
-  }
-
   const handleCreateNewChat = async () => {
     try {
       // Clear the messages state to reset the conversation
@@ -190,66 +113,32 @@ export default function CatalogPage() {
     seismic: 'seismic-source'
   });
   
-  // Function to handle user input from chat and send to Lambda for search
+  // Function to handle user input from chat and send to Amplify GraphQL for search
   const handleChatSearch = useCallback(async (prompt: string) => {
     setIsLoadingMapData(true);
     setError(null);
     
     try {
-      // Create the payload for the POST request
-      const payload = { prompt: prompt };
+      // Use Amplify GraphQL query for catalog search
+      const response = await amplifyClient.queries.catalogSearch({ prompt });
       
-      // Sign the request with AWS SigV4
-      const signedRequest = await signRequest(LAMBDA_SEARCH_URL, 'POST', payload);
-      
-      // Make the fetch request to the Lambda function URL with signed headers
-      const response = await fetch(signedRequest.url, {
-        method: signedRequest.method,
-        headers: signedRequest.headers,
-        body: JSON.stringify(signedRequest.body),
-        mode: 'cors',
-        credentials: 'omit'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+      if (response.errors && response.errors.length > 0) {
+        throw new Error(`GraphQL error: ${response.errors.map(e => e.message).join(', ')}`);
       }
       
-      // Get the raw response text first
-      const responseText = await response.text();
-      console.log('Raw search response text:', responseText.substring(0, 200) + '...');
-      
-      // Try to parse the response text
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-        console.log('Parsed search response structure:', responseData);
-      } catch (error) {
-        console.error('Error parsing search response text:', error);
-        throw new Error('Invalid JSON response from search server');
+      if (!response.data) {
+        throw new Error('No data returned from catalog search');
       }
       
-      // Extract the GeoJSON data from the response
+      // Parse the response data
       let geoJsonData;
-      
-      if (responseData.body && typeof responseData.body === 'string') {
-        try {
-          const parsedBody = JSON.parse(responseData.body);
-          geoJsonData = parsedBody.geojson;
-        } catch (error) {
-          console.error('Error parsing responseData.body string:', error);
-          throw new Error('Invalid JSON in response body');
-        }
-      } else if (responseData.body && typeof responseData.body === 'object') {
-        geoJsonData = responseData.body.geojson;
-      } else if (responseData.geojson) {
-        geoJsonData = responseData.geojson;
-      } else {
-        console.error('Unexpected response structure:', responseData);
-        throw new Error('Could not find GeoJSON data in response');
+      try {
+        geoJsonData = JSON.parse(response.data);
+        console.log('Extracted GeoJSON data:', geoJsonData);
+      } catch (error) {
+        console.error('Error parsing search response:', error);
+        throw new Error('Invalid JSON response from search service');
       }
-      
-      console.log('Extracted GeoJSON data:', geoJsonData);
       
       // Update the map with the new GeoJSON data
       if (geoJsonData && mapRef.current) {
@@ -317,18 +206,8 @@ export default function CatalogPage() {
             });
           }
           
-          // Add a new message to show the search results
-          const newMessage: Message = {
-            id: uuidv4(),
-            role: "ai",
-            content: {
-              text: `Found ${geoJsonData.features.length} wells matching your search criteria. The map has been updated to show these wells.`
-            },
-            responseComplete: true,
-            createdAt: new Date().toISOString()
-          };
-          
-          setMessages(prevMessages => [...prevMessages, newMessage]);
+          // Note: Search results displayed on map, message system can be enhanced later
+          console.log(`Found ${geoJsonData.features.length} wells matching search criteria`);
         }
       }
       
@@ -337,93 +216,42 @@ export default function CatalogPage() {
       console.error('Error fetching search data:', error instanceof Error ? error : new Error(String(error)));
       setError(error instanceof Error ? error : new Error(String(error)));
       
-      // Add error message to chat
-      const errorMessage: Message = {
-        id: uuidv4(),
-        role: "ai",
-        content: {
-          text: `Error processing your search: ${error instanceof Error ? error.message : String(error)}`
-        },
-        responseComplete: true,
-        createdAt: new Date().toISOString()
-      };
-      
-      setMessages(prevMessages => [...prevMessages, errorMessage]);
+      // Note: Error handling can be enhanced later with proper message system
+      console.error('Search error:', error instanceof Error ? error.message : String(error));
       return null;
     } finally {
       setIsLoadingMapData(false);
     }
   }, []);
 
-  // Function to fetch map data from Lambda
+  // Function to fetch map data from Amplify GraphQL
   const fetchMapData = useCallback(async () => {
     setIsLoadingMapData(true);
     setError(null);
     
     try {
-      // Create the payload for the POST request
-      const payload = { type: "get_all_map_data" };
-      
-      // Sign the request with AWS SigV4
-      const signedRequest = await signRequest(LAMBDA_MAP_URL, 'POST', payload);
-      
-      // Make the fetch request to the Lambda function URL with signed headers
-      const response = await fetch(signedRequest.url, {
-        method: signedRequest.method,
-        headers: signedRequest.headers,
-        body: JSON.stringify(signedRequest.body),
-        mode: 'cors',
-        credentials: 'omit'
+      // Use Amplify GraphQL query for catalog map data
+      const response = await amplifyClient.queries.getCatalogMapData({ 
+        type: "get_all_map_data" 
       });
       
-      if (!response.ok) {
-        throw new Error(`HTTP error! Status: ${response.status}`);
+      if (response.errors && response.errors.length > 0) {
+        throw new Error(`GraphQL error: ${response.errors.map(e => e.message).join(', ')}`);
       }
       
-      // Get the raw response text first
-      const responseText = await response.text();
-      console.log('Raw response text:', responseText.substring(0, 200) + '...');
-      
-      // Try to parse the response text
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-        console.log('Parsed response structure:', responseData);
-      } catch (error) {
-        console.error('Error parsing response text:', error);
-        throw new Error('Invalid JSON response from server');
+      if (!response.data) {
+        throw new Error('No data returned from catalog map data service');
       }
       
-      // Determine the correct data structure
+      // Parse the response data
       let geoData;
-      
-      // Case 1: responseData is directly the wells/seismic structure
-      if (responseData.wells && responseData.seismic) {
-        console.log('Case 1: Direct wells/seismic structure');
-        geoData = responseData;
+      try {
+        geoData = JSON.parse(response.data);
+        console.log('Final geoData structure:', geoData);
+      } catch (error) {
+        console.error('Error parsing map data response:', error);
+        throw new Error('Invalid JSON response from map data service');
       }
-      // Case 2: responseData has a body property that's already an object
-      else if (responseData.body && typeof responseData.body === 'object') {
-        console.log('Case 2: Body is already an object');
-        geoData = responseData.body;
-      }
-      // Case 3: responseData has a body property that's a JSON string
-      else if (responseData.body && typeof responseData.body === 'string') {
-        console.log('Case 3: Body is a string, attempting to parse');
-        try {
-          geoData = JSON.parse(responseData.body);
-        } catch (error) {
-          console.error('Error parsing responseData.body string:', error);
-          throw new Error('Invalid JSON in response body');
-        }
-      }
-      // Case 4: Unexpected structure
-      else {
-        console.error('Unexpected response structure:', responseData);
-        throw new Error('Unexpected response structure from server');
-      }
-      
-      console.log('Final geoData structure:', geoData);
       
       // Set the map data state, ensuring we have valid data
       setMapData({
@@ -780,7 +608,7 @@ export default function CatalogPage() {
                       case 'ai':
                         return !message.responseComplete
                       case 'tool':
-                        return !['renderAssetTool', 'userInputTool', 'createProject'].includes(message.toolName!);
+                        return message.toolName ? !['renderAssetTool', 'userInputTool', 'createProject'].includes(String(message.toolName)) : true;
                       default:
                         return false;
                     }
@@ -798,8 +626,8 @@ export default function CatalogPage() {
                     );
                   }
 
-                  return filteredMessages.map((message) => (
-                    <ListItem key={message.id}>
+                  return filteredMessages.map((message, index) => (
+                    <ListItem key={Array.isArray(message.id) ? message.id[0] || `message-${index}` : message.id || `message-${index}`}>
                       <ChatMessage
                         message={message}
                       // onRegenerateMessage={message.role === 'human' ? handleRegenerateMessage : undefined}

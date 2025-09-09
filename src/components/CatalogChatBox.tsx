@@ -67,7 +67,7 @@ const CatalogChatBox = (params: {
         },
         responseComplete: true,
         createdAt: new Date().toISOString()
-      };
+      } as any;
       
       setMessages(prevMessages => [...prevMessages, newUserMessage]);
       
@@ -104,13 +104,20 @@ const CatalogChatBox = (params: {
         }}
       >
         <List>
-          {messages.map((message) => (
-            <ListItem key={message.id}>
-              <ChatMessage
-                message={message}
-              />
-            </ListItem>
-          ))}
+          {messages.map((message, index) => {
+            // Ensure key is always a string
+            const messageKey = Array.isArray(message.id) 
+              ? message.id.join('-') 
+              : (message.id || `message-${index}`);
+            
+            return (
+              <ListItem key={messageKey}>
+                <ChatMessage
+                  message={message}
+                />
+              </ListItem>
+            );
+          })}
           <div ref={messagesEndRef} />
         </List>
       </Box>

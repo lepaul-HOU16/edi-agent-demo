@@ -181,10 +181,10 @@ th, td {
 }
 
 .awsui_segment-part_8cbea_rg0r6_326:not(#\9) {
-  background-color: transparent!important;
+  background-color: transparent !important;
 }
 .awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161:not(#\9), .awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161.awsui_disabled_8cbea_rg0r6_193:not(#\9) {
-  background: transparent;
+  background-color: transparent;
 }
 /* Removed specific styling for first segment to ensure consistent behavior */
 
