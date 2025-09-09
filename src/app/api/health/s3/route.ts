@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { S3Client, ListObjectsV2Command } from '@aws-sdk/client-s3';
+import { fromEnv, fromInstanceMetadata, fromWebToken } from '@aws-sdk/credential-providers';
 
 export async function GET() {
   const startTime = Date.now();
@@ -12,9 +13,78 @@ export async function GET() {
     const bucketName = outputs.storage.bucket_name;
     const region = outputs.storage.aws_region;
 
-    // Initialize S3 client
-    const s3Client = new S3Client({ region });
-    console.log(`[S3 Health Check] S3 client initialized for region: ${region}`);
+    // Initialize S3 client with proper credential handling
+    let s3Client: S3Client;
+    let credentialSource = 'unknown';
+    
+    // Check if we're in production Amplify hosting environment
+    const isProduction = process.env.NODE_ENV === 'production';
+    const hasEnvCredentials = process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY;
+    
+    try {
+      if (isProduction) {
+        console.log('[S3 Health Check] Production environment detected');
+        
+        if (hasEnvCredentials) {
+          console.log('[S3 Health Check] Using environment credentials in production');
+          s3Client = new S3Client({ 
+            region,
+            credentials: fromEnv()
+          });
+          credentialSource = 'production-env';
+        } else {
+          console.log('[S3 Health Check] No environment credentials in production, this indicates a deployment configuration issue');
+          
+          // For production without credentials, we'll return a specific error
+          return NextResponse.json({
+            status: 'configuration_error',
+            error: 'AWS credentials not configured for production deployment',
+            details: 'Amplify hosting requires AWS credentials to be set as environment variables',
+            config: { bucketName, region },
+            troubleshooting: [
+              'Configure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in Amplify Console Environment Variables',
+              'Or set up an IAM role for the Amplify service',
+              'Ensure the credentials have S3 read permissions'
+            ],
+            responseTime: `${Date.now() - startTime}ms`,
+            timestamp: new Date().toISOString()
+          }, { status: 503 });
+        }
+      } else {
+        console.log('[S3 Health Check] Development environment detected');
+        
+        if (hasEnvCredentials) {
+          s3Client = new S3Client({ 
+            region,
+            credentials: fromEnv()
+          });
+          credentialSource = 'development-env';
+        } else {
+          // In development, try the AWS credential chain
+          s3Client = new S3Client({ region });
+          credentialSource = 'default-chain';
+        }
+      }
+    } catch (credError) {
+      console.log('[S3 Health Check] Credential initialization failed:', credError);
+      
+      return NextResponse.json({
+        status: 'credential_error',
+        error: 'Failed to initialize AWS credentials',
+        details: credError instanceof Error ? credError.message : 'Unknown credential error',
+        config: { bucketName, region },
+        troubleshooting: [
+          'Verify AWS credentials are properly configured',
+          'Check environment variables: AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY',
+          'Ensure credentials have not expired',
+          'Verify IAM permissions for S3 access'
+        ],
+        responseTime: `${Date.now() - startTime}ms`,
+        timestamp: new Date().toISOString()
+      }, { status: 500 });
+    }
+
+    console.log(`[S3 Health Check] S3 client initialized for region: ${region}, credentials: ${credentialSource}`);
 
     // Test S3 connectivity by listing objects (limit to 1 to minimize cost)
     try {
