@@ -6,13 +6,12 @@
     "zeromq": false
   },
   "scripts": {
-    "dev": "next dev", 
+    "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "test": "mocha --require tsx test/**/*.ts",
-    "test:specific": "mocha --require tsx",
-    "postinstall": "mkdir -p node_modules/@parcel/watcher && echo 'module.exports = { subscribe: () => ({ unsubscribe: () => {} }) };' > node_modules/@parcel/watcher/index.js"
+    "test:specific": "mocha --require tsx"
   },
   "dependencies": {
     "@aws-amplify/backend-output-schemas": "^1.4.0",
