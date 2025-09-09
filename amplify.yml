@@ -10,7 +10,6 @@ backend:
         - nvm use 20
         - echo "Node version after nvm use:" && node --version
         - echo "NPM version after nvm use:" && npm --version
-        - rm -rf node_modules/@parcel
         - npm install --include=optional
         - npx ampx generate outputs --app-id d1eeg2gu6ddc3z --branch main
 frontend:

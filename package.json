@@ -3,8 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "overrides": {
-    "zeromq": false,
-    "@parcel/watcher": false
+    "zeromq": false
   },
   "scripts": {
     "dev": "next dev", 
@@ -13,7 +12,7 @@
     "lint": "next lint",
     "test": "mocha --require tsx test/**/*.ts",
     "test:specific": "mocha --require tsx",
-    "postinstall": "rm -rf node_modules/@parcel/watcher || true"
+    "postinstall": "mkdir -p node_modules/@parcel/watcher && echo 'module.exports = { subscribe: () => ({ unsubscribe: () => {} }) };' > node_modules/@parcel/watcher/index.js"
   },
   "dependencies": {
     "@aws-amplify/backend-output-schemas": "^1.4.0",
