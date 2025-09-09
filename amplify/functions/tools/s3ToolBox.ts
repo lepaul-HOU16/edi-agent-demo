@@ -159,11 +159,67 @@ function getS3Client() {
 }
 
 function getBucketName() {
-    const bucketName = process.env.STORAGE_BUCKET_NAME;
-    if (!bucketName) {
-        throw new Error("STORAGE_BUCKET_NAME is not set");
+    try {
+        // Load bucket name from amplify_outputs.json (same as file retrieval route)
+        const outputs = require('@/../amplify_outputs.json');
+        const bucketName = outputs.storage.bucket_name;
+        
+        if (!bucketName) {
+            throw new Error("bucket_name not found in amplify_outputs.json");
+        }
+        
+        console.log(`[S3 Key Debug] Using bucket: ${bucketName}`);
+        return bucketName;
+    } catch (error) {
+        console.error("Error loading bucket name from amplify_outputs.json:", error);
+        // Fallback to environment variable
+        const envBucketName = process.env.STORAGE_BUCKET_NAME;
+        if (!envBucketName) {
+            throw new Error("STORAGE_BUCKET_NAME is not set and amplify_outputs.json is not accessible");
+        }
+        console.log(`[S3 Key Debug] Using fallback bucket from env: ${envBucketName}`);
+        return envBucketName;
     }
-    return bucketName;
+}
+
+// Diagnostic function to normalize and validate S3 keys
+function normalizeS3Key(filepath: string, chatSessionId?: string): string {
+    console.log(`[S3 Key Debug] Input filepath: ${filepath}`);
+    
+    // Remove any leading slashes
+    let normalizedPath = filepath.replace(/^\/+/, '');
+    
+    // Handle global files
+    if (normalizedPath.startsWith('global/')) {
+        console.log(`[S3 Key Debug] Global file detected: ${normalizedPath}`);
+        return normalizedPath;
+    }
+    
+    // Handle files that already have the full chatSessionArtifacts prefix
+    if (normalizedPath.startsWith('chatSessionArtifacts/')) {
+        // Check if it includes sessionId, if not add it
+        if (!normalizedPath.includes('/sessionId=')) {
+            const sessionId = chatSessionId || getChatSessionId();
+            if (!sessionId) {
+                throw new Error("Chat session ID not available for S3 key construction");
+            }
+            // Extract the path after chatSessionArtifacts/
+            const pathAfterPrefix = normalizedPath.replace('chatSessionArtifacts/', '');
+            normalizedPath = `chatSessionArtifacts/sessionId=${sessionId}/${pathAfterPrefix}`;
+        }
+        console.log(`[S3 Key Debug] Full path with sessionId: ${normalizedPath}`);
+        return normalizedPath;
+    }
+    
+    // For session-specific files, construct the full path
+    const sessionId = chatSessionId || getChatSessionId();
+    if (!sessionId) {
+        throw new Error("Chat session ID not available for S3 key construction");
+    }
+    
+    const fullPath = `chatSessionArtifacts/sessionId=${sessionId}/${normalizedPath}`;
+    console.log(`[S3 Key Debug] Constructed session path: ${fullPath}`);
+    return fullPath;
 }
 
 // Global prefix for shared files
@@ -173,6 +229,11 @@ const GLOBAL_PREFIX = 'global/';
 function getS3KeyPrefix(filepath: string) {
     // If path starts with 'global/', use the global prefix
     if (filepath.startsWith('global/')) {
+        return '';
+    }
+
+    // If path already includes the full chatSessionArtifacts prefix, don't add it again
+    if (filepath.startsWith('chatSessionArtifacts/')) {
         return '';
     }
 
@@ -410,8 +471,8 @@ export const readFile = tool(
                 return JSON.stringify({ error: "Invalid file path. Cannot access files outside project root directory." });
             }
 
-            const prefix = getS3KeyPrefix(targetPath);
-            const s3Key = path.posix.join(prefix, targetPath);
+            // Use the new S3 key normalization function
+            const s3Key = normalizeS3Key(targetPath);
 
             try {
                 const result = await readS3Object({ key: s3Key, maxBytes, startAtByte });
@@ -659,6 +720,18 @@ async function processDocumentLinks(content: string, chatSessionId: string): Pro
             return filePath
         }
 
+        // Handle chatSessionArtifacts paths that might be missing the sessionId
+        if (filePath.startsWith('chatSessionArtifacts/')) {
+            // Check if it already has the sessionId format
+            if (filePath.includes('/sessionId=')) {
+                return `/file/${filePath}`;
+            } else {
+                // Add the sessionId to the path
+                const pathWithoutPrefix = filePath.replace('chatSessionArtifacts/', '');
+                return `/file/chatSessionArtifacts/sessionId=${chatSessionId}/${pathWithoutPrefix}`;
+            }
+        }
+
         // Construct the full asset path for session-specific files
         return `/file/chatSessionArtifacts/sessionId=${chatSessionId}/${filePath}`;
     };
@@ -699,14 +772,15 @@ export const writeFile = tool(
                 return JSON.stringify({ error: "Cannot write files to the global directory. Global files are read-only." });
             }
 
-            const prefix = getChatSessionPrefix();
-            const s3Key = path.posix.join(prefix, targetPath);
+            // Use the new S3 key normalization function
+            const s3Key = normalizeS3Key(targetPath);
 
             // Create parent "directory" keys if needed
             const dirPath = path.dirname(targetPath);
             if (dirPath !== '.') {
                 const directories = dirPath.split('/').filter(Boolean);
-                let currentPath = prefix;
+                const sessionPrefix = getChatSessionPrefix();
+                let currentPath = sessionPrefix;
 
                 for (const dir of directories) {
                     currentPath = path.posix.join(currentPath, dir, '/');

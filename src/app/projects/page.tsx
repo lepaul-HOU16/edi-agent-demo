@@ -495,15 +495,15 @@ const Page = () => {
                                                     display: 'flex',
                                                     alignItems: 'center',
                                                     justifyContent: 'center',
-                                                    bgcolor: 'rgba(255, 255, 255, 0.7)',
-                                                    backdropFilter: 'blur(2px)',
+                                                    // bgcolor: 'rgba(255, 255, 255, 0.7)',
+                                                    // backdropFilter: 'blur(2px)',
                                                     zIndex: 1
                                                 }}
                                             >
                                                 <Box
                                                     sx={{
                                                         textAlign: 'center',
-                                                        bgcolor: 'background.paper',
+                                                        // bgcolor: 'background.paper',
                                                         p: 2,
                                                         borderRadius: 1,
                                                         boxShadow: 1

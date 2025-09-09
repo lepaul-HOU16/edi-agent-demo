@@ -25,7 +25,6 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
     if (!filePath) {
       return (
         <Box sx={{
-          backgroundColor: theme.palette.grey[200],
           padding: theme.spacing(1),
           borderRadius: theme.shape.borderRadius,
         }}>
@@ -38,7 +37,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
 
     return (
       <Box sx={{
-        backgroundColor: theme.palette.grey[50],
+        // backgroundColor: theme.palette.grey[50],
         padding: theme.spacing(2),
         borderRadius: theme.shape.borderRadius,
         boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
@@ -55,7 +54,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
             display: 'flex',
             alignItems: 'center',
             gap: theme.spacing(1),
-            color: theme.palette.primary.main
+            // color: theme.palette.primary.main
           }}>
             <DescriptionIcon />
             <Typography variant="subtitle1" fontWeight="medium">
@@ -95,18 +94,35 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
 
         {/* Asset Preview */}
         <Box sx={{
-          border: `1px solid ${theme.palette.grey[300]}`,
-          borderRadius: theme.shape.borderRadius,
-          backgroundColor: theme.palette.common.white,
           width: '100%',
-          height: '700px',
           overflow: 'hidden'
         }}>
           <Box sx={{
             width: '100%',
             height: '100%'
           }}>
-            <FileViewer s3Key={s3Key} />
+            {/* Special handling for HTML files */}
+            {s3Key.toLowerCase().endsWith('.html') ? (
+              <Box sx={{ mb: 1 }}>
+                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
+                  Using direct file route for HTML file
+                </Typography>
+                <Box sx={{ width: '100%', height: '500px', overflow: 'hidden' }}>
+                  <iframe 
+                    src={`/file/${s3Key}`}
+                    style={{ 
+                      width: '100%', 
+                      height: '100%', 
+                      border: 'none',
+                      overflow: 'hidden'
+                    }}
+                    title="HTML Content"
+                  />
+                </Box>
+              </Box>
+            ) : (
+              <FileViewer s3Key={s3Key} />
+            )}
           </Box>
         </Box>
       </Box>
@@ -114,7 +130,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
   } catch (error) {
     return (
       <Box sx={{
-        backgroundColor: theme.palette.grey[200],
+        // backgroundColor: theme.palette.grey[200],
         padding: theme.spacing(1),
         borderRadius: theme.shape.borderRadius,
       }}>

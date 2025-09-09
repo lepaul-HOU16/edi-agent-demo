@@ -1,98 +1,119 @@
-"use client"
+'use client';
+
 import React from 'react';
-import { Container, Typography, Button, Box } from '@mui/material';
-import Grid from '@mui/material/Grid2';
+import Button from "@cloudscape-design/components/button";
+import Box from "@cloudscape-design/components/box";
+import SpaceBetween from "@cloudscape-design/components/space-between";
+import Header from "@cloudscape-design/components/header";
+import Container from "@cloudscape-design/components/container";
+import TextContent from "@cloudscape-design/components/text-content";
+import ContentLayout from "@cloudscape-design/components/content-layout";
+import Grid from "@cloudscape-design/components/grid";
 
 import { useRouter } from 'next/navigation';
 
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 import { useAuthenticator } from '@aws-amplify/ui-react';
-const amplifyClient = generateClient<Schema>();
+import Subsurface from '../app/login/edi-bkgd.jpg';
 
+const amplifyClient = generateClient<Schema>();
 const LandingPage = () => {
   const router = useRouter();
   const { authStatus } = useAuthenticator(context => [context.authStatus]);
 
   return (
-    <Container maxWidth="lg">
-      <Box sx={{ textAlign: 'center', my: 5 }}>
-        <Typography variant="h2" component="h1" gutterBottom>
-          Welcome to Chat Assistant
-        </Typography>
-        <Typography variant="h5" component="h2" gutterBottom>
-          Your personal AI conversation companion
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          size="large"
-          sx={{ mt: 3 }}
-          onClick={async () => {
-            if (authStatus === 'authenticated') {
-              const newChatSession = await amplifyClient.models.ChatSession.create({});
-              router.push(`/chat/${newChatSession.data!.id}`);
-            } else {
-              router.push('/auth');
-            }
-          }}
-        >
-          Start New Chat
-        </Button>
-        <Button 
-          variant="contained" 
-          color="secondary" 
-          size="large" 
-          sx={{ 
-            mt: 3, 
-            ml: 2, 
-            bgcolor: theme => theme.palette.secondary.main,
-            color: theme => theme.palette.secondary.contrastText
-          }} 
-          onClick={() => {
-            if (authStatus === 'authenticated') {
-              router.push('/listChats');
-            } else {
-              router.push('/auth');
-            }
-          }}
-        >
-          Browse Chats
-        </Button>
-      </Box>
-      <Grid container spacing={4} sx={{ mt: 5 }}>
-        <Grid container spacing={2}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" component="h3" gutterBottom>
-              Smart Conversations
-            </Typography>
-            <Typography>
-              Engage in intelligent discussions with our advanced AI assistant.
-            </Typography>
-          </Box>
-        </Grid>
-        <Grid container spacing={2}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" component="h3" gutterBottom>
-              24/7 Availability
-            </Typography>
-            <Typography>
-              Get answers and assistance whenever you need, day or night.
-            </Typography>
-          </Box>
-        </Grid>
-        <Grid container spacing={2}>
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="h6" component="h3" gutterBottom>
-              Personalized Experience
-            </Typography>
-            <Typography>
-              Enjoy conversations tailored to your preferences and needs.
-            </Typography>
-          </Box>
-        </Grid>
-      </Grid>
-    </Container>
+    <div
+      className="hero-header"
+      style={{
+        backgroundImage: `url(${Subsurface.src})`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'space-between'
+      }}
+    >
+      <ContentLayout
+      defaultPadding
+      disableOverlap
+      headerBackgroundStyle={mode =>
+        `center center/cover url("/hero-header-${mode}.png")`
+      }
+      header={
+        <Box padding={{ vertical: "xxxl" }}>
+          <Grid
+            gridDefinition={[
+              { colspan: { default: 12, s: 8 } }
+            ]}
+          >
+            <Container>
+              <Box padding="s">
+                <Box
+                  fontSize="display-l"
+                  fontWeight="bold"
+                  variant="h1"
+                  padding="n"
+                >
+                  AWS Energy Data Insights
+                </Box>
+                <Box
+                  fontSize="display-l"
+                  fontWeight="light"
+                >
+                  Your AI companion for subsurface data
+                </Box>
+                <Box
+                  variant="p"
+                  color="text-body-secondary"
+                  margin={{ top: "xs", bottom: "l" }}
+                >
+                  Experience intelligent, personalized conversations with our 24/7 AI assistant, designed to meet your unique needs and preferences.
+                </Box>
+                <SpaceBetween
+                  direction="horizontal"
+                  size="xs"
+                >
+                  <Button onClick={async () => {
+                    if (authStatus === 'authenticated') {
+                      const newChatSession = await amplifyClient.models.ChatSession.create({});
+                      router.push(`/chat/${newChatSession.data!.id}`);
+                    } else {
+                      router.push('/auth');
+                    }
+                  }}>
+                    Start a new chat
+                  </Button>
+                  <Button onClick={() => {
+                    if (authStatus === 'authenticated') {
+                      router.push('/listChats');
+                    } else {
+                      router.push('/auth');
+                    }
+                  }}>
+                    Browse chats
+                  </Button>
+                  <Button variant="primary" onClick={async () => {
+                    if (authStatus === 'authenticated') {
+                      router.push('/catalog');
+                    } else {
+                      router.push('/auth');
+                    }
+                  }}>
+                    Explore the Data Catalog
+                  </Button>
+                </SpaceBetween>
+              </Box>
+            </Container>
+          </Grid>
+        </Box>
+      }
+    />
+    </div>
   );
 };
 
