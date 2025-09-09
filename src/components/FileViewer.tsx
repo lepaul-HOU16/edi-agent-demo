@@ -69,6 +69,24 @@ export default function FileViewer({
   const fileExtension = s3Key.split('.').pop()?.toLowerCase() || 'text';
   const isHtmlFile = fileExtension === 'html';
 
+  // Add event listener for messages from iframe - MUST be at top level, not conditional
+  useEffect(() => {
+    const handleMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'resize') {
+        const iframe = isHtmlFile ? htmlIframeRef.current : nonTextIframeRef.current;
+        if (iframe && event.data.height) {
+          // Add a small buffer to account for potential margins/padding
+          // Increased by 5 extra pixels to prevent scrollbars
+          const heightWithBuffer = event.data.height + 25;
+          iframe.style.height = `${heightWithBuffer}px`;
+        }
+      }
+    };
+    
+    window.addEventListener('message', handleMessage);
+    return () => window.removeEventListener('message', handleMessage);
+  }, [isHtmlFile]);
+
   useEffect(() => {
     console.log('s3Key: ', s3Key);
 
@@ -293,24 +311,6 @@ export default function FileViewer({
 
   // For non-text files, we still need to use an iframe
   
-  // Add event listener for messages from iframe
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data && event.data.type === 'resize') {
-        const iframe = isHtmlFile ? htmlIframeRef.current : nonTextIframeRef.current;
-        if (iframe && event.data.height) {
-          // Add a small buffer to account for potential margins/padding
-          // Increased by 5 extra pixels to prevent scrollbars
-          const heightWithBuffer = event.data.height + 25;
-          iframe.style.height = `${heightWithBuffer}px`;
-        }
-      }
-    };
-    
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isHtmlFile]);
-  
   // For non-HTML files, create a wrapper with CSS to ensure content fits
   return (
     <div className="w-full relative">
@@ -356,11 +356,12 @@ export default function FileViewer({
                   iframe.style.height = '1200px';
                 }
                 
-                // For image files, try to scale to fit
+                // For image files, scale to show full image at 100% width
                 if (/\.(jpg|jpeg|png|gif|svg|webp)$/i.test(s3Key)) {
                   iframe.style.width = '100%';
                   iframe.style.height = 'auto';
-                  iframe.style.maxHeight = '90vh';
+                  iframe.style.maxHeight = 'none';
+                  iframe.style.objectFit = 'contain';
                 }
               }
             } catch (e) {
