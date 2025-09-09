@@ -10,10 +10,13 @@ frontend:
     preBuild:
       commands:
         - nvm use 20
-        - npm ci --ignore-scripts --production=false
+        - npm ci --production=false
+        - npm rebuild
+        - npm ls @parcel/watcher || echo "Warning: @parcel/watcher not found"
         - npm ls || true
         - echo "Node version:" && node --version
         - echo "NPM version:" && npm --version
+        - echo "Platform info:" && uname -a
         - echo "Available memory:" && free -h || echo "Memory info not available"
     build:
       commands:
