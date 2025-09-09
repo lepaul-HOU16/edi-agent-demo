@@ -21,6 +21,7 @@
     "@aws-sdk/client-secrets-manager": "^3.726.1",
     "@aws-sdk/credential-provider-cognito-identity": "^3.883.0",
     "@aws-sdk/s3-request-presigner": "^3.787.0",
+    "@cloudscape-design/chat-components": "^1.0.61",
     "@cloudscape-design/components": "^3.0.1025",
     "@cloudscape-design/global-styles": "^1.0.44",
     "@emotion/cache": "^11.14.0",

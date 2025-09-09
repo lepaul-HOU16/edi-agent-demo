@@ -1,7 +1,9 @@
 import React from 'react';
 import { Theme } from '@mui/material/styles';
-import { Typography } from '@mui/material';
-import { Message } from '@/../utils/types';
+import { Typography, CircularProgress } from '@mui/material';
+import { Message } from '../../../utils/types';
+import LoadingBar from '@cloudscape-design/chat-components/loading-bar';
+
 
 interface ThinkingComponentProps {
     message: Message;
@@ -22,11 +24,19 @@ const ThinkingMessageComponent: React.FC<ThinkingComponentProps> = ({ message, t
                 borderRadius: theme.shape.borderRadius,
                 opacity: 0.8,
             }}>
-                <Typography variant="body2" color="text.secondary">
-                    Thinking:
-                </Typography>
+                <LoadingBar variant="gen-ai-masked" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing(1), marginBottom: theme.spacing(0.5), marginTop: '20px', }}>
+                    <Typography variant="body2" color="text.secondary">
+                        Thinking:
+                    </Typography>
+                </div>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.9rem', fontStyle: 'italic' }}>
-                    {(message.content as any)?.text}
+                    {typeof message.content === 'string' 
+                        ? message.content 
+                        : Array.isArray(message.content) 
+                            ? message.content.join(' ') 
+                            : message.content?.text || ''
+                    }
                 </Typography>
             </div>
         </div>
