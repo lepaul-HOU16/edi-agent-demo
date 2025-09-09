@@ -11,7 +11,7 @@ interface UpdateFileToolComponentProps {
 
 const UpdateFileToolComponent: React.FC<UpdateFileToolComponentProps> = ({ content, theme }) => {
   try {
-    const fileData = JSON.parse(content?.text || '{}');
+    const fileData = JSON.parse((content as any)?.text || '{}');
     return (
       <div style={{
         backgroundColor: theme.palette.info.light,
@@ -42,11 +42,11 @@ const UpdateFileToolComponent: React.FC<UpdateFileToolComponentProps> = ({ conte
           Error processing file update result
         </Typography>
         <pre>
-          {content?.text}
+          {(content as any)?.text}
         </pre>
       </div>
     );
   }
 };
 
-export default UpdateFileToolComponent; 
+export default UpdateFileToolComponent;

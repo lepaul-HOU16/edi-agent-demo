@@ -40,20 +40,20 @@ function Page({
     params: Promise<{ chatSessionId: string }>
 }) {
     const [userInput, setUserInput] = useState<string>('');
-    const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>();
+    const [activeChatSession, setActiveChatSession] = useState<any>();
     const [fileDrawerOpen, setFileDrawerOpen] = useState(false);
     const [showChainOfThought, setShowChainOfThought] = useState(false);
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [messages, setMessages] = useState<Message[]>([]);
 
-    const setActiveChatSessionAndUpload = async (newChatSession: Schema["ChatSession"]["createType"]) => {
+    const setActiveChatSessionAndUpload = async (newChatSession: any) => {
         try {
             const resolvedParams = await params;
             const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
                 id: resolvedParams.chatSessionId,
                 ...newChatSession
-            });
+            } as any);
 
             if (updatedChatSession) setActiveChatSession(updatedChatSession);
         } catch (error) {
@@ -85,7 +85,7 @@ function Page({
                     const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
                         id: chatSessionId,
                         name: defaultName
-                    });
+                    } as any);
                     if (isMounted) {
                         if (updatedChatSession) {
                             setActiveChatSession(updatedChatSession);
@@ -146,7 +146,7 @@ function Page({
             const defaultName = `New Canvas - ${new Date().toLocaleString()}`;
             const newChatSession = await amplifyClient.models.ChatSession.create({
                 name: defaultName
-            });
+            } as any);
             
             if (newChatSession.data?.id) {
                 router.push(`/chat/${newChatSession.data.id}`);
@@ -314,7 +314,7 @@ function Page({
                                                 text: userInput
                                             },
                                             chatSessionId: selectedChatSessionId!,
-                                        }
+                                        } as any
 
                                         await sendMessage({
                                             chatSessionId: selectedChatSessionId!,
@@ -363,7 +363,7 @@ function Page({
                                             case 'ai':
                                                 return !message.responseComplete
                                             case 'tool':
-                                                return !['renderAssetTool', 'userInputTool', 'createProject'].includes(message.toolName!);
+                                                return !['renderAssetTool', 'userInputTool', 'createProject'].includes(message.toolName as any);
                                             default:
                                                 return false;
                                         }
@@ -381,8 +381,8 @@ function Page({
                                         );
                                     }
 
-                                    return filteredMessages.map((message) => (
-                                        <ListItem key={message.id}>
+                                    return filteredMessages.map((message, index) => (
+                                        <ListItem key={String(message.id) || index}>
                                             <ChatMessage
                                                 message={message}
                                             // onRegenerateMessage={message.role === 'human' ? handleRegenerateMessage : undefined}

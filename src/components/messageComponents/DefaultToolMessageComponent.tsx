@@ -22,7 +22,7 @@ const DefaultToolMessageComponent: React.FC<DefaultToolMessageComponentProps> = 
     <>
       <p>Tool message</p>
       <pre>
-        {renderContent(message.content?.text)}
+        {renderContent((message as any).content?.text)}
       </pre>
       <pre>
         {JSON.stringify(message, null, 2)}
@@ -31,4 +31,4 @@ const DefaultToolMessageComponent: React.FC<DefaultToolMessageComponentProps> = 
   );
 };
 
-export default DefaultToolMessageComponent; 
+export default DefaultToolMessageComponent;

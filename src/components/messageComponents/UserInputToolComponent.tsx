@@ -12,7 +12,7 @@ interface UserInputToolComponentProps {
 
 const UserInputToolComponent: React.FC<UserInputToolComponentProps> = ({ content, theme }) => {
   try {
-    const toolData = JSON.parse(content?.text || '{}');
+    const toolData = JSON.parse((content as any)?.text || '{}');
     return (
       <div style={{
         backgroundColor: theme.palette.background.paper,
@@ -68,11 +68,11 @@ const UserInputToolComponent: React.FC<UserInputToolComponentProps> = ({ content
           Error parsing user input tool data
         </Typography>
         <div>
-          {content?.text}
+          {(content as any)?.text}
         </div>
       </div>
     );
   }
 };
 
-export default UserInputToolComponent; 
+export default UserInputToolComponent;

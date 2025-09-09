@@ -11,7 +11,7 @@ interface ListFilesToolComponentProps {
 
 const ListFilesToolComponent: React.FC<ListFilesToolComponentProps> = ({ content, theme }) => {
   try {
-    const listData = JSON.parse(content?.text || '{}');
+    const listData = JSON.parse((content as any)?.text || '{}');
     const path = listData.path || '';
     const directories = listData.directories || [];
     const files = listData.files || [];
@@ -111,11 +111,11 @@ const ListFilesToolComponent: React.FC<ListFilesToolComponentProps> = ({ content
           List of files in the requested directory
         </Typography>
         <pre>
-          {content?.text}
+          {(content as any)?.text}
         </pre>
       </div>
     );
   }
 };
 
-export default ListFilesToolComponent; 
+export default ListFilesToolComponent;

@@ -42,10 +42,10 @@ const CalculatorToolComponent: React.FC<CalculatorToolComponentProps> = ({ conte
         fontSize: '1.2rem',
         textAlign: 'right'
       }}>
-        {content?.text}
+        {(content as any)?.text}
       </div>
     </div>
   );
 };
 
-export default CalculatorToolComponent; 
+export default CalculatorToolComponent;

@@ -26,7 +26,7 @@ const ThinkingMessageComponent: React.FC<ThinkingComponentProps> = ({ message, t
                     Thinking:
                 </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.9rem', fontStyle: 'italic' }}>
-                    {message.content?.text}
+                    {(message.content as any)?.text}
                 </Typography>
             </div>
         </div>

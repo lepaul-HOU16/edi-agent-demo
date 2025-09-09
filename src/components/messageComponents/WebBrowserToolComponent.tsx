@@ -23,7 +23,7 @@ const WebBrowserToolComponent: React.FC<WebBrowserToolComponentProps> = ({ conte
   const [showFullContent, setShowFullContent] = useState(false);
   
   try {
-    const response: WebBrowserResponse = JSON.parse(content?.text || '{}');
+    const response: WebBrowserResponse = JSON.parse((content as any)?.text || '{}');
     
     const displayContent = useMemo(() => {
       if (!response.content) return '';

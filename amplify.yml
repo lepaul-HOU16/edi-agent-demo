@@ -9,12 +9,23 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm install --ignore-scripts
+        - nvm use 20
+        - npm ci --ignore-scripts --production=false
         - npm ls || true
+        - echo "Node version:" && node --version
+        - echo "NPM version:" && npm --version
+        - echo "Available memory:" && free -h || echo "Memory info not available"
     build:
       commands:
-        - export NODE_OPTIONS="--max-old-space-size=8192"
-        - npm run build
+        - nvm use 20
+        - export NODE_OPTIONS="--max-old-space-size=7168 --max-semi-space-size=256 --optimize-for-size"
+        - export NODE_ENV=production
+        - export GENERATE_SOURCEMAP=false
+        - export DISABLE_ESLINT_PLUGIN=true
+        - export NEXT_TELEMETRY_DISABLED=1
+        - export CI=true
+        - ulimit -n 8192
+        - timeout 2400 npm run build
   artifacts:
     baseDirectory: .next
     files:
@@ -23,3 +34,4 @@ frontend:
     paths:
       - node_modules/**/*
       - .next/cache/**/*
+      - ~/.npm/**/*

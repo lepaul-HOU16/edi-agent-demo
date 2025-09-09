@@ -16,7 +16,7 @@ interface DuckDuckGoSearchToolComponentProps {
 
 const DuckDuckGoSearchToolComponent: React.FC<DuckDuckGoSearchToolComponentProps> = ({ content, theme }) => {
   try {
-    const searchResults: SearchResult[] = JSON.parse(content?.text || '[]');
+    const searchResults: SearchResult[] = JSON.parse((content as any)?.text || '[]');
 
     if (!searchResults.length) {
       return (

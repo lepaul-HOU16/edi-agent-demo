@@ -106,7 +106,7 @@ export const publishMessage = async (props: PublishMessageCommandInput) => {
 
 export const convertAmplifyChatMessageToLangChainMessage = (message: Message) => {
     // Ensure message content is never empty
-    const content = message.content?.text?.trim() ? message.content.text : "<empty message text content>";
+    const content = (message.content as any)?.text?.trim() ? (message.content as any).text : "<empty message text content>";
 
     switch (message.role) {
         case 'human':
@@ -116,13 +116,13 @@ export const convertAmplifyChatMessageToLangChainMessage = (message: Message) =>
         case 'ai':
             return new AIMessage({
                 content: content,
-                tool_calls: JSON.parse(message.toolCalls || '[]')
+                tool_calls: JSON.parse((message.toolCalls as any) || '[]')
             })
         case 'tool':
             return new ToolMessage({
                 content: content,
-                tool_call_id: message.toolCallId || "",
-                name: message.toolName || "no tool name supplied"
+                tool_call_id: (message.toolCallId as any) || "",
+                name: (message.toolName as any) || "no tool name supplied"
             })
     }
 }
@@ -146,7 +146,7 @@ export const getLangChainChatMessagesStartingWithHumanMessage = async (chatSessi
         : chatSessionMessages.slice(firstHumanMessageIndex);
 
     const langChainMessagesStartingWithFirstHumanMessage = messagesStartingWithFirstHumanMessage.map(
-        message => convertAmplifyChatMessageToLangChainMessage(message)
+        message => convertAmplifyChatMessageToLangChainMessage(message as any)
     )
 
     return langChainMessagesStartingWithFirstHumanMessage

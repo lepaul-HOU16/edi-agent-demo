@@ -51,12 +51,12 @@ const TopNavBar: React.FC = () => {
       if (newChatSession.data && newChatSession.data.id) {
         // Send an initial message with petrophysics keywords to trigger the petrophysics system message
         const initialMessage: Schema['ChatMessage']['createType'] = {
-          role: 'human',
+          role: 'human' as any,
           content: {
             text: "I need help with petrophysical analysis. Please show me the available tools and capabilities."
-          },
+          } as any,
           chatSessionId: newChatSession.data.id,
-        };
+        } as any;
         
         // Send the initial message
         await sendMessage({

@@ -172,13 +172,13 @@ const ChatBox = (params: {
             //Only set the chunk message if the inital chunk is defined. This prevents the race condition between the message and the chunk
             if (prevChunks[0] || true) {
               setStreamChunkMessage({
-                id: 'streamChunkMessage',
+                id: 'streamChunkMessage' as any,
                 role: 'ai-stream',
                 content: {
                   text: prevChunks.map((chunk) => chunk?.chunkText).join("")
                 },
                 createdAt: new Date().toISOString()
-              })
+              } as any)
             }
 
             return prevChunks
@@ -199,7 +199,7 @@ const ChatBox = (params: {
   const handleRegenerateMessage = useCallback(async (messageId: string, messageText: string) => {
 
     // Find the message to regenerate to get its timestamp
-    const messageToRegenerate = messages.find(msg => msg.id === messageId);
+    const messageToRegenerate = messages.find(msg => (msg as any).id === messageId);
 
     console.log(`Regenerating messages created after: ${messageToRegenerate?.createdAt} in chat session: ${params.chatSessionId}`)
     console.log(`Message to regenerate: `, messageToRegenerate)
@@ -215,8 +215,8 @@ const ChatBox = (params: {
     try {
       // Get all messages after the selected message's timestamp
       const { data: messagesToDelete } = await amplifyClient.models.ChatMessage.listChatMessageByChatSessionIdAndCreatedAt({
-        chatSessionId: params.chatSessionId,
-        createdAt: { ge: messageToRegenerate.createdAt }
+        chatSessionId: params.chatSessionId as any,
+        createdAt: { ge: messageToRegenerate.createdAt as any }
       });
 
       // Delete messages from the API
@@ -299,16 +299,16 @@ const ChatBox = (params: {
       setIsLoading(true);
 
       const newMessage: Schema['ChatMessage']['createType'] = {
-        role: 'human',
+        role: 'human' as any,
         content: {
           text: userMessage
-        },
-        chatSessionId: params.chatSessionId
-      }
+        } as any,
+        chatSessionId: params.chatSessionId as any
+      } as any
 
       await sendMessage({
-        chatSessionId: params.chatSessionId,
-        newMessage: newMessage
+        chatSessionId: params.chatSessionId as any,
+        newMessage: newMessage as any
       })
 
       params.onInputChange('');
@@ -355,16 +355,16 @@ const ChatBox = (params: {
                 case 'ai':
                   return message.responseComplete
                 case 'tool':
-                  return ['renderAssetTool', 'userInputTool', 'createProject'].includes(message.toolName!);
+                  return ['renderAssetTool', 'userInputTool', 'createProject'].includes((message as any).toolName!);
                 default:
                   return true;
               }
             })
             .map((message) => (
-              <ListItem key={message.id}>
+              <ListItem key={(message as any).id}>
                 <ChatMessage
                   message={message}
-                  onRegenerateMessage={message.role === 'human' ? handleRegenerateMessage : undefined}
+                  onRegenerateMessage={(message as any).role === 'human' ? handleRegenerateMessage : undefined}
                 />
               </ListItem>
             ))}

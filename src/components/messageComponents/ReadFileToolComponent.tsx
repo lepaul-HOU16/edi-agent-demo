@@ -11,7 +11,7 @@ interface ReadFileToolComponentProps {
 
 const ReadFileToolComponent: React.FC<ReadFileToolComponentProps> = ({ content, theme }) => {
   try {
-    const fileContent = JSON.parse(content?.text || '{}').content;
+    const fileContent = JSON.parse((content as any)?.text || '{}').content;
     return (
       <div style={{
         backgroundColor: theme.palette.grey[50],
@@ -60,11 +60,11 @@ const ReadFileToolComponent: React.FC<ReadFileToolComponentProps> = ({ content, 
           Error processing file content
         </Typography>
         <pre>
-          {content?.text}
+          {(content as any)?.text}
         </pre>
       </div>
     );
   }
 };
 
-export default ReadFileToolComponent; 
+export default ReadFileToolComponent;
