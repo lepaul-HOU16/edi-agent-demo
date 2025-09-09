@@ -317,16 +317,52 @@ export default function FileViewer({
     );
   }
 
-  // For non-text files, use viewport-aware sizing based on content type
+  // For non-text files, handle images differently from other content types
   const contentType = getFileTypeFromExtension(s3Key);
+  
+  // For images, use direct img tag instead of iframe to avoid scrolling
+  if (contentType === 'image') {
+    console.log('Rendering image with direct img tag for no-scroll display');
+    
+    return (
+      <div className="w-full relative image-container">
+        {iframeLoading && (
+          <div className="iframe-loading">
+            <CircularProgress />
+          </div>
+        )}
+        <img
+          src={selectedFileUrl?.toString()}
+          alt="File content"
+          className="w-full"
+          style={{
+            width: '100%',
+            height: 'auto',
+            maxWidth: '100%',
+            display: 'block',
+            borderRadius: '4px',
+            background: '#f8f9fa'
+          }}
+          onLoad={() => {
+            setIframeLoading(false);
+            console.log('Image loaded successfully with auto height');
+          }}
+          onError={() => {
+            setIframeLoading(false);
+            setError('Failed to load image');
+          }}
+        />
+      </div>
+    );
+  }
+
+  // For non-image files, use iframe with viewport-aware sizing
   const dimensions = calculateOptimalIframeDimensions(viewport, contentType);
   
   // Get appropriate CSS classes for the content type
-  const containerClass = contentType === 'image' ? 'image-iframe' : 
-                        contentType === 'pdf' ? 'pdf-iframe' : 
-                        'iframe-container';
+  const containerClass = contentType === 'pdf' ? 'pdf-iframe' : 'iframe-container';
   
-  console.log('Rendering non-text file with viewport-aware sizing:', { contentType, dimensions });
+  console.log('Rendering non-image file with viewport-aware sizing:', { contentType, dimensions });
   
   return (
     <div className={`w-full relative ${containerClass}`}>
@@ -356,9 +392,7 @@ export default function FileViewer({
             height: dimensions.height,
             maxWidth: dimensions.maxWidth,
             maxHeight: dimensions.maxHeight,
-            overflow: 'hidden',
-            objectFit: contentType === 'image' ? 'contain' : 'initial',
-            background: contentType === 'image' ? '#f8f9fa' : 'transparent'
+            overflow: 'hidden'
           }}
           title="File Viewer"
           onLoad={() => {
@@ -366,25 +400,17 @@ export default function FileViewer({
             console.log(`${contentType} iframe loaded successfully`);
             
             // Try to resize based on content for same-origin iframes
-            if (contentType !== 'image') {
-              resizeIframeToContent(nonTextIframeRef.current);
-            }
+            resizeIframeToContent(nonTextIframeRef.current);
             
             // Apply content-specific optimizations
             const iframe = nonTextIframeRef.current;
-            if (iframe) {
-              if (contentType === 'image') {
-                // For images, ensure they fit properly within the calculated dimensions
-                iframe.style.objectFit = 'contain';
-                iframe.style.objectPosition = 'center';
-              } else if (contentType === 'pdf') {
-                // For PDFs, ensure minimum readable height
-                const minPdfHeight = Math.max(
-                  parseInt(dimensions.height as string) || 600,
-                  viewport.isMobile ? 400 : 600
-                );
-                iframe.style.height = `${minPdfHeight}px`;
-              }
+            if (iframe && contentType === 'pdf') {
+              // For PDFs, ensure minimum readable height
+              const minPdfHeight = Math.max(
+                parseInt(dimensions.height as string) || 600,
+                viewport.isMobile ? 400 : 600
+              );
+              iframe.style.height = `${minPdfHeight}px`;
             }
           }}
         />
