@@ -100,7 +100,11 @@ export const sendMessage = async (props: {
   newMessage: Schema['ChatMessage']['createType']
 }) => {
   const amplifyClient = generateClient<Schema>();
-  const { data: newMessageData } = await amplifyClient.models.ChatMessage.create(props.newMessage)
+  const { data: newMessageData, errors: newMessageErrors } = await amplifyClient.models.ChatMessage.create(props.newMessage)
+  if (newMessageErrors) {
+    console.error("Error creating new message:", newMessageErrors);
+    throw new Error("Error creating new message");
+  }
 
   if (!props.newMessage.content || !props.newMessage.content.text) throw new Error("content.text is missing")
   const invokeResponse = await amplifyClient.queries.invokeReActAgent({

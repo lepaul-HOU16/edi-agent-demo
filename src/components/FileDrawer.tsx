@@ -50,7 +50,8 @@ interface FileDrawerProps {
 const FileDrawer: React.FC<FileDrawerProps> = ({
   open,
   onClose,
-  chatSessionId
+  chatSessionId,
+  variant = 'temporary'
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -225,14 +226,14 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
   return (
     <>
       {/* Use a fixed position div instead of Drawer for desktop to avoid modal behavior */}
-      {!isMobile && open ? (
+      {!isMobile ? (
         <Box
           sx={{
             position: 'fixed',
-            top: 64, // Start below TopNavBar
+            top: 0, // Start below TopNavBar
             right: 0,
             width: drawerWidth,
-            height: 'calc(100% - 64px)',
+            height: '100%',
             backgroundColor: 'background.paper',
             boxShadow: '-8px 0 20px rgba(0,0,0,0.1)',
             zIndex: theme.zIndex.drawer,
@@ -240,6 +241,11 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
             flexDirection: 'column',
             overflow: 'hidden',
             borderLeft: '1px solid rgba(0,0,0,0.08)',
+            transform: open ? 'translateX(0)' : 'translateX(100%)',
+            transition: theme.transitions.create('transform', {
+              easing: theme.transitions.easing.easeOut,
+              duration: theme.transitions.duration.enteringScreen,
+            }),
           }}
         >
           <Box
@@ -326,7 +332,7 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
           <Divider />
 
           <Box sx={{
-            height: 'calc(100% - 64px)', // Subtract header height
+            height: '100%', // Subtract header height
             overflow: 'hidden',
             backgroundColor: theme.palette.background.default,
           }}>
@@ -462,12 +468,16 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
             '& .MuiDrawer-paper': {
               width: drawerWidth,
               boxSizing: 'border-box',
-              top: 64,
-              height: 'calc(100% - 64px)',
+              top: 0,
+              height: '100%',
               zIndex: theme.zIndex.drawer,
               boxShadow: '-8px 0 20px rgba(0,0,0,0.1)',
               borderLeft: '1px solid rgba(0,0,0,0.08)',
             },
+          }}
+          transitionDuration={{
+            enter: theme.transitions.duration.enteringScreen,
+            exit: theme.transitions.duration.leavingScreen
           }}
         >
           <Box
@@ -554,7 +564,7 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
           <Divider />
 
           <Box sx={{
-            height: 'calc(100% - 64px)', // Subtract header height
+            height: '100%', // Subtract header height
             overflow: 'hidden',
             backgroundColor: theme.palette.background.default,
           }}>
@@ -734,4 +744,4 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
   );
 };
 
-export default FileDrawer; 
+export default FileDrawer;

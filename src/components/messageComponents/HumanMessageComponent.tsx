@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Theme } from '@mui/material/styles';
 import { Button, CircularProgress, Typography, Box } from '@mui/material';
 import ReplayIcon from '@mui/icons-material/Replay';
+import PersonIcon from '@mui/icons-material/Person';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Message } from '@/../utils/types';
@@ -24,11 +25,10 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
   const [deletionProgress, setDeletionProgress] = useState<number>(0);
 
   const humanMessageStyle = {
-    backgroundColor: theme.palette.primary.light,
+    backgroundColor: 'rgb(0 108 224)',
     color: theme.palette.primary.contrastText,
     padding: theme.spacing(1),
     borderRadius: theme.shape.borderRadius,
-    marginLeft: 'auto',
     maxWidth: '80%',
   };
 
@@ -54,11 +54,26 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
       alignItems: 'flex-end',
       width: '100%'
     }}>
-      <div style={humanMessageStyle}>
-        <div style={markdownStyle}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {message.content?.text}
-          </ReactMarkdown>
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'flex-start', 
+        gap: '8px',
+        width: '100%',
+        justifyContent: 'flex-end'
+      }}>
+        <PersonIcon 
+          sx={{ 
+            color: 'rgb(0 108 224)',
+            width: 32, 
+            height: 32
+          }} 
+        />
+        <div style={humanMessageStyle}>
+          <div style={markdownStyle}>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {message.content?.text}
+            </ReactMarkdown>
+          </div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: theme.spacing(0.5) }}>
@@ -136,4 +151,4 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
   );
 };
 
-export default HumanMessageComponent; 
+export default HumanMessageComponent;

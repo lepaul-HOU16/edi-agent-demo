@@ -1,6 +1,12 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import '@cloudscape-design/global-styles/index.css';
+
+/* Remove borders, padding, and margins from all iframes */
+iframe {
+  border: none !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  min-height: 600px;
+}
 
 :root {
   --background: #ffffff;
@@ -16,8 +22,19 @@
 
 body {
   color: var(--foreground);
-  background: var(--background);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* Dark mode specific styles */
+[data-mode="dark"] {
+  background-color: #121212;
+  color: #FFFFFF;
+}
+
+/* Light mode specific styles */
+[data-mode="light"] {
+  background-color: #F2F3F3;
+  color: #16191F;
 }
 
 ul, ol {
@@ -51,4 +68,50 @@ table, th, td {
 th, td {
   padding: 8px;
   text-align: left;
+}
+
+/* Override for AWS UI component background */
+.awsui_layout_5gtk3_lpv1b_145.awsui_is-visual-refresh_5gtk3_lpv1b_204 > .awsui_background_5gtk3_lpv1b_159.awsui_has-default-background_5gtk3_lpv1b_204:not(#\9) {
+  background-color: unset !important;
+}
+
+.awsui_segment-part_8cbea_rg0r6_326:not(#\9) {
+  background-color: transparent!important;
+}
+.awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161:not(#\9), .awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161.awsui_disabled_8cbea_rg0r6_193:not(#\9) {
+  background: transparent;
+}
+/* Removed specific styling for first segment to ensure consistent behavior */
+
+/* Card styling for fixed height and button positioning */
+.fixed-height-cards [data-awsui-cards-card] {
+  height: 190px !important;
+  position: relative !important;
+  overflow: hidden !important;
+}
+
+/* Style for card headers with text truncation */
+.fixed-height-cards [data-awsui-cards-card-header] {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Position for action buttons at the bottom of cards */
+.fixed-height-cards [id="actions"] {
+  position: absolute !important;
+  bottom: 16px !important;
+  left: 16px !important;
+  right: 16px !important;
+}
+
+/* Text truncation for card content */
+.fixed-height-cards [id="description"] div {
+  height: 80px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  display: -webkit-box !important;
+  -webkit-line-clamp: 3 !important;
+  line-clamp: 3 !important;
+  -webkit-box-orient: vertical !important;
 }
