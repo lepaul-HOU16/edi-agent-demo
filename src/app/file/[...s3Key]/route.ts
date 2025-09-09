@@ -198,33 +198,19 @@ export async function GET(request: Request, { params }: PageProps) {
     const bucketName = outputs.storage.bucket_name;
     const region = outputs.storage.aws_region;
 
-    // Initialize S3 client with explicit credentials configuration
+    // Initialize S3 client using default credential chain (works with SSO)
     let s3Client: S3Client;
     try {
-      const clientConfig: any = { 
+      // Use default AWS credential chain which will automatically detect:
+      // 1. Environment variables
+      // 2. AWS SSO credentials
+      // 3. EC2 instance metadata
+      // 4. Other standard credential sources
+      s3Client = new S3Client({ 
         region,
-        // Use environment variables for credentials
-        credentials: {
-          accessKeyId: process.env.AWS_ACCESS_KEY_ID || '',
-          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY || '',
-        }
-      };
-
-      // Only add session token if it exists (for temporary credentials)
-      if (process.env.AWS_SESSION_TOKEN) {
-        clientConfig.credentials.sessionToken = process.env.AWS_SESSION_TOKEN;
-      }
-
-      // Fallback to default credential chain if env vars not set
-      if (!process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY) {
-        console.log('[S3 Route] Using default AWS credential chain');
-        delete clientConfig.credentials;
-      } else {
-        console.log('[S3 Route] Using explicit AWS credentials from environment');
-      }
-
-      s3Client = new S3Client(clientConfig);
-      console.log(`[S3 Route] S3 client initialized for region: ${region}`);
+        // Let AWS SDK handle credentials automatically
+      });
+      console.log(`[S3 Route] S3 client initialized for region: ${region} using default credential chain`);
     } catch (error) {
       console.error('[S3 Route] Failed to initialize S3 client:', error);
       return NextResponse.json(

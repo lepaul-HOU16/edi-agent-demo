@@ -575,7 +575,13 @@ export default function FilePage({ params }: PageProps) {
           )}
         </Box>
       </Paper>
-      <Box sx={{ flexGrow: 1, position: 'relative' }} ref={fileViewerRef}>
+      <Box sx={{ 
+        flexGrow: 1, 
+        position: 'relative',
+        height: 'auto', // Allow natural height instead of constraining
+        minHeight: 0,   // Remove minimum height constraint
+        overflow: 'visible' // Allow content to overflow if needed
+      }} ref={fileViewerRef}>
         <FileViewer 
           s3Key={s3Key} 
           onUrlChange={setFileUrl} 
