@@ -9,7 +9,7 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm install --ignore-scripts
+        - npm ci
     build:
       commands:
         - npm run build
