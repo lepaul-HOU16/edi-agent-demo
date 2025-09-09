@@ -154,9 +154,9 @@ def perform_wellbore_to_well_lookup(wellbore_ids, headers):
         'limit': 1,
     }
 
-    # print(f'wellbore_to_well_lookup: full_query={full_query}')
+    print(f'full_query_wellbores={full_query_wellbores}')
     response_wellbores = requests.post(edi_search_url, headers=headers, json=full_query_wellbores).json()
-    # print(f'wellbore_to_well_lookup: test query response={response_wellbores}')
+    print(f'response_wellbores={response_wellbores}')
 
     well_ids = [item['key'][:-1] for item in response_wellbores['aggregations']]
 
@@ -173,13 +173,14 @@ def perform_wellbore_to_well_lookup(wellbore_ids, headers):
 
     full_query_wells = {
         'kind': ['*:*:master-data--Well:*'],
-        'query': query,
         "returnedFields": ['id', 'data.NameAliases.AliasName', 'data.SpatialLocation.Wgs84Coordinates.geometries.coordinates'],
         'limit': 1000,
+        'query': query,
     }
+    print(f'full_query_wells=\n{full_query_wells}')
 
     response_wells = requests.post(edi_search_url, headers=headers, json=full_query_wells).json()
-    # print(f'response_wells=\n{response_wells}')
+    print(f'response_wells=\n{response_wells}')
 
     # Convert each well to GeoJSON Feature
     geojson_features = [convert_well_to_geojson(well) for well in response_wells['results']]
@@ -235,42 +236,42 @@ def lambda_handler(event, context):
     
     # print(f'sample_request={sample_request}')
 
-    # results_tool = osdu_search_tool(sample_request)
+    results_tool = osdu_search_tool(sample_request)
 
-    results_tool = {
-        'chainOfThought': '', 
-        'sessionId': 'test-session-123', 
-        'chat_history': [], 
-        'searchResults': {
-            'search_queries': [
-                {
-                    'data_source': {
-                        'name': 'osdu', 
-                        'type': 'osdu', 
-                        'connection_info': {
-                            'url': 'https://osdu.vavourak.people.aws.dev/api/search/v2/query/', 
-                            'auth_type': 'bearer_token', 
-                            'method': 'POST', 
-                            'headers': {
-                                'Authorization': '', 
-                                'Content-Type': 'application/json', 
-                                'data-partition-id': 'osdu'
-                            }
-                        }, 
-                        'body': {
-                            'kind': ['*:*:work-product-component--WellLog:*'], 
-                            'returnedFields': ['id', 'kind', 'data.Name', 'data.WellboreID', 'data.TopMeasuredDepth', 'data.BottomMeasuredDepth', 'data.WellLogTypeID', 'data.LogVersion', 'data.ServiceCompanyID', 'data.LogServiceDateInterval'], 
-                            'query': 'nested(data.Curves,(Mnemonic:GR)) AND nested(data.Curves,(Mnemonic:DT))', 
-                            'aggregateBy': 'data.WellboreID.keyword', 
-                            'spatial_filter': {}, 
-                            'limit': 50, 
-                            'tabular_data': {}
-                        }
-                    }
-                }
-            ]
-        }
-    }
+    # results_tool = {
+    #     'chainOfThought': '', 
+    #     'sessionId': 'test-session-123', 
+    #     'chat_history': [], 
+    #     'searchResults': {
+    #         'search_queries': [
+    #             {
+    #                 'data_source': {
+    #                     'name': 'osdu', 
+    #                     'type': 'osdu', 
+    #                     'connection_info': {
+    #                         'url': 'https://osdu.vavourak.people.aws.dev/api/search/v2/query/', 
+    #                         'auth_type': 'bearer_token', 
+    #                         'method': 'POST', 
+    #                         'headers': {
+    #                             'Authorization': '', 
+    #                             'Content-Type': 'application/json', 
+    #                             'data-partition-id': 'osdu'
+    #                         }
+    #                     }, 
+    #                     'body': {
+    #                         'kind': ['*:*:work-product-component--WellLog:*'], 
+    #                         'returnedFields': ['id', 'kind', 'data.Name', 'data.WellboreID', 'data.TopMeasuredDepth', 'data.BottomMeasuredDepth', 'data.WellLogTypeID', 'data.LogVersion', 'data.ServiceCompanyID', 'data.LogServiceDateInterval'], 
+    #                         'query': 'nested(data.Curves,(Mnemonic:GR)) AND nested(data.Curves,(Mnemonic:DT))', 
+    #                         'aggregateBy': 'data.WellboreID.keyword', 
+    #                         'spatial_filter': {}, 
+    #                         'limit': 50, 
+    #                         'tabular_data': {}
+    #                     }
+    #                 }
+    #             }
+    #         ]
+    #     }
+    # }
 
     results_data = perform_osdu_search(results_tool['searchResults']['search_queries'][0]['data_source']['body'], auth_headers)
 
@@ -290,6 +291,8 @@ def lambda_handler(event, context):
         'tool_metadata': "reasoning etc.",
         'geojson': well_geojson_data
     }
+
+    print(f'body={body}')
 
     return {
         'statusCode': 200,
