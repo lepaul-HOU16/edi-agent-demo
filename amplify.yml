@@ -11,6 +11,7 @@ frontend:
       commands:
         - nvm use 20
         - npm ci --production=false
+        - npm rebuild @parcel/watcher
         - npm rebuild
         - 'npm ls @parcel/watcher || echo "Warning: @parcel/watcher not found"'
         - npm ls || true
