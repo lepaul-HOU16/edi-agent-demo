@@ -193,10 +193,29 @@ export async function GET(request: Request, { params }: PageProps) {
       }
     }
 
-    // Load configuration
-    const outputs = require('@/../amplify_outputs.json');
-    const bucketName = outputs.storage.bucket_name;
-    const region = outputs.storage.aws_region;
+    // Load configuration with proper error handling
+    let outputs, bucketName, region;
+    try {
+      outputs = require('@/../amplify_outputs.json');
+      bucketName = outputs.storage?.bucket_name;
+      region = outputs.storage?.aws_region;
+      
+      if (!bucketName || !region) {
+        throw new Error('Missing required S3 configuration in amplify_outputs.json');
+      }
+      
+      console.log(`[S3 Route] Configuration loaded: bucket=${bucketName}, region=${region}`);
+    } catch (configError) {
+      console.error('[S3 Route] Failed to load amplify configuration:', configError);
+      return NextResponse.json(
+        { 
+          error: 'Configuration error',
+          details: `Failed to load AWS configuration: ${configError instanceof Error ? configError.message : 'Unknown configuration error'}`,
+          s3Key: s3KeyDecoded
+        },
+        { status: 500 }
+      );
+    }
 
     // Initialize S3 client using default credential chain (works with SSO)
     let s3Client: S3Client;
