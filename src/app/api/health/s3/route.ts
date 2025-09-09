@@ -19,33 +19,55 @@ export async function GET() {
     
     // Check if we're in production Amplify hosting environment
     const isProduction = process.env.NODE_ENV === 'production';
-    const hasEnvCredentials = process.env.AWS_ACCESS_KEY_ID && process.env.AWS_SECRET_ACCESS_KEY;
+    
+    // Check for both standard AWS env vars and custom Amplify-compatible names
+    const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID || process.env.AMPLIFY_AWS_ACCESS_KEY_ID;
+    const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY || process.env.AMPLIFY_AWS_SECRET_ACCESS_KEY;
+    const awsSessionToken = process.env.AWS_SESSION_TOKEN || process.env.AMPLIFY_AWS_SESSION_TOKEN;
+    const awsRegion = process.env.AWS_REGION || process.env.AMPLIFY_AWS_REGION || region;
+    
+    const hasEnvCredentials = awsAccessKeyId && awsSecretAccessKey;
     
     try {
       if (isProduction) {
         console.log('[S3 Health Check] Production environment detected');
         
         if (hasEnvCredentials) {
-          console.log('[S3 Health Check] Using environment credentials in production');
+          console.log('[S3 Health Check] Using custom environment credentials in production');
+          
+          // Create credentials object for production with custom env vars
+          const credentials = {
+            accessKeyId: awsAccessKeyId!,
+            secretAccessKey: awsSecretAccessKey!,
+            ...(awsSessionToken && { sessionToken: awsSessionToken })
+          };
+          
           s3Client = new S3Client({ 
-            region,
-            credentials: fromEnv()
+            region: awsRegion,
+            credentials
           });
-          credentialSource = 'production-env';
+          credentialSource = 'production-custom-env';
         } else {
-          console.log('[S3 Health Check] No environment credentials in production, this indicates a deployment configuration issue');
+          console.log('[S3 Health Check] No custom environment credentials in production');
           
           // For production without credentials, we'll return a specific error
           return NextResponse.json({
             status: 'configuration_error',
             error: 'AWS credentials not configured for production deployment',
-            details: 'Amplify hosting requires AWS credentials to be set as environment variables',
+            details: 'Amplify hosting requires custom AWS credentials (AWS_ prefix not allowed)',
             config: { bucketName, region },
             troubleshooting: [
-              'Configure AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in Amplify Console Environment Variables',
-              'Or set up an IAM role for the Amplify service',
+              'Configure AMPLIFY_AWS_ACCESS_KEY_ID and AMPLIFY_AWS_SECRET_ACCESS_KEY in Amplify Console',
+              'Add AMPLIFY_AWS_SESSION_TOKEN if using temporary credentials',
+              'Set AMPLIFY_AWS_REGION to us-east-1',
               'Ensure the credentials have S3 read permissions'
             ],
+            environmentVariables: {
+              AMPLIFY_AWS_ACCESS_KEY_ID: 'Required - your AWS access key',
+              AMPLIFY_AWS_SECRET_ACCESS_KEY: 'Required - your AWS secret key', 
+              AMPLIFY_AWS_SESSION_TOKEN: 'Optional - for temporary credentials',
+              AMPLIFY_AWS_REGION: 'Optional - defaults to us-east-1'
+            },
             responseTime: `${Date.now() - startTime}ms`,
             timestamp: new Date().toISOString()
           }, { status: 503 });
@@ -54,14 +76,30 @@ export async function GET() {
         console.log('[S3 Health Check] Development environment detected');
         
         if (hasEnvCredentials) {
-          s3Client = new S3Client({ 
-            region,
-            credentials: fromEnv()
-          });
-          credentialSource = 'development-env';
+          if (process.env.AWS_ACCESS_KEY_ID) {
+            // Use standard AWS env vars in development
+            s3Client = new S3Client({ 
+              region: awsRegion,
+              credentials: fromEnv()
+            });
+            credentialSource = 'development-standard-env';
+          } else {
+            // Use custom env vars in development
+            const credentials = {
+              accessKeyId: awsAccessKeyId!,
+              secretAccessKey: awsSecretAccessKey!,
+              ...(awsSessionToken && { sessionToken: awsSessionToken })
+            };
+            
+            s3Client = new S3Client({ 
+              region: awsRegion,
+              credentials
+            });
+            credentialSource = 'development-custom-env';
+          }
         } else {
           // In development, try the AWS credential chain
-          s3Client = new S3Client({ region });
+          s3Client = new S3Client({ region: awsRegion });
           credentialSource = 'default-chain';
         }
       }
