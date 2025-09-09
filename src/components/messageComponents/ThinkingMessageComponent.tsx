@@ -35,7 +35,7 @@ const ThinkingMessageComponent: React.FC<ThinkingComponentProps> = ({ message, t
                         ? message.content 
                         : Array.isArray(message.content) 
                             ? message.content.join(' ') 
-                            : message.content?.text || ''
+                            : (message.content as any)?.text || ''
                     }
                 </Typography>
             </div>
