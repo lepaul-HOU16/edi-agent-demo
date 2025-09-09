@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { S3Client, GetObjectCommand, ListObjectsV2Command } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { fromCognitoIdentityPool } from '@aws-sdk/credential-provider-cognito-identity';
+import { CognitoIdentityClient } from '@aws-sdk/client-cognito-identity';
 
 interface PageProps {
   params: {
@@ -217,19 +219,41 @@ export async function GET(request: Request, { params }: PageProps) {
       );
     }
 
-    // Initialize S3 client using default credential chain (works with SSO)
+    // Initialize S3 client with proper credentials for production vs development
     let s3Client: S3Client;
     try {
-      // Use default AWS credential chain which will automatically detect:
-      // 1. Environment variables
-      // 2. AWS SSO credentials
-      // 3. EC2 instance metadata
-      // 4. Other standard credential sources
-      s3Client = new S3Client({ 
-        region,
-        // Let AWS SDK handle credentials automatically
-      });
-      console.log(`[S3 Route] S3 client initialized for region: ${region} using default credential chain`);
+      // Check if we're in production (deployed) vs development
+      const isProduction = process.env.NODE_ENV === 'production' || !process.env.AWS_ACCESS_KEY_ID;
+      
+      if (isProduction) {
+        // Production: Use Cognito Identity Pool credentials (unauthenticated role)
+        console.log(`[S3 Route] Using Cognito Identity Pool credentials for production`);
+        
+        const cognitoCredentials = fromCognitoIdentityPool({
+          client: new CognitoIdentityClient({ 
+            region: region 
+          }),
+          identityPoolId: outputs.auth?.identity_pool_id,
+          // Use unauthenticated access for file serving
+          // The backend has configured proper IAM permissions for unauthenticated users
+        });
+
+        s3Client = new S3Client({ 
+          region,
+          credentials: cognitoCredentials
+        });
+        
+        console.log(`[S3 Route] S3 client initialized for production with Cognito Identity Pool`);
+      } else {
+        // Development: Use environment variables (SSO/local credentials)
+        console.log(`[S3 Route] Using environment credentials for development`);
+        s3Client = new S3Client({ 
+          region,
+          // Let AWS SDK handle credentials from environment automatically
+        });
+        
+        console.log(`[S3 Route] S3 client initialized for development with environment credentials`);
+      }
     } catch (error) {
       console.error('[S3 Route] Failed to initialize S3 client:', error);
       return NextResponse.json(
