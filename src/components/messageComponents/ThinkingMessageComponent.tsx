@@ -31,12 +31,18 @@ const ThinkingMessageComponent: React.FC<ThinkingComponentProps> = ({ message, t
                     </Typography>
                 </div>
                 <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.9rem', fontStyle: 'italic' }}>
-                    {typeof message.content === 'string' 
-                        ? message.content 
-                        : Array.isArray(message.content) 
-                            ? message.content.join(' ') 
-                            : (message.content as any)?.text || ''
-                    }
+                    {(() => {
+                        if (typeof message.content === 'string') {
+                            return message.content;
+                        }
+                        if (Array.isArray(message.content)) {
+                            return message.content.join(' ');
+                        }
+                        if (message.content && typeof message.content === 'object' && 'text' in message.content) {
+                            return (message.content as { text?: string }).text || '';
+                        }
+                        return '';
+                    })()}
                 </Typography>
             </div>
         </div>
