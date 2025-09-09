@@ -5,6 +5,9 @@ backend:
       commands:
         - '# Generate outputs for Amplify Gen 2 project'
         - nvm use 20
+        - export AMPLIFY_DISABLE_FILE_WATCHING=true
+        - export CI=true
+        - export NODE_ENV=production
         - npx ampx generate outputs --app-id d1eeg2gu6ddc3z --branch main
 frontend:
   phases:
