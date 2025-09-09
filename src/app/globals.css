@@ -1,11 +1,101 @@
 @import '@cloudscape-design/global-styles/index.css';
 
-/* Remove borders, padding, and margins from all iframes */
+/* Flexible iframe styling for different content types */
 iframe {
   border: none !important;
   padding: 0 !important;
   margin: 0 !important;
-  min-height: 600px;
+  display: block;
+  width: 100%;
+}
+
+/* Specialized iframe styles for different content types */
+.iframe-container {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+
+.iframe-container--image {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #f5f5f5;
+}
+
+.iframe-container--image iframe {
+  object-fit: contain;
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.iframe-container--html iframe {
+  overflow: hidden;
+}
+
+.iframe-container--pdf iframe {
+  min-height: 500px;
+}
+
+/* Responsive iframe wrapper */
+.responsive-iframe {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+}
+
+.responsive-iframe iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Image-specific iframe styling */
+.image-iframe {
+  background: #f8f9fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.image-iframe iframe {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  border-radius: 4px;
+}
+
+/* HTML content iframe styling */
+.html-iframe {
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  overflow: hidden;
+}
+
+.html-iframe iframe {
+  background: white;
+  overflow: hidden;
+}
+
+/* PDF iframe styling */
+.pdf-iframe {
+  border-radius: 4px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Loading state for iframes */
+.iframe-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 200px;
+  background-color: #f8f9fa;
+  border-radius: 4px;
 }
 
 :root {
