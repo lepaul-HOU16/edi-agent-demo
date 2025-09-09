@@ -53,7 +53,7 @@ iframe {
   border: none;
 }
 
-/* Image-specific iframe styling */
+/* Image-specific styling */
 .image-iframe {
   background: #f8f9fa;
   width: 100%;
@@ -66,6 +66,23 @@ iframe {
   height: auto;
   border-radius: 4px;
   display: block;
+}
+
+/* Direct image container styling (replaces iframe for images) */
+.image-container {
+  background: #f8f9fa;
+  width: 100%;
+  border-radius: 4px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 8px;
+}
+
+.image-container img {
+  width: 100%;
+  height: auto;
+  max-width: 100%;
+  display: block;
+  border-radius: 4px;
 }
 
 /* HTML content iframe styling */
