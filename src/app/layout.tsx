@@ -166,26 +166,13 @@ export default function RootLayout({
                             items: [
                               {
                                 id: 'dc1',
-                                text: 'Barrow',
+                                text: 'Cuu Long Basin',
                               },
                               {
                                 id: 'dc2',
-                                text: 'Beagle Sub-basin',
-                              },
-                              {
-                                id: 'dc3',
-                                text: 'Capreolus',
-                              },
-                              {
-                                id: 'dc4',
-                                text: 'Dampier Study',
+                                text: 'Nam Con Son Basin',
                               },
                             ],
-                          },
-                          {
-                            id: 'dc-new',
-                            text: 'Create New Data Collection',
-                            iconName: 'add-plus',
                           },
                         ],
                       },
@@ -206,15 +193,7 @@ export default function RootLayout({
                               {
                             id: 'ws1',
                             text: 'Petrophysical Analysis',
-                            href: '/petrophysical-analysis',
-                              },
-                              {
-                                id: 'ws2',
-                                text: 'Insights',
-                              },
-                              {
-                                id: 'ws3',
-                                text: 'Geophysical',
+                            href: '/create-new-chat',
                               },
                             ],
                           },

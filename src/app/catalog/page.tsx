@@ -50,32 +50,18 @@ export default function CatalogPage() {
   const dataCollections: DataCollection[] = [
     {
       id: 'dc1',
-      name: 'Barrow',
-      description: 'Seismic and well data from the Barrow region',
+      name: 'Cuu Long Basin',
+      description: 'Seismic and well data from the Cuu Long Basin',
       dateCreated: '2025-05-15',
       owner: 'Energy Research Team'
     },
     {
       id: 'dc2',
-      name: 'Beagle Sub-basin',
-      description: 'Comprehensive dataset of the Beagle Sub-basin area',
+      name: 'Nam Con Son Basin',
+      description: 'Comprehensive dataset of the Nam Con Son Basin',
       dateCreated: '2025-04-22',
       owner: 'Exploration Division'
     },
-    {
-      id: 'dc3',
-      name: 'Capreolus',
-      description: 'Production and reservoir data from Capreolus field',
-      dateCreated: '2025-03-10',
-      owner: 'Production Analytics'
-    },
-    {
-      id: 'dc4',
-      name: 'Dampier Study',
-      description: 'Environmental and geological study of the Dampier area',
-      dateCreated: '2025-02-28',
-      owner: 'Environmental Research'
-    }
   ];
 
   const handleCreateNewChat = async () => {

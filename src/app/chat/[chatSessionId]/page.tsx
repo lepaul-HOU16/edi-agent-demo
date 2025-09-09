@@ -218,9 +218,9 @@ function Page({
                         <BreadcrumbGroup
                             items={[
                                 { text: 'Data Catalog', href: '#' },
-                                { text: 'Data Collection: Barrow', href: '#' },
+                                { text: 'Data Collection: Cuu Long Basin', href: '#' },
                                 { text: 'Workspace', href: '#' },
-                                { text: 'Canvas: Insights', href: '#' }
+                                { text: 'Canvas: Petrophysical Analysis', href: '#' }
                             ]}
                             ariaLabel="Breadcrumbs"
                         />
@@ -420,21 +420,6 @@ function Page({
                             paddingBottom: '160px',
                         }}>
                             <div className='toggles'>
-                                {/* Chain of Thought */}
-                                {/* <Tooltip title={showChainOfThought ? "Hide Chain of Thought" : "Show Chain of Thought"}>
-                                        <IconButton
-                                            onClick={() => setShowChainOfThought(!showChainOfThought)}
-                                            color="primary"
-                                            size="large"
-                                            sx={{
-                                                bgcolor: showChainOfThought ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                                                zIndex: 1300 // Ensure button is above drawer
-                                            }}
-                                        >
-                                            <PsychologyIcon />
-                                        </IconButton>
-                                    </Tooltip> */}
-
                                 {/* File Drawer */}
                                  <div style={{marginLeft: '20px'}}>
                                     <IconButton
