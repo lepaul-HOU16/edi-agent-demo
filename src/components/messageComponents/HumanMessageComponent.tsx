@@ -71,13 +71,13 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
         <div style={humanMessageStyle}>
           <div style={markdownStyle}>
             <ReactMarkdown remarkPlugins={[remarkGfm]}>
-              {message.content?.text}
+              {(message as any).content?.text}
             </ReactMarkdown>
           </div>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: theme.spacing(0.5) }}>
-        <CopyButton text={message.content?.text || ''} />
+        <CopyButton text={(message as any).content?.text || ''} />
         {onRegenerateMessage && (
           <>
             <Button 
@@ -93,8 +93,8 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
                   
                   // Call the regenerate function and wait for completion
                   const success = await onRegenerateMessage(
-                    message.id || '', 
-                    message.content?.text || ''
+                    (message as any).id || '', 
+                    (message as any).content?.text || ''
                   );
                   
                   // Show completion progress only if successful

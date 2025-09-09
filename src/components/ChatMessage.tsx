@@ -41,25 +41,25 @@ const ChatMessage = (params: {
     // Effect to handle file operation updates
     useEffect(() => {
         // Skip if we've already processed this message
-        const messageId = message.id;
-        if (!messageId || processedMessageRef.current[messageId]) {
+        const messageId = (message as any).id;
+        if (!messageId || processedMessageRef.current[messageId as any]) {
             return;
         }
 
-        if (message.role === 'tool' &&
-            (message.toolName === 'writeFile' ||
-                message.toolName === 'updateFile')) {
+        if ((message as any).role === 'tool' &&
+            ((message as any).toolName === 'writeFile' ||
+                (message as any).toolName === 'updateFile')) {
             try {
-                const fileData = JSON.parse(message.content?.text || '{}');
+                const fileData = JSON.parse((message as any).content?.text || '{}');
                 if (fileData.success) {
                     // Mark this message as processed
-                    processedMessageRef.current[messageId] = true;
+                    processedMessageRef.current[messageId as any] = true;
                     // Refresh file list when operations are successful
                     refreshFiles();
                 }
             } catch {
                 // Even on error, mark as processed to prevent infinite retries
-                processedMessageRef.current[messageId] = true;
+                processedMessageRef.current[messageId as any] = true;
             }
         }
     }, [message, refreshFiles]);
@@ -79,16 +79,16 @@ const ChatMessage = (params: {
         case 'tool':
             //This set of tools messages will render even if the chain of thought is not being shown
             // Remove "mcp__" prefix from toolName if present
-            const toolName = message.toolName?.startsWith("mcp__") 
-                ? message.toolName.substring(5) 
-                : message.toolName;
+            const toolName = (message as any).toolName?.startsWith("mcp__") 
+                ? (message as any).toolName.substring(5) 
+                : (message as any).toolName;
                 
             switch (toolName) {
                 case 'renderAssetTool':
                     return <RenderAssetToolComponent
                         content={message.content}
                         theme={theme}
-                        chatSessionId={message.chatSessionId || ''}
+                        chatSessionId={(message as any).chatSessionId || ''}
                     />;
                 case 'userInputTool':
                     return <UserInputToolComponent content={message.content} theme={theme} />;
@@ -100,7 +100,7 @@ const ChatMessage = (params: {
                     return <SearchFilesToolComponent
                         content={message.content}
                         theme={theme}
-                        chatSessionId={message.chatSessionId || ''}
+                        chatSessionId={(message as any).chatSessionId || ''}
                     />;
                 case 'listFiles':
                     return <ListFilesToolComponent content={message.content} theme={theme} />;
@@ -110,7 +110,7 @@ const ChatMessage = (params: {
                     return <WriteFileToolComponent
                         content={message.content}
                         theme={theme}
-                        chatSessionId={message.chatSessionId || ''}
+                        chatSessionId={(message as any).chatSessionId || ''}
                     />;
                 case 'updateFile':
                     return <UpdateFileToolComponent content={message.content} theme={theme} />;
@@ -126,7 +126,7 @@ const ChatMessage = (params: {
                     return <PlotDataToolComponent 
                         content={message.content} 
                         theme={theme} 
-                        chatSessionId={message.chatSessionId || ''} 
+                        chatSessionId={(message as any).chatSessionId || ''} 
                     />;
                 case 'permeabilityCalculator':
                     return <CustomWorkshopComponent content={message.content} theme={theme} />;

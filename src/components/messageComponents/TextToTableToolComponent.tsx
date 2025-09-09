@@ -22,7 +22,7 @@ const TextToTableToolComponent = ({ content, theme }: {
     // Parse the table data when the component mounts or content changes
     React.useEffect(() => {
         try {
-            const parsedData = JSON.parse(content?.text || '{}');
+            const parsedData = JSON.parse((content as any)?.text || '{}');
             // Filter out relevanceScore and relevanceExplanation columns
             if (parsedData.columns) {
                 parsedData.columns = parsedData.columns.filter((col: string) =>
@@ -93,7 +93,7 @@ const TextToTableToolComponent = ({ content, theme }: {
                     Error processing table data
                 </Typography>
                 <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>
-                    {content?.text}
+                    {(content as any)?.text}
                 </pre>
             </div>
         );
@@ -111,7 +111,7 @@ const TextToTableToolComponent = ({ content, theme }: {
                     Invalid table data format
                 </Typography>
                 <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.875rem' }}>
-                    {content?.text}
+                    {(content as any)?.text}
                 </pre>
             </div>
         );
@@ -304,4 +304,4 @@ const TextToTableToolComponent = ({ content, theme }: {
     );
 };
 
-export default TextToTableToolComponent; 
+export default TextToTableToolComponent;

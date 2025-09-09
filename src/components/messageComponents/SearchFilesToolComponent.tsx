@@ -35,7 +35,7 @@ export const SearchFilesToolComponent = ({ content, theme, chatSessionId }: {
     React.useEffect(() => {
         setLoading(true);
         try {
-            const parsedData = JSON.parse(content?.text || '{}');
+            const parsedData = JSON.parse((content as any)?.text || '{}');
             console.log('Parsed search files data:', parsedData);
             setSearchData(parsedData);
             setError(false);
@@ -112,7 +112,7 @@ export const SearchFilesToolComponent = ({ content, theme, chatSessionId }: {
                         <strong>Debug information:</strong>
                     </Typography>
                     <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.75rem', margin: theme.spacing(0.5, 0, 0, 0) }}>
-                        Raw content: {content?.text}
+                        Raw content: {(content as any)?.text}
                     </pre>
                 </div>
             </div>

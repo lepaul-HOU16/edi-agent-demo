@@ -39,7 +39,7 @@ export default function CatalogPage() {
   const [userInput, setUserInput] = useState<string>('');
   const [messages, setMessages] = useState<any[]>([]);
   const [showChainOfThought, setShowChainOfThought] = useState(false);
-  const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>({ id: "default" });
+  const [activeChatSession, setActiveChatSession] = useState<any>({ id: "default" });
   // Determine color scheme based on theme mode
   const colorScheme = theme.palette.mode === 'dark' ? 'dark' : 'light';
   

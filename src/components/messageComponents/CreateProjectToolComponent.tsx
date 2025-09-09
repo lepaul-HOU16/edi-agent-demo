@@ -45,7 +45,7 @@ interface CreateProjectToolComponentProps {
 
 const CreateProjectToolComponent: React.FC<CreateProjectToolComponentProps> = ({ content, theme }) => {
   try {
-    const toolData: ProjectToolResponse = JSON.parse(content?.text || '{}');
+    const toolData: ProjectToolResponse = JSON.parse((content as any)?.text || '{}');
     const { project } = toolData;
 
     const npvr = (project.financial.revenuePresentValue - project.financial.cost)/project.financial.cost;
@@ -147,7 +147,7 @@ const CreateProjectToolComponent: React.FC<CreateProjectToolComponentProps> = ({
           Error parsing project generation data
         </Typography>
         <div>
-          {content?.text}
+          {(content as any)?.text}
         </div>
       </Box>
     );

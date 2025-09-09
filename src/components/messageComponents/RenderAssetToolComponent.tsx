@@ -19,7 +19,7 @@ interface RenderAssetToolComponentProps {
 
 const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ content, theme, chatSessionId }) => {
   try {
-    const assetData = JSON.parse(content?.text || '{}');
+    const assetData = JSON.parse((content as any)?.text || '{}');
     const { filePath, title, description } = assetData;
     const s3Key = `chatSessionArtifacts/sessionId=${chatSessionId}/${filePath}`;
     if (!filePath) {
@@ -138,7 +138,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
           Error rendering asset
         </Typography>
         <pre>
-          {content?.text + "\n" + error}
+          {(content as any)?.text + "\n" + error}
         </pre>
       </Box>
     );

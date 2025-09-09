@@ -38,9 +38,9 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
         />
         <div>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {message.content?.text}
+            {(message as any).content?.text}
           </ReactMarkdown>
-          {message.toolCalls && message.toolCalls !== '[]' && (
+          {(message as any).toolCalls && (message as any).toolCalls !== '[]' && (
             <div style={{
               backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],
               padding: theme.spacing(1),
@@ -51,7 +51,7 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
               <Typography variant="subtitle2" color="textSecondary" gutterBottom>
                 Tool Calls
               </Typography>
-              {JSON.parse(message.toolCalls).map((toolCall: { name: string, args: unknown, id: string }, index: number) => {
+              {JSON.parse((message as any).toolCalls).map((toolCall: { name: string, args: unknown, id: string }, index: number) => {
                 // Track expanded state for each tool call
                 const [expanded, setExpanded] = useState(false);
                 
@@ -114,7 +114,7 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
         </div>
       </div>
       <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 0.5 }}>
-        <CopyButton text={message.content?.text || ''} />
+        <CopyButton text={(message as any).content?.text || ''} />
       </Box>
     </div>
   );

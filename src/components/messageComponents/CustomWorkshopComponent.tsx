@@ -27,7 +27,7 @@ interface PermeabilityToolComponentProps {
 const PermeabilityToolComponent: React.FC<PermeabilityToolComponentProps> = ({ content, theme }) => {
   try {
     // Parse the JSON content from the message
-    const reservoirData: ReservoirAnalysisData = JSON.parse(content?.text || '{}');
+    const reservoirData: ReservoirAnalysisData = JSON.parse((content as any)?.text || '{}');
 
     return (
       <Card 

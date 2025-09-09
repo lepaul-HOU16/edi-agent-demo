@@ -27,7 +27,7 @@ export default function PetrophysicalAnalysisPage() {
               text: "I need help with petrophysical analysis. Please show me the available tools and capabilities."
             },
             chatSessionId: newChatSession.data.id,
-          };
+          } as any;
           
           // Send the initial message
           await sendMessage({

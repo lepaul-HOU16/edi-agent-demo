@@ -13,7 +13,7 @@ interface WriteFileToolComponentProps {
 
 const WriteFileToolComponent: React.FC<WriteFileToolComponentProps> = ({ content, theme, chatSessionId }) => {
   try {
-    const fileData = JSON.parse(content?.text || '{}');
+    const fileData = JSON.parse((content as any)?.text || '{}');
     const basePath = `chatSessionArtifacts/sessionId=${chatSessionId}/`;
     return (
       <div style={{
@@ -65,11 +65,11 @@ const WriteFileToolComponent: React.FC<WriteFileToolComponentProps> = ({ content
           Error processing file write result
         </Typography>
         <pre>
-          {content?.text}
+          {(content as any)?.text}
         </pre>
       </div>
     );
   }
 };
 
-export default WriteFileToolComponent; 
+export default WriteFileToolComponent;

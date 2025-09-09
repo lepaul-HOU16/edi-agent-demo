@@ -91,7 +91,7 @@ export const combineAndSortMessages = ((arr1: Array<Message>, arr2: Array<Messag
   );
   return uniqueMessages.sort((a, b) => {
     if (!a.createdAt || !b.createdAt) throw new Error("createdAt is missing")
-    return a.createdAt.localeCompare(b.createdAt)
+    return (a.createdAt as any).localeCompare(b.createdAt as any)
   });
 })
 
@@ -106,7 +106,7 @@ export const sendMessage = async (props: {
     throw new Error("Error creating new message");
   }
 
-  if (!props.newMessage.content || !props.newMessage.content.text) throw new Error("content.text is missing")
+  if (!props.newMessage.content || !(props.newMessage.content as any).text) throw new Error("content.text is missing")
   const invokeResponse = await amplifyClient.queries.invokeReActAgent({
     chatSessionId: props.chatSessionId,
     // userInput: props.newMessage.content.text
@@ -119,5 +119,3 @@ export const sendMessage = async (props: {
     invokeResponse
   }
 }
-
-

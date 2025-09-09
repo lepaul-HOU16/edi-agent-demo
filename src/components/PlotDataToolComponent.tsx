@@ -91,7 +91,7 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
     // Parse the plot data when the component mounts or content changes
     React.useEffect(() => {
         try {
-            const parsedData = JSON.parse(content?.text || '{}');
+            const parsedData = JSON.parse((content as any)?.text || '{}');
             console.log('Parsed plot data:', parsedData);
             setPlotData(parsedData);
             setError(false);
@@ -546,7 +546,7 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                         <strong>Debug information:</strong>
                     </Typography>
                     <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.75rem', margin: theme.spacing(0.5, 0, 0, 0) }}>
-                        Raw content: {content?.text}
+                        Raw content: {(content as any)?.text}
                     </pre>
                     <pre style={{ whiteSpace: 'pre-wrap', fontSize: '0.75rem', margin: theme.spacing(0.5, 0, 0, 0) }}>
                         Plot data: {plotData ? JSON.stringify(plotData, null, 2) : 'null'}

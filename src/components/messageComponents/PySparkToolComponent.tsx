@@ -182,10 +182,10 @@ export const PySparkToolComponent = ({
   let errorMessage = null;
   
   try {
-    pysparkData = JSON.parse(content?.text || '{}');
+    pysparkData = JSON.parse((content as any)?.text || '{}');
   } catch (e) {
     errorMessage = "Error parsing PySpark response";
-    pysparkData = { status: "ERROR", output: { message: errorMessage, stdout: content?.text || "" } };
+    pysparkData = { status: "ERROR", output: { message: errorMessage, stdout: (content as any)?.text || "" } };
   }
   
   const { status, output } = pysparkData;

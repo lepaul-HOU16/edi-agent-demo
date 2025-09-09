@@ -16,8 +16,8 @@ const amplifyClient = generateClient<Schema>();
 
 const Page = () => {
     const { user } = useAuthenticator((context) => [context.user]);
-    const [chatSessions, setChatSessions] = useState<Schema["ChatSession"]["createType"][]>([]);
-    const [selectedItems, setSelectedItems] = useState<Schema["ChatSession"]["createType"][]>([]);
+    const [chatSessions, setChatSessions] = useState<any[]>([]);
+    const [selectedItems, setSelectedItems] = useState<any[]>([]);
 
     // Function to fetch and refresh chat sessions
     const fetchChatSessions = async () => {
@@ -78,7 +78,7 @@ const Page = () => {
 
     // Define card definition for Cloudscape Cards component
     const cardDefinition = {
-        header: (item: Schema["ChatSession"]["createType"]) => (
+        header: (item: any) => (
             <Box fontSize="heading-m" fontWeight="bold">
                 <div style={{
                     whiteSpace: 'nowrap',
@@ -92,7 +92,7 @@ const Page = () => {
         sections: [
             {
                 id: "description",
-                content: (item: Schema["ChatSession"]["createType"]) => (
+                content: (item: any) => (
                     <Box>
                         <div style={{
                             maxHeight: '4.5em', /* Approximately 3 lines of text */
@@ -113,7 +113,7 @@ const Page = () => {
             },
             {
                 id: "actions",
-                content: (item: Schema["ChatSession"]["createType"]) => (
+                content: (item: any) => (
                     <Box>
                         <div style={{
                             position: 'absolute',
