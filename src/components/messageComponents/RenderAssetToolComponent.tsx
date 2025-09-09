@@ -10,6 +10,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Message } from '@/../utils/types';
 import FileViewer from '../FileViewer';
+import { useViewport, calculateOptimalIframeDimensions, getFileTypeFromExtension } from '../../hooks/useViewport';
 
 interface RenderAssetToolComponentProps {
   content: Message['content'];
@@ -18,10 +19,13 @@ interface RenderAssetToolComponentProps {
 }
 
 const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ content, theme, chatSessionId }) => {
+  const viewport = useViewport();
+  
   try {
     const assetData = JSON.parse((content as any)?.text || '{}');
     const { filePath, title, description } = assetData;
     const s3Key = `chatSessionArtifacts/sessionId=${chatSessionId}/${filePath}`;
+    
     if (!filePath) {
       return (
         <Box sx={{
@@ -34,6 +38,10 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
         </Box>
       );
     }
+
+    // Get content type and calculate viewport-aware dimensions
+    const contentType = getFileTypeFromExtension(filePath);
+    const dimensions = calculateOptimalIframeDimensions(viewport, contentType);
 
     return (
       <Box sx={{
@@ -92,7 +100,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
           S3 Key: {s3Key}
         </Typography>
 
-        {/* Asset Preview */}
+        {/* Asset Preview with viewport-aware sizing */}
         <Box sx={{
           width: '100%',
           overflow: 'hidden'
@@ -101,18 +109,27 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
             width: '100%',
             height: '100%'
           }}>
-            {/* Special handling for HTML files */}
+            {/* Special handling for HTML files with viewport-aware sizing */}
             {s3Key.toLowerCase().endsWith('.html') ? (
               <Box sx={{ mb: 1 }}>
                 <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
-                  Using direct file route for HTML file
+                  Using viewport-aware HTML rendering
                 </Typography>
-                <Box sx={{ width: '100%', height: '500px', overflow: 'hidden' }}>
+                <Box 
+                  className="html-iframe"
+                  sx={{ 
+                    width: '100%', 
+                    height: dimensions.height,
+                    maxHeight: dimensions.maxHeight,
+                    overflow: 'hidden' 
+                  }}
+                >
                   <iframe 
                     src={`/file/${s3Key}`}
                     style={{ 
-                      width: '100%', 
-                      height: '100%', 
+                      width: dimensions.width,
+                      height: dimensions.height,
+                      maxHeight: dimensions.maxHeight,
                       border: 'none',
                       overflow: 'hidden'
                     }}

@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getUrl } from 'aws-amplify/storage';
 import { CircularProgress } from '@mui/material';
 import AceEditor from 'react-ace';
+import { useViewport, calculateOptimalIframeDimensions, getFileTypeFromExtension } from '../hooks/useViewport';
 
 import 'ace-builds/src-noconflict/mode-javascript';
 import 'ace-builds/src-noconflict/mode-json';
@@ -34,6 +35,9 @@ export default function FileViewer({
   const [error, setError] = useState<string | null>(null);
   const [fileContent, setFileContent] = useState<string | null>(null);
   const [fileContentType, setFileContentType] = useState<string | null>(null);
+  
+  // Use viewport hook for responsive sizing
+  const viewport = useViewport();
   
   // Create refs for iframes
   const nonTextIframeRef = useRef<HTMLIFrameElement>(null);
@@ -215,12 +219,14 @@ export default function FileViewer({
       );
     }
 
-    // Use direct iframe loading for HTML files - this resolves blank content issues
-    console.log('Rendering HTML file with direct URL loading');
+    // Use viewport-aware sizing for HTML files
+    const htmlDimensions = calculateOptimalIframeDimensions(viewport, 'html');
+    console.log('Rendering HTML file with viewport-aware sizing:', htmlDimensions);
+    
     return (
-      <div className="w-full relative">
+      <div className="w-full relative html-iframe">
         {iframeLoading && (
-          <div className="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75 z-10">
+          <div className="iframe-loading">
             <CircularProgress />
           </div>
         )}
@@ -231,10 +237,10 @@ export default function FileViewer({
             border: 'none',
             margin: 0,
             padding: 0,
-            width: '100%',
-            minHeight: '600px',
-            height: '100vh',
-            overflow: 'auto'
+            width: htmlDimensions.width,
+            height: htmlDimensions.height,
+            maxHeight: htmlDimensions.maxHeight,
+            overflow: 'hidden'
           }}
           className="w-full"
           title="HTML File Viewer"
@@ -242,6 +248,8 @@ export default function FileViewer({
           onLoad={() => {
             setIframeLoading(false);
             console.log('HTML iframe loaded successfully');
+            // Try to resize based on content
+            resizeIframeToContent(htmlIframeRef.current);
           }}
         />
       </div>
@@ -309,13 +317,21 @@ export default function FileViewer({
     );
   }
 
-  // For non-text files, we still need to use an iframe
+  // For non-text files, use viewport-aware sizing based on content type
+  const contentType = getFileTypeFromExtension(s3Key);
+  const dimensions = calculateOptimalIframeDimensions(viewport, contentType);
   
-  // For non-HTML files, create a wrapper with CSS to ensure content fits
+  // Get appropriate CSS classes for the content type
+  const containerClass = contentType === 'image' ? 'image-iframe' : 
+                        contentType === 'pdf' ? 'pdf-iframe' : 
+                        'iframe-container';
+  
+  console.log('Rendering non-text file with viewport-aware sizing:', { contentType, dimensions });
+  
   return (
-    <div className="w-full relative">
+    <div className={`w-full relative ${containerClass}`}>
       {iframeLoading && (
-        <div className="absolute inset-0 flex justify-center items-center bg-white bg-opacity-75 z-10">
+        <div className="iframe-loading">
           <CircularProgress />
         </div>
       )}
@@ -323,7 +339,9 @@ export default function FileViewer({
         className="w-full"
         style={{
           overflow: 'hidden',
-          position: 'relative'
+          position: 'relative',
+          height: dimensions.height,
+          maxHeight: dimensions.maxHeight,
         }}
       >
         <iframe
@@ -334,44 +352,39 @@ export default function FileViewer({
             border: 'none',
             margin: 0,
             padding: 0,
-            width: '100%',
-            height: '500px', // Initial height
-            overflow: 'hidden', // Hide scrollbars to prevent scrolling
-            transform: 'scale(1)', // Initial scale
-            transformOrigin: 'top left',
-            background: 'transparent' // Make iframe background transparent
+            width: dimensions.width,
+            height: dimensions.height,
+            maxWidth: dimensions.maxWidth,
+            maxHeight: dimensions.maxHeight,
+            overflow: 'hidden',
+            objectFit: contentType === 'image' ? 'contain' : 'initial',
+            background: contentType === 'image' ? '#f8f9fa' : 'transparent'
           }}
           title="File Viewer"
           onLoad={() => {
             setIframeLoading(false);
-            // For non-HTML files loaded via URL, we can try to resize but it may not work for cross-origin content
-            resizeIframeToContent(nonTextIframeRef.current);
+            console.log(`${contentType} iframe loaded successfully`);
             
-            // Try to add a load event listener to handle cross-origin iframe content
-            try {
-              const iframe = nonTextIframeRef.current;
-              if (iframe) {
-                // For PDF files, set a taller default height
-                if (s3Key.toLowerCase().endsWith('.pdf')) {
-                  iframe.style.height = '1200px';
-                }
-                
-                // For image files, scale to show full image without height constraints
-                if (/\.(jpg|jpeg|png|gif|svg|webp)$/i.test(s3Key)) {
-                  iframe.style.width = '100%';
-                  iframe.style.height = 'auto';
-                  iframe.style.maxHeight = 'none';
-                  iframe.style.minHeight = 'auto';
-                  iframe.style.objectFit = 'contain';
-                  // Remove any viewport height constraints
-                  iframe.style.removeProperty('max-height');
-                  iframe.style.removeProperty('min-height');
-                  // Set a more flexible height that allows full image display
-                  iframe.style.height = 'fit-content';
-                }
+            // Try to resize based on content for same-origin iframes
+            if (contentType !== 'image') {
+              resizeIframeToContent(nonTextIframeRef.current);
+            }
+            
+            // Apply content-specific optimizations
+            const iframe = nonTextIframeRef.current;
+            if (iframe) {
+              if (contentType === 'image') {
+                // For images, ensure they fit properly within the calculated dimensions
+                iframe.style.objectFit = 'contain';
+                iframe.style.objectPosition = 'center';
+              } else if (contentType === 'pdf') {
+                // For PDFs, ensure minimum readable height
+                const minPdfHeight = Math.max(
+                  parseInt(dimensions.height as string) || 600,
+                  viewport.isMobile ? 400 : 600
+                );
+                iframe.style.height = `${minPdfHeight}px`;
               }
-            } catch (e) {
-              console.warn('Error handling iframe content:', e);
             }
           }}
         />

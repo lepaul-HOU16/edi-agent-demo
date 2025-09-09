@@ -14,13 +14,36 @@ const loadOutputs = () => {
   }
 };
 
+// Helper function to get AWS credentials from environment variables
+const getAWSCredentials = () => {
+  // In production (Amplify), use AMPLIFY_ prefixed variables
+  // In development, fall back to standard AWS_ variables
+  const accessKeyId = process.env.AMPLIFY_AWS_ACCESS_KEY_ID || process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AMPLIFY_AWS_SECRET_ACCESS_KEY || process.env.AWS_SECRET_ACCESS_KEY;
+  const sessionToken = process.env.AMPLIFY_AWS_SESSION_TOKEN || process.env.AWS_SESSION_TOKEN;
+  const region = process.env.AMPLIFY_AWS_REGION || process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
+
+  if (!accessKeyId || !secretAccessKey) {
+    throw new Error('AWS credentials not found. Please configure AMPLIFY_AWS_ACCESS_KEY_ID and AMPLIFY_AWS_SECRET_ACCESS_KEY in Amplify Console.');
+  }
+
+  return {
+    accessKeyId,
+    secretAccessKey,
+    sessionToken,
+    region
+  };
+};
+
 export const getConfiguredAmplifyClient = () => {
+  const credentials = getAWSCredentials();
+
   Amplify.configure(
     {
       API: {
         GraphQL: {
           endpoint: process.env.AMPLIFY_DATA_GRAPHQL_ENDPOINT!, // replace with your defineData name
-          region: process.env.AWS_REGION,
+          region: credentials.region,
           defaultAuthMode: 'identityPool'
         }
       }
@@ -30,9 +53,9 @@ export const getConfiguredAmplifyClient = () => {
         credentialsProvider: {
           getCredentialsAndIdentityId: async () => ({
             credentials: {
-              accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-              secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-              sessionToken: process.env.AWS_SESSION_TOKEN!,
+              accessKeyId: credentials.accessKeyId,
+              secretAccessKey: credentials.secretAccessKey,
+              sessionToken: credentials.sessionToken,
             },
           }),
           clearCredentialsAndIdentityId: () => {
@@ -61,16 +84,28 @@ export const setAmplifyEnvVars = async () => {
     }
 
     process.env.AMPLIFY_DATA_GRAPHQL_ENDPOINT = outputs.data.url;
-    process.env.AWS_DEFAULT_REGION = outputs.auth.aws_region;
-
-    // Get credentials using STS
-    const stsClient = new STSClient({ region: outputs.auth.aws_region});
-    const credentials = await stsClient.config.credentials();
     
-    // Set AWS credentials environment variables
-    process.env.AWS_ACCESS_KEY_ID = credentials.accessKeyId;
-    process.env.AWS_SECRET_ACCESS_KEY = credentials.secretAccessKey;
-    process.env.AWS_SESSION_TOKEN = credentials.sessionToken;
+    // Set region from credentials helper
+    const credentials = getAWSCredentials();
+    process.env.AWS_DEFAULT_REGION = credentials.region;
+
+    // Get credentials using STS - but only if we don't already have them set via environment
+    if (!process.env.AMPLIFY_AWS_ACCESS_KEY_ID && !process.env.AWS_ACCESS_KEY_ID) {
+      const stsClient = new STSClient({ region: credentials.region });
+      const stsCredentials = await stsClient.config.credentials();
+      
+      // Set AWS credentials environment variables
+      process.env.AWS_ACCESS_KEY_ID = stsCredentials.accessKeyId;
+      process.env.AWS_SECRET_ACCESS_KEY = stsCredentials.secretAccessKey;
+      process.env.AWS_SESSION_TOKEN = stsCredentials.sessionToken;
+    } else {
+      // Use the credentials we already have
+      process.env.AWS_ACCESS_KEY_ID = credentials.accessKeyId;
+      process.env.AWS_SECRET_ACCESS_KEY = credentials.secretAccessKey;
+      if (credentials.sessionToken) {
+        process.env.AWS_SESSION_TOKEN = credentials.sessionToken;
+      }
+    }
     
     return {
       success: true
