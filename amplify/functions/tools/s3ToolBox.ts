@@ -824,6 +824,15 @@ export const writeFile = tool(
                 finalContent = await processDocumentLinks(content, getChatSessionId() || '');
             }
 
+            // Check if content is empty or only whitespace
+            if (!finalContent || finalContent.trim().length === 0) {
+                return JSON.stringify({ 
+                    error: "Cannot write empty content to file. File content must contain at least one non-whitespace character.",
+                    filename: filename,
+                    suggestion: "Ensure your content has actual data before saving the file."
+                });
+            }
+
             // Write the file to S3
             await writeS3Object(s3Key, finalContent);
 
@@ -1000,7 +1009,7 @@ async function retryWithExponentialBackoff<T>(
 
 // Convert textToTableTool to use the tool function from langchain
 export const textToTableTool = tool(
-    async (params: TextToTableParams) => {
+    async (params: TextToTableParams): Promise<string> => {
         try {
             // const origin = getOrigin() || '';
             // Reset progress timer at the start of each run
