@@ -47,12 +47,12 @@ const AISearchSecrets = {
     edi_search_url: "https://osdu.vavourak.people.aws.dev/api/search/v2/query/", // Replace with your actual search URL
 
     // Search services
-    search_api_key: "Wnve19VMRQ2Kd20j4URAT3yiUuRTzto96jepwnTL",
-    search_ws_url: "wss://dtcu734ffg.execute-api.us-east-1.amazonaws.com/demo/",
+    // search_api_key: "Wnve19VMRQ2Kd20j4URAT3yiUuRTzto96jepwnTL",
+    // search_ws_url: "wss://dtcu734ffg.execute-api.us-east-1.amazonaws.com/demo/",
     
     // AWS credentials for Lambda access
-    AWS_ACCESS_KEY_ID: "AKIAWCYYAFVUY2KWAFM4",
-    AWS_SECRET_ACCESS_KEY: "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",
+    i: "AKIAWCYYAFVUY2KWAFM4",
+    k: "yAcU4z0/Xgdxbn9OxBnK8faT8QybcVmfuOaWYtV1",
 };
 
 interface DataCollection {
@@ -144,8 +144,8 @@ export default function CatalogPage() {
       // Create the SigV4 signer
       const signer = new SignatureV4({
         credentials: {
-          accessKeyId: AISearchSecrets.AWS_ACCESS_KEY_ID,
-          secretAccessKey: AISearchSecrets.AWS_SECRET_ACCESS_KEY
+          accessKeyId: AISearchSecrets.i,
+          secretAccessKey: AISearchSecrets.k
         },
         region: REGION,
         service: SERVICE,
