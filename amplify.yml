@@ -4,6 +4,7 @@ backend:
     build:
       commands:
         - '# Generate outputs for Amplify Gen 2 project'
+        - nvm use 20
         - npx ampx generate outputs --app-id d1eeg2gu6ddc3z --branch main
 frontend:
   phases:
