@@ -1149,6 +1149,10 @@ def determine_aggregation() -> str:
         response = agent("Determine how to aggregate the response.")
         response_text = str(response)
 
+        # Strip any newline characters from the end of the response
+        response_text = response_text.rstrip('\n')
+
+
         output_data['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'] = response_text
 
         print(f'Agent: AggregateBy: Results: {response_text}')
@@ -1315,4 +1319,3 @@ def osdu_search_tool(inputs: dict) -> dict:
         print(f"osdu_search_tool: Error in search tool: {str(e)}")
         print(traceback.format_exc())
         return {"error": str(e), "status": "failed"}
-
