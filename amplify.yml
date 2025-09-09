@@ -9,9 +9,11 @@ frontend:
   phases:
     preBuild:
       commands:
-        - npm ci
+        - npm install --ignore-scripts
+        - npm ls || true
     build:
       commands:
+        - export NODE_OPTIONS="--max-old-space-size=8192"
         - npm run build
   artifacts:
     baseDirectory: .next
