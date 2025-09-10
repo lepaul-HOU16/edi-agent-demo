@@ -29,30 +29,15 @@ const amplifyClient = generateClient<Schema>();
 
 
 // Lambda function URL and AWS configuration
-const LAMBDA_MAP_URL = "https://jxhidrelljrdxx57pcuuofy2yi0tvsdg.lambda-url.us-east-1.on.aws/";
-const LAMBDA_SEARCH_URL = "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/"
-const REGION = "us-east-1";
+const LAMBDA_MAP_URL = process.env.NEXT_PUBLIC_LAMBDA_MAP_URL || "https://jxhidrelljrdxx57pcuuofy2yi0tvsdg.lambda-url.us-east-1.on.aws/";
+const LAMBDA_SEARCH_URL = process.env.NEXT_PUBLIC_LAMBDA_SEARCH_URL || "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/"
+const REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
 const SERVICE = "lambda";
 
 const AISearchSecrets = {
-    // AWS Cognito configuration
-    region: "us-east-1", // Replace with your actual region
-    edi_username: "edi-user", // Replace with your actual username
-    edi_password: "Asd!1edi", // Replace with your actual password
-    edi_client_id: "7se4hblptk74h59ghbb694ovj4", // Replace with your actual client ID
-    edi_client_secret: "k7iq7mnm4k0rp5hmve7ceb8dajkj9vulavetg90epn7an5sekfi", // Replace with your actual client secret
-    edi_partition: "osdu", // Replace with your actual partition ID
-    
-    // EDI API endpoints
-    edi_search_url: "https://osdu.vavourak.people.aws.dev/api/search/v2/query/", // Replace with your actual search URL
-
-    // Search services
-    // search_api_key: "Wnve19VMRQ2Kd20j4URAT3yiUuRTzto96jepwnTL",
-    // search_ws_url: "wss://dtcu734ffg.execute-api.us-east-1.amazonaws.com/demo/",
-    
     // AWS credentials for Lambda access
-    i: "AKIAWCYYAFVUY2KWAFM4",
-    k: "yAcU4z0/Xgdxbn9OxBnK8faT8QybcVmfuOaWYtV1",
+    AWS_ID: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID,
+    AWS_KEY: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY,
 };
 
 interface DataCollection {
@@ -141,11 +126,16 @@ export default function CatalogPage() {
         body: JSON.stringify(body),
       });
 
+      // Check if AWS credentials are available
+      if (!AISearchSecrets.AWS_ID || !AISearchSecrets.AWS_KEY) {
+        throw new Error("AWS credentials not found. Please set the environment variables NEXT_PUBLIC_AWS_ACCESS_KEY_ID and NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY.");
+      }
+
       // Create the SigV4 signer
       const signer = new SignatureV4({
         credentials: {
-          accessKeyId: AISearchSecrets.i,
-          secretAccessKey: AISearchSecrets.k
+          accessKeyId: AISearchSecrets.AWS_ID,
+          secretAccessKey: AISearchSecrets.AWS_KEY
         },
         region: REGION,
         service: SERVICE,
@@ -162,6 +152,7 @@ export default function CatalogPage() {
         body, // Return the original body object, not stringified again
       };
     } catch (error) {
+      console.error("Error signing request:", error);
       throw error;
     }
   }

@@ -101,9 +101,9 @@ def find_schemas() -> str:
     <response_format>
     Respond with only the filenames of the schemas in a json array, without the 'osdu', 'wks' or version number.  Do not explain.
     Example:
-    ["master-data--Wellbore", "work-product-component--WellLog"]
-    ["work-product-component--WellLog"]
-    ["work-product-component--WellboreTrajectory"]
+    user: "show me wells with GR logs from wellbores drilled after 2000".  assistant: ["master-data--Wellbore", "work-product-component--WellLog"]
+    user: "wells with GR and DT logs".  assistant: ["work-product-component--WellLog"]
+    user: "wells with a depth survey down to 4000 meters".  assistant: ["work-product-component--WellboreTrajectory"]
     </response_format>
 
     <tools>
@@ -112,7 +112,7 @@ def find_schemas() -> str:
 
     <Chain of thought>
     - Understand the user prompt and the results from the knowledgebase.
-    - Determine the most likely schemas (up to 3) that contain the metadata needed.
+    - Determine the most likely schemas (up to 2, but likely 1) that contain the metadata needed.
     - Make sure the schema names actually exist by using the check_schemas_exist tool.
     - If schema does not exist, try to determine a better list of schemas.
     - If all schemas are valid, respond to the user with the correct response format.
@@ -188,6 +188,8 @@ def find_schemas() -> str:
 
 @tool
 def check_schemas_exist(schemas: List[str]) -> dict:
+    print(f'check_schemas_exists: Checking schemas: {schemas}')
+    
     schema_check = {}
     for schema in schemas:
         try:

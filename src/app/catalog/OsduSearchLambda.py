@@ -303,8 +303,10 @@ def lambda_handler(event, context):
 if __name__ == "__main__":
     event = {}
     event['prompt'] = "what wells have GR and RHOB and DT logs?"
-    response = lambda_handler(event, None)
+
+    try: 
+        response = lambda_handler(event, None)
+    except Exception as e:
+        print(f"Error: {e}")
 
     # print(f'response=\n{response['body']}')
-
-    # Example: ["osdu:master-data--Well:8848", "osdu:master-data--Well:15%2F9-F-1", "osdu:master-data--Well:3064", "osdu:master-data--Well:3692", "osdu:master-data--Well:5330", "osdu:master-data--Well:7019", "osdu:master-data--Well:7064", "osdu:master-data--Well:7293", "osdu:master-data--Well:7535", "osdu:master-data--Well:7963"]
