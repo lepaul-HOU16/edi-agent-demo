@@ -50,6 +50,41 @@ tabular_data_example = {
     ],
 }
 
+body_example = {
+    'results': "some text about the results",
+    'tool_metadata': "reasoning, chain of thought etc.",
+    'geojson': {
+        'type': 'FeatureCollection', 
+        'features': [
+            {'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [4.72883579, 54.07297004]}, 'properties': {'id': 'osdu:master-data--Well:7072', 'aliases': ['F18-02', '7072'], 'name': 'F18-02'}}, 
+            {'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [4.08664047, 55.27719839]}, 'properties': {'id': 'osdu:master-data--Well:8003', 'aliases': ['B13-03', '8003'], 'name': 'B13-03'}}, 
+            {'type': 'Feature', 'geometry': {'type': 'Point', 'coordinates': [3.57410219, 53.50054953]}, 'properties': {'id': 'osdu:master-data--Well:7107', 'aliases': ['K08-06', '7107'], 'name': 'K08-06'}}
+        ]
+    },
+    'tabular_data': {
+        'columns': [
+            {'field': 'id', 'label': 'ID'},
+            {'field': 'kind', 'label': 'Data Type'},
+            {'field': 'data.NameAliases.AliasName', 'label': 'Well Name'},
+            {'field': 'data.FacilityName', 'label': 'Facility Name'},
+        ],
+        'data': [
+            {
+                'id': 'osdu:master-data--Well:2749',
+                'kind': 'osdu:wks:master-data--Well:1.0.0',
+                'data.NameAliases.AliasName': 'SNK-02, 2749',
+                'data.FacilityName': 'SNK-02',
+            }, 
+            {
+                'id': 'osdu:master-data--Well:3063',
+                'kind': 'osdu:wks:master-data--Well:1.0.0',
+                'data.NameAliases.AliasName': 'SNK-02, 2749',
+                'data.FacilityName': 'SNK-02',
+            }
+        ]
+    }
+}
+
 body = {
     'results': "results data",
     'tool_metadata': "reasoning etc.",
