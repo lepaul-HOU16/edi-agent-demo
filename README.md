@@ -24,6 +24,12 @@ cd sample-agents4energy-agent-template-alpha
 npm install
 ```
 
+3. Set up environment variables:
+```bash
+cp .env.local.example .env.local
+```
+Then edit the `.env.local` file to add your actual credentials. See [Environment Variables Setup](./docs/ENVIRONMENT_VARIABLES_SETUP.md) for more details.
+
 3. Deploy the sandbox environment:
 ```bash
 npx ampx sandbox --stream-function-logs
@@ -64,7 +70,3 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 ## License
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
-
-
-
-
