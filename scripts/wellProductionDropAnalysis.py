@@ -1,18 +1,65 @@
-# Import required libraries
-import pandas as pd
-import numpy as np
-from scipy.optimize import curve_fit
-import plotly.graph_objs as go
-import plotly.io as pio
-import warnings
+"""
+Well Production Drop Analysis Script
+
+This script performs hyperbolic decline curve analysis on well production data
+to calculate economic impacts of production drops.
+"""
+
 import os
+import warnings
 import json
 
-present_value_discount_rate=0.1
-gas_price_MCF=3
-operating_cost_USD_per_year=50000
+# Core imports with error handling
+try:
+    import pandas as pd
+    import numpy as np
+except ImportError as e:
+    print(f"Data processing library import error: {e}")
+    print("Please install required packages: pip install pandas numpy")
+    exit(1)
+
+try:
+    from scipy.optimize import curve_fit
+    import scipy.stats as stats
+except ImportError as e:
+    print(f"SciPy import error: {e}")
+    print("Please install SciPy: pip install scipy>=1.7.0")
+    exit(1)
+
+try:
+    import plotly.graph_objs as go
+    import plotly.io as pio
+except ImportError as e:
+    print(f"Plotly import error: {e}")
+    print("Please install Plotly: pip install plotly>=5.0.0")
+    # Note: Plotting is optional, so we don't exit here
+    go = None
+    pio = None
+
+# Define required variables (these should be set before running the script)
+present_value_discount_rate = 0.1
+gas_price_MCF = 3
+operating_cost_USD_per_year = 50000
+
+# These variables should be defined before running the script
+path_to_production_data = os.environ.get('PRODUCTION_DATA_PATH', 'production_data.csv')
+production_drop_date = os.environ.get('PRODUCTION_DROP_DATE', '2023-01-01')
+initial_production_rate_MCFD = float(os.environ.get('INITIAL_PRODUCTION_RATE', '1000'))
+final_production_rate_MCFD = float(os.environ.get('FINAL_PRODUCTION_RATE', '500'))
+well_api_number = os.environ.get('WELL_API_NUMBER', '12345')
+pool = os.environ.get('POOL', 'Unknown Pool')
+
+# Create output directories
+os.makedirs('intermediate', exist_ok=True)
+os.makedirs('plots', exist_ok=True)
+
 # Read production data
-production_df = pd.read_csv(path_to_production_data)
+try:
+    production_df = pd.read_csv(path_to_production_data)
+except FileNotFoundError:
+    print(f"Error: Production data file not found: {path_to_production_data}")
+    print("Please set PRODUCTION_DATA_PATH environment variable")
+    exit(1)
 
 # Convert Date column to datetime
 production_df['Date'] = pd.to_datetime(production_df['Date'])
