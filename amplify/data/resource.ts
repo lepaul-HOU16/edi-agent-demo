@@ -22,11 +22,11 @@ export const reActAgentFunction = defineFunction({
   }
 });
 
-export const mcpAgentInvoker = defineFunction({
-  name: 'mcpAgentInvoker',
-  entry: '../functions/mcpAgentInvoker/handler.ts',
-  timeoutSeconds: 900,
-});
+// export const mcpAgentInvoker = defineFunction({
+//   name: 'mcpAgentInvoker',
+//   entry: '../functions/mcpAgentInvoker/handler.ts',
+//   timeoutSeconds: 900,
+// });
 
 export const catalogMapDataFunction = defineFunction({
   name: 'catalogMapData',
