@@ -5,20 +5,23 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import { getUrl } from 'aws-amplify/storage';
 import dynamic from 'next/dynamic';
 
-// Dynamically import Plotly to prevent SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), {
-    ssr: false,
-    loading: () => (
-        <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '400px'
-        }}>
-            <CircularProgress />
-        </div>
-    )
-}) as React.ComponentType<any>;
+// Dynamically import Plotly to prevent SSR issues and reduce bundle size
+const Plot = dynamic(
+    () => import('react-plotly.js').then((mod) => mod.default), 
+    {
+        ssr: false,
+        loading: () => (
+            <div style={{
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                height: '400px'
+            }}>
+                <CircularProgress />
+            </div>
+        )
+    }
+) as React.ComponentType<any>;
 
 // Import Message type for content prop
 import { Message } from '@/../utils/types';
