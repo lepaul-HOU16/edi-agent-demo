@@ -134,6 +134,11 @@ export default function CatalogPage() {
     setError(null);
     
     try {
+      // Check if catalogSearch query is available
+      if (!amplifyClient.queries.catalogSearch) {
+        throw new Error('catalogSearch query not available - backend deployment may be in progress');
+      }
+
       // Use Amplify GraphQL query for catalog search
       const response = await amplifyClient.queries.catalogSearch({ prompt });
       
@@ -656,17 +661,20 @@ export default function CatalogPage() {
             {error && (
               <div style={{ 
                 position: 'absolute', 
-                top: '10px', 
-                left: '50%', 
-                transform: 'translateX(-50%)',
+                top: '100px', 
+                left: '40%', 
+                transform: 'translateX(-35%)',
                 zIndex: 10,
-                backgroundColor: 'rgba(255, 0, 0, 0.1)',
-                color: 'red',
-                padding: '10px 20px',
-                borderRadius: '4px',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                boxShadow: 'none',
               }}>
-                <span>Error loading map data: {error.message}</span>
+                <Alert
+                  type="error"
+                  dismissible
+                  onDismiss={() => setError(null)}
+                  header="Map Data Error"
+                >
+                  {error.message}
+                </Alert>
               </div>
             )}
             <div id="map" style={{ width: '100%', height: 'calc(100vh - 200px)', borderRadius: '0 0 16px 16px' }} />

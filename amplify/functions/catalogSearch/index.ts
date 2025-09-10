@@ -25,21 +25,41 @@ export const handler: Handler = async (event) => {
             status: "Active",
             matchScore: 0.95
           }
+        },
+        {
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [108.6, 14.25]
+          },
+          properties: {
+            name: `Well-008`,
+            depth: "4200m",
+            status: "Production", 
+            matchScore: 0.88
+          }
+        },
+        {
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [108.2, 13.95]
+          },
+          properties: {
+            name: `Well-GR-DTC-RHOB-001`,
+            depth: "3600m",
+            status: "Active",
+            logs: ["GR", "DTC", "RHOB"],
+            matchScore: 0.92
+          }
         }
       ]
     };
 
-    return {
-      statusCode: 200,
-      body: JSON.stringify({
-        geojson: mockSearchResults
-      })
-    };
+    // Return the JSON string directly (not wrapped in HTTP response)
+    return JSON.stringify(mockSearchResults);
   } catch (error) {
     console.error('Error in catalogSearch:', error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: 'Internal server error' })
-    };
+    throw new Error(`Search failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 };
