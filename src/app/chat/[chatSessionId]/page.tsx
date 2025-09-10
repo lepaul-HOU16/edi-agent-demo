@@ -46,6 +46,7 @@ function Page({
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [messages, setMessages] = useState<Message[]>([]);
+    const router = useRouter();
 
     const setActiveChatSessionAndUpload = async (newChatSession: any) => {
         try {
@@ -134,8 +135,6 @@ function Page({
             </div>
         );
     }
-
-    const router = useRouter();
 
     const handleCreateNewChat = async () => {
         try {
@@ -275,24 +274,24 @@ function Page({
                                 selectedItems={selectedItems}
                                 items={[
                                     {
-                                        name: 'Shale Volume Calculator',
-                                        description: 'Advanced analysis tool for calculating shale volume from gamma ray logs with multiple method options and quality control visualization.',
-                                        prompt: 'Calculate shale volume from gamma ray log data using both linear and non-linear methods (Clavier/Stieber). Generate synthetic gamma ray log data with values between 0-150 API units, including clean sand baseline (20 API) and shale baseline (120 API). Compare results between different calculation methods, perform quality control for outliers, and generate a comprehensive visualization showing the shale volume curve alongside the original gamma ray data. Include statistical analysis of the results and recommendations for optimal method selection.',
+                                        name: 'Well Data Discovery & Summary',
+                                        description: 'Discover and analyze available well log data to provide quick insights into the dataset.',
+                                        prompt: 'How many wells do I have? Explore the well data in global/well-data/ directory and create a summary showing what log types are available across the wells. Generate a simple visualization showing the spatial distribution of wells and basic statistics about the dataset.',
                                     },
                                     {
-                                        name: 'Porosity Analysis Suite',
-                                        description: 'Integrated tool for determining total porosity using density-neutron crossplot analysis with advanced lithology corrections.',
-                                        prompt: 'Generate synthetic density and neutron logs for a carbonate reservoir section. Create a density-neutron crossplot analysis including matrix density of 2.71 g/cc and fluid density of 1.0 g/cc. Apply limestone-to-dolomite lithology corrections. Calculate total porosity values and generate crossplot visualization with porosity overlay. Include uncertainty analysis and quality control flags for gas-affected zones. Provide statistical summary of porosity distribution by lithology.',
+                                        name: 'Gamma Ray Shale Analysis',
+                                        description: 'Calculate and visualize shale volume across wells using gamma ray data.',
+                                        prompt: 'Analyze the gamma ray logs from the wells and calculate shale volume using the Larionov method. Create interactive plots showing shale volume vs depth for the wells and identify the cleanest sand intervals. Focus on creating clear, engaging visualizations.',
                                     },
                                     {
-                                        name: 'Water Saturation Analyzer',
-                                        description: 'Comprehensive water saturation calculation system using Archie\'s equation with temperature and pressure corrections.',
-                                        prompt: 'Calculate water saturation for a sandstone reservoir using Archie\'s equation. Generate synthetic data for porosity (0.1-0.3), true formation resistivity (0.2-2000 ohm-m), and formation temperature (150-200°F). Use standard parameters: m=2, n=2, a=1, and calculate Rw with temperature corrections. Generate water saturation profile versus depth, including uncertainty analysis. Create visualization comparing water saturation with resistivity and porosity logs. Provide zones of high confidence versus zones requiring additional validation.',
+                                        name: 'Porosity from Density-Neutron',
+                                        description: 'Calculate porosity and create density-neutron crossplot for reservoir characterization.',
+                                        prompt: 'Extract density and neutron log data from the wells and calculate porosity. Create a density-neutron crossplot to identify lithology and highlight high-porosity zones. Generate depth plots showing porosity variations and identify the best reservoir intervals.',
                                     },
                                     {
-                                        name: 'Multi-Mineral Composition Analyzer',
-                                        description: 'Advanced mineral analysis platform integrating multiple log inputs for accurate formation composition determination.',
-                                        prompt: 'Perform multi-mineral analysis using synthetic log data including density, neutron, sonic, and photoelectric factor logs. Set up mineral model matrix for a system with quartz, calcite, dolomite, and clay minerals. Generate synthetic logs consistent with a mixed carbonate-clastic sequence. Apply simultaneous equation solving to determine mineral volumes. Create visualization showing mineral proportions versus depth. Include quality control indicators and uncertainty analysis. Compare results with synthetic core data points for validation.',
+                                        name: 'Multi-Well Log Correlation',
+                                        description: 'Create correlation panel showing key logs across multiple wells.',
+                                        prompt: 'Create a correlation panel showing gamma ray, resistivity, and porosity logs across 4-5 wells. Normalize the logs and create an interactive visualization that highlights geological patterns and reservoir zones. Make it visually appealing for presentation purposes.',
                                     }
                                 ]}
                                 loadingText="Loading resources"

@@ -22,23 +22,39 @@ const TRUNCATE_LENGTH = 1000; // Show first 1000 characters initially
 const WebBrowserToolComponent: React.FC<WebBrowserToolComponentProps> = ({ content, theme }) => {
   const [showFullContent, setShowFullContent] = useState(false);
   
+  // Parse response outside of useMemo to avoid conditional hooks
+  let response: WebBrowserResponse;
+  let parseError: string | null = null;
+  
   try {
-    const response: WebBrowserResponse = JSON.parse((content as any)?.text || '{}');
+    response = JSON.parse((content as any)?.text || '{}');
+  } catch (error) {
+    response = { status: 0, url: '', error: 'Failed to parse response' };
+    parseError = (error as Error).message;
+  }
+  
+  const displayContent = useMemo(() => {
+    if (!response.content) return '';
+    if (showFullContent) return response.content;
     
-    const displayContent = useMemo(() => {
-      if (!response.content) return '';
-      if (showFullContent) return response.content;
-      
-      // Try to truncate at the end of a sentence or paragraph
-      const truncated = response.content.slice(0, TRUNCATE_LENGTH);
-      const lastPeriod = truncated.lastIndexOf('.');
-      const lastNewline = truncated.lastIndexOf('\n');
-      const breakPoint = Math.max(lastPeriod, lastNewline);
-      
-      return breakPoint > 0 ? response.content.slice(0, breakPoint + 1) : truncated;
-    }, [response.content, showFullContent]);
+    // Try to truncate at the end of a sentence or paragraph
+    const truncated = response.content.slice(0, TRUNCATE_LENGTH);
+    const lastPeriod = truncated.lastIndexOf('.');
+    const lastNewline = truncated.lastIndexOf('\n');
+    const breakPoint = Math.max(lastPeriod, lastNewline);
+    
+    return breakPoint > 0 ? response.content.slice(0, breakPoint + 1) : truncated;
+  }, [response.content, showFullContent]);
 
-    const shouldShowButton = response.content && response.content.length > TRUNCATE_LENGTH;
+  const shouldShowButton = response.content && response.content.length > TRUNCATE_LENGTH;
+
+  if (parseError) {
+    return (
+      <Alert severity="error" sx={{ mt: 1 }}>
+        Error parsing web browser response: {parseError}
+      </Alert>
+    );
+  }
 
     return (
       <Box sx={{ maxWidth: '100%', mt: 1, mb: 2 }}>
@@ -126,13 +142,6 @@ const WebBrowserToolComponent: React.FC<WebBrowserToolComponentProps> = ({ conte
         </Paper>
       </Box>
     );
-  } catch (error) {
-    return (
-      <Alert severity="error" sx={{ mt: 1 }}>
-        Error parsing web browser response: {(error as Error).message}
-      </Alert>
-    );
-  }
 };
 
 export default WebBrowserToolComponent;

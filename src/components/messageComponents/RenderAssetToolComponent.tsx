@@ -10,7 +10,7 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
 import { Message } from '@/../utils/types';
 import FileViewer from '../FileViewer';
-import { useViewport, calculateOptimalIframeDimensions, getFileTypeFromExtension } from '../../hooks/useViewport';
+import { useViewport, calculateOptimalIframeDimensions, getFileTypeFromExtension, useDynamicIframe } from '../../hooks';
 
 interface RenderAssetToolComponentProps {
   content: Message['content'];
@@ -20,6 +20,14 @@ interface RenderAssetToolComponentProps {
 
 const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ content, theme, chatSessionId }) => {
   const viewport = useViewport();
+  
+  // Dynamic iframe configuration for HTML content
+  const dynamicIframe = useDynamicIframe({
+    minHeight: 500,
+    maxHeight: viewport.height * 0.8,
+    debounceMs: 200,
+    contentPadding: 20
+  });
   
   try {
     const assetData = JSON.parse((content as any)?.text || '{}');
@@ -45,10 +53,6 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
 
     return (
       <Box sx={{
-        // backgroundColor: theme.palette.grey[50],
-        padding: theme.spacing(2),
-        borderRadius: theme.shape.borderRadius,
-        boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
         width: '100%'
       }}>
         {/* Header */}
@@ -109,31 +113,57 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
             width: '100%',
             height: '100%'
           }}>
-            {/* Special handling for HTML files with viewport-aware sizing */}
+            {/* Special handling for HTML files with dynamic height and responsive content */}
             {s3Key.toLowerCase().endsWith('.html') ? (
               <Box sx={{ mb: 1 }}>
                 <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
-                  Using viewport-aware HTML rendering
+                  Using dynamic height HTML rendering {dynamicIframe.isLoading && '(calculating size...)'}
+                  {dynamicIframe.error && ` - ${dynamicIframe.error}`}
                 </Typography>
                 <Box 
-                  className="html-iframe"
+                  className="html-iframe-dynamic"
                   sx={{ 
                     width: '100%', 
-                    height: dimensions.height,
-                    maxHeight: dimensions.maxHeight,
-                    overflow: 'hidden' 
+                    minHeight: '800px', // Increased minimum height for reports
+                    height: `${Math.max(dynamicIframe.height, 800)}px`, // Ensure minimum height
+                    overflow: 'auto', // Changed from hidden to auto to allow scrolling if needed
+                    border: 'none',
+                    transition: 'height 0.3s ease-in-out'
                   }}
                 >
                   <iframe 
+                    ref={dynamicIframe.iframeRef}
                     src={`/file/${s3Key}`}
                     style={{ 
-                      width: dimensions.width,
-                      height: dimensions.height,
-                      maxHeight: dimensions.maxHeight,
+                      width: '100%',
+                      height: `${Math.max(dynamicIframe.height, 800)}px`, // Ensure minimum height
                       border: 'none',
-                      overflow: 'hidden'
+                      display: 'block'
                     }}
                     title="HTML Content"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    onLoad={(e) => {
+                      // Enhanced height detection for analysis reports
+                      const iframe = e.target as HTMLIFrameElement;
+                      try {
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                        if (iframeDoc) {
+                          // Wait for content to fully load
+                          setTimeout(() => {
+                            const contentHeight = Math.max(
+                              iframeDoc.documentElement.scrollHeight,
+                              iframeDoc.body.scrollHeight,
+                              1000 // Minimum height for analysis reports
+                            );
+                            iframe.style.height = `${contentHeight + 50}px`; // Add padding
+                          }, 500);
+                        }
+                      } catch (error) {
+                        console.warn('Could not access iframe content for height calculation:', error);
+                        // Set a safe default height for analysis reports
+                        iframe.style.height = '1000px';
+                      }
+                    }}
                   />
                 </Box>
               </Box>
