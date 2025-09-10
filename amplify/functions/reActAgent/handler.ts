@@ -392,12 +392,21 @@ You are a petrophysics agent designed to execute formation evaluation and petrop
             const wellDataContext = hasWellData ? 
                 "\n\n## 🎯 CRITICAL: AVAILABLE WELL DATA DETECTED!\n\n" +
                 `### ✅ CONFIRMED: ${wellLogCount} LAS FILES (WELLS) ARE AVAILABLE IN YOUR SYSTEM\n\n` +
-                "### 📋 WELL COUNTING INSTRUCTIONS - READ THIS FIRST:\n" +
-                `When user asks \"how many wells do I have\" or similar questions:\n` +
-                `1. **IMMEDIATE ANSWER**: You have ${wellLogCount} wells available\n` +
-                `2. **To verify/list wells**: Use searchFiles({\"filePattern\": \".*\\.las$\", \"includeGlobal\": true})\n` +
-                `3. **To explore well data**: Use listFiles(\"global/well-data\") to see available wells\n` +
-                `4. **Well locations**: Primary location is global/well-data/ directory\n\n` +
+                "### 📋 WELL COUNTING INSTRUCTIONS - CRITICAL NLP UNDERSTANDING:\n" +
+                `**YOU HAVE ${wellLogCount} WELLS AVAILABLE** - Memorize this number!\n\n` +
+                `**NATURAL LANGUAGE RECOGNITION**: Automatically recognize ALL of these well counting questions:\n` +
+                `- "How many wells do I have?" / "How many wells are there?" / "How many wells exist?"\n` +
+                `- "What's the well count?" / "Count the wells" / "Number of wells"\n` +
+                `- "Well inventory" / "Wells available" / "Total wells"\n` +
+                `- "How many LAS files?" / "LAS file count" / "Available wells"\n` +
+                `- "Wells in the system" / "Data inventory" / "Well data count"\n` +
+                `- Any variation asking about well quantity, count, or availability\n\n` +
+                `**IMMEDIATE RESPONSE PATTERN**: When you detect ANY well counting question:\n` +
+                `1. **INSTANT ANSWER**: "I found ${wellLogCount} wells in your data."\n` +
+                `2. **OPTIONAL DETAILS**: You can add context like "These are LAS files located in global storage"\n` +
+                `3. **NO TOOLS NEEDED**: You already know the count is ${wellLogCount} - just answer directly!\n` +
+                `4. **IF USER WANTS DETAILS**: Only then use searchFiles to list well names\n\n` +
+                `**CRITICAL**: Never say "I need to search" or "Let me check" for basic well counting - you know it's ${wellLogCount}!\n\n` +
                 "### IMPORTANT: ALL FILES ARE IN S3 STORAGE - DO NOT USE FILESYSTEM OPERATIONS!\n\n" +
                 "### Available Global Well Data:\n" +
                 `- **${wellLogCount} LAS files detected** in global/well-data/ directory\n` +

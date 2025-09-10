@@ -449,6 +449,8 @@ class DensityNeutronAnalyzer:
             width=1000,
             height=800,
             template='plotly_white',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)',
             legend=dict(
                 x=1.02,
                 y=1,
@@ -628,7 +630,9 @@ class DensityNeutronAnalyzer:
             title=f'Comprehensive Log Analysis - {well_name}',
             height=1000,
             showlegend=True,
-            template='plotly_white'
+            template='plotly_white',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
         )
         
         # Update y-axes (depth - reversed)

@@ -497,7 +497,9 @@ class PorosityReservoirAnalyzer:
             yaxis=dict(autorange='reversed'),  # Reverse y-axis
             height=800,
             width=1000,
-            template='plotly_white'
+            template='plotly_white',
+            paper_bgcolor='rgba(0,0,0,0)',
+            plot_bgcolor='rgba(0,0,0,0)'
         )
         
         # Save the plot
@@ -608,7 +610,9 @@ class PorosityReservoirAnalyzer:
                 title=f'Well Log Analysis - {well_name}',
                 height=800,
                 showlegend=True,
-                template='plotly_white'
+                template='plotly_white',
+                paper_bgcolor='rgba(0,0,0,0)',
+                plot_bgcolor='rgba(0,0,0,0)'
             )
             
             # Update y-axes to show depth (reversed)
