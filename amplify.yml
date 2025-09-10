@@ -12,7 +12,7 @@ frontend:
     build:
       commands:
         - nvm use 20
-        - export NODE_OPTIONS="--max-old-space-size=7168 --max-semi-space-size=512 --optimize-for-size"
+        - export NODE_OPTIONS="--max-old-space-size=7168 --max-semi-space-size=512"
         - export NODE_ENV=production
         - export GENERATE_SOURCEMAP=false
         - export DISABLE_ESLINT_PLUGIN=true
