@@ -1054,22 +1054,33 @@ export const textToTableTool = tool(
             matchingFiles.push(...userFiles);
 
             // Search in global files
+            // Remove directory prefix from pattern if it exists to avoid double-prefixing
+            let wellPattern = params.filePattern;
+            if (wellPattern.startsWith('well-data/')) {
+                wellPattern = wellPattern.replace('well-data/', '');
+            }
+            
             const globalWellFiles = await findFilesMatchingPattern(
-                GLOBAL_PREFIX + 'well-files/',
-                params.filePattern
+                GLOBAL_PREFIX + 'well-data/',
+                wellPattern
             );
             matchingFiles.push(...globalWellFiles);
 
+            let productionPattern = params.filePattern;
+            if (productionPattern.startsWith('production-data/')) {
+                productionPattern = productionPattern.replace('production-data/', '');
+            }
+
             const globalProductionFiles = await findFilesMatchingPattern(
                 GLOBAL_PREFIX + 'production-data/',
-                params.filePattern
+                productionPattern
             );
             matchingFiles.push(...globalProductionFiles);
 
             console.log(`Found ${matchingFiles.length} matching files`);
 
             // Filter out files which are not text files based on the suffix
-            const textExtensions = ['.txt', '.md', '.json', '.jsonl', '.yaml', '.yml', '.xml'];
+            const textExtensions = ['.txt', '.md', '.json', '.jsonl', '.yaml', '.yml', '.xml', '.las'];
             const filteredFiles = matchingFiles.filter(file => {
                 const lowerCaseFile = file.toLowerCase();
                 return textExtensions.some(ext => lowerCaseFile.endsWith(ext.toLowerCase()));
@@ -1537,11 +1548,26 @@ async function findFilesMatchingPattern(basePrefix: string, pattern: string): Pr
         console.log(`Corrected pattern from ${pattern} to ${correctedPattern}`);
     }
 
-    // If pattern doesn't have any wildcards, treat it as a contains search
-    if (!correctedPattern.includes('*') && !correctedPattern.includes('?') &&
-        !correctedPattern.includes('[') && !correctedPattern.includes('(') &&
-        !correctedPattern.includes('|')) {
-        // Change to match the pattern anywhere in the path after the base prefix
+    // Convert glob patterns to regex patterns
+    if (correctedPattern.includes('*') || correctedPattern.includes('?')) {
+        // This looks like a glob pattern, convert to regex
+        // Escape regex special characters except * and ?
+        let regexPattern = correctedPattern
+            .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape regex special chars
+            .replace(/\*/g, '.*')  // Convert * to .*
+            .replace(/\?/g, '.');  // Convert ? to .
+        
+        // If the pattern looks like it should match the full path (contains directory separators)
+        // anchor it, otherwise allow it to match anywhere
+        if (correctedPattern.includes('/')) {
+            correctedPattern = `^${regexPattern}$`;
+        } else {
+            correctedPattern = `.*${regexPattern}.*`;
+        }
+        console.log(`Converted glob pattern to regex: ${correctedPattern}`);
+    } else if (!correctedPattern.includes('[') && !correctedPattern.includes('(') &&
+               !correctedPattern.includes('|') && !correctedPattern.includes('\\')) {
+        // If pattern doesn't have any regex wildcards, treat it as a contains search
         correctedPattern = `.*${correctedPattern}.*`;
         console.log(`Added wildcards to pattern: ${correctedPattern}`);
     }
@@ -1572,6 +1598,7 @@ async function findFilesMatchingPattern(basePrefix: string, pattern: string): Pr
             }));
 
             // console.log('Common Prefixes: ', listCommonPrefixesResponse.CommonPrefixes)
+            // Check both subdirectories (CommonPrefixes) and direct files (Contents)
             const matchingPrefixes = (listCommonPrefixesResponse.CommonPrefixes || [])
                 .filter(item => {
                     if (!item.Prefix) return false
@@ -1580,21 +1607,55 @@ async function findFilesMatchingPattern(basePrefix: string, pattern: string): Pr
                     return isMatch
                 })
 
-            if (matchingPrefixes.length === 0 && matchingFiles.length === 0) matchingPrefixes.push({ Prefix: searchPrefix }) //If no matching prefixes are found, search for all file matches under the search prefix.
-            console.log('Matching Prefixes: ', matchingPrefixes)
+            // Also check files in the current directory level
+            (listCommonPrefixesResponse.Contents || [])
+                .forEach(item => {
+                    if (!item.Key) return
+                    const relativePath = item.Key.replace(basePrefix, '');
+                    // Skip directory markers and empty paths
+                    if (relativePath && !relativePath.endsWith('/')) {
+                        const isMatch = fileMatchesPattern(relativePath, correctedPattern);
+                        if (isMatch) matchingFiles.push(item.Key)
+                    }
+                })
 
+            // If no matching prefixes found but we haven't found files yet, search the base prefix without delimiter
+            if (matchingPrefixes.length === 0 && matchingFiles.length === 0) {
+                console.log('No matching prefixes found, searching base prefix without delimiter')
+                const listAllFilesResult = await s3Client.send(new ListObjectsV2Command({
+                    Bucket: bucketName,
+                    Prefix: searchPrefix,
+                    MaxKeys: 1000
+                }));
+                
+                (listAllFilesResult.Contents || [])
+                    .forEach(item => {
+                        if (!item.Key) return
+                        const relativePath = item.Key.replace(basePrefix, '');
+                        // Skip directory markers and empty paths
+                        if (relativePath && !relativePath.endsWith('/')) {
+                            const isMatch = fileMatchesPattern(relativePath, correctedPattern);
+                            if (isMatch) matchingFiles.push(item.Key)
+                        }
+                    })
+            }
+
+            console.log('Matching Prefixes: ', matchingPrefixes.length)
+            console.log('Matching Files in this iteration: ', matchingFiles.length)
+
+            // Process subdirectories if any were found
             for await (const item of matchingPrefixes) {
                 const listFilesCommandResult = await s3Client.send(new ListObjectsV2Command({
                     Bucket: bucketName,
                     Prefix: item.Prefix,
-                    MaxKeys: 1000, // Fetch in larger batches,
+                    MaxKeys: 1000
                 }));
                 (listFilesCommandResult.Contents || [])
-                    .map(item => {
-                        if (!item.Key) return
-                        const relativePath = item.Key.replace(basePrefix, '');
+                    .forEach(fileItem => {
+                        if (!fileItem.Key) return
+                        const relativePath = fileItem.Key.replace(basePrefix, '');
                         const isMatch = fileMatchesPattern(relativePath, correctedPattern);
-                        if (isMatch) matchingFiles.push(item.Key)
+                        if (isMatch) matchingFiles.push(fileItem.Key)
                     })
             }
 
@@ -1653,15 +1714,26 @@ export const searchFiles = tool(
 
             // Search in global files if requested
             if (includeGlobal) {
+                // Remove directory prefix from pattern if it exists to avoid double-prefixing
+                let wellPattern = filePattern;
+                if (wellPattern.startsWith('well-data/')) {
+                    wellPattern = wellPattern.replace('well-data/', '');
+                }
+                
                 const globalWellFiles = await findFilesMatchingPattern(
-                    GLOBAL_PREFIX + 'well-files/',
-                    filePattern
+                    GLOBAL_PREFIX + 'well-data/',
+                    wellPattern
                 );
                 matchingFiles.push(...globalWellFiles);
 
+                let productionPattern = filePattern;
+                if (productionPattern.startsWith('production-data/')) {
+                    productionPattern = productionPattern.replace('production-data/', '');
+                }
+
                 const globalProductionFiles = await findFilesMatchingPattern(
                     GLOBAL_PREFIX + 'production-data/',
-                    filePattern
+                    productionPattern
                 );
                 matchingFiles.push(...globalProductionFiles);
             }

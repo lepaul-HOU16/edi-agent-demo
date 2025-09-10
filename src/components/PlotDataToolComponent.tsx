@@ -2,28 +2,23 @@ import React, { useMemo } from 'react';
 import { Theme } from '@mui/material/styles';
 import { Typography, CircularProgress } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, LogarithmicScale, ChartOptions } from 'chart.js';
-import { Line, Bar, Scatter } from 'react-chartjs-2';
 import { getUrl } from 'aws-amplify/storage';
+import dynamic from 'next/dynamic';
 
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  LogarithmicScale,
-  PointElement,
-  LineElement,
-  BarElement,
-  Title,
-  Tooltip,
-  Legend
-);
-
-// Set default Chart.js options for transparent backgrounds
-ChartJS.defaults.backgroundColor = 'transparent';
-ChartJS.defaults.borderColor = 'rgba(0,0,0,0.1)';
-ChartJS.defaults.color = '#666';
-ChartJS.defaults.plugins.tooltip.backgroundColor = 'rgba(0,0,0,0.7)';
+// Dynamically import Plotly to prevent SSR issues
+const Plot = dynamic(() => import('react-plotly.js'), {
+    ssr: false,
+    loading: () => (
+        <div style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            height: '400px'
+        }}>
+            <CircularProgress />
+        </div>
+    )
+}) as React.ComponentType<any>;
 
 // Import Message type for content prop
 import { Message } from '@/../utils/types';
@@ -176,24 +171,8 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
         processData();
     }, [plotData, parseCSV]);
 
-    // Declare a type for chart dataset
-    interface ChartDataset {
-        label: string;
-        data: (number | null)[];
-        backgroundColor: string;
-        borderColor: string;
-        borderWidth: number;
-        pointBackgroundColor: string;
-        tension: number;
-        yAxisID?: string; // Add yAxisID property for multi-axis support
-        sourceFile?: string;
-        spanGaps?: boolean;
-        tooltipData?: string[];
-        tooltipColumn?: string;
-    }
-
-    // Prepare chart data from multiple sources or direct data
-    const chartData = React.useMemo(() => {
+    // Prepare Plotly data from multiple sources or direct data
+    const plotlyData = React.useMemo(() => {
         // If we have csvData and need to extract specific columns
         if (csvData && plotData?.xAxisColumn && plotData.yAxisColumns && plotData.yAxisColumns.length > 0) {
             const xValues = csvData.map(row => row[plotData.xAxisColumn || ''] || '');
@@ -202,14 +181,15 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
             console.log('CSV data sample:', csvData.slice(0, 2));
             console.log('Available columns in CSV:', csvData.length > 0 ? Object.keys(csvData[0]) : []);
             
-            console.log('Creating chart with columns:', { 
+            console.log('Creating Plotly chart with columns:', { 
                 xAxisColumn: plotData.xAxisColumn, 
                 yAxisColumns: plotData.yAxisColumns,
                 xValuesCount: xValues.length,
                 csvDataCount: csvData.length
             });
             
-            const datasets = plotData.yAxisColumns.map((col, index) => {
+            // Create Plotly traces for each y-axis column
+            const traces = plotData.yAxisColumns.map((col, index) => {
                 // Check if the column actually exists in the data
                 const columnExists = csvData.length > 0 && col.column in csvData[0];
                 if (!columnExists) {
@@ -235,235 +215,156 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                     exists: columnExists
                 });
                 
+                const plotType = plotData?.plotType || 'line';
+                const traceType = plotType === 'bar' ? 'bar' : plotType === 'scatter' ? 'scatter' : 'scatter';
+                const mode = plotType === 'line' ? 'lines+markers' : 'markers';
+                
                 return {
-                    label: col.label || col.column,
-                    data: dataPoints,
-                    backgroundColor: col.color || seriesColors[index % seriesColors.length] + '66',
-                    borderColor: col.color || seriesColors[index % seriesColors.length],
-                    borderWidth: 2,
-                    pointBackgroundColor: col.color || seriesColors[index % seriesColors.length],
-                    tension: 0.1,
-                    // Set the Y axis ID for this dataset - first dataset uses left axis, others use right
-                    yAxisID: index === 0 ? 'y' : 'y1'
+                    x: xValues,
+                    y: dataPoints,
+                    type: traceType as any,
+                    mode: mode as any,
+                    name: col.label || col.column,
+                    line: {
+                        color: col.color || seriesColors[index % seriesColors.length],
+                        width: 2
+                    },
+                    marker: {
+                        color: col.color || seriesColors[index % seriesColors.length],
+                        size: 6
+                    },
+                    // Use secondary y-axis for additional series
+                    yaxis: index === 0 ? 'y' : 'y2'
                 };
             });
             
-            return {
-                labels: xValues,
-                datasets: datasets
-            };
+            return traces;
         }
         
         // If we have plotData with series already prepared
         if (plotData?.series && plotData.xAxis?.data) {
+            const plotType = plotData?.plotType || 'line';
+            const traceType = plotType === 'bar' ? 'bar' : plotType === 'scatter' ? 'scatter' : 'scatter';
+            const mode = plotType === 'line' ? 'lines+markers' : 'markers';
+            
             // Check if this is multi-file data
             if (plotData.isMultiSource) {
                 // For multi-file data, we need to map each series to the common x-axis
                 const commonXLabels = plotData.xAxis.data;
                 
-                return {
-                    labels: commonXLabels,
-                    datasets: plotData.series.map((series, index) => {
-                        // For each x value in the common axis, find the corresponding y value from this series
-                        // or use null if no match (to create gaps in the line)
-                        const alignedData = commonXLabels.map(xValue => {
-                            // Find the index of this x value in the series' original x data
-                            if (!series.xData) {
-                                return null;
-                            }
-                            const seriesIndex = series.xData.findIndex((x: string) => x === xValue);
-                            // Return the y value if found, or null if not
-                            return seriesIndex >= 0 ? Number(series.data[seriesIndex]) || 0 : null;
-                        });
-                        
-                        // Also align tooltip data to the common x-axis
-                        const alignedTooltipData = commonXLabels.map(xValue => {
-                            if (!series.xData || !series.tooltipData) {
-                                return undefined;
-                            }
-                            const seriesIndex = series.xData.findIndex((x: string) => x === xValue);
-                            return seriesIndex >= 0 ? series.tooltipData[seriesIndex] : undefined;
-                        });
-                        
-                        return {
-                            label: series.label || `Series ${index + 1}`,
-                            data: alignedData,
-                            backgroundColor: series.color || seriesColors[index % seriesColors.length] + '66', // Add transparency
-                            borderColor: series.color || seriesColors[index % seriesColors.length],
-                            borderWidth: 2,
-                            pointBackgroundColor: series.color || seriesColors[index % seriesColors.length],
-                            tension: 0.1,
-                            // Allow gaps in line for missing data points
-                            spanGaps: true,
-                            // Show source file in tooltip
-                            sourceFile: series.sourceFile,
-                            tooltipData: alignedTooltipData,
-                            tooltipColumn: series.tooltipColumn
-                        };
-                    })
-                };
+                return plotData.series.map((series, index) => {
+                    // For each x value in the common axis, find the corresponding y value from this series
+                    // or use null if no match (to create gaps in the line)
+                    const alignedData = commonXLabels.map(xValue => {
+                        // Find the index of this x value in the series' original x data
+                        if (!series.xData) {
+                            return null;
+                        }
+                        const seriesIndex = series.xData.findIndex((x: string) => x === xValue);
+                        // Return the y value if found, or null if not
+                        return seriesIndex >= 0 ? Number(series.data[seriesIndex]) || 0 : null;
+                    });
+                    
+                    return {
+                        x: commonXLabels,
+                        y: alignedData,
+                        type: traceType as any,
+                        mode: mode as any,
+                        name: series.label || `Series ${index + 1}`,
+                        line: {
+                            color: series.color || seriesColors[index % seriesColors.length],
+                            width: 2
+                        },
+                        marker: {
+                            color: series.color || seriesColors[index % seriesColors.length],
+                            size: 6
+                        },
+                        connectgaps: true, // Allow gaps in line for missing data points
+                        // Use secondary y-axis for additional series
+                        yaxis: index === 0 ? 'y' : 'y2'
+                    };
+                });
             }
             
             // Single file with multiple series
-            return {
-                labels: plotData.xAxis.data,
-                datasets: plotData.series.map((series, index) => ({
-                    label: series.label,
-                    data: series.data.map(y => Number(y) || 0),
-                    backgroundColor: series.color || seriesColors[index % seriesColors.length] + '66', // Add transparency
-                    borderColor: series.color || seriesColors[index % seriesColors.length],
-                    borderWidth: 2,
-                    pointBackgroundColor: series.color || seriesColors[index % seriesColors.length],
-                    tension: 0.1,
-                    sourceFile: series.sourceFile,
-                    tooltipData: series.tooltipData,
-                    tooltipColumn: series.tooltipColumn
-                }))
-            };
+            return plotData.series.map((series, index) => ({
+                x: plotData.xAxis?.data || [],
+                y: series.data.map(y => Number(y) || 0),
+                type: traceType as any,
+                mode: mode as any,
+                name: series.label,
+                line: {
+                    color: series.color || seriesColors[index % seriesColors.length],
+                    width: 2
+                },
+                marker: {
+                    color: series.color || seriesColors[index % seriesColors.length],
+                    size: 6
+                },
+                // Use secondary y-axis for additional series
+                yaxis: index === 0 ? 'y' : 'y2'
+            }));
         }
         
         // Default empty data
-        return {
-            labels: [],
-            datasets: []
-        };
+        return [];
     }, [plotData, csvData, seriesColors]);
 
-    // Update chart options to show custom tooltips
-    const chartOptions = React.useMemo(() => {
+    // Create Plotly layout options
+    const plotlyLayout = React.useMemo(() => {
         // Determine if we need dual y-axes
-        const needsDualAxes = chartData.datasets && chartData.datasets.length > 1;
+        const needsDualAxes = plotlyData && plotlyData.length > 1;
         
-        console.log('Chart needs dual axes:', needsDualAxes, 'with datasets:', chartData.datasets?.length);
+        console.log('Plotly needs dual axes:', needsDualAxes, 'with traces:', plotlyData?.length);
         
-        const options: any = {
-            responsive: true,
-            maintainAspectRatio: false,
-            backgroundColor: 'transparent',
-            plugins: {
-                legend: {
-                    position: 'top' as const,
-                    display: true, // Always show legend when there are multiple series
-                    labels: {
-                        boxWidth: 12,
-                        usePointStyle: true,
-                        padding: 20,
-                    },
-                },
-                title: {
-                    display: true,
-                    text: plotData?.title || 'Data Plot',
-                    font: {
-                        size: 16,
-                        weight: 'bold' as const
-                    }
-                },
-                tooltip: {
-                    enabled: true,
-                    backgroundColor: theme.palette.grey[800],
-                    titleFont: {
-                        size: 14
-                    },
-                    bodyFont: {
-                        size: 13
-                    },
-                    padding: 10,
-                    cornerRadius: 4,
-                    callbacks: {
-                        afterBody: (tooltipItems: any[]) => {
-                            const item = tooltipItems[0];
-                            if (!item) return '';
-                            
-                            const dataset = chartData.datasets[item.datasetIndex] as ChartDataset;
-                            const tooltipLines = [];
-                            
-                            // Show source file information if available
-                            if (dataset.sourceFile) {
-                                tooltipLines.push(`Source: ${dataset.sourceFile.split('/').pop()}`);
-                            }
-                            
-                            // Show custom tooltip data if available
-                            if (dataset.tooltipData && dataset.tooltipData[item.dataIndex]) {
-                                const tooltipValue = dataset.tooltipData[item.dataIndex];
-                                const tooltipLabel = dataset.tooltipColumn || 'Info';
-                                tooltipLines.push(`${tooltipLabel}: ${tooltipValue}`);
-                            }
-                            
-                            return tooltipLines.join('\n');
-                        }
-                    }
-                }
+        const layout: any = {
+            autosize: true,
+            margin: { l: 60, r: 60, t: 60, b: 60 },
+            paper_bgcolor: 'rgba(0,0,0,0)',
+            plot_bgcolor: 'rgba(0,0,0,0)',
+            title: {
+                text: plotData?.title || 'Data Plot',
+                font: { size: 16 },
+                x: 0.5
             },
-            scales: {
-                x: {
-                    title: {
-                        display: true,
-                        text: plotData?.xAxis?.label || 'X',
-                        font: {
-                            size: 14,
-                            weight: 'bold' as const
-                        }
-                    },
-                    grid: {
-                        display: true,
-                        color: 'rgba(0,0,0,0.05)',
-                        drawOnChartArea: true,
-                        drawTicks: false
-                    },
-                    ticks: {
-                        color: theme.palette.text.secondary
-                    }
+            xaxis: {
+                title: {
+                    text: plotData?.xAxis?.label || 'X',
+                    font: { size: 14 }
                 },
-                y: {
-                    type: 'linear',
-                    display: true,
-                    position: 'left',
-                    title: {
-                        display: true,
-                        text: needsDualAxes && plotData?.yAxisColumns && plotData.yAxisColumns.length > 0
-                            ? (plotData.yAxisColumns[0].label || plotData.yAxisColumns[0].column)
-                            : 'Value',
-                        font: {
-                            size: 14,
-                            weight: 'bold' as const
-                        }
-                    },
-                    grid: {
-                        display: true,
-                        color: 'rgba(0,0,0,0.05)',
-                        drawOnChartArea: true,
-                        drawTicks: false
-                    },
-                    ticks: {
-                        color: theme.palette.text.secondary
-                    }
-                }
+                gridcolor: 'rgba(0,0,0,0.1)',
+                tickfont: { color: theme.palette.text.secondary }
+            },
+            yaxis: {
+                title: {
+                    text: needsDualAxes && plotData?.yAxisColumns && plotData.yAxisColumns.length > 0
+                        ? (plotData.yAxisColumns[0].label || plotData.yAxisColumns[0].column)
+                        : 'Value',
+                    font: { size: 14 }
+                },
+                gridcolor: 'rgba(0,0,0,0.1)',
+                tickfont: { color: theme.palette.text.secondary },
+                side: 'left'
+            },
+            showlegend: true,
+            legend: {
+                orientation: 'h',
+                y: -0.2,
+                x: 0.5,
+                xanchor: 'center'
             }
         };
         
         // Add right y-axis if we need dual axes
         if (needsDualAxes && plotData?.yAxisColumns && plotData.yAxisColumns.length > 1) {
-            options.scales.y1 = {
-                type: 'linear',
-                display: true,
-                position: 'right',
+            layout.yaxis2 = {
                 title: {
-                    display: true,
                     text: plotData.yAxisColumns[1].label || plotData.yAxisColumns[1].column,
-                    font: {
-                        size: 14,
-                        weight: 'bold' as const
-                    }
+                    font: { size: 14 }
                 },
-                grid: {
-                    display: true,
-                    color: 'rgba(0,0,0,0.05)',
-                    drawOnChartArea: false, // only want the grid lines for one axis to show up
-                    drawTicks: false
-                },
-                ticks: {
-                    color: theme.palette.text.secondary
-                }
+                tickfont: { color: theme.palette.text.secondary },
+                side: 'right',
+                overlaying: 'y'
             };
             
             console.log('Added secondary Y axis for:', plotData.yAxisColumns[1].column);
@@ -471,13 +372,13 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
             console.log('No secondary Y axis needed');
         }
         
-        return options;
-    }, [plotData, theme, chartData.datasets?.length, chartData.datasets]);
+        return layout;
+    }, [plotData, theme, plotlyData?.length]);
 
-    // Render the appropriate chart based on plotType
+    // Render the Plotly chart
     const renderChart = () => {
         // Ensure we have data to display
-        const hasData = (chartData.labels.length > 0 && chartData.datasets.length > 0 && chartData.datasets[0].data.length > 0);
+        const hasData = plotlyData && plotlyData.length > 0;
         
         if (!hasData) {
             return (
@@ -497,22 +398,27 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                             series: plotData?.series?.length || 0,
                             xAxis: plotData?.xAxis?.data?.length || 0,
                             csvData: csvData?.length || 0,
-                            filePath: plotData?.filePath
+                            filePath: plotData?.filePath,
+                            plotlyTraces: plotlyData?.length || 0
                         })}
                     </Typography>
                 </div>
             );
         }
         
-        switch (plotData?.plotType) {
-            case 'bar':
-                return <Bar data={chartData} options={chartOptions} />;
-            case 'scatter':
-                return <Scatter data={chartData} options={chartOptions} />;
-            case 'line':
-            default:
-                return <Line data={chartData} options={chartOptions} />;
-        }
+        return (
+            <Plot
+                data={plotlyData}
+                layout={plotlyLayout}
+                style={{ width: '100%', height: '100%' }}
+                config={{
+                    responsive: true,
+                    displayModeBar: true,
+                    modeBarButtonsToRemove: ['pan2d', 'lasso2d'],
+                    displaylogo: false
+                }}
+            />
+        );
     };
 
     // If there's an error processing the plot data
@@ -626,11 +532,9 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
     // Render the complete chart
     return (
         <div style={{
-            // backgroundColor: theme.palette.grey[50],
-            // padding: theme.spacing(2),
             borderRadius: theme.shape.borderRadius,
-            // boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
-            width: '100%'
+            width: '100%',
+            overflow: 'hidden'
         }}>
             <div style={{
                 display: 'flex',
@@ -648,12 +552,31 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
             <div style={{
                 border: `1px solid ${theme.palette.grey[300]}`,
                 borderRadius: theme.shape.borderRadius,
-                padding: theme.spacing(2),
-                backgroundColor: 'transparent',
-                height: '350px',
-                width: '100%'
+                padding: theme.spacing(1),
+                backgroundColor: 'rgba(0,0,0,0)',
+                height: '500px',
+                width: '100%',
+                overflow: 'visible',
+                position: 'relative',
+                minHeight: '500px'
             }}>
-                {renderChart()}
+                <div style={{
+                    height: '100%',
+                    width: '100%',
+                    backgroundColor: 'rgba(0,0,0,0)',
+                    overflow: 'hidden',
+                    position: 'relative'
+                }}>
+                    <div style={{
+                        height: '100%',
+                        width: '100%',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0
+                    }}>
+                        {renderChart()}
+                    </div>
+                </div>
             </div>
 
             <div style={{ 
@@ -667,9 +590,9 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                 </Typography>
                 
                 <Typography variant="caption" color="textSecondary">
-                    {chartData.datasets.length > 1 
-                        ? `${chartData.datasets.length} series, ${chartData.labels.length} data points`
-                        : `${chartData.labels.length} data points`}
+                    {plotlyData && plotlyData.length > 1 
+                        ? `${plotlyData.length} series, ${plotlyData[0]?.x?.length || 0} data points`
+                        : `${plotlyData?.[0]?.x?.length || 0} data points`}
                 </Typography>
             </div>
         </div>

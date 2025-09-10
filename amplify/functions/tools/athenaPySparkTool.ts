@@ -33,16 +33,28 @@ plt.rcParams['savefig.transparent'] = True
 
 # Also configure plotly for transparent backgrounds
 import plotly.io as pio
+import plotly.graph_objects as go
+
+# Set plotly defaults for transparent backgrounds
 pio.templates.default = "plotly_white"
 pio.kaleido.scope.default_format = "png"
 pio.kaleido.scope.default_engine = "kaleido"
 
-# Set plotly default layout for transparent backgrounds
-import plotly.graph_objects as go
-go.Figure().update_layout(
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)'
-)
+# Create a custom template with transparent backgrounds
+transparent_template = pio.templates["plotly_white"].to_plotly_json()
+transparent_template['layout']['paper_bgcolor'] = 'rgba(0,0,0,0)'
+transparent_template['layout']['plot_bgcolor'] = 'rgba(0,0,0,0)'
+
+# Register and set the transparent template as default
+pio.templates["plotly_transparent"] = transparent_template
+pio.templates.default = "plotly_transparent"
+
+# Also set kaleido scope configuration for transparent PNG export
+pio.kaleido.scope.default_width = None
+pio.kaleido.scope.default_height = None
+pio.kaleido.scope.default_scale = 1
+
+print("✓ Configured matplotlib and plotly for transparent backgrounds")
 
 s3BucketName = '${process.env.STORAGE_BUCKET_NAME}'
 chatSessionS3Prefix = '${getChatSessionPrefix()}'
@@ -668,9 +680,20 @@ const pysparkToolSchema = z.object({
     scriptPath: z.string().describe("Path for the script file. If code is provided, the script will be saved here. If code is not provided, an existing script at this path will be executed. Must start with 'scripts/'")
 });
 
-export const pysparkTool = (props: { additionalSetupScript?: string, additionalToolDescription?: string }) => tool(
-    async (params) => {
-        const { code, scriptPath, timeout = 300, description = "PySpark execution" } = params;
+type PySparkToolProps = { additionalSetupScript?: string, additionalToolDescription?: string };
+type PySparkToolInput = {
+    code: string;
+    timeout?: number;
+    description?: string;
+    scriptPath: string;
+};
+
+export const pysparkTool = (props: PySparkToolProps) => tool(
+    async (params: any) => {
+        const code = params.code;
+        const scriptPath = params.scriptPath;
+        const timeout = params.timeout || 300;
+        const description = params.description || "PySpark execution";
         const { additionalSetupScript = '' } = props;
         let progressIndex = 0;
         const chatSessionId = getChatSessionId();

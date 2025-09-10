@@ -352,9 +352,21 @@ def create_well_summary_plot(well_data):
     plt.tight_layout()
     
     try:
-        plt.savefig('plots/well_summary_plot.png', dpi=150, bbox_inches='tight', transparent=True)
+        # Set figure background to transparent BEFORE saving
+        fig.patch.set_alpha(0.0)
+        # Set axes backgrounds to transparent
+        ax1.patch.set_alpha(0.0)
+        ax2.patch.set_alpha(0.0)
+        
+        # Save with explicit transparent settings
+        plt.savefig('plots/well_summary_plot.png', 
+                   dpi=150, 
+                   bbox_inches='tight', 
+                   transparent=True,
+                   facecolor='none',
+                   edgecolor='none')
         plt.close()
-        print("Well summary plot saved successfully")
+        print("Well summary plot saved successfully with transparent background")
     except Exception as save_error:
         print(f"Error saving summary plot: {str(save_error)}")
 

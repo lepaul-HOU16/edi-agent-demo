@@ -15,7 +15,7 @@ import { useRouter } from 'next/navigation';
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 import { useAuthenticator } from '@aws-amplify/ui-react';
-import Subsurface from '../app/login/edi-bkgd.jpg';
+// import Subsurface from '../app/login/edi-bkgd.jpg';
 
 const amplifyClient = generateClient<Schema>();
 const LandingPage = () => {
@@ -26,7 +26,7 @@ const LandingPage = () => {
     <div
       className="hero-header"
       style={{
-        backgroundImage: `url(${Subsurface.src})`,
+        backgroundImage: `url("/login/edi-bkgd.jpg")`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
@@ -41,9 +41,9 @@ const LandingPage = () => {
       <ContentLayout
       defaultPadding
       disableOverlap
-      headerBackgroundStyle={mode =>
-        `center center/cover url("/hero-header-${mode}.png")`
-      }
+      // headerBackgroundStyle={mode =>
+      //   `center center/cover url("/hero-header-${mode}.png")`
+      // }
       header={
         <Box padding={{ vertical: "xxxl" }}>
           <Grid

@@ -39,7 +39,7 @@ interface GlobalDirectoryIndex {
 let globalDataCache: GlobalDataCache = {
     data: null,
     timestamp: 0,
-    ttl: parseInt(process.env.GLOBAL_CONTEXT_CACHE_TTL || '3600') * 1000 // Default 1 hour
+    ttl: parseInt(process.env.GLOBAL_CONTEXT_CACHE_TTL || '300') * 1000 // Default 5 minutes for faster refresh
 };
 
 // Session-specific cache
@@ -504,6 +504,7 @@ export function clearGlobalDirectoryCache(): void {
         timestamp: 0,
         ttl: CONFIG.CACHE_TTL
     };
+    console.log('Global directory cache cleared - next scan will be fresh');
 }
 
 /**
