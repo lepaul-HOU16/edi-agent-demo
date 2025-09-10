@@ -196,15 +196,10 @@ const CatalogChatBox = (params: {
           text: userMessage
         },
         responseComplete: true,
-<<<<<<< HEAD
-        createdAt: new Date().toISOString()
-      } as any;
-=======
         createdAt: new Date().toISOString(),
         chatSessionId: '',
         owner: ''
-      };
->>>>>>> vavourak-catalog
+      } as any;
       
       setMessages(prevMessages => [...prevMessages, newUserMessage]);
       
@@ -241,22 +236,6 @@ const CatalogChatBox = (params: {
         }}
       >
         <List>
-<<<<<<< HEAD
-          {messages.map((message, index) => {
-            // Ensure key is always a string
-            const messageKey = Array.isArray(message.id) 
-              ? message.id.join('-') 
-              : (message.id || `message-${index}`);
-            
-            return (
-              <ListItem key={messageKey}>
-                <ChatMessage
-                  message={message}
-                />
-              </ListItem>
-            );
-          })}
-=======
           {messages.map((message) => (
             <ListItem key={message.id}>
               {message.role === 'ai' ? (
@@ -266,7 +245,6 @@ const CatalogChatBox = (params: {
               )}
             </ListItem>
           ))}
->>>>>>> vavourak-catalog
           <div ref={messagesEndRef} />
         </List>
       </Box>

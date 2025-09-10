@@ -175,11 +175,32 @@ th, td {
   text-align: left;
 }
 
-/* Override for AWS UI component background */
+/* Override for AWS UI component background - Dynamic hash-resistant selectors */
+[class*="awsui_layout_"][class*="awsui_is-visual-refresh_"] > [class*="awsui_background_"][class*="awsui_has-default-background_"] {
+  background-color: transparent !important;
+}
+
+/* Additional backup selectors for AWS UI background components */
+div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
+  background-color: transparent !important;
+}
+
+/* Legacy specific override (keep for backward compatibility) */
 .awsui_layout_5gtk3_lpv1b_145.awsui_is-visual-refresh_5gtk3_lpv1b_204 > .awsui_background_5gtk3_lpv1b_159.awsui_has-default-background_5gtk3_lpv1b_204:not(#\9) {
   background-color: unset !important;
 }
 
+/* Dynamic hash-resistant selectors for AWS UI segments */
+[class*="awsui_segment-part_"] {
+  background-color: transparent !important;
+}
+
+[class*="awsui_segment_"][class*="awsui_selected_"] + [class*="awsui_segment_"],
+[class*="awsui_segment_"][class*="awsui_selected_"] + [class*="awsui_segment_"][class*="awsui_disabled_"] {
+  background-color: transparent !important;
+}
+
+/* Legacy specific overrides (keep for backward compatibility) */
 .awsui_segment-part_8cbea_rg0r6_326:not(#\9) {
   background-color: transparent !important;
 }
