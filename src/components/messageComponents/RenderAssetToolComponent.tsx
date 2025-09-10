@@ -124,9 +124,9 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                   className="html-iframe-dynamic"
                   sx={{ 
                     width: '100%', 
-                    minHeight: '800px', // Increased minimum height for reports
-                    height: `${Math.max(dynamicIframe.height, 800)}px`, // Ensure minimum height
-                    overflow: 'auto', // Changed from hidden to auto to allow scrolling if needed
+                    minHeight: '600px',
+                    height: `${Math.max(dynamicIframe.height, 600)}px`,
+                    overflow: 'hidden', // Let the iframe handle scrolling internally
                     border: 'none',
                     transition: 'height 0.3s ease-in-out'
                   }}
@@ -136,34 +136,12 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                     src={`/file/${s3Key}`}
                     style={{ 
                       width: '100%',
-                      height: `${Math.max(dynamicIframe.height, 800)}px`, // Ensure minimum height
+                      height: `${Math.max(dynamicIframe.height, 600)}px`,
                       border: 'none',
                       display: 'block'
                     }}
                     title="HTML Content"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                    onLoad={(e) => {
-                      // Enhanced height detection for analysis reports
-                      const iframe = e.target as HTMLIFrameElement;
-                      try {
-                        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
-                        if (iframeDoc) {
-                          // Wait for content to fully load
-                          setTimeout(() => {
-                            const contentHeight = Math.max(
-                              iframeDoc.documentElement.scrollHeight,
-                              iframeDoc.body.scrollHeight,
-                              1000 // Minimum height for analysis reports
-                            );
-                            iframe.style.height = `${contentHeight + 50}px`; // Add padding
-                          }, 500);
-                        }
-                      } catch (error) {
-                        console.warn('Could not access iframe content for height calculation:', error);
-                        // Set a safe default height for analysis reports
-                        iframe.style.height = '1000px';
-                      }
-                    }}
                   />
                 </Box>
               </Box>
