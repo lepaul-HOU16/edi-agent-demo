@@ -189,7 +189,7 @@ def find_schemas() -> str:
 @tool
 def check_schemas_exist(schemas: List[str]) -> dict:
     print(f'check_schemas_exists: Checking schemas: {schemas}')
-    
+
     schema_check = {}
     for schema in schemas:
         try:
@@ -991,7 +991,6 @@ def test_complete_query() -> str:
             'kind': kind_list,
             'query': output_data['searchResults']['search_queries'][0]['data_source']['body']['query'],
             'aggregateBy': output_data['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'],
-            'returnedFields': output_data['searchResults']['search_queries'][0]['data_source']['body']['returnedFields'],
             'limit': 1,
         }
 
@@ -1040,7 +1039,7 @@ def determine_returned_fields() -> list:
 
         schema_context = f"The schemas being queried are {output_data['searchResults']['search_queries'][0]['data_source']['body']['kind']}."
 
-        system_prompt = """
+        system_prompt_fields = """
         You are an AI assistant helping determine which fields from OSDU data would be most useful to display in a table view for the frontend.
         Your job is to analyze the user's query, the schema data, and the fields being searched to determine what information would be most relevant to show in search results.
 
@@ -1067,9 +1066,9 @@ def determine_returned_fields() -> list:
         schema_data = get_schema_data(output_data['searchResults']['search_queries'][0]['data_source']['body']['kind'])
         schema_data = remove_descriptions(schema_data)
 
-        agent = Agent(
+        agent_fields = Agent(
             model=model_id,
-            system_prompt=system_prompt,
+            system_prompt=system_prompt_fields,
             messages=[
                 {"role": "user", "content": [{"text": f"Schema Context: {schema_context}"}]},
                 {"role": "user", "content": [{"text": "Schema Data: " + json.dumps(schema_data)}]},
@@ -1079,11 +1078,13 @@ def determine_returned_fields() -> list:
             ]
         )
 
-        response = agent("Determine which fields would be most useful to display in search results")
+        response = agent_fields("Determine which fields would be most useful to display in search results")
         response_text = str(response)
 
         print(f'determine_returned_fields: Agent response: {response_text}')
 
+
+        returned_fields = []
         # Parse the response to extract the field list
         # Try to extract JSON array from the response
         if "[" in response_text and "]" in response_text:
@@ -1095,15 +1096,73 @@ def determine_returned_fields() -> list:
             for field in base_fields:
                 if field not in returned_fields:
                     returned_fields.append(field)
-
-            print(f'determine_returned_fields: Extracted fields: {returned_fields}')
-            output_data['searchResults']['search_queries'][0]['data_source']['body']['returnedFields'] = returned_fields
-
-            return returned_fields
         else:
             print("Could not find JSON array in agent response")
-            return base_fields
 
+        print(f'determine_returned_fields: Extracted fields: {returned_fields}')
+        output_data['searchResults']['search_queries'][0]['data_source']['body']['returnedFields'] = returned_fields
+
+        return returned_fields
+
+        # system_prompt_names = """
+        # You are an AI assistant helping determine names for fields from OSDU data would be most useful to display in a table view for the frontend.
+        # Your job is to analyze the user's query and the fields being searched to determine how to name the columns in a more user-friendly way, if needed.
+
+        # Consider the following when making your selection:
+        # 1. process fields one by one.
+        # 2. determine if the field name is easy to understand or if it needs to be modified to something better.
+        # 3. if it needs to be modified, suggest a better name for the field while retaining the meaning.
+        # 4. if it doesn't need to be modified, use the original field name, but make sure it is capitalized correctly.
+
+
+        # Respond with a JSON array of field names and labels that should be returned. 
+
+        # Example response format:
+        # [
+        #     { "field": "id", "label": "ID" },
+        #     { "field": "data.FacilityName", "label": "Well Name" },
+        #     { "field": "data.SeismicVolume", "label": "Seismic Volume" },
+        # ]
+
+        # Keep your selection focused and relevant - typically between 5-10 fields total.
+        # """
+
+        # agent_names = Agent(
+        #     model=model_id,
+        #     system_prompt=system_prompt_names,
+        #     messages=[
+        #         {"role": "user", "content": [{"text": f"Schema Context: {schema_context}"}]},
+        #         {"role": "user", "content": [{"text": "Schema Fields: " + json.dumps(returned_fields)}]},
+        #         {"role": "user", "content": [{"text": "User Prompt: " + input_data["prompt"]}]}
+        #     ]
+        # )
+
+        # response = agent_names("Generate column names following the example.")
+        # response_text = str(response)
+
+        # print(f'determine_returned_fields: Agent names response: {response_text}')
+
+        # returned_columns = []
+        # # Parse the response to extract the field list
+        # # Try to extract JSON array from the response
+        # if "[" in response_text and "]" in response_text:
+        #     # Extract content between first [ and last ]
+        #     columns_str = response_text[response_text.find("["):response_text.rfind("]")+1]
+        #     returned_columns = json.loads(columns_str)
+
+        # else:
+        #     print("Could not find JSON array in agent response")
+        #     base_columns = [
+        #         { "field": "id", "label": "ID" },
+        #         { "field": "kind", "label": "Data Type" },
+        #     ]
+        #     return base_columns
+
+        # print(f'determine_returned_fields: Extracted fields: {returned_fields}')
+        # output_data['searchResults']['search_queries'][0]['data_source']['body']['tabular_data']['columns'] = returned_fields
+
+        # return returned_columns
+    
     except Exception as e:
         print(f"determine_returned_fields: Error processing returned fields: {str(e)}")
         print(traceback.format_exc())
@@ -1259,8 +1318,6 @@ def osdu_search_tool(inputs: dict) -> dict:
         - kind: the schemas to search.
         - query: the attributes to search from within the schemas.
         - aggregateBy: On which fields to aggregate the data for display purposes and user needs.
-        - spatialFilter: a filter that limits the search to a bounding box or distance from a location.
-        - returnedFields: specifies the fields on which to project the results.
 
         Chain of thought:
         - Find the schemas/kinds needed that has the correct data
@@ -1268,8 +1325,6 @@ def osdu_search_tool(inputs: dict) -> dict:
         - Remove any schemas that do not have fields that are being used
         - Generate the query
         - Determine the aggregateBy field
-        - Determine the spatialFilter field
-        - Determine the returnedFields field
         - Test the query to make sure it works
         - If it does not work, re-evaluate the query and try again
         
@@ -1279,7 +1334,6 @@ def osdu_search_tool(inputs: dict) -> dict:
         find_schema_search_fields: With the given schemas, it determines which fields/parameters within the schema you need to query to get the relevent data.  Also determines which parameters are nested or not.
         generate_query: Using the fields and schemas, generates an Apache Lucene OSDU query.
         determine_aggregation: Using the prompt and context, understands what the aggregateBy filter needs to be for the frontend.
-        determine_returned_fields: Using the schema files selected, it determines which fields are most important for the frontend to display to the user in a table.
         test_complete_query: With all the parts of the search found, test the query that it actually works and does not return an error.
         </tools>
 
@@ -1293,7 +1347,7 @@ def osdu_search_tool(inputs: dict) -> dict:
         osdu_agent = Agent(
             model=model_id,
             system_prompt=system_prompt_osdu,
-            tools=[find_schemas, find_schema_search_fields, generate_query, determine_aggregation, determine_returned_fields, test_complete_query],
+            tools=[find_schemas, find_schema_search_fields, generate_query, determine_aggregation, test_complete_query],
             messages=[
                 {"role": "user", "content": [{"text": "User Prompt: " + user_prompt}]}
             ]

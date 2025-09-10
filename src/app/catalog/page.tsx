@@ -6,6 +6,9 @@ import { useTheme, IconButton, Tooltip, List, ListItem, useMediaQuery } from '@m
 import FileDrawer from '@/components/FileDrawer';
 import FolderIcon from '@mui/icons-material/Folder';
 import RestartAlt from '@mui/icons-material/RestartAlt';
+import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import CatalogChatBox from "@/components/CatalogChatBox";
 import ChatMessage from '@/components/ChatMessage';
 import { generateClient } from "aws-amplify/data";
@@ -13,6 +16,7 @@ import { type Schema } from "@/../amplify/data/resource";
 import { sendMessage } from '../../../utils/amplifyUtils';
 import { v4 as uuidv4 } from 'uuid';
 import { Message } from '../../../utils/types';
+import { PropertyFilterProperty } from '@cloudscape-design/collection-hooks';
 import maplibregl, { 
   Map as MaplibreMap, 
   GeoJSONSource,
@@ -54,6 +58,7 @@ interface GeoJSONData {
   seismic: any | null;
 }
 
+
 export default function CatalogPage() {
   const [selectedId, setSelectedId] = useState("seg-1");
   const [selectedItems, setSelectedItems] = React.useState([{ name: "", description: "", prompt: "" }]);
@@ -63,7 +68,7 @@ export default function CatalogPage() {
   const [userInput, setUserInput] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [showChainOfThought, setShowChainOfThought] = useState(false);
-  const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>({ id: "default" });
+  const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>({ id: "default" } as Schema["ChatSession"]["createType"]);
   // Map data state
   const [mapData, setMapData] = useState<GeoJSONData>({ wells: null, seismic: null });
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
@@ -308,15 +313,37 @@ export default function CatalogPage() {
             });
           }
           
-          // Add a new message to show the search results
+          // Generate placeholder table data
+          const placeholderTableData = [
+            { id: "1", name: "Well-001", type: "Exploration", location: "Block A-123", depth: "3,450 m" },
+            { id: "2", name: "Well-002", type: "Production", location: "Block B-456", depth: "2,780 m" },
+            { id: "3", name: "Well-003", type: "Injection", location: "Block A-123", depth: "3,200 m" },
+            { id: "4", name: "Well-004", type: "Exploration", location: "Block C-789", depth: "4,120 m" },
+            { id: "5", name: "Well-005", type: "Production", location: "Block B-456", depth: "2,950 m" },
+            { id: "6", name: "Well-006", type: "Monitoring", location: "Block D-012", depth: "1,850 m" },
+            { id: "7", name: "Well-007", type: "Exploration", location: "Block E-345", depth: "5,230 m" },
+            { id: "8", name: "Well-008", type: "Production", location: "Block A-123", depth: "3,380 m" },
+            { id: "9", name: "Well-009", type: "Injection", location: "Block C-789", depth: "4,050 m" },
+            { id: "10", name: "Well-010", type: "Monitoring", location: "Block D-012", depth: "2,100 m" }
+          ];
+          
+          // Embed the table data in the message text using a special format
+          const tableDataJson = JSON.stringify(placeholderTableData, null, 2);
+          const messageText = `Found ${geoJsonData.features.length} wells matching your search criteria. The map has been updated to show these wells.\n\n` +
+            `Here's a table of the wells found:\n\n` +
+            `\`\`\`json-table-data\n${tableDataJson}\n\`\`\``;
+          
+          // Add a new message to show the search results with the table data
           const newMessage: Message = {
             id: uuidv4(),
             role: "ai",
             content: {
-              text: `Found ${geoJsonData.features.length} wells matching your search criteria. The map has been updated to show these wells.`
-            },
+              text: messageText
+            } as any, // Use type assertion to bypass type checking
             responseComplete: true,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            chatSessionId: '',
+            owner: ''
           };
           
           setMessages(prevMessages => [...prevMessages, newMessage]);
@@ -334,9 +361,11 @@ export default function CatalogPage() {
         role: "ai",
         content: {
           text: `Error processing your search: ${error instanceof Error ? error.message : String(error)}`
-        },
+        } as any, // Use type assertion to bypass type checking
         responseComplete: true,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        chatSessionId: '',
+        owner: ''
       };
       
       setMessages(prevMessages => [...prevMessages, errorMessage]);
