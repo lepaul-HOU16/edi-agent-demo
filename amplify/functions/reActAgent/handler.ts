@@ -14,13 +14,13 @@ import { publishResponseStreamChunk } from "../graphql/mutations";
 
 import { setChatSessionId } from "../tools/toolUtils";
 import { s3FileManagementTools } from "../tools/s3ToolBox";
+import { getGlobalDirectoryContext, scanWithUploadDetection, refreshContextForUploads } from "../tools/globalDirectoryScanner";
 import { userInputTool } from "../tools/userInputTool";
 import { pysparkTool } from "../tools/athenaPySparkTool";
 import { renderAssetTool } from "../tools/renderAssetTool";
 import { createProjectTool } from "../tools/createProjectTool";
 import { permeabilityCalculator } from "../tools/customWorkshopTool";
 import { plotDataTool } from "../tools/plotDataTool";
-import { wellLogDisplayTool } from "../tools/wellLogDisplayTool";
 import { petrophysicsSystemMessage } from "./petrophysicsSystemMessage";
 
 import { Schema } from '../../data/resource';
@@ -69,6 +69,41 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
                 chatSessionId: event.arguments.chatSessionId
             }
         })
+
+        // Load global directory context with upload detection
+        await amplifyClient.graphql({
+            query: publishResponseStreamChunk,
+            variables: {
+                chunkText: "Loading global data context and checking for recent uploads...",
+                index: 0,
+                chatSessionId: event.arguments.chatSessionId
+            }
+        })
+
+        // Use enhanced scan with upload detection
+        const globalIndex = await scanWithUploadDetection(event.arguments.chatSessionId);
+        const globalDirectoryContext = await getGlobalDirectoryContext(event.arguments.chatSessionId);
+
+        if (globalDirectoryContext) {
+            await amplifyClient.graphql({
+                query: publishResponseStreamChunk,
+                variables: {
+                    chunkText: `Global data context loaded successfully - found ${globalIndex?.totalFiles || 0} files`,
+                    index: 0,
+                    chatSessionId: event.arguments.chatSessionId
+                }
+            })
+        } else {
+            console.warn('No global directory context loaded - this may be expected if no global data exists')
+            await amplifyClient.graphql({
+                query: publishResponseStreamChunk,
+                variables: {
+                    chunkText: "No global data context found - will proceed with available tools for data upload",
+                    index: 0,
+                    chatSessionId: event.arguments.chatSessionId
+                }
+            })
+        }
 
         // This function includes validation to prevent "The text field in the ContentBlock object is blank" errors
         // by ensuring no message content is empty when sent to Bedrock
@@ -139,9 +174,8 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             createProjectTool,
             permeabilityCalculator,
             plotDataTool,
-            wellLogDisplayTool,
             renderAssetTool,
-            ...mcpTools
+            ...mcpTools,
             pysparkTool({
                 additionalToolDescription: `
 las = lasio.read("local_file.las")
@@ -508,8 +542,8 @@ fig.subplots_adjust(wspace = 0.15)
         // Log which system message is being used
         console.log(`Using ${usesPetrophysics ? 'petrophysics' : 'default'} system message`);
         
-        // Choose the appropriate system message
-        let systemMessageContent = usesPetrophysics ? petrophysicsSystemMessage : `
+        // Choose the appropriate base system message
+        let baseSystemMessage = usesPetrophysics ? petrophysicsSystemMessage : `
 # Petrophysics Agent Instructions
 
 ## Overview
@@ -623,6 +657,12 @@ You are a petrophysics agent designed to execute formation evaluation and petrop
 - Global files are shared across sessions and are read-only
 - When saving reports to file, use the writeFile tool with html formatting
         `//.replace(/^\s+/gm, '') //This trims the whitespace from the beginning of each line
+
+        // Combine base system message with global context
+        let systemMessageContent = baseSystemMessage;
+        if (globalDirectoryContext) {
+            systemMessageContent = baseSystemMessage + "\n\n" + globalDirectoryContext;
+        }
 
         const input = {
             messages: [

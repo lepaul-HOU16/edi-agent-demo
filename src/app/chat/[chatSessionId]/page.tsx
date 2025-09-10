@@ -46,6 +46,7 @@ function Page({
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [messages, setMessages] = useState<Message[]>([]);
+    const router = useRouter();
 
     const setActiveChatSessionAndUpload = async (newChatSession: any) => {
         try {
@@ -134,8 +135,6 @@ function Page({
             </div>
         );
     }
-
-    const router = useRouter();
 
     const handleCreateNewChat = async () => {
         try {
