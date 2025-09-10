@@ -7,6 +7,7 @@ import { ChatBedrockConverse } from "@langchain/aws";
 import { getConfiguredAmplifyClient } from '../../../utils/amplifyUtils';
 import { publishResponseStreamChunk } from "../graphql/mutations";
 import { getChatSessionId, getChatSessionPrefix } from "./toolUtils";
+import { clearSessionDirectoryCache } from "./globalDirectoryScanner";
 import { validate } from 'jsonschema';
 import { stringifyLimitStringLength } from "../../../utils/langChainUtils";
 import { BaseMessage, AIMessage, HumanMessage } from "@langchain/core/messages";
@@ -639,6 +640,13 @@ export const updateFile = tool(
             // Write the updated content to S3
             await writeS3Object(s3Key, finalContent);
 
+            // Clear session cache to ensure updated files are picked up
+            const sessionId = getChatSessionId();
+            if (sessionId) {
+                clearSessionDirectoryCache(sessionId);
+                console.log(`Cleared session cache for file update: ${filename}`);
+            }
+
             // Read back a portion of the file to verify the update
             const verificationResult = await readS3Object({ key: s3Key, maxBytes: 0, startAtByte: 0 });
 
@@ -835,6 +843,13 @@ export const writeFile = tool(
 
             // Write the file to S3
             await writeS3Object(s3Key, finalContent);
+
+            // Clear session cache to ensure new files are picked up
+            const sessionId = getChatSessionId();
+            if (sessionId) {
+                clearSessionDirectoryCache(sessionId);
+                console.log(`Cleared session cache for new file upload: ${filename}`);
+            }
 
             return JSON.stringify({
                 success: true,

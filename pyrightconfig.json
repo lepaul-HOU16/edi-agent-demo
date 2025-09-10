@@ -1,0 +1,11 @@
+{
+  "exclude": [
+    "scripts/**",
+    "node_modules"
+  ],
+  "ignore": [
+    "scripts/**/*.py"
+  ],
+  "reportMissingImports": "none",
+  "reportMissingModuleSource": "none"
+}

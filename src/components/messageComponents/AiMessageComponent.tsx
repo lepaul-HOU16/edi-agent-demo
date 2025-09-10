@@ -17,6 +17,9 @@ interface AiMessageComponentProps {
 }
 
 const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme }) => {
+  // Track expanded state for all tool calls
+  const [expandedToolCalls, setExpandedToolCalls] = useState<Record<string, boolean>>({});
+
   return (
     <div style={{
       display: 'flex',
@@ -52,8 +55,9 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
                 Tool Calls
               </Typography>
               {JSON.parse((message as any).toolCalls).map((toolCall: { name: string, args: unknown, id: string }, index: number) => {
-                // Track expanded state for each tool call
-                const [expanded, setExpanded] = useState(false);
+                // Use tool call ID or index as key for expanded state
+                const toolCallKey = toolCall.id || `tool-${index}`;
+                const expanded = expandedToolCalls[toolCallKey] || false;
                 
                 // Parse and format the args to display
                 let formattedArgs;
@@ -94,7 +98,10 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
                       {isLong && (
                         <Button 
                           size="small"
-                          onClick={() => setExpanded(!expanded)}
+                          onClick={() => setExpandedToolCalls(prev => ({
+                            ...prev,
+                            [toolCallKey]: !expanded
+                          }))}
                           startIcon={expanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
                           style={{ 
                             marginTop: theme.spacing(0.5),
