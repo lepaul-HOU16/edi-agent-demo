@@ -12,15 +12,18 @@ frontend:
     build:
       commands:
         - nvm use 20
-        - export NODE_OPTIONS="--max-old-space-size=7168 --max-semi-space-size=512 --optimize-for-size"
+        - export NODE_OPTIONS="--max-old-space-size=6144 --max-semi-space-size=256"
         - export NODE_ENV=production
         - export GENERATE_SOURCEMAP=false
         - export DISABLE_ESLINT_PLUGIN=true
         - export NEXT_TELEMETRY_DISABLED=1
         - export CI=true
         - export NEXT_BUILD_WORKERS=1
+        - export TSC_NONPOLLING_WATCHER=true
+        - export TSC_WATCHFILE=UseFsEvents
+        - export NEXT_PRIVATE_SKIP_SIZE_LIMIT_CHECK=1
         - ulimit -n 8192
-        - timeout 2400 npm run build
+        - timeout 3600 npm run build
   artifacts:
     baseDirectory: .next
     files:
