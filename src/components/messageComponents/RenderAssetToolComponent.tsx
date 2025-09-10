@@ -23,7 +23,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
   
   // Dynamic iframe configuration for HTML content
   const dynamicIframe = useDynamicIframe({
-    minHeight: 200,
+    minHeight: 500,
     maxHeight: viewport.height * 0.8,
     debounceMs: 200,
     contentPadding: 20
@@ -124,8 +124,9 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                   className="html-iframe-dynamic"
                   sx={{ 
                     width: '100%', 
-                    height: `${dynamicIframe.height}px`,
-                    overflow: 'hidden',
+                    minHeight: '800px', // Increased minimum height for reports
+                    height: `${Math.max(dynamicIframe.height, 800)}px`, // Ensure minimum height
+                    overflow: 'auto', // Changed from hidden to auto to allow scrolling if needed
                     border: 'none',
                     transition: 'height 0.3s ease-in-out'
                   }}
@@ -135,12 +136,34 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                     src={`/file/${s3Key}`}
                     style={{ 
                       width: '100%',
-                      height: `${dynamicIframe.height}px`,
+                      height: `${Math.max(dynamicIframe.height, 800)}px`, // Ensure minimum height
                       border: 'none',
                       display: 'block'
                     }}
                     title="HTML Content"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                    onLoad={(e) => {
+                      // Enhanced height detection for analysis reports
+                      const iframe = e.target as HTMLIFrameElement;
+                      try {
+                        const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                        if (iframeDoc) {
+                          // Wait for content to fully load
+                          setTimeout(() => {
+                            const contentHeight = Math.max(
+                              iframeDoc.documentElement.scrollHeight,
+                              iframeDoc.body.scrollHeight,
+                              1000 // Minimum height for analysis reports
+                            );
+                            iframe.style.height = `${contentHeight + 50}px`; // Add padding
+                          }, 500);
+                        }
+                      } catch (error) {
+                        console.warn('Could not access iframe content for height calculation:', error);
+                        // Set a safe default height for analysis reports
+                        iframe.style.height = '1000px';
+                      }
+                    }}
                   />
                 </Box>
               </Box>

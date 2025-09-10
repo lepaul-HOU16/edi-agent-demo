@@ -189,6 +189,35 @@ export const useDynamicIframe = (options: DynamicIframeOptions = {}): DynamicIfr
           background: transparent !important;
           background-color: transparent !important;
         }
+        
+        /* Fix Plotly charts in HTML files - remove height constraints and make transparent */
+        .js-plotly-plot, .plotly-graph-div {
+          background: transparent !important;
+          background-color: transparent !important;
+          min-height: auto !important;
+          height: auto !important;
+          max-height: none !important;
+        }
+        
+        /* Ensure Plotly containers expand naturally */
+        .plotly-graph-div > .plotly-graph-div {
+          height: auto !important;
+          min-height: 400px !important;
+        }
+        
+        /* Force Plotly SVGs to be visible and sized properly */
+        .js-plotly-plot .main-svg {
+          background: transparent !important;
+          height: auto !important;
+          min-height: 400px !important;
+        }
+        
+        /* Remove any fixed positioning that might constrain charts */
+        .js-plotly-plot .plot-container {
+          position: relative !important;
+          height: auto !important;
+          min-height: 400px !important;
+        }
       `;
 
       doc.head?.appendChild(styleElement);

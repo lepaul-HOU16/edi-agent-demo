@@ -1,7 +1,6 @@
 "use client"
 import React, { useEffect, useState } from 'react';
-import { Chart as ChartJS, LinearScale, LogarithmicScale, PointElement, Tooltip, Legend } from 'chart.js';
-import { Scatter } from 'react-chartjs-2';
+import dynamic from 'next/dynamic';
 import { generateClient } from "aws-amplify/data";
 import { fetchAuthSession } from 'aws-amplify/auth';
 import { type Schema } from "@/../amplify/data/resource";
@@ -23,8 +22,8 @@ import {
     useTheme
 } from '@mui/material';
 
-// Register Chart.js components
-ChartJS.register(LinearScale, LogarithmicScale, PointElement, Tooltip, Legend);
+// Dynamic import of Plotly to avoid SSR issues
+const Plot = dynamic(() => import('react-plotly.js'), { ssr: false }) as any;
 import GasIcon from '@mui/icons-material/Waves';
 import TrendingUpIcon from '@mui/icons-material/TrendingUp';
 const amplifyClient = generateClient<Schema>();
@@ -256,90 +255,73 @@ const Page = () => {
 
     console.log({totalRevenue: totalRevenue, totalCost: totalCost, totalNetPresentValue10Ratio: totalNetPresentValue10Ratio})
 
-    // Scatter plot data preparation
-    const scatterData = {
-        datasets: [{
-            label: 'Projects',
-            data: validProjects.map(project => ({
-                x: (project as any).financial?.cost || 0,
-                y: (project as any).financial?.revenuePresentValue || 0,
-                project: project
-            })),
-            pointRadius: validProjects.map(project => 
-                selectedProject && (project as any).id === (selectedProject as any).id ? 10 : 8
+    // Plotly scatter plot data preparation
+    const plotlyData = [{
+        x: validProjects.map(project => (project as any).financial?.cost || 0),
+        y: validProjects.map(project => (project as any).financial?.revenuePresentValue || 0),
+        mode: 'markers',
+        type: 'scatter',
+        marker: {
+            size: validProjects.map(project => 
+                selectedProject && (project as any).id === (selectedProject as any).id ? 12 : 10
             ),
-            pointHoverRadius: 12,
-            borderColor: validProjects.map(project => 
-                selectedProject && (project as any).id === (selectedProject as any).id ? '#000000' : 'transparent'
-            ),
-            borderWidth: validProjects.map(project => 
-                selectedProject && (project as any).id === (selectedProject as any).id ? 2 : 0
-            ),
-            backgroundColor: validProjects.map(project => {
+            color: validProjects.map(project => {
                 const status = project.status;
                 const opacity = (selectedProject && (project as any).id === (selectedProject as any).id) ? '0.9': '0.6';
                 return getStatusColorRgba(status, opacity, theme);
-            })
-        }]
+            }),
+            line: {
+                color: validProjects.map(project => 
+                    selectedProject && (project as any).id === (selectedProject as any).id ? '#000000' : 'rgba(0,0,0,0)'
+                ),
+                width: validProjects.map(project => 
+                    selectedProject && (project as any).id === (selectedProject as any).id ? 2 : 0
+                )
+            }
+        },
+        text: validProjects.map(project => 
+            `${(project as any).name}<br>PV10: ${formatCurrency((project as any).financial?.revenuePresentValue || 0)}<br>Cost: ${formatCurrency((project as any).financial?.cost || 0)}`
+        ),
+        hovertemplate: '%{text}<extra></extra>',
+        customdata: validProjects
+    }];
+
+    const plotlyLayout = {
+        showlegend: false,
+        hovermode: 'closest',
+        xaxis: {
+            type: 'log',
+            title: {
+                text: 'Project Cost',
+                font: { size: 16 }
+            },
+            tickformat: '.2s'
+        },
+        yaxis: {
+            type: 'log', 
+            title: {
+                text: 'PV10 (Present Value) - Log Scale',
+                font: { size: 16 }
+            },
+            tickformat: '.2s'
+        },
+        margin: { l: 80, r: 40, t: 40, b: 80 },
+        autosize: true
     };
 
-    const chartOptions: any = {
+    const plotlyConfig = {
         responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-            legend: { display: false },
-            tooltip: {
-                callbacks: {
-                    label: (context: any) => {
-                        const project = context.dataset.data[context.dataIndex].project;
-                        return `${(project as any).name} - PV10: ${formatCurrency((project as any).financial?.revenuePresentValue || 0)}, Cost: ${formatCurrency((project as any).financial?.cost || 0)}`;
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                // type: 'linear',
-                type: 'logarithmic' as const,
-                title: {
-                    display: true,
-                    text: 'Project Cost',
-                    font: {
-                        size: 16,
-                        weight: 'bold'
-                    }
-                },
-                ticks: {
-                    callback: (value: number) => formatCurrency(value),
-                    maxTicksLimit: 8 // Limit the number of ticks displayed
-                }
-            },
-            y: {
-                type: 'logarithmic' as const,
-                title: {
-                    display: true,
-                    text: 'PV10 (Present Value) - Log Scale',
-                    font: {
-                        size: 16,
-                        weight: 'bold'
-                    }
-                },
-                // min: 1,
-                ticks: {
-                    callback: (value: number) => formatCurrency(value),
-                    maxTicksLimit: 8 // Limit the number of ticks displayed
-                }
-            }
-        },
-        onClick: (event: any, elements: any[]) => {
-            if (elements.length > 0) {
-                const dataIndex = elements[0].index;
-                const selectedProjectData = scatterData.datasets[0].data[dataIndex];
-                setSelectedProject(selectedProjectData.project);
-                setIsLoading(false);
-                setReportIsOpen(false);
-                setNextActionClicked(false);
-            }
+        displayModeBar: false
+    };
+
+    const handlePlotClick = (data: any) => {
+        if (data.points && data.points.length > 0) {
+            const pointIndex = data.points[0].pointIndex;
+            const selectedProjectData = validProjects[pointIndex];
+            setSelectedProject(selectedProjectData);
+            setIsLoading(false);
+            setReportIsOpen(false);
+            setNextActionClicked(false);
         }
     };
 
@@ -449,7 +431,15 @@ const Page = () => {
                         <Typography variant="h6" gutterBottom>
                             Project Portfolio Visualization
                         </Typography>
-                        <Scatter data={scatterData} options={chartOptions} />
+                        {(Plot as any) && (
+                            <Plot
+                                data={plotlyData as any}
+                                layout={plotlyLayout as any}
+                                config={plotlyConfig}
+                                style={{ width: '100%', height: '620px' }}
+                                onClick={handlePlotClick}
+                            />
+                        )}
                     </Paper>
                 </Grid>
                 <Grid size={9}>
@@ -521,7 +511,7 @@ const Page = () => {
                                             </Box>
                                         )}
                                         <iframe
-                                            src={`file/chatSessionArtifacts/sessionId=${(selectedProject as any).sourceChatSessionId}/` + (selectedProject as any).reportS3Path}
+                                            src={`/file/chatSessionArtifacts/sessionId=${(selectedProject as any).sourceChatSessionId}/${(selectedProject as any).reportS3Path}`}
                                             style={{
                                                 width: '100%',
                                                 height: '100%',
@@ -529,6 +519,10 @@ const Page = () => {
                                             }}
                                             title={`Report for ${(selectedProject as any).name}`}
                                             onLoad={() => setIsLoading(false)}
+                                            onError={() => {
+                                                setIsLoading(false);
+                                                console.error('Failed to load report iframe');
+                                            }}
                                         />
                                     </Box>
                                 ) : (<>

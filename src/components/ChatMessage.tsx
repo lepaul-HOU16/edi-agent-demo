@@ -25,6 +25,7 @@ import WebBrowserToolComponent from './messageComponents/WebBrowserToolComponent
 import CreateProjectToolComponent from './messageComponents/CreateProjectToolComponent';
 import CustomWorkshopComponent from './messageComponents/CustomWorkshopComponent'
 import { PlotDataToolComponent } from '../components/PlotDataToolComponent';
+import InteractiveAgentSummaryComponent from './messageComponents/InteractiveAgentSummaryComponent';
 
 const ChatMessage = (params: {
     message: Message,
@@ -73,7 +74,25 @@ const ChatMessage = (params: {
                 onRegenerateMessage={onRegenerateMessage}
             />;
         case 'ai':
-            return <AiMessageComponent message={message} theme={theme} />;
+            // Check if message contains analysis data that should use interactive visualization
+            const messageText = (message as any).content?.text || '';
+            const hasAnalysisData = messageText.includes('Analysis') || 
+                                  messageText.includes('Method') || 
+                                  messageText.includes('Statistical') ||
+                                  messageText.includes('Mean:') ||
+                                  messageText.includes('Median:') ||
+                                  messageText.includes('Standard Deviation:') ||
+                                  messageText.includes('Methodology');
+            
+            if (hasAnalysisData && messageText.length > 200) {
+                return <InteractiveAgentSummaryComponent 
+                    content={message.content} 
+                    theme={theme} 
+                    chatSessionId={(message as any).chatSessionId || ''} 
+                />;
+            } else {
+                return <AiMessageComponent message={message} theme={theme} />;
+            }
         case 'ai-stream':
             return <ThinkingMessageComponent message={message} theme={theme} />
         case 'tool':

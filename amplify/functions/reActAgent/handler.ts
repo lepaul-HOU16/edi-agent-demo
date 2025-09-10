@@ -80,8 +80,11 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             }
         })
 
+        // Force refresh of global directory context to ensure fresh data
+        await refreshContextForUploads(event.arguments.chatSessionId);
+        
         // Use enhanced scan with upload detection
-        const globalIndex = await scanWithUploadDetection(event.arguments.chatSessionId);
+        const globalIndex = await scanWithUploadDetection(event.arguments.chatSessionId, true);
         const globalDirectoryContext = await getGlobalDirectoryContext(event.arguments.chatSessionId);
 
         if (globalDirectoryContext) {
@@ -178,198 +181,34 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             ...mcpTools,
             pysparkTool({
                 additionalToolDescription: `
-las = lasio.read("local_file.las")
+# Example LAS file loading and processing
+import lasio
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Load LAS file example:
+las = lasio.read("path/to/file.las")
+well_df = las.df()  # Convert to pandas DataFrame
+
+# Display well information
 for item in las.well:
     print(f"{item.descr} ({item.mnemonic}): {item.value}")
+
+# Display curve information  
 for count, curve in enumerate(las.curves):
     print(f"Curve: {curve.mnemonic}, Units: {curve.unit}, Description: {curve.descr}")
 print(f"There are a total of: {count+1} curves present within this file")
-well = las.df()
 
-#Create Composite Well Log Display
-import matplotlib.pyplot as plt
-import numpy as np
-     
-def create_composite_log(las, logs_to_plot, depth_range=None):
-     # Set up the figure
-     fig, axes = plt.subplots(1, len(logs_to_plot), figsize=(2*len(logs_to_plot), 10), sharey=True)
-         
-     # Get depth
-     depth = las.index
-     if depth_range:
-         min_depth, max_depth = depth_range
-         depth_mask = (depth >= min_depth) & (depth <= max_depth)
-         depth = depth[depth_mask]
-
-    #Set up the plot axes
-    ax1 = plt.subplot2grid((1,6), (0,0), rowspan=1, colspan = 1)
-    ax2 = plt.subplot2grid((1,6), (0,1), rowspan=1, colspan = 1, sharey = ax1)
-    ax3 = plt.subplot2grid((1,6), (0,2), rowspan=1, colspan = 1, sharey = ax1)
-    ax4 = plt.subplot2grid((1,6), (0,3), rowspan=1, colspan = 1, sharey = ax1)
-    ax5 = ax3.twiny() #Twins the y-axis for the density track with the neutron track
-    ax6 = plt.subplot2grid((1,6), (0,4), rowspan=1, colspan = 1, sharey = ax1)
-    ax7 = ax2.twiny()
-
-    # As our curve scales will be detached from the top of the track,
-    # this code adds the top border back in without dealing with splines
-    ax10 = ax1.twiny()
-    ax10.xaxis.set_visible(False)
-    ax11 = ax2.twiny()
-    ax11.xaxis.set_visible(False)
-    ax12 = ax3.twiny()
-    ax12.xaxis.set_visible(False)
-    ax13 = ax4.twiny()
-    ax13.xaxis.set_visible(False)
-    ax14 = ax6.twiny()
-    ax14.xaxis.set_visible(False)
-
-    # Gamma Ray track
-    ax1.plot(well["GR"], well.index, color = "green", linewidth = 0.5)
-    ax1.set_xlabel("Gamma")
-    ax1.xaxis.label.set_color("green")
-    ax1.set_xlim(0, 200)
-    ax1.set_ylabel("Depth (m)")
-    ax1.tick_params(axis='x', colors="green")
-    ax1.spines["top"].set_edgecolor("green")
-    ax1.title.set_color('green')
-    ax1.set_xticks([0, 50, 100, 150, 200])
-
-    # Resistivity track
-    ax2.plot(well["RDEP"], well.index, color = "red", linewidth = 0.5)
-    ax2.set_xlabel("Resistivity - Deep")
-    ax2.set_xlim(0.2, 2000)
-    ax2.xaxis.label.set_color("red")
-    ax2.tick_params(axis='x', colors="red")
-    ax2.spines["top"].set_edgecolor("red")
-    ax2.set_xticks([0.1, 1, 10, 100, 1000])
-    ax2.semilogx()
-
-    # Density track
-    ax3.plot(well["RHOB"], well.index, color = "red", linewidth = 0.5)
-    ax3.set_xlabel("Density")
-    ax3.set_xlim(1.95, 2.95)
-    ax3.xaxis.label.set_color("red")
-    ax3.tick_params(axis='x', colors="red")
-    ax3.spines["top"].set_edgecolor("red")
-    ax3.set_xticks([1.95, 2.45, 2.95])
-
-    # Sonic track
-    ax4.plot(well["DTC"], well.index, color = "purple", linewidth = 0.5)
-    ax4.set_xlabel("Sonic")
-    ax4.set_xlim(140, 40)
-    ax4.xaxis.label.set_color("purple")
-    ax4.tick_params(axis='x', colors="purple")
-    ax4.spines["top"].set_edgecolor("purple")
-
-    # Neutron track placed ontop of density track
-    ax5.plot(well["NPHI"], well.index, color = "blue", linewidth = 0.5)
-    ax5.set_xlabel('Neutron')
-    ax5.xaxis.label.set_color("blue")
-    ax5.set_xlim(0.45, -0.15)
-    ax5.set_ylim(4150, 3500)
-    ax5.tick_params(axis='x', colors="blue")
-    ax5.spines["top"].set_position(("axes", 1.08))
-    ax5.spines["top"].set_visible(True)
-    ax5.spines["top"].set_edgecolor("blue")
-    ax5.set_xticks([0.45,  0.15, -0.15])
-
-    # Caliper track
-    ax6.plot(well["CALI"], well.index, color = "black", linewidth = 0.5)
-    ax6.set_xlabel("Caliper")
-    ax6.set_xlim(6, 16)
-    ax6.xaxis.label.set_color("black")
-    ax6.tick_params(axis='x', colors="black")
-    ax6.spines["top"].set_edgecolor("black")
-    #ax6.fill_betweenx(well_nan.index, 8.5, well["CALI"], facecolor='yellow')
-    ax6.set_xticks([6,  11, 16])
-
-    # Resistivity track - Curve 2
-    ax7.plot(well["RMED"], well.index, color = "green", linewidth = 0.5)
-    ax7.set_xlabel("Resistivity - Med")
-    ax7.set_xlim(0.2, 2000)
-    ax7.xaxis.label.set_color("green")
-    ax7.spines["top"].set_position(("axes", 1.08))
-    ax7.spines["top"].set_visible(True)
-    ax7.tick_params(axis='x', colors="green")
-    ax7.spines["top"].set_edgecolor("green")
-    ax7.set_xticks([0.1, 1, 10, 100, 1000])
-    ax7.semilogx()
-
-
-    # Common functions for setting up the plot can be extracted into
-    # a for loop. This saves repeating code.
-    for ax in [ax1, ax2, ax3, ax4, ax6]:
-    ax.set_ylim(3200, 2700)
-    ax.grid(which='major', color='lightgrey', linestyle='-')
-    ax.xaxis.set_ticks_position("top")
-    ax.xaxis.set_label_position("top")
-    ax.spines["top"].set_position(("axes", 1.02))
-    
-    # loop through the formations dictionary and zone colours
-    #for depth, colour in zip(formations.values(), zone_colours):
-    # use the depths and colours to shade across the subplots
-    #ax.axhspan(depth[0], depth[1], color=colour, alpha=0.1)
-    
-    
-    for ax in [ax2, ax3, ax4, ax6]:
-        plt.setp(ax.get_yticklabels(), visible = False)
-         
-    plt.tight_layout()
+# Basic plotting example (after loading data):
+def create_simple_log_plot(df):
+    fig, ax = plt.subplots(figsize=(8, 10))
+    if 'GR' in df.columns:
+        ax.plot(df['GR'], df.index, label='Gamma Ray')
+    ax.set_ylabel('Depth')
+    ax.set_xlabel('Log Values')
+    ax.legend()
     return fig
-         
-#Create Petrophysical Cross-plots
-def create_crossplot(las, x_log, y_log, color_by=None, overlay=None, **kwargs):
-     fig, ax = plt.subplots(figsize=(8, 8))
-         
-     x_data = las[x_log].values
-     y_data = las[y_log].values
-         
-     # Basic scatter plot
-     if color_by is None:
-         ax.scatter(x_data, y_data, **kwargs)
-     else:
-         # Color by another log
-         color_data = las[color_by].values
-         scatter = ax.scatter(x_data, y_data, c=color_data, **kwargs)
-         plt.colorbar(scatter, label=color_by)
-         
-     # Add overlays (e.g., mineral lines)
-     if overlay == 'neutron-density':
-         # Add sandstone, limestone, dolomite lines
-         pass  # Implement specific overlay logic
-         
-     ax.set_xlabel(x_log)
-     ax.set_ylabel(y_log)
-     ax.grid(True)
-         
-     return fig
-
-#Create Cross-plot Matrix
-def create_crossplot_matrix(las, logs, color_by=None, **kwargs):
-     n = len(logs)
-     fig, axes = plt.subplots(n, n, figsize=(n*3, n*3))
-         
-     for i, y_log in enumerate(logs):
-         for j, x_log in enumerate(logs):
-             if i != j:  # Skip diagonal
-                 x_data = las[x_log].values
-                 y_data = las[y_log].values
-                     
-                 if color_by is None:
-                     axes[i, j].scatter(x_data, y_data, **kwargs)
-                 else:
-                     color_data = las[color_by].values
-                     scatter = axes[i, j].scatter(x_data, y_data, c=color_data, **kwargs)
-                     
-                 axes[i, j].set_xlabel(x_log)
-                 axes[i, j].set_ylabel(y_log)
-             else:
-                 # Display histogram on diagonal
-                 axes[i, j].hist(las[x_log].values, bins=30)
-                 axes[i, j].set_title(x_log)
-         
-     plt.tight_layout()
-     return fig
             `,
                 additionalSetupScript: `
 sc.addPyFile("s3://${bucketName}/global/pypi/pypi_libs.zip")
@@ -397,124 +236,8 @@ custom_template = go.layout.Template(layout=custom_layout)
 pio.templates["white_clean_log"] = custom_template
 pio.templates.default = "white_clean_log"
 
-# Create a composite well-log plot
-fig, ax = plt.subplots()
-
-#Set up the plot axes
-ax1 = plt.subplot2grid((1,6), (0,0), rowspan=1, colspan = 1)
-ax2 = plt.subplot2grid((1,6), (0,1), rowspan=1, colspan = 1, sharey = ax1)
-ax3 = plt.subplot2grid((1,6), (0,2), rowspan=1, colspan = 1, sharey = ax1)
-ax4 = plt.subplot2grid((1,6), (0,3), rowspan=1, colspan = 1, sharey = ax1)
-ax5 = ax3.twiny() #Twins the y-axis for the density track with the neutron track
-ax6 = plt.subplot2grid((1,6), (0,4), rowspan=1, colspan = 1, sharey = ax1)
-ax7 = ax2.twiny()
-
-# As our curve scales will be detached from the top of the track,
-# this code adds the top border back in without dealing with splines
-ax10 = ax1.twiny()
-ax10.xaxis.set_visible(False)
-ax11 = ax2.twiny()
-ax11.xaxis.set_visible(False)
-ax12 = ax3.twiny()
-ax12.xaxis.set_visible(False)
-ax13 = ax4.twiny()
-ax13.xaxis.set_visible(False)
-ax14 = ax6.twiny()
-ax14.xaxis.set_visible(False)
-
-# Gamma Ray track
-ax1.plot(well["GR"], well.index, color = "green", linewidth = 0.5)
-ax1.set_xlabel("Gamma")
-ax1.xaxis.label.set_color("green")
-ax1.set_xlim(0, 200)
-ax1.set_ylabel("Depth (m)")
-ax1.tick_params(axis='x', colors="green")
-ax1.spines["top"].set_edgecolor("green")
-ax1.title.set_color('green')
-ax1.set_xticks([0, 50, 100, 150, 200])
-
-# Resistivity track
-ax2.plot(well["RDEP"], well.index, color = "red", linewidth = 0.5)
-ax2.set_xlabel("Resistivity - Deep")
-ax2.set_xlim(0.2, 2000)
-ax2.xaxis.label.set_color("red")
-ax2.tick_params(axis='x', colors="red")
-ax2.spines["top"].set_edgecolor("red")
-ax2.set_xticks([0.1, 1, 10, 100, 1000])
-ax2.semilogx()
-
-# Density track
-ax3.plot(well["RHOB"], well.index, color = "red", linewidth = 0.5)
-ax3.set_xlabel("Density")
-ax3.set_xlim(1.95, 2.95)
-ax3.xaxis.label.set_color("red")
-ax3.tick_params(axis='x', colors="red")
-ax3.spines["top"].set_edgecolor("red")
-ax3.set_xticks([1.95, 2.45, 2.95])
-
-# Sonic track
-ax4.plot(well["DTC"], well.index, color = "purple", linewidth = 0.5)
-ax4.set_xlabel("Sonic")
-ax4.set_xlim(140, 40)
-ax4.xaxis.label.set_color("purple")
-ax4.tick_params(axis='x', colors="purple")
-ax4.spines["top"].set_edgecolor("purple")
-
-# Neutron track placed ontop of density track
-ax5.plot(well["NPHI"], well.index, color = "blue", linewidth = 0.5)
-ax5.set_xlabel('Neutron')
-ax5.xaxis.label.set_color("blue")
-ax5.set_xlim(0.45, -0.15)
-ax5.set_ylim(4150, 3500)
-ax5.tick_params(axis='x', colors="blue")
-ax5.spines["top"].set_position(("axes", 1.08))
-ax5.spines["top"].set_visible(True)
-ax5.spines["top"].set_edgecolor("blue")
-ax5.set_xticks([0.45,  0.15, -0.15])
-
-# Caliper track
-ax6.plot(well["CALI"], well.index, color = "black", linewidth = 0.5)
-ax6.set_xlabel("Caliper")
-ax6.set_xlim(6, 16)
-ax6.xaxis.label.set_color("black")
-ax6.tick_params(axis='x', colors="black")
-ax6.spines["top"].set_edgecolor("black")
-#ax6.fill_betweenx(well_nan.index, 8.5, well["CALI"], facecolor='yellow')
-ax6.set_xticks([6,  11, 16])
-
-# Resistivity track - Curve 2
-ax7.plot(well["RMED"], well.index, color = "green", linewidth = 0.5)
-ax7.set_xlabel("Resistivity - Med")
-ax7.set_xlim(0.2, 2000)
-ax7.xaxis.label.set_color("green")
-ax7.spines["top"].set_position(("axes", 1.08))
-ax7.spines["top"].set_visible(True)
-ax7.tick_params(axis='x', colors="green")
-ax7.spines["top"].set_edgecolor("green")
-ax7.set_xticks([0.1, 1, 10, 100, 1000])
-ax7.semilogx()
-
-
-# Common functions for setting up the plot can be extracted into
-# a for loop. This saves repeating code.
-for ax in [ax1, ax2, ax3, ax4, ax6]:
-    ax.set_ylim(3200, 2700)
-    ax.grid(which='major', color='lightgrey', linestyle='-')
-    ax.xaxis.set_ticks_position("top")
-    ax.xaxis.set_label_position("top")
-    ax.spines["top"].set_position(("axes", 1.02))
-    
-    # loop through the formations dictionary and zone colours
-#    for depth, colour in zip(formations.values(), zone_colours):
-        # use the depths and colours to shade across the subplots
-#        ax.axhspan(depth[0], depth[1], color=colour, alpha=0.1)
-    
-    
-for ax in [ax2, ax3, ax4, ax6]:
-    plt.setp(ax.get_yticklabels(), visible = False)
-    
-plt.tight_layout()
-fig.subplots_adjust(wspace = 0.15)
+# Setup matplotlib and plotly defaults for clean visualizations
+print("Setting up plotting libraries...")
                 `,
             }),
             renderAssetTool
@@ -534,7 +257,7 @@ fig.subplots_adjust(wspace = 0.15)
             const firstMessageContent = getLangChainMessageTextContent(chatSessionMessages[0]);
             if (firstMessageContent) {
                 const firstMessage = firstMessageContent.toLowerCase();
-                const petrophysicsKeywords = ['petrophysics', 'well log', 'formation', 'porosity', 'permeability', 'las file', 'reservoir'];
+                const petrophysicsKeywords = ['petrophysics', 'well log', 'well', 'wells', 'formation', 'porosity', 'permeability', 'las file', 'reservoir'];
                 usesPetrophysics = petrophysicsKeywords.some(keyword => firstMessage.includes(keyword.toLowerCase()));
             }
         }
@@ -658,10 +381,112 @@ You are a petrophysics agent designed to execute formation evaluation and petrop
 - When saving reports to file, use the writeFile tool with html formatting
         `//.replace(/^\s+/gm, '') //This trims the whitespace from the beginning of each line
 
-        // Combine base system message with global context
+        // Combine base system message with global context and well data awareness
         let systemMessageContent = baseSystemMessage;
         if (globalDirectoryContext) {
-            systemMessageContent = baseSystemMessage + "\n\n" + globalDirectoryContext;
+            // Check if we have well data and get count from globalIndex
+            const wellLogCount = globalIndex?.filesByType?.['Well Log']?.length || 0;
+            const hasWellData = wellLogCount > 0 || globalDirectoryContext.includes('.las') || globalDirectoryContext.includes('well');
+            
+            // Enhanced context with well data awareness and specific path guidance
+            const wellDataContext = hasWellData ? 
+                "\n\n## 🎯 CRITICAL: AVAILABLE WELL DATA DETECTED!\n\n" +
+                `### ✅ CONFIRMED: ${wellLogCount} LAS FILES (WELLS) ARE AVAILABLE IN YOUR SYSTEM\n\n` +
+                "### 📋 WELL COUNTING INSTRUCTIONS - READ THIS FIRST:\n" +
+                `When user asks \"how many wells do I have\" or similar questions:\n` +
+                `1. **IMMEDIATE ANSWER**: You have ${wellLogCount} wells available\n` +
+                `2. **To verify/list wells**: Use searchFiles({\"filePattern\": \".*\\.las$\", \"includeGlobal\": true})\n` +
+                `3. **To explore well data**: Use listFiles(\"global/well-data\") to see available wells\n` +
+                `4. **Well locations**: Primary location is global/well-data/ directory\n\n` +
+                "### IMPORTANT: ALL FILES ARE IN S3 STORAGE - DO NOT USE FILESYSTEM OPERATIONS!\n\n" +
+                "### Available Global Well Data:\n" +
+                `- **${wellLogCount} LAS files detected** in global/well-data/ directory\n` +
+                "- **Supporting Files**: Well_tops.csv, converted_coordinates.csv in the same directory\n" +
+                "- **Access Method**: ONLY use S3 tools - `listFiles(\"global/well-data\")` to explore available files\n" +
+                "- **File Reading**: ONLY use S3 tools - `readFile(\"global/well-data/WELL-001.las\")` format for specific files\n\n" +
+                "### MANDATORY Data Discovery Workflow:\n" +
+                "1. **ALWAYS start with**: `listFiles(\"global/well-data\")` (use the S3 listFiles tool)\n" +
+                "2. **Read individual files**: `readFile(\"global/well-data/FILENAME.las\")` (use the S3 readFile tool)\n" +
+                "3. **Process systematically**: Work through wells sequentially for analysis\n\n" +
+                "### CRITICAL FILE ACCESS RULES - READ CAREFULLY:\n" +
+                "- ❌ **ABSOLUTELY FORBIDDEN**: `open()`, `os.path.exists()`, `os.listdir()`, `glob.glob()`, `pathlib.Path().exists()`, or ANY filesystem operations\n" +
+                "- ❌ **NEVER** treat paths like `/global/well-data/` or `global/well-data/` as local directories - THEY DO NOT EXIST LOCALLY!\n" +
+                "- ❌ **NEVER** use Python code like: `os.listdir('/global/well-data/')`, `os.path.exists('global/well-data/')`, or `for file in glob.glob('global/well-data/*.las')`\n" +
+                "- ❌ **ERROR WILL OCCUR**: FileNotFoundError: [Errno 2] No such file or directory: '/global/well-data/' - THIS IS WRONG APPROACH!\n" +
+                "- ✅ **ONLY CORRECT METHOD**: Use S3 tools: `listFiles()`, `readFile()`, `writeFile()` - these are the ONLY way to access data\n" +
+                "- ✅ **MANDATORY**: ALL file access must go through S3 tools, then save to local temp files for processing\n\n" +
+                "### WRONG vs CORRECT Examples:\n" +
+                "❌ WRONG: `files = os.listdir('/global/well-data/')`  # THIS WILL FAIL!\n" +
+                "✅ CORRECT: `files_json = listFiles('global/well-data'); files = json.loads(files_json)['files']`\n" +
+                "❌ WRONG: `with open('global/well-data/WELL-001.las') as f:`  # THIS WILL FAIL!\n" +
+                "✅ CORRECT: `content_json = readFile('global/well-data/WELL-001.las'); content = json.loads(content_json)['content']`\n\n" +
+                "### S3 to Local File Processing Pattern:\n" +
+                "```python\n" +
+                "import json\n" +
+                "import lasio\n\n" +
+                "# Step 1: List available files\n" +
+                "files_result = listFiles(\"global/well-data\")\n" +
+                "files_data = json.loads(files_result)\n" +
+                "files = files_data['files']\n\n" +
+                "# Step 2: Process each LAS file\n" +
+                "for filename in files:\n" +
+                "    if filename.endswith('.las'):\n" +
+                "        # Read S3 file content\n" +
+                "        content_result = readFile(f\"global/well-data/{filename}\")\n" +
+                "        content_data = json.loads(content_result)\n" +
+                "        las_content = content_data['content']\n" +
+                "        \n" +
+                "        # Save to local temp file\n" +
+                "        local_filename = f'/tmp/{filename}'\n" +
+                "        with open(local_filename, 'w') as f:\n" +
+                "            f.write(las_content)\n" +
+                "        \n" +
+                "        # Process with lasio\n" +
+                "        las = lasio.read(local_filename)\n" +
+                "        # Now you can work with las.df(), las.curves, etc.\n" +
+                "```\n\n" +
+                "### ABSOLUTELY CRITICAL - STOP FILESYSTEM ERRORS:\n" +
+                "⚠️  **IF YOU GET FileNotFoundError: [Errno 2] No such file or directory: '/global/well-data/' - YOU ARE DOING IT WRONG!**\n" +
+                "⚠️  **THERE IS NO LOCAL DIRECTORY CALLED 'global/well-data' OR '/global/well-data/'**\n" +
+                "⚠️  **YOU MUST USE S3 TOOLS ONLY - NO EXCEPTIONS!**\n\n" +
+                "### BANNED OPERATIONS (WILL ALWAYS FAIL):\n" +
+                "```python\n" +
+                "# These will ALWAYS fail with FileNotFoundError:\n" +
+                "os.listdir('/global/well-data/')  # NO!\n" +
+                "os.listdir('global/well-data/')   # NO!\n" +
+                "glob.glob('global/well-data/*.las')  # NO!\n" +
+                "os.path.exists('global/well-data')  # NO!\n" +
+                "pathlib.Path('global/well-data').exists()  # NO!\n" +
+                "for root, dirs, files in os.walk('global/well-data'):  # NO!\n" +
+                "```\n\n" +
+                "### MANDATORY S3 TOOL USAGE:\n" +
+                "```python\n" +
+                "# Step 1: ALWAYS start with listFiles S3 tool\n" +
+                "files_result = listFiles('global/well-data')  # This is a TOOL CALL, not Python filesystem\n" +
+                "files_data = json.loads(files_result)\n" +
+                "print('Available files:', files_data['files'])\n\n" +
+                "# Step 2: Read each file using readFile S3 tool\n" +
+                "for filename in files_data['files']:\n" +
+                "    if filename.endswith('.las'):\n" +
+                "        content_result = readFile(f'global/well-data/{filename}')  # This is a TOOL CALL\n" +
+                "        content_data = json.loads(content_result)\n" +
+                "        las_content = content_data['content']\n" +
+                "        \n" +
+                "        # Save to /tmp/ for lasio processing\n" +
+                "        with open(f'/tmp/{filename}', 'w') as f:\n" +
+                "            f.write(las_content)\n" +
+                "        \n" +
+                "        # Now you can use lasio\n" +
+                "        las = lasio.read(f'/tmp/{filename}')\n" +
+                "```\n\n" +
+                "### Important Notes:\n" +
+                "- The data IS available and accessible - if you get FileNotFoundError, you're using filesystem operations instead of S3 tools\n" +
+                "- Global data is shared across all sessions and contains real well log data\n" +
+                "- When users mention workflows, they expect you to automatically access this global data using S3 tools\n" +
+                "- Use the PySpark tool with proper S3 paths for data processing\n" +
+                "- listFiles() and readFile() are TOOL CALLS that work with S3, not Python filesystem functions\n\n" :
+                "\n\n## GLOBAL DATA CONTEXT\nNo well data currently detected in global directory. Guide users to upload data if needed.\n\n";
+            systemMessageContent = baseSystemMessage + "\n\n" + globalDirectoryContext + wellDataContext;
         }
 
         const input = {
