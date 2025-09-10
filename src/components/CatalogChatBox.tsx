@@ -271,18 +271,39 @@ const CatalogChatBox = (params: {
           <ButtonDropdown
             items={[
               {
-                text: 'Show me wells in the Barrow region',
+                text: 'Show me wells with GR, DTC and RHOB logs',
                 id: '1'
               },
               {
-                text: 'Find seismic data near Dampier',
+                text: 'Find WELL-008',
                 id: '2'
               },
               {
-                text: 'Display wells drilled after 2020',
+                text: 'Which wells have logs below 3000 meters',
                 id: '3'
               }
             ]}
+            onItemClick={({ detail }) => {
+              // Find the clicked item and populate the text box with its text
+              const clickedItem = [
+                {
+                  text: 'Show me wells with GR, DTC and RHOB logs',
+                  id: '1'
+                },
+                {
+                  text: 'Find WELL-008',
+                  id: '2'
+                },
+                {
+                  text: 'Which wells have logs below 3000 meters',
+                  id: '3'
+                }
+              ].find(item => item.id === detail.id);
+              
+              if (clickedItem) {
+                onInputChange(clickedItem.text);
+              }
+            }}
           ></ButtonDropdown>
         </div>
       </div>
