@@ -24,24 +24,10 @@ import maplibregl, {
   MapLayerMouseEvent
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css'; // Import the CSS for the map
-const amplifyClient = generateClient<Schema>();
+import { getCurrentUser } from 'aws-amplify/auth';
 
-<<<<<<< HEAD
-=======
 
-// Lambda function URL and AWS configuration
-const LAMBDA_MAP_URL = process.env.NEXT_PUBLIC_LAMBDA_MAP_URL || "https://jxhidrelljrdxx57pcuuofy2yi0tvsdg.lambda-url.us-east-1.on.aws/";
-const LAMBDA_SEARCH_URL = process.env.NEXT_PUBLIC_LAMBDA_SEARCH_URL || "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/"
-const REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
-const SERVICE = "lambda";
 
-const AISearchSecrets = {
-    // AWS credentials for Lambda access
-    AWS_ID: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID,
-    AWS_KEY: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY,
-};
-
->>>>>>> vavourak-catalog
 interface DataCollection {
   id: string;
   name: string;
@@ -60,17 +46,15 @@ interface GeoJSONData {
 export default function CatalogPage() {
   const [selectedId, setSelectedId] = useState("seg-1");
   const [selectedItems, setSelectedItems] = React.useState([{ name: "", description: "", prompt: "" }]);
+  const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [fileDrawerOpen, setFileDrawerOpen] = useState(false);
   const [userInput, setUserInput] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [showChainOfThought, setShowChainOfThought] = useState(false);
-<<<<<<< HEAD
-  const [activeChatSession, setActiveChatSession] = useState({ id: "default" });
-=======
   const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>({ id: "default" } as Schema["ChatSession"]["createType"]);
->>>>>>> vavourak-catalog
   // Map data state
   const [mapData, setMapData] = useState<GeoJSONData>({ wells: null, seismic: null });
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
@@ -114,59 +98,7 @@ export default function CatalogPage() {
   ];
 
 
-<<<<<<< HEAD
-=======
-  // Function to sign a request with AWS SigV4
-  async function signRequest(url: string, method: string, body: any) {
-    try {
-      // Parse the URL
-      const parsedUrl = parseUrl(url);
-      
-      // Create the HTTP request object
-      const request = new HttpRequest({
-        hostname: parsedUrl.hostname,
-        path: parsedUrl.path,
-        protocol: parsedUrl.protocol,
-        method,
-        headers: {
-          'Content-Type': 'application/json',
-          host: parsedUrl.hostname,
-        },
-        body: JSON.stringify(body),
-      });
 
-      // Check if AWS credentials are available
-      if (!AISearchSecrets.AWS_ID || !AISearchSecrets.AWS_KEY) {
-        throw new Error("AWS credentials not found. Please set the environment variables NEXT_PUBLIC_AWS_ACCESS_KEY_ID and NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY.");
-      }
-
-      // Create the SigV4 signer
-      const signer = new SignatureV4({
-        credentials: {
-          accessKeyId: AISearchSecrets.AWS_ID,
-          secretAccessKey: AISearchSecrets.AWS_KEY
-        },
-        region: REGION,
-        service: SERVICE,
-        sha256: Sha256,
-      });
-
-      // Sign the request
-      const signedRequest = await signer.sign(request);
-
-      return {
-        url,
-        method,
-        headers: signedRequest.headers,
-        body, // Return the original body object, not stringified again
-      };
-    } catch (error) {
-      console.error("Error signing request:", error);
-      throw error;
-    }
-  }
-
->>>>>>> vavourak-catalog
   const handleCreateNewChat = async () => {
     try {
       // Clear the messages state to reset the conversation
@@ -193,6 +125,11 @@ export default function CatalogPage() {
   
   // Function to handle user input from chat and send to Amplify GraphQL for search
   const handleChatSearch = useCallback(async (prompt: string) => {
+    if (!amplifyClient || !isAuthenticated) {
+      console.warn('Amplify client not available or user not authenticated');
+      return null;
+    }
+
     setIsLoadingMapData(true);
     setError(null);
     
@@ -284,10 +221,6 @@ export default function CatalogPage() {
             });
           }
           
-<<<<<<< HEAD
-          // Note: Search results displayed on map, message system can be enhanced later
-          console.log(`Found ${geoJsonData.features.length} wells matching search criteria`);
-=======
           // Generate placeholder table data
           const placeholderTableData = [
             { id: "1", name: "Well-001", type: "Exploration", location: "Block A-123", depth: "3,450 m" },
@@ -322,7 +255,6 @@ export default function CatalogPage() {
           };
           
           setMessages(prevMessages => [...prevMessages, newMessage]);
->>>>>>> vavourak-catalog
         }
       }
       
@@ -331,10 +263,6 @@ export default function CatalogPage() {
       console.error('Error fetching search data:', error instanceof Error ? error : new Error(String(error)));
       setError(error instanceof Error ? error : new Error(String(error)));
       
-<<<<<<< HEAD
-      // Note: Error handling can be enhanced later with proper message system
-      console.error('Search error:', error instanceof Error ? error.message : String(error));
-=======
       // Add error message to chat
       const errorMessage: Message = {
         id: uuidv4(),
@@ -349,15 +277,19 @@ export default function CatalogPage() {
       };
       
       setMessages(prevMessages => [...prevMessages, errorMessage]);
->>>>>>> vavourak-catalog
       return null;
     } finally {
       setIsLoadingMapData(false);
     }
-  }, []);
+  }, [amplifyClient, isAuthenticated]);
 
   // Function to fetch map data from Amplify GraphQL
   const fetchMapData = useCallback(async () => {
+    if (!amplifyClient || !isAuthenticated) {
+      console.warn('Amplify client not available or user not authenticated');
+      return null;
+    }
+
     setIsLoadingMapData(true);
     setError(null);
     
@@ -405,8 +337,25 @@ export default function CatalogPage() {
     } finally {
       setIsLoadingMapData(false);
     }
-  }, []);
+  }, [amplifyClient, isAuthenticated]);
   
+  // Initialize Amplify client and check authentication
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        await getCurrentUser();
+        const client = generateClient<Schema>();
+        setAmplifyClient(client);
+        setIsAuthenticated(true);
+      } catch (error) {
+        console.warn('User not authenticated:', error);
+        setIsAuthenticated(false);
+      }
+    };
+
+    initializeAuth();
+  }, []);
+
   // MultiPolygon-related functions removed
 
   useEffect(() => {
