@@ -6,6 +6,9 @@ import { useTheme, IconButton, Tooltip, List, ListItem, useMediaQuery } from '@m
 import FileDrawer from '@/components/FileDrawer';
 import FolderIcon from '@mui/icons-material/Folder';
 import RestartAlt from '@mui/icons-material/RestartAlt';
+import SupportAgentIcon from '@mui/icons-material/SupportAgent';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import CatalogChatBox from "@/components/CatalogChatBox";
 import ChatMessage from '@/components/ChatMessage';
 import { generateClient } from "aws-amplify/data";
@@ -13,6 +16,7 @@ import { type Schema } from "@/../amplify/data/resource";
 import { sendMessage } from '../../../utils/amplifyUtils';
 import { v4 as uuidv4 } from 'uuid';
 import { Message } from '../../../utils/types';
+import { PropertyFilterProperty } from '@cloudscape-design/collection-hooks';
 import maplibregl, { 
   Map as MaplibreMap, 
   GeoJSONSource,
@@ -22,6 +26,22 @@ import maplibregl, {
 import 'maplibre-gl/dist/maplibre-gl.css'; // Import the CSS for the map
 const amplifyClient = generateClient<Schema>();
 
+<<<<<<< HEAD
+=======
+
+// Lambda function URL and AWS configuration
+const LAMBDA_MAP_URL = process.env.NEXT_PUBLIC_LAMBDA_MAP_URL || "https://jxhidrelljrdxx57pcuuofy2yi0tvsdg.lambda-url.us-east-1.on.aws/";
+const LAMBDA_SEARCH_URL = process.env.NEXT_PUBLIC_LAMBDA_SEARCH_URL || "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/"
+const REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
+const SERVICE = "lambda";
+
+const AISearchSecrets = {
+    // AWS credentials for Lambda access
+    AWS_ID: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID,
+    AWS_KEY: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY,
+};
+
+>>>>>>> vavourak-catalog
 interface DataCollection {
   id: string;
   name: string;
@@ -36,6 +56,7 @@ interface GeoJSONData {
   seismic: any | null;
 }
 
+
 export default function CatalogPage() {
   const [selectedId, setSelectedId] = useState("seg-1");
   const [selectedItems, setSelectedItems] = React.useState([{ name: "", description: "", prompt: "" }]);
@@ -45,7 +66,11 @@ export default function CatalogPage() {
   const [userInput, setUserInput] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [showChainOfThought, setShowChainOfThought] = useState(false);
+<<<<<<< HEAD
   const [activeChatSession, setActiveChatSession] = useState({ id: "default" });
+=======
+  const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>({ id: "default" } as Schema["ChatSession"]["createType"]);
+>>>>>>> vavourak-catalog
   // Map data state
   const [mapData, setMapData] = useState<GeoJSONData>({ wells: null, seismic: null });
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
@@ -89,6 +114,59 @@ export default function CatalogPage() {
   ];
 
 
+<<<<<<< HEAD
+=======
+  // Function to sign a request with AWS SigV4
+  async function signRequest(url: string, method: string, body: any) {
+    try {
+      // Parse the URL
+      const parsedUrl = parseUrl(url);
+      
+      // Create the HTTP request object
+      const request = new HttpRequest({
+        hostname: parsedUrl.hostname,
+        path: parsedUrl.path,
+        protocol: parsedUrl.protocol,
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          host: parsedUrl.hostname,
+        },
+        body: JSON.stringify(body),
+      });
+
+      // Check if AWS credentials are available
+      if (!AISearchSecrets.AWS_ID || !AISearchSecrets.AWS_KEY) {
+        throw new Error("AWS credentials not found. Please set the environment variables NEXT_PUBLIC_AWS_ACCESS_KEY_ID and NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY.");
+      }
+
+      // Create the SigV4 signer
+      const signer = new SignatureV4({
+        credentials: {
+          accessKeyId: AISearchSecrets.AWS_ID,
+          secretAccessKey: AISearchSecrets.AWS_KEY
+        },
+        region: REGION,
+        service: SERVICE,
+        sha256: Sha256,
+      });
+
+      // Sign the request
+      const signedRequest = await signer.sign(request);
+
+      return {
+        url,
+        method,
+        headers: signedRequest.headers,
+        body, // Return the original body object, not stringified again
+      };
+    } catch (error) {
+      console.error("Error signing request:", error);
+      throw error;
+    }
+  }
+
+>>>>>>> vavourak-catalog
   const handleCreateNewChat = async () => {
     try {
       // Clear the messages state to reset the conversation
@@ -206,8 +284,45 @@ export default function CatalogPage() {
             });
           }
           
+<<<<<<< HEAD
           // Note: Search results displayed on map, message system can be enhanced later
           console.log(`Found ${geoJsonData.features.length} wells matching search criteria`);
+=======
+          // Generate placeholder table data
+          const placeholderTableData = [
+            { id: "1", name: "Well-001", type: "Exploration", location: "Block A-123", depth: "3,450 m" },
+            { id: "2", name: "Well-002", type: "Production", location: "Block B-456", depth: "2,780 m" },
+            { id: "3", name: "Well-003", type: "Injection", location: "Block A-123", depth: "3,200 m" },
+            { id: "4", name: "Well-004", type: "Exploration", location: "Block C-789", depth: "4,120 m" },
+            { id: "5", name: "Well-005", type: "Production", location: "Block B-456", depth: "2,950 m" },
+            { id: "6", name: "Well-006", type: "Monitoring", location: "Block D-012", depth: "1,850 m" },
+            { id: "7", name: "Well-007", type: "Exploration", location: "Block E-345", depth: "5,230 m" },
+            { id: "8", name: "Well-008", type: "Production", location: "Block A-123", depth: "3,380 m" },
+            { id: "9", name: "Well-009", type: "Injection", location: "Block C-789", depth: "4,050 m" },
+            { id: "10", name: "Well-010", type: "Monitoring", location: "Block D-012", depth: "2,100 m" }
+          ];
+          
+          // Embed the table data in the message text using a special format
+          const tableDataJson = JSON.stringify(placeholderTableData, null, 2);
+          const messageText = `Found ${geoJsonData.features.length} wells matching your search criteria. The map has been updated to show these wells.\n\n` +
+            `Here's a table of the wells found:\n\n` +
+            `\`\`\`json-table-data\n${tableDataJson}\n\`\`\``;
+          
+          // Add a new message to show the search results with the table data
+          const newMessage: Message = {
+            id: uuidv4(),
+            role: "ai",
+            content: {
+              text: messageText
+            } as any, // Use type assertion to bypass type checking
+            responseComplete: true,
+            createdAt: new Date().toISOString(),
+            chatSessionId: '',
+            owner: ''
+          };
+          
+          setMessages(prevMessages => [...prevMessages, newMessage]);
+>>>>>>> vavourak-catalog
         }
       }
       
@@ -216,8 +331,25 @@ export default function CatalogPage() {
       console.error('Error fetching search data:', error instanceof Error ? error : new Error(String(error)));
       setError(error instanceof Error ? error : new Error(String(error)));
       
+<<<<<<< HEAD
       // Note: Error handling can be enhanced later with proper message system
       console.error('Search error:', error instanceof Error ? error.message : String(error));
+=======
+      // Add error message to chat
+      const errorMessage: Message = {
+        id: uuidv4(),
+        role: "ai",
+        content: {
+          text: `Error processing your search: ${error instanceof Error ? error.message : String(error)}`
+        } as any, // Use type assertion to bypass type checking
+        responseComplete: true,
+        createdAt: new Date().toISOString(),
+        chatSessionId: '',
+        owner: ''
+      };
+      
+      setMessages(prevMessages => [...prevMessages, errorMessage]);
+>>>>>>> vavourak-catalog
       return null;
     } finally {
       setIsLoadingMapData(false);
