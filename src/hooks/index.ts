@@ -3,3 +3,5 @@ export {
   calculateOptimalIframeDimensions, 
   getFileTypeFromExtension 
 } from './useViewport';
+
+export { useDynamicIframe } from './useDynamicIframe';

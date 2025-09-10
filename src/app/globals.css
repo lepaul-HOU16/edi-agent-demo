@@ -70,11 +70,11 @@ iframe {
 
 /* Direct image container styling (replaces iframe for images) */
 .image-container {
-  background: #f8f9fa;
+  /* background: #f8f9fa; */
   width: 100%;
-  border-radius: 4px;
+  /* border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  padding: 8px;
+  padding: 8px; */
 }
 
 .image-container img {

@@ -20,6 +20,30 @@ import os
 os.makedirs('plots', exist_ok=True)
 os.makedirs('data', exist_ok=True)
 
+# Configure matplotlib for transparent backgrounds by default
+import matplotlib
+matplotlib.use('Agg')  # Use non-interactive backend
+import matplotlib.pyplot as plt
+
+# Set matplotlib defaults for transparent backgrounds
+plt.rcParams['figure.facecolor'] = 'none'
+plt.rcParams['axes.facecolor'] = 'none'
+plt.rcParams['savefig.facecolor'] = 'none'
+plt.rcParams['savefig.transparent'] = True
+
+# Also configure plotly for transparent backgrounds
+import plotly.io as pio
+pio.templates.default = "plotly_white"
+pio.kaleido.scope.default_format = "png"
+pio.kaleido.scope.default_engine = "kaleido"
+
+# Set plotly default layout for transparent backgrounds
+import plotly.graph_objects as go
+go.Figure().update_layout(
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)'
+)
+
 s3BucketName = '${process.env.STORAGE_BUCKET_NAME}'
 chatSessionS3Prefix = '${getChatSessionPrefix()}'
 globalS3Uri = 's3://${process.env.STORAGE_BUCKET_NAME}/global/'

@@ -352,7 +352,7 @@ def create_well_summary_plot(well_data):
     plt.tight_layout()
     
     try:
-        plt.savefig('plots/well_summary_plot.png', dpi=150, bbox_inches='tight')
+        plt.savefig('plots/well_summary_plot.png', dpi=150, bbox_inches='tight', transparent=True)
         plt.close()
         print("Well summary plot saved successfully")
     except Exception as save_error:
