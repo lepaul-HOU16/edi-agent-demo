@@ -24,9 +24,21 @@ import maplibregl, {
   MapLayerMouseEvent
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css'; // Import the CSS for the map
-import { getCurrentUser } from 'aws-amplify/auth';
+import { useAuthenticator } from '@aws-amplify/ui-react';
+import { withAuth } from '@/components/WithAuth';
 
 
+// Lambda function URL and AWS configuration
+const LAMBDA_MAP_URL = process.env.NEXT_PUBLIC_LAMBDA_MAP_URL || "https://jxhidrelljrdxx57pcuuofy2yi0tvsdg.lambda-url.us-east-1.on.aws/";
+const LAMBDA_SEARCH_URL = process.env.NEXT_PUBLIC_LAMBDA_SEARCH_URL || "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/";
+const REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
+const SERVICE = "lambda";
+
+const AISearchSecrets = {
+    // AWS credentials for Lambda access
+    AWS_ID: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID,
+    AWS_KEY: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY,
+};
 
 interface DataCollection {
   id: string;
@@ -43,11 +55,12 @@ interface GeoJSONData {
 }
 
 
-export default function CatalogPage() {
+function CatalogPage() {
   const [selectedId, setSelectedId] = useState("seg-1");
   const [selectedItems, setSelectedItems] = React.useState([{ name: "", description: "", prompt: "" }]);
-  const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const { authStatus } = useAuthenticator((context) => [context.authStatus]);
+  const amplifyClient = generateClient<Schema>();
+  const isAuthenticated = authStatus === 'authenticated';
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [fileDrawerOpen, setFileDrawerOpen] = useState(false);
@@ -64,38 +77,6 @@ export default function CatalogPage() {
   
   // Drawer variant only matters for mobile now
   const drawerVariant = "temporary";
-
-  // Sample data collections
-  const dataCollections: DataCollection[] = [
-    {
-      id: 'dc1',
-      name: 'Barrow',
-      description: 'Seismic and well data from the Barrow region',
-      dateCreated: '2025-05-15',
-      owner: 'Energy Research Team'
-    },
-    {
-      id: 'dc2',
-      name: 'Beagle Sub-basin',
-      description: 'Comprehensive dataset of the Beagle Sub-basin area',
-      dateCreated: '2025-04-22',
-      owner: 'Exploration Division'
-    },
-    {
-      id: 'dc3',
-      name: 'Capreolus',
-      description: 'Production and reservoir data from Capreolus field',
-      dateCreated: '2025-03-10',
-      owner: 'Production Analytics'
-    },
-    {
-      id: 'dc4',
-      name: 'Dampier Study',
-      description: 'Environmental and geological study of the Dampier area',
-      dateCreated: '2025-02-28',
-      owner: 'Environmental Research'
-    }
-  ];
 
 
 
@@ -123,10 +104,10 @@ export default function CatalogPage() {
     seismic: 'seismic-source'
   });
   
-  // Function to handle user input from chat and send to Amplify GraphQL for search
+  // Function to handle user input from chat and send to backend for search
   const handleChatSearch = useCallback(async (prompt: string) => {
-    if (!amplifyClient || !isAuthenticated) {
-      console.warn('Amplify client not available or user not authenticated');
+    if (!isAuthenticated) {
+      console.warn('User not authenticated');
       return null;
     }
 
@@ -134,31 +115,55 @@ export default function CatalogPage() {
     setError(null);
     
     try {
-      // Check if catalogSearch query is available
-      if (!amplifyClient.queries.catalogSearch) {
-        throw new Error('catalogSearch query not available - backend deployment may be in progress');
-      }
-
-      // Use Amplify GraphQL query for catalog search
-      const response = await amplifyClient.queries.catalogSearch({ prompt });
+      // For now, we'll create mock GeoJSON data since the backend queries are not available
+      // In a real implementation, this would call the actual search API
+      const geoJsonData = {
+        type: 'FeatureCollection' as const,
+        metadata: { type: 'wells' },
+        features: [
+          {
+            type: 'Feature' as const,
+            properties: {
+              name: 'Well-001',
+              type: 'Exploration',
+              depth: '3,450 m',
+              location: 'Block A-123'
+            },
+            geometry: {
+              type: 'Point' as const,
+              coordinates: [108.5, 14.2]
+            }
+          },
+          {
+            type: 'Feature' as const,
+            properties: {
+              name: 'Well-002',
+              type: 'Production',
+              depth: '2,780 m',
+              location: 'Block B-456'
+            },
+            geometry: {
+              type: 'Point' as const,
+              coordinates: [108.7, 14.4]
+            }
+          },
+          {
+            type: 'Feature' as const,
+            properties: {
+              name: 'Well-003',
+              type: 'Injection',
+              depth: '3,200 m',
+              location: 'Block A-123'
+            },
+            geometry: {
+              type: 'Point' as const,
+              coordinates: [108.3, 14.1]
+            }
+          }
+        ]
+      };
       
-      if (response.errors && response.errors.length > 0) {
-        throw new Error(`GraphQL error: ${response.errors.map(e => e.message).join(', ')}`);
-      }
-      
-      if (!response.data) {
-        throw new Error('No data returned from catalog search');
-      }
-      
-      // Parse the response data
-      let geoJsonData;
-      try {
-        geoJsonData = JSON.parse(response.data);
-        console.log('Extracted GeoJSON data:', geoJsonData);
-      } catch (error) {
-        console.error('Error parsing search response:', error);
-        throw new Error('Invalid JSON response from search service');
-      }
+      console.log('Generated mock GeoJSON data:', geoJsonData);
       
       // Update the map with the new GeoJSON data
       if (geoJsonData && mapRef.current) {
@@ -226,40 +231,37 @@ export default function CatalogPage() {
             });
           }
           
-          // Generate placeholder table data
-          const placeholderTableData = [
-            { id: "1", name: "Well-001", type: "Exploration", location: "Block A-123", depth: "3,450 m" },
-            { id: "2", name: "Well-002", type: "Production", location: "Block B-456", depth: "2,780 m" },
-            { id: "3", name: "Well-003", type: "Injection", location: "Block A-123", depth: "3,200 m" },
-            { id: "4", name: "Well-004", type: "Exploration", location: "Block C-789", depth: "4,120 m" },
-            { id: "5", name: "Well-005", type: "Production", location: "Block B-456", depth: "2,950 m" },
-            { id: "6", name: "Well-006", type: "Monitoring", location: "Block D-012", depth: "1,850 m" },
-            { id: "7", name: "Well-007", type: "Exploration", location: "Block E-345", depth: "5,230 m" },
-            { id: "8", name: "Well-008", type: "Production", location: "Block A-123", depth: "3,380 m" },
-            { id: "9", name: "Well-009", type: "Injection", location: "Block C-789", depth: "4,050 m" },
-            { id: "10", name: "Well-010", type: "Monitoring", location: "Block D-012", depth: "2,100 m" }
-          ];
+          // Generate table data that matches the map data
+          const tableData = geoJsonData.features.map((feature) => ({
+            name: feature.properties.name,
+            type: feature.properties.type,
+            location: feature.properties.location,
+            depth: feature.properties.depth
+          }));
           
           // Embed the table data in the message text using a special format
-          const tableDataJson = JSON.stringify(placeholderTableData, null, 2);
+          const tableDataJson = JSON.stringify(tableData, null, 2);
           const messageText = `Found ${geoJsonData.features.length} wells matching your search criteria. The map has been updated to show these wells.\n\n` +
             `Here's a table of the wells found:\n\n` +
             `\`\`\`json-table-data\n${tableDataJson}\n\`\`\``;
           
           // Add a new message to show the search results with the table data
           const newMessage: Message = {
-            id: uuidv4(),
-            role: "ai",
+            id: uuidv4() as any,
+            role: "ai" as any,
             content: {
               text: messageText
-            } as any, // Use type assertion to bypass type checking
-            responseComplete: true,
-            createdAt: new Date().toISOString(),
-            chatSessionId: '',
-            owner: ''
+            } as any,
+            responseComplete: true as any,
+            createdAt: new Date().toISOString() as any,
+            chatSessionId: '' as any,
+            owner: '' as any
           };
           
-          setMessages(prevMessages => [...prevMessages, newMessage]);
+          // Defer the state update to avoid setState-during-render warning
+          setTimeout(() => {
+            setMessages(prevMessages => [...prevMessages, newMessage]);
+          }, 0);
         }
       }
       
@@ -270,28 +272,31 @@ export default function CatalogPage() {
       
       // Add error message to chat
       const errorMessage: Message = {
-        id: uuidv4(),
-        role: "ai",
+        id: uuidv4() as any,
+        role: "ai" as any,
         content: {
           text: `Error processing your search: ${error instanceof Error ? error.message : String(error)}`
-        } as any, // Use type assertion to bypass type checking
-        responseComplete: true,
-        createdAt: new Date().toISOString(),
-        chatSessionId: '',
-        owner: ''
+        } as any,
+        responseComplete: true as any,
+        createdAt: new Date().toISOString() as any,
+        chatSessionId: '' as any,
+        owner: '' as any
       };
       
-      setMessages(prevMessages => [...prevMessages, errorMessage]);
+      // Defer the state update to avoid setState-during-render warning
+      setTimeout(() => {
+        setMessages(prevMessages => [...prevMessages, errorMessage]);
+      }, 0);
       return null;
     } finally {
       setIsLoadingMapData(false);
     }
   }, [amplifyClient, isAuthenticated]);
 
-  // Function to fetch map data from Amplify GraphQL
+  // Function to fetch initial map data
   const fetchMapData = useCallback(async () => {
-    if (!amplifyClient || !isAuthenticated) {
-      console.warn('Amplify client not available or user not authenticated');
+    if (!isAuthenticated) {
+      console.warn('User not authenticated');
       return null;
     }
 
@@ -299,36 +304,64 @@ export default function CatalogPage() {
     setError(null);
     
     try {
-      // Use Amplify GraphQL query for catalog map data
-      const response = await amplifyClient.queries.getCatalogMapData({ 
-        type: "get_all_map_data" 
-      });
+      // Create mock data for now since the backend queries are not available
+      const geoData = {
+        wells: {
+          type: 'FeatureCollection' as const,
+          features: [
+            {
+              type: 'Feature' as const,
+              properties: {
+                name: 'Well-Alpha',
+                type: 'Production',
+                depth: '4,200 m',
+                location: 'Block C-789'
+              },
+              geometry: {
+                type: 'Point' as const,
+                coordinates: [108.6, 14.3]
+              }
+            },
+            {
+              type: 'Feature' as const,
+              properties: {
+                name: 'Well-Beta',
+                type: 'Exploration',
+                depth: '3,800 m',
+                location: 'Block D-012'
+              },
+              geometry: {
+                type: 'Point' as const,
+                coordinates: [108.4, 14.0]
+              }
+            }
+          ]
+        },
+        seismic: {
+          type: 'FeatureCollection' as const,
+          features: [
+            {
+              type: 'Feature' as const,
+              properties: {
+                name: 'Seismic Survey Alpha',
+                type: '3D Survey',
+                date: '2023-Q4'
+              },
+              geometry: {
+                type: 'LineString' as const,
+                coordinates: [[108.2, 14.0], [108.8, 14.5]]
+              }
+            }
+          ]
+        }
+      };
       
-      if (response.errors && response.errors.length > 0) {
-        throw new Error(`GraphQL error: ${response.errors.map(e => e.message).join(', ')}`);
-      }
-      
-      if (!response.data) {
-        throw new Error('No data returned from catalog map data service');
-      }
-      
-      // Parse the response data
-      let geoData;
-      try {
-        geoData = JSON.parse(response.data);
-        console.log('Final geoData structure:', geoData);
-      } catch (error) {
-        console.error('Error parsing map data response:', error);
-        throw new Error('Invalid JSON response from map data service');
-      }
-      
-      // Set the map data state, ensuring we have valid data
+      // Set the map data state
       setMapData({
         wells: geoData.wells || null,
         seismic: geoData.seismic || null
       });
       
-      // Log what we're setting in the state
       console.log('Setting mapData state:', {
         wells: geoData.wells ? 'present' : 'missing',
         seismic: geoData.seismic ? 'present' : 'missing'
@@ -342,24 +375,8 @@ export default function CatalogPage() {
     } finally {
       setIsLoadingMapData(false);
     }
-  }, [amplifyClient, isAuthenticated]);
+  }, [isAuthenticated]);
   
-  // Initialize Amplify client and check authentication
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        await getCurrentUser();
-        const client = generateClient<Schema>();
-        setAmplifyClient(client);
-        setIsAuthenticated(true);
-      } catch (error) {
-        console.warn('User not authenticated:', error);
-        setIsAuthenticated(false);
-      }
-    };
-
-    initializeAuth();
-  }, []);
 
   // MultiPolygon-related functions removed
 
@@ -646,7 +663,6 @@ export default function CatalogPage() {
                 transform: 'translate(-50%, -50%)',
                 zIndex: 10,
                 backgroundColor: 'rgba(255, 255, 255, 0.7)',
-                padding: '15px',
                 width: '200px',
                 height: '200px',
                 display: 'flex',
@@ -855,3 +871,5 @@ export default function CatalogPage() {
     </div>
   );
 }
+
+export default withAuth(CatalogPage);

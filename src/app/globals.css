@@ -166,14 +166,14 @@ table {
   width: 100%;
 }
 
-table, th, td {
+/* table, th, td {
   border: 1px solid black;
-}
+} */
 
-th, td {
+/* th, td {
   padding: 8px;
   text-align: left;
-}
+} */
 
 /* Override for AWS UI component background - Dynamic hash-resistant selectors */
 [class*="awsui_layout_"][class*="awsui_is-visual-refresh_"] > [class*="awsui_background_"][class*="awsui_has-default-background_"] {
@@ -240,4 +240,8 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   -webkit-line-clamp: 3 !important;
   line-clamp: 3 !important;
   -webkit-box-orient: vertical !important;
+}
+
+.tables > div {
+  padding: 10px 20px 0px 20px;
 }
