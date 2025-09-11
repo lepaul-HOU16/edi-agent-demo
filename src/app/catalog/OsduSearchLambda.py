@@ -557,6 +557,8 @@ def lambda_handler(event, context):
         well_geojson_data, tabular_data = perform_wellbore_to_well_lookup(results_aggregate_keys, auth_headers)
         # print(f'\n\n\n well_ids={well_ids}')
 
+
+
     body['geojson'] = well_geojson_data
     body['tabular_data'] = tabular_data
 

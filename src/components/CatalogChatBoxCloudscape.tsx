@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, List, ListItem, Typography, CircularProgress, Fab } from '@mui/material';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 import { Message } from '../../utils/types';
 import ChatMessage from './ChatMessage';
-import SupportAgentIcon from '@mui/icons-material/SupportAgent';
-import { useTheme } from '@mui/material/styles';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Table, Header, Pagination } from '@cloudscape-design/components';
-import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
+import { 
+  Table, 
+  Header, 
+  Pagination, 
+  ButtonDropdown, 
+  Button, 
+  Spinner,
+  Icon
+} from '@cloudscape-design/components';
 import ExpandablePromptInput from './ExpandablePromptInput';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -49,13 +52,13 @@ function DynamicTableDisplay({ tableData }: { tableData: any[] }) {
           trackBy={(item) => item.name || `item-${Math.random()}`}
         />
       </div>
+      
     </div>
   );
 }
 
 // Custom AI message component that can render tables
 function CustomAIMessage({ message }: { message: Message }) {
-  const theme = useTheme();
   const [tableData, setTableData] = useState<any[] | null>(null);
   
   // Parse the message content to extract table data if present
@@ -93,8 +96,21 @@ function CustomAIMessage({ message }: { message: Message }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
-        <SupportAgentIcon sx={{ color: theme.palette.primary.main, width: 32, height: 32 }} />
-        <div>
+        <div style={{ 
+          width: '32px', 
+          height: '32px', 
+          display: 'flex', 
+          alignItems: 'center', 
+          justifyContent: 'center',
+          backgroundColor: '#0073bb',
+          borderRadius: '50%',
+          color: 'white',
+          fontSize: '16px',
+          fontWeight: 'bold'
+        }}>
+          AI
+        </div>
+        <div style={{ flex: 1 }}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {getCleanText()}
           </ReactMarkdown>
@@ -110,10 +126,10 @@ function CustomAIMessage({ message }: { message: Message }) {
 }
 
 /**
- * CatalogChatBox - A custom chat component for the catalog page that doesn't use the React agent
- * This component handles chat functionality specifically for map search operations
+ * CatalogChatBoxCloudscape - A pure Cloudscape version of the chat component
+ * This version removes all Material UI dependencies to prevent styling conflicts
  */
-const CatalogChatBox = (params: {
+const CatalogChatBoxCloudscape = (params: {
   onInputChange: (input: string) => void,
   userInput: string,
   messages: Message[],
@@ -121,7 +137,6 @@ const CatalogChatBox = (params: {
   onSendMessage: (message: string) => Promise<void>
 }) => {
   const { onInputChange, userInput, messages, setMessages, onSendMessage } = params;
-  const theme = useTheme();
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -190,41 +205,45 @@ const CatalogChatBox = (params: {
   }, [onInputChange, setMessages, onSendMessage]);
 
   return (
-    <Box sx={{
+    <div style={{
       width: '100%',
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      overflowY: 'hidden',
       position: 'relative'
     }}>
-      <Box
+      {/* Messages container */}
+      <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="messages-container"
-        sx={{
+        style={{
           flex: 1,
           overflowY: 'auto',
           flexDirection: 'column-reverse',
           display: 'flex',
-          mb: 2,
+          marginBottom: '16px',
           position: 'relative'
         }}
       >
-        <List>
+        <div>
           {messages.map((message, index) => (
-            <ListItem key={Array.isArray(message.id) ? message.id[0] || `message-${index}` : message.id || `message-${index}`}>
+            <div 
+              key={Array.isArray(message.id) ? message.id[0] || `message-${index}` : message.id || `message-${index}`}
+              style={{ marginBottom: '16px', padding: '0 16px' }}
+            >
               {message.role === 'ai' ? (
                 <CustomAIMessage message={message} />
               ) : (
                 <ChatMessage message={message} />
               )}
-            </ListItem>
+            </div>
           ))}
           <div ref={messagesEndRef} />
-        </List>
-      </Box>
+        </div>
+      </div>
 
+      {/* Controls */}
       <div className='controls'>
         <div className='input-bkgd'>
           <ExpandablePromptInput
@@ -236,14 +255,16 @@ const CatalogChatBox = (params: {
             ariaLabel="Prompt input with action button"
             placeholder="Search for wells or seismic data..."
           />
-          <Typography
-            variant="inherit"
-            color="white"
-            style={{ lineHeight: '14px', width: '50px', marginRight: '-13px', marginLeft: '10px' }}
-            fontSize={11}
-          >
+          <div style={{ 
+            color: 'white', 
+            fontSize: '11px', 
+            lineHeight: '14px', 
+            width: '50px', 
+            marginRight: '-13px', 
+            marginLeft: '10px' 
+          }}>
             Example Queries
-          </Typography>
+          </div>
           <ButtonDropdown
             items={[
               {
@@ -280,53 +301,51 @@ const CatalogChatBox = (params: {
                 onInputChange(clickedItem.text);
               }
             }}
-          ></ButtonDropdown>
+          />
         </div>
       </div>
       
+      {/* Scroll to bottom button */}
       {!isScrolledToBottom && (
-        <Fab
-          color="primary"
-          size="small"
-          onClick={scrollToBottom}
-          sx={{
-            position: 'fixed',
-            bottom: 120,
-            right: 20,
-            zIndex: 1400,
-            opacity: 0.8,
-            '&:hover': {
-              opacity: 1
-            }
-          }}
-        >
-          <KeyboardArrowDownIcon />
-        </Fab>
+        <div style={{
+          position: 'fixed',
+          bottom: '120px',
+          right: '20px',
+          zIndex: 1400
+        }}>
+          <Button
+            variant="primary"
+            iconName="angle-down"
+            onClick={scrollToBottom}
+            ariaLabel="Scroll to bottom"
+          />
+        </div>
       )}
       
+      {/* Loading indicator */}
       {isLoading && (
-        <Box 
-          sx={{
-            position: 'absolute',
-            bottom: 80,
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex',
-            alignItems: 'center',
-            backgroundColor: theme.palette.background.paper,
-            padding: '5px 15px',
-            borderRadius: '15px',
-            boxShadow: theme.shadows[4],
-            zIndex: 1000,
-            border: `1px solid ${theme.palette.divider}`
-          }}
-        >
-          <CircularProgress size={20} sx={{ mr: 1, color: theme.palette.primary.main }} />
-          <Typography variant="body2" color={theme.palette.text.primary}>Processing your query...</Typography>
-        </Box>
+        <div style={{
+          position: 'absolute',
+          bottom: '80px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: '#ffffff',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          zIndex: 1000,
+          border: '1px solid #e9ebed'
+        }}>
+          <Spinner size="normal" />
+          <span style={{ marginLeft: '8px', fontSize: '14px', color: '#232f3e' }}>
+            Processing your query...
+          </span>
+        </div>
       )}
-    </Box>
+    </div>
   );
 };
 
-export default CatalogChatBox;
+export default CatalogChatBoxCloudscape;
