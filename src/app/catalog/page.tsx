@@ -34,7 +34,7 @@ const amplifyClient = generateClient<Schema>();
 
 // Lambda function URL and AWS configuration
 const LAMBDA_MAP_URL = process.env.NEXT_PUBLIC_LAMBDA_MAP_URL || "https://jxhidrelljrdxx57pcuuofy2yi0tvsdg.lambda-url.us-east-1.on.aws/";
-const LAMBDA_SEARCH_URL = process.env.NEXT_PUBLIC_LAMBDA_SEARCH_URL || "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/"
+const LAMBDA_SEARCH_URL = process.env.NEXT_PUBLIC_LAMBDA_SEARCH_URL || "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/";
 const REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
 const SERVICE = "lambda";
 
@@ -78,38 +78,6 @@ export default function CatalogPage() {
   
   // Drawer variant only matters for mobile now
   const drawerVariant = "temporary";
-
-  // Sample data collections
-  const dataCollections: DataCollection[] = [
-    {
-      id: 'dc1',
-      name: 'Barrow',
-      description: 'Seismic and well data from the Barrow region',
-      dateCreated: '2025-05-15',
-      owner: 'Energy Research Team'
-    },
-    {
-      id: 'dc2',
-      name: 'Beagle Sub-basin',
-      description: 'Comprehensive dataset of the Beagle Sub-basin area',
-      dateCreated: '2025-04-22',
-      owner: 'Exploration Division'
-    },
-    {
-      id: 'dc3',
-      name: 'Capreolus',
-      description: 'Production and reservoir data from Capreolus field',
-      dateCreated: '2025-03-10',
-      owner: 'Production Analytics'
-    },
-    {
-      id: 'dc4',
-      name: 'Dampier Study',
-      description: 'Environmental and geological study of the Dampier area',
-      dateCreated: '2025-02-28',
-      owner: 'Environmental Research'
-    }
-  ];
 
 
   // Function to sign a request with AWS SigV4
