@@ -1,0 +1,9 @@
+{
+  "typescript": {
+    "skipTypeCheck": true
+  },
+  "build": {
+    "skipTypeCheck": true,
+    "memoryOptimization": true
+  }
+}

@@ -363,8 +363,7 @@ export default function FileViewer({
             height: 'auto',
             maxWidth: '100%',
             display: 'block',
-            borderRadius: '4px',
-            background: '#f8f9fa'
+            borderRadius: '4px'
           }}
           onLoad={() => {
             setIframeLoading(false);

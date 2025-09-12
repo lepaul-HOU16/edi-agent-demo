@@ -38,6 +38,20 @@ try:
     import seaborn as sns
     plt.style.use('seaborn-v0_8')
     sns.set_palette("husl")
+    
+    # Configure matplotlib for transparent backgrounds in all cases
+    plt.rcParams.update({
+        'figure.facecolor': 'none',
+        'axes.facecolor': 'none',
+        'savefig.facecolor': 'none',
+        'savefig.transparent': True,
+        'savefig.edgecolor': 'none',
+        'patch.force_edgecolor': False,
+        'axes.spines.left': True,
+        'axes.spines.bottom': True,
+        'axes.spines.top': False,
+        'axes.spines.right': False
+    })
 except ImportError as e:
     print(f"Matplotlib import error: {e}")
     print("Please install Matplotlib: pip install matplotlib seaborn")

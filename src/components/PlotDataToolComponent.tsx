@@ -5,9 +5,26 @@ import DescriptionIcon from '@mui/icons-material/Description';
 import { getUrl } from 'aws-amplify/storage';
 import dynamic from 'next/dynamic';
 
-// Dynamically import Plotly to prevent SSR issues and reduce bundle size
+// Dynamically import Plotly with memory optimization and error boundary
 const Plot = dynamic(
-    () => import('react-plotly.js').then((mod) => mod.default), 
+    () => import('react-plotly.js').then((mod) => {
+        // Force garbage collection if available after loading heavy library
+        if (typeof window !== 'undefined' && (window as any).gc) {
+            setTimeout(() => (window as any).gc(), 100);
+        }
+        return mod.default;
+    }).catch((error) => {
+        console.error('Failed to load react-plotly.js:', error);
+        // Fallback to a simple div if Plotly fails to load
+        return () => React.createElement('div', { 
+            style: { 
+                padding: '20px', 
+                textAlign: 'center',
+                border: '1px dashed #ccc',
+                borderRadius: '4px'
+            }
+        }, 'Chart unavailable - Plotly failed to load');
+    }), 
     {
         ssr: false,
         loading: () => (

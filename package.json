@@ -6,14 +6,17 @@
     "zeromq": false
   },
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "NODE_OPTIONS='--max-old-space-size=8192 --max-semi-space-size=512' next dev",
+    "build": "NODE_OPTIONS='--max-old-space-size=16384 --max-semi-space-size=1024 --expose-gc' node scripts/build-with-memory-optimization.js",
+    "build:standard": "NODE_OPTIONS='--max-old-space-size=16384' next build",
     "start": "next start",
     "lint": "next lint",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "test:specific": "jest"
+    "test:specific": "jest",
+    "sandbox": "node scripts/amplify-sandbox-optimized.js",
+    "sandbox:delete": "node scripts/amplify-sandbox-optimized.js delete"
   },
   "dependencies": {
     "@aws-amplify/backend-output-schemas": "^1.4.0",

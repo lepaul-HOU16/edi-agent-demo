@@ -30,6 +30,7 @@ import './app.scss';
 import { type Schema } from "@/../amplify/data/resource";
 import { generateClient } from 'aws-amplify/api';
 import { sendMessage } from '@/../utils/amplifyUtils';
+import { memoryManager } from '@/utils/memoryUtils';
 
 const amplifyClient = generateClient<Schema>();
 const inter = Inter({
@@ -109,6 +110,17 @@ export default function RootLayout({
       }
     }
   }, [darkMode]);
+
+  // Memory monitoring setup
+  useEffect(() => {
+    // Start memory monitoring when app loads
+    const stopMonitoring = memoryManager.startMemoryMonitoring(30000);
+    
+    // Cleanup function
+    return () => {
+      stopMonitoring();
+    };
+  }, []);
   
   const toggleDarkMode = () => {
     const newMode = !darkMode;

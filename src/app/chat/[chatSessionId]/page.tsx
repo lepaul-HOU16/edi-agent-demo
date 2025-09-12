@@ -47,6 +47,96 @@ function Page({
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [messages, setMessages] = useState<Message[]>([]);
     const router = useRouter();
+    
+    // Chain of thought auto-scroll state
+    const [chainOfThoughtAutoScroll, setChainOfThoughtAutoScroll] = useState<boolean>(true);
+    const [chainOfThoughtMessageCount, setChainOfThoughtMessageCount] = useState<number>(0);
+    const chainOfThoughtContainerRef = React.useRef<HTMLDivElement>(null);
+    const chainOfThoughtEndRef = React.useRef<HTMLDivElement>(null);
+    const chainOfThoughtScrollTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+    // Auto-scroll functionality for chain of thought
+    const scrollChainOfThoughtToBottom = React.useCallback(() => {
+        if (chainOfThoughtEndRef.current && chainOfThoughtAutoScroll) {
+            console.log('Chain of Thought: Auto-scrolling to bottom');
+            chainOfThoughtEndRef.current.scrollIntoView({ 
+                behavior: 'smooth', 
+                block: 'end' 
+            });
+        }
+    }, [chainOfThoughtAutoScroll]);
+
+    // Handle scroll events to detect user interrupt
+    const handleChainOfThoughtScroll = React.useCallback((e: React.UIEvent<HTMLDivElement>) => {
+        const container = e.currentTarget;
+        const scrollTop = container.scrollTop;
+        const scrollHeight = container.scrollHeight;
+        const clientHeight = container.clientHeight;
+        
+        // Check if user scrolled up from bottom (with a small buffer)
+        const isAtBottom = scrollHeight - scrollTop <= clientHeight + 10;
+        
+        if (!isAtBottom && chainOfThoughtAutoScroll) {
+            console.log('Chain of Thought: User scrolled up, disabling auto-scroll');
+            setChainOfThoughtAutoScroll(false);
+        }
+    }, [chainOfThoughtAutoScroll]);
+
+    // Monitor filtered messages for changes to trigger auto-scroll
+    React.useEffect(() => {
+        const filteredMessages = messages.filter((message) => {
+            switch (message.role) {
+                case 'ai':
+                    return !message.responseComplete;
+                case 'tool':
+                    return !['renderAssetTool', 'userInputTool', 'createProject'].includes(message.toolName as any);
+                default:
+                    return false;
+            }
+        });
+
+        const newMessageCount = filteredMessages.length;
+        
+        // If we have new messages and auto-scroll is enabled, scroll to bottom
+        if (newMessageCount > chainOfThoughtMessageCount && chainOfThoughtAutoScroll) {
+            // Clear any existing timeout
+            if (chainOfThoughtScrollTimeoutRef.current) {
+                clearTimeout(chainOfThoughtScrollTimeoutRef.current);
+            }
+            
+            // Scroll after a brief delay to ensure DOM has updated
+            chainOfThoughtScrollTimeoutRef.current = setTimeout(() => {
+                scrollChainOfThoughtToBottom();
+            }, 100);
+        }
+        
+        // If we have new messages but auto-scroll is disabled, re-enable it for new content
+        if (newMessageCount > chainOfThoughtMessageCount && !chainOfThoughtAutoScroll) {
+            console.log('Chain of Thought: New content detected, re-enabling auto-scroll');
+            setChainOfThoughtAutoScroll(true);
+            
+            // Clear any existing timeout
+            if (chainOfThoughtScrollTimeoutRef.current) {
+                clearTimeout(chainOfThoughtScrollTimeoutRef.current);
+            }
+            
+            // Scroll after a brief delay to ensure DOM has updated
+            chainOfThoughtScrollTimeoutRef.current = setTimeout(() => {
+                scrollChainOfThoughtToBottom();
+            }, 100);
+        }
+        
+        setChainOfThoughtMessageCount(newMessageCount);
+    }, [messages, chainOfThoughtMessageCount, chainOfThoughtAutoScroll, scrollChainOfThoughtToBottom]);
+
+    // Cleanup timeout on unmount
+    React.useEffect(() => {
+        return () => {
+            if (chainOfThoughtScrollTimeoutRef.current) {
+                clearTimeout(chainOfThoughtScrollTimeoutRef.current);
+            }
+        };
+    }, []);
 
     const setActiveChatSessionAndUpload = async (newChatSession: any) => {
         try {
@@ -346,7 +436,12 @@ function Page({
                     </div>
                 ) : (
                     // Chain of Thought here
-                    <div className='panel'>
+                    <div 
+                        className='panel'
+                        ref={chainOfThoughtContainerRef}
+                        onScroll={handleChainOfThoughtScroll}
+                        style={{ overflowY: 'auto' }}
+                    >
                         <Container
                             footer=""
                             header="Chain of Thought - Process Log"
@@ -389,7 +484,7 @@ function Page({
                                         </ListItem>
                                     ));
                                 })()}
-                                {/* <div ref={messagesEndRef} /> */}
+                                <div ref={chainOfThoughtEndRef} style={{ height: '1px' }} />
                             </List>
                         </Container>
                     </div>

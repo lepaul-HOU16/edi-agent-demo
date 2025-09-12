@@ -8,6 +8,20 @@ type GeneratedQuery<InputType, OutputType> = string & {
   __generatedQueryOutput: OutputType;
 };
 
+export const catalogSearch = /* GraphQL */ `query CatalogSearch($prompt: String!) {
+  catalogSearch(prompt: $prompt)
+}
+` as GeneratedQuery<
+  APITypes.CatalogSearchQueryVariables,
+  APITypes.CatalogSearchQuery
+>;
+export const getCatalogMapData = /* GraphQL */ `query GetCatalogMapData($type: String!) {
+  getCatalogMapData(type: $type)
+}
+` as GeneratedQuery<
+  APITypes.GetCatalogMapDataQueryVariables,
+  APITypes.GetCatalogMapDataQuery
+>;
 export const getChatMessage = /* GraphQL */ `query GetChatMessage($id: ID!) {
   getChatMessage(id: $id) {
     chatSession {
