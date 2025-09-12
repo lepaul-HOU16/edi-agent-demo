@@ -7,10 +7,10 @@
 
 const { spawn } = require('child_process');
 
-// Memory configuration for Amplify CLI
+// Memory configuration for Amplify CLI - Enhanced for heap error prevention
 const AMPLIFY_MEMORY_CONFIG = {
-  maxOldSpaceSize: 8192, // 8GB for Amplify CLI
-  maxSemiSpaceSize: 512,  // 512MB semi-space
+  maxOldSpaceSize: 16384, // 16GB for Amplify CLI (increased from 8GB)
+  maxSemiSpaceSize: 1024,  // 1GB semi-space (increased from 512MB)
 };
 
 // Node.js flags for memory optimization

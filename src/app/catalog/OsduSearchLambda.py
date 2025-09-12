@@ -95,7 +95,7 @@ body = {
 
 
 # Authenticate with EDI
-def authenticate_edi(username, password, client_id, client_secret, partition) -> dict:
+def authenticate_edi(username, password, client_id, client_secret, partition):
     """
     Authenticates against AWS Cognito to obtain access tokens for EDI (Energy Data Infrastructure) platform.
     
@@ -111,7 +111,7 @@ def authenticate_edi(username, password, client_id, client_secret, partition) ->
             - Authorization: Bearer token
             - Content-Type: application/json
             - data-partition-id: EDI partition ID
-        Returns (None, None) if authentication fails
+        Returns None if authentication fails
     """
     # Authenticate against AWS Cognito
 
@@ -132,7 +132,7 @@ def authenticate_edi(username, password, client_id, client_secret, partition) ->
         # print("EDI: Authentication successful!")
         # Headers
         headers = {
-            "Authorization": "Bearer " + access_token,
+            "Authorization": "Bearer " + (access_token or ""),
             "Content-Type": "application/json",
             "data-partition-id": partition
         }

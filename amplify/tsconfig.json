@@ -12,6 +12,13 @@
     "noEmit": true,
     "incremental": false,
     "isolatedModules": true,
+    "noImplicitAny": false,
+    "noImplicitReturns": false,
+    "noImplicitThis": false,
+    "strictNullChecks": false,
+    "strictFunctionTypes": false,
+    "strictBindCallApply": false,
+    "strictPropertyInitialization": false,
     "paths": {
       "$amplify/*": [
         "../.amplify/generated/*"

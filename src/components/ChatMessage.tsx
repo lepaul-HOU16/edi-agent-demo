@@ -74,25 +74,10 @@ const ChatMessage = (params: {
                 onRegenerateMessage={onRegenerateMessage}
             />;
         case 'ai':
-            // Check if message contains analysis data that should use interactive visualization
-            const messageText = (message as any).content?.text || '';
-            const hasAnalysisData = messageText.includes('Analysis') || 
-                                  messageText.includes('Method') || 
-                                  messageText.includes('Statistical') ||
-                                  messageText.includes('Mean:') ||
-                                  messageText.includes('Median:') ||
-                                  messageText.includes('Standard Deviation:') ||
-                                  messageText.includes('Methodology');
-            
-            if (hasAnalysisData && messageText.length > 200) {
-                return <InteractiveAgentSummaryComponent 
-                    content={message.content} 
-                    theme={theme} 
-                    chatSessionId={(message as any).chatSessionId || ''} 
-                />;
-            } else {
-                return <AiMessageComponent message={message} theme={theme} />;
-            }
+            // Disable InteractiveAgentSummaryComponent to prevent asset duplication
+            // All AI messages should use the standard AiMessageComponent
+            // Visual assets should only come from tool messages (PlotDataToolComponent, etc.)
+            return <AiMessageComponent message={message} theme={theme} />;
         case 'ai-stream':
             return <ThinkingMessageComponent message={message} theme={theme} />
         case 'tool':

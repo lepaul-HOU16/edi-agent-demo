@@ -84,7 +84,7 @@ def authenticate_edi():
         # print("EDI: Authentication successful!")
         # Headers
         headers = {
-            "Authorization": "Bearer " + access_token,
+            "Authorization": "Bearer " + (access_token or ""),
             "Content-Type": "application/json",
             "data-partition-id": edi_partition
         }
@@ -420,4 +420,3 @@ def handler(event, context):
     
     print(f'response size={len(response["body"])}')
     return response
-

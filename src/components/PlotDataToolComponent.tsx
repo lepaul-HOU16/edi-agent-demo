@@ -340,8 +340,8 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
         const layout: any = {
             autosize: true,
             margin: { l: 60, r: 60, t: 60, b: 60 },
-            paper_bgcolor: 'rgba(0,0,0,0)',
-            plot_bgcolor: 'rgba(0,0,0,0)',
+            paper_bgcolor: 'transparent',
+            plot_bgcolor: 'transparent',
             title: {
                 text: plotData?.title || 'Data Plot',
                 font: { size: 16 },
@@ -573,7 +573,7 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                 border: `1px solid ${theme.palette.grey[300]}`,
                 borderRadius: theme.shape.borderRadius,
                 padding: theme.spacing(1),
-                backgroundColor: 'rgba(0,0,0,0)',
+                backgroundColor: 'transparent',
                 height: '500px',
                 width: '100%',
                 overflow: 'visible',
@@ -583,7 +583,7 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                 <div style={{
                     height: '100%',
                     width: '100%',
-                    backgroundColor: 'rgba(0,0,0,0)',
+                    backgroundColor: 'transparent',
                     overflow: 'hidden',
                     position: 'relative'
                 }}>
@@ -592,7 +592,8 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
                         width: '100%',
                         position: 'absolute',
                         top: 0,
-                        left: 0
+                        left: 0,
+                        backgroundColor: 'transparent'
                     }}>
                         {renderChart()}
                     </div>

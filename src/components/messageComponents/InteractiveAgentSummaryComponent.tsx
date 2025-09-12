@@ -202,39 +202,160 @@ const InteractiveAgentSummaryComponent: React.FC<InteractiveAgentSummaryProps> =
     };
   }, [content]);
 
-  // Create simple visual indicator for each method (CSS-only)
-  const createVisualIndicator = (method: StatisticalData) => {
+  // Create varied data science visualizations (avoid repeating same type)
+  const createDataScienceVisualization = (method: StatisticalData, index: number, totalMethods: number) => {
     const percentage = Math.round(method.mean * 100);
     const color = method.confidence === 'high' ? '#16a34a' : 
                   method.confidence === 'medium' ? '#2563eb' : '#dc2626';
     
-    return (
-      <div style={{ 
-        position: 'relative',
-        width: '80px',
-        height: '80px',
-        borderRadius: '50%',
-        background: `conic-gradient(${color} ${percentage * 3.6}deg, #f1f5f9 ${percentage * 3.6}deg)`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        margin: '0 auto'
-      }}>
-        <div style={{
-          width: '60px',
-          height: '60px',
-          borderRadius: '50%',
-          backgroundColor: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '12px',
-          fontWeight: 'bold'
-        }}>
-          {method.mean.toFixed(3)}
-        </div>
-      </div>
-    );
+    // Rotate through different visualization types to avoid repetition
+    const vizType = index % 4;
+    
+    switch (vizType) {
+      case 0: // Box plot style indicator
+        return (
+          <div style={{ 
+            width: '100px',
+            height: '80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto'
+          }}>
+            {/* Box plot visualization */}
+            <div style={{ position: 'relative', width: '60px', height: '50px' }}>
+              {/* Whiskers */}
+              <div style={{
+                position: 'absolute',
+                left: '28px',
+                top: '5px',
+                width: '4px',
+                height: '40px',
+                backgroundColor: '#e5e7eb'
+              }} />
+              {/* Box */}
+              <div style={{
+                position: 'absolute',
+                left: '20px',
+                top: '15px',
+                width: '20px',
+                height: '20px',
+                backgroundColor: color,
+                border: '2px solid ' + color,
+                opacity: 0.8
+              }} />
+              {/* Median line */}
+              <div style={{
+                position: 'absolute',
+                left: '20px',
+                top: `${15 + (method.median / method.mean) * 20}px`,
+                width: '20px',
+                height: '2px',
+                backgroundColor: 'white'
+              }} />
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '4px' }}>
+              {method.mean.toFixed(3)}
+            </div>
+          </div>
+        );
+        
+      case 1: // Histogram style
+        return (
+          <div style={{ 
+            width: '100px',
+            height: '80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto'
+          }}>
+            {/* Histogram bars */}
+            <div style={{ display: 'flex', alignItems: 'end', height: '50px', gap: '2px' }}>
+              {[0.3, 0.7, 1.0, 0.8, 0.4].map((height, i) => (
+                <div key={i} style={{
+                  width: '8px',
+                  height: `${height * method.mean * 40}px`,
+                  backgroundColor: color,
+                  opacity: 0.7 + (height * 0.3)
+                }} />
+              ))}
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '4px' }}>
+              {method.mean.toFixed(3)}
+            </div>
+          </div>
+        );
+        
+      case 2: // Heat map cell style
+        return (
+          <div style={{ 
+            width: '100px',
+            height: '80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto'
+          }}>
+            {/* Heatmap grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 12px)', gap: '2px', marginBottom: '8px' }}>
+              {Array.from({length: 16}, (_, i) => (
+                <div key={i} style={{
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: color,
+                  opacity: Math.random() * method.mean + 0.2
+                }} />
+              ))}
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold' }}>
+              {method.mean.toFixed(3)}
+            </div>
+          </div>
+        );
+        
+      default: // Gauge/arc style (different from donut)
+        const arcLength = percentage * 1.8; // 180 degrees max
+        return (
+          <div style={{ 
+            width: '100px',
+            height: '80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto'
+          }}>
+            {/* Gauge arc */}
+            <div style={{ position: 'relative', width: '70px', height: '35px' }}>
+              <div style={{
+                width: '70px',
+                height: '70px',
+                borderRadius: '50%',
+                background: `conic-gradient(from 270deg, ${color} ${arcLength}deg, #f1f5f9 ${arcLength}deg)`,
+                clipPath: 'polygon(0 50%, 100% 50%, 100% 100%, 0 100%)'
+              }} />
+              {/* Needle */}
+              <div style={{
+                position: 'absolute',
+                bottom: '0',
+                left: '50%',
+                width: '2px',
+                height: '25px',
+                backgroundColor: '#374151',
+                transformOrigin: 'bottom',
+                transform: `translateX(-50%) rotate(${arcLength - 90}deg)`
+              }} />
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '4px' }}>
+              {method.mean.toFixed(3)}
+            </div>
+          </div>
+        );
+    }
   };
 
   // Parse HTML tables for Cloudscape rendering
@@ -327,8 +448,7 @@ const InteractiveAgentSummaryComponent: React.FC<InteractiveAgentSummaryProps> =
     if (!text) return null;
 
     // Check for geological content patterns
-    const hasGeologicalContent = text.match(/(?:lithology|sandstone|limestone|shale|density|neutron|porosity|reservoir)/i);
-    if (!hasGeologicalContent) return null;
+    if (!text.match(/(?:lithology|sandstone|limestone|shale|density|neutron|porosity|reservoir)/i)) return null;
 
     // Extract lithology data
     const lithologies = [];
@@ -950,9 +1070,9 @@ const InteractiveAgentSummaryComponent: React.FC<InteractiveAgentSummaryProps> =
                     {method.method.replace(/Method.*$/i, '').trim()}
                   </Box>
                   
-                  {/* CSS-only Donut Chart */}
+                  {/* CSS-only Data Science Visualization */}
                   <div style={{ margin: '8px 0' }}>
-                    {createVisualIndicator(method)}
+                    {createDataScienceVisualization(method, index, analysisData.methods.length)}
                   </div>
                   
                   {/* Confidence Badge */}
