@@ -38,6 +38,12 @@ export const catalogSearchFunction = defineFunction({
   name: 'catalogSearch',
   entry: '../functions/catalogSearch/index.ts',
   timeoutSeconds: 60,
+  environment: {
+    OSDU_BASE_URL: 'https://community.opensubsurface.org',
+    OSDU_API_VERSION: 'v2',
+    OSDU_PARTITION_ID: 'opendes',
+    // Add OSDU_ACCESS_TOKEN as environment variable when available
+  }
 });
 
 export const schema = a.schema({

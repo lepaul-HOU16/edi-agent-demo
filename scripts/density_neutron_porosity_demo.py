@@ -36,6 +36,20 @@ except ImportError:
     print("Plotly not available. Using matplotlib for all plots.")
     PLOTLY_AVAILABLE = False
 
+# Configure matplotlib for transparent backgrounds in all cases
+plt.rcParams.update({
+    'figure.facecolor': 'none',
+    'axes.facecolor': 'none',
+    'savefig.facecolor': 'none',
+    'savefig.transparent': True,
+    'savefig.edgecolor': 'none',
+    'patch.force_edgecolor': False,
+    'axes.spines.left': True,
+    'axes.spines.bottom': True,
+    'axes.spines.top': False,
+    'axes.spines.right': False
+})
+
 # Create output directories
 os.makedirs('plots', exist_ok=True)
 os.makedirs('results', exist_ok=True)
@@ -520,8 +534,10 @@ class DensityNeutronAnalyzer:
         plt.legend(bbox_to_anchor=(1.05, 1), loc='upper left')
         plt.tight_layout()
         
-        plt.savefig('plots/density_neutron_crossplot.png', dpi=300, bbox_inches='tight')
-        plt.savefig('plots/density_neutron_crossplot.pdf', bbox_inches='tight')
+        plt.savefig('plots/density_neutron_crossplot.png', dpi=300, bbox_inches='tight', 
+                   transparent=True, facecolor='none', edgecolor='none')
+        plt.savefig('plots/density_neutron_crossplot.pdf', bbox_inches='tight', 
+                   transparent=True, facecolor='none', edgecolor='none')
         plt.close()
         
         print("  Crossplot saved to: plots/density_neutron_crossplot.png and .pdf")
@@ -703,7 +719,8 @@ class DensityNeutronAnalyzer:
         
         # Save plot
         filename = f"plots/well_depth_plot_{well_name.replace(' ', '_')}.png"
-        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        plt.savefig(filename, dpi=300, bbox_inches='tight', 
+                   transparent=True, facecolor='none', edgecolor='none')
         plt.close()
         print(f"  Depth plot saved: {filename}")
     

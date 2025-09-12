@@ -558,6 +558,22 @@ export type ModelSubscriptionProjectFilterInput = {
   updatedAt?: ModelSubscriptionStringInput | null,
 };
 
+export type CatalogSearchQueryVariables = {
+  prompt: string,
+};
+
+export type CatalogSearchQuery = {
+  catalogSearch?: string | null,
+};
+
+export type GetCatalogMapDataQueryVariables = {
+  type: string,
+};
+
+export type GetCatalogMapDataQuery = {
+  getCatalogMapData?: string | null,
+};
+
 export type GetChatMessageQueryVariables = {
   id: string,
 };

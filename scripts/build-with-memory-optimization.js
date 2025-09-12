@@ -22,10 +22,8 @@ const nodeOptions = [
   `--max-old-space-size=${MEMORY_CONFIG.maxOldSpaceSize}`,
   `--max-semi-space-size=${MEMORY_CONFIG.maxSemiSpaceSize}`,
   '--expose-gc',
-  '--optimize-for-size',
   '--no-deprecation',
-  '--no-warnings',
-  '--trace-gc-verbose'
+  '--no-warnings'
 ];
 
 console.log('🚀 Starting optimized build process...');
@@ -88,7 +86,7 @@ async function runOptimizedBuild() {
   console.log('🔧 Environment configured for memory optimization');
   
   return new Promise((resolve, reject) => {
-    const buildProcess = spawn('npm', ['run', 'build'], {
+    const buildProcess = spawn('npx', ['next', 'build'], {
       stdio: 'inherit',
       env: process.env
     });

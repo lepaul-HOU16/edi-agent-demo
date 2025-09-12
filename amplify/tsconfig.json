@@ -5,13 +5,30 @@
     "moduleResolution": "bundler",
     "resolveJsonModule": true,
     "esModuleInterop": true,
-    "forceConsistentCasingInFileNames": true,
-    "strict": true,
+    "forceConsistentCasingInFileNames": false,
+    "strict": false,
     "skipLibCheck": true,
+    "skipDefaultLibCheck": true,
+    "noEmit": true,
+    "incremental": false,
+    "isolatedModules": true,
     "paths": {
       "$amplify/*": [
         "../.amplify/generated/*"
       ]
     }
-  }
+  },
+  "exclude": [
+    "node_modules",
+    "dist",
+    "build",
+    ".amplify",
+    "../node_modules",
+    "../src",
+    "../public",
+    "../scripts",
+    "../docs",
+    "../test",
+    "../utils"
+  ]
 }

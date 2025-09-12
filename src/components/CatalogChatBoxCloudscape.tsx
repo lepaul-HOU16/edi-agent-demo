@@ -108,7 +108,7 @@ function CustomAIMessage({ message }: { message: Message }) {
           fontSize: '16px',
           fontWeight: 'bold'
         }}>
-          AI
+          <Icon name="gen-ai" />
         </div>
         <div style={{ flex: 1 }}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
@@ -144,33 +144,52 @@ const CatalogChatBoxCloudscape = (params: {
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    // In column-reverse layout, we're at bottom when scrollTop is 0
-    const isAtBottom = e.currentTarget.scrollTop === 0;
+    const container = e.currentTarget;
+    // For normal layout, check if we're at the bottom
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 10;
     setIsScrolledToBottom(isAtBottom);
   }, []);
 
   const scrollToBottom = useCallback(() => {
-    if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTo({
-        top: messagesContainerRef.current.scrollHeight,
-        behavior: 'smooth'
+    if (messagesEndRef.current) {
+      console.log('Scrolling to bottom, messages length:', messages.length);
+      // Use scrollIntoView on the end ref for more reliable scrolling
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end'
       });
-      // Update isScrolledToBottom after scrolling
-      setIsScrolledToBottom(true);
+      // Update isScrolledToBottom after a brief delay to ensure scroll completes
+      setTimeout(() => {
+        setIsScrolledToBottom(true);
+      }, 500);
     }
-  }, []);
+  }, [messages.length]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Auto-scroll to bottom when new messages arrive - with proper timing
   useEffect(() => {
-    if (messagesContainerRef.current && messages.length > 0) {
-      const container = messagesContainerRef.current;
-      const isNearBottom = Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 100;
-
-      if (isNearBottom) {
-        scrollToBottom();
-      }
+    if (messagesEndRef.current && messages.length > 0) {
+      console.log('Auto-scroll effect triggered, messages:', messages.length);
+      // Multiple approaches to ensure reliable scrolling
+      const timeoutId = setTimeout(() => {
+        requestAnimationFrame(() => {
+          // First try scrollIntoView
+          scrollToBottom();
+          
+          // Backup: also try container scroll after additional delay
+          setTimeout(() => {
+            if (messagesContainerRef.current) {
+              messagesContainerRef.current.scrollTo({
+                top: messagesContainerRef.current.scrollHeight + 100, // Add extra buffer
+                behavior: 'smooth'
+              });
+            }
+          }, 100);
+        });
+      }, 300); // Increased delay
+      
+      return () => clearTimeout(timeoutId);
     }
-  }, [messages, scrollToBottom]);
+  }, [messages.length, scrollToBottom]);
 
   const handleSend = useCallback(async (userMessage: string) => {
     if (userMessage.trim()) {
@@ -220,7 +239,7 @@ const CatalogChatBoxCloudscape = (params: {
         style={{
           flex: 1,
           overflowY: 'auto',
-          flexDirection: 'column-reverse',
+          flexDirection: 'column',
           display: 'flex',
           marginBottom: '16px',
           position: 'relative'

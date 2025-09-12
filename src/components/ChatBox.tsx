@@ -44,6 +44,11 @@ const ChatBox = (params: {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+  
+  // Enhanced auto-scroll state
+  const [autoScroll, setAutoScroll] = useState<boolean>(true);
+  const [messageCount, setMessageCount] = useState<number>(0);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // const [showChainOfThought, setShowChainOfThought] = useState(false);
   // const [selectedAgent, setSelectedAgent] = useState<('reActAgent' | 'planAndExecuteAgent' | 'projectGenerationAgent')>("reActAgent");
 
@@ -115,37 +120,116 @@ const ChatBox = (params: {
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
+    // For normal layout, handle load more messages at the top
     if (container.scrollTop < 100 && hasMoreMessages && !isLoadingMore) {
       loadMoreMessages();
     }
 
-    // In column-reverse layout, we're at bottom when scrollTop is 0
-    const isAtBottom = container.scrollTop === 0;
+    // For normal layout, check if we're at the bottom
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 10;
     setIsScrolledToBottom(isAtBottom);
-  }, [hasMoreMessages, isLoadingMore, loadMoreMessages]);
+    
+    // Enhanced auto-scroll: detect user interrupt
+    if (!isAtBottom && autoScroll) {
+      console.log('ChatBox: User scrolled up, disabling auto-scroll');
+      setAutoScroll(false);
+    }
+  }, [hasMoreMessages, isLoadingMore, loadMoreMessages, autoScroll]);
 
   const scrollToBottom = useCallback(() => {
     if (messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTo({
-        top: messagesContainerRef.current.scrollHeight,
-        behavior: 'smooth'
-      });
-      // Update isScrolledToBottom after scrolling
-      setIsScrolledToBottom(true);
+      console.log('ChatBox: Scrolling to bottom, messages length:', messages.length);
+      // Set scroll to maximum possible value - browser will clamp to actual max
+      messagesContainerRef.current.scrollTop = Number.MAX_SAFE_INTEGER;
+      
+      // Update isScrolledToBottom state
+      setTimeout(() => {
+        setIsScrolledToBottom(true);
+      }, 100);
     }
-  }, []);
+  }, [messages.length]);
 
-  // Auto-scroll to bottom when new messages arrive
+  // Enhanced auto-scroll functionality for chat messages
+  const scrollChatToBottom = useCallback(() => {
+    if (messagesEndRef.current && autoScroll) {
+      console.log('ChatBox: Auto-scrolling to bottom');
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth', 
+        block: 'end' 
+      });
+    }
+  }, [autoScroll]);
+
+  // Monitor messages for changes to trigger auto-scroll
   useEffect(() => {
-    if (messagesContainerRef.current && messages.length > 0) {
-      const container = messagesContainerRef.current;
-      const isNearBottom = Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 100;
+    const displayedMessages = [
+      ...(messages ? messages : []),
+      ...(streamChunkMessage ? [streamChunkMessage] : [])
+    ].filter((message) => {
+      switch (message.role) {
+        case 'ai':
+          return message.responseComplete
+        case 'ai-stream':
+          return true
+        case 'tool':
+          return ['renderAssetTool', 'userInputTool', 'createProject'].includes((message as any).toolName!);
+        default:
+          return true;
+      }
+    });
 
-      if (isNearBottom) {
-        scrollToBottom();
+    const newMessageCount = displayedMessages.length;
+    
+    // If we have new messages and auto-scroll is enabled, scroll to bottom
+    if (newMessageCount > messageCount && autoScroll) {
+      // Clear any existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Scroll after a brief delay to ensure DOM has updated
+      scrollTimeoutRef.current = setTimeout(() => {
+        scrollChatToBottom();
+      }, 100);
+    }
+    
+    // If we have new messages but auto-scroll is disabled, re-enable it for new content
+    if (newMessageCount > messageCount && !autoScroll) {
+      console.log('ChatBox: New content detected, re-enabling auto-scroll');
+      setAutoScroll(true);
+      
+      // Clear any existing timeout
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+      
+      // Scroll after a brief delay to ensure DOM has updated
+      scrollTimeoutRef.current = setTimeout(() => {
+        scrollChatToBottom();
+      }, 100);
+    }
+    
+    setMessageCount(newMessageCount);
+  }, [messages, streamChunkMessage, messageCount, autoScroll, scrollChatToBottom]);
+
+  // Auto-scroll during streaming with interrupt respect
+  useEffect(() => {
+    if (streamChunkMessage && autoScroll) {
+      // Scroll during streaming to keep up with long answers
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = Number.MAX_SAFE_INTEGER;
       }
     }
-  }, [messages, scrollToBottom]);
+  }, [streamChunkMessage, autoScroll]);
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   //Subscribe to the response stream chunks for the garden
   useEffect(() => {
@@ -331,7 +415,7 @@ const ChatBox = (params: {
         sx={{
           flex: 1,
           overflowY: 'auto',
-          flexDirection: 'column-reverse',
+          flexDirection: 'column',
           display: 'flex',
           mb: 2,
           position: 'relative'

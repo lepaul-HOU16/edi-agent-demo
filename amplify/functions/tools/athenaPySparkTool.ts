@@ -31,6 +31,38 @@ plt.rcParams['axes.facecolor'] = 'none'
 plt.rcParams['savefig.facecolor'] = 'none'
 plt.rcParams['savefig.transparent'] = True
 
+# Additional matplotlib configurations for complete transparency
+plt.rcParams['figure.edgecolor'] = 'none'
+plt.rcParams['axes.edgecolor'] = 'black'
+plt.rcParams['patch.facecolor'] = 'none'
+plt.rcParams['patch.edgecolor'] = 'black'
+
+# Ensure all new figures have transparent backgrounds
+import matplotlib.pyplot as plt
+original_figure = plt.figure
+
+def transparent_figure(*args, **kwargs):
+    fig = original_figure(*args, **kwargs)
+    fig.patch.set_alpha(0.0)  # Make figure background transparent
+    return fig
+
+plt.figure = transparent_figure
+
+# Also patch the subplot function
+original_subplots = plt.subplots
+
+def transparent_subplots(*args, **kwargs):
+    fig, axes = original_subplots(*args, **kwargs)
+    fig.patch.set_alpha(0.0)  # Make figure background transparent
+    if hasattr(axes, '__iter__'):
+        for ax in axes.flat:
+            ax.patch.set_alpha(0.0)  # Make axes background transparent
+    else:
+        axes.patch.set_alpha(0.0)  # Make single axis background transparent
+    return fig, axes
+
+plt.subplots = transparent_subplots
+
 # Also configure plotly for transparent backgrounds
 import plotly.io as pio
 import plotly.graph_objects as go

@@ -89,6 +89,9 @@ export const useDynamicIframe = (options: DynamicIframeOptions = {}): DynamicIfr
       setError(null);
       setIsLoading(false);
 
+      // Inject CSS to prevent horizontal scrolling and improve responsiveness
+      injectResponsiveCSS(iframeDocument);
+
     } catch (err) {
       console.warn('Error calculating iframe height:', err);
       setError('Error calculating content height');
@@ -103,6 +106,113 @@ export const useDynamicIframe = (options: DynamicIframeOptions = {}): DynamicIfr
 
     debounceTimeoutRef.current = setTimeout(updateIframeHeight, debounceMs);
   }, [updateIframeHeight, debounceMs]);
+
+  const injectResponsiveCSS = (doc: Document) => {
+    try {
+      // Check if our CSS is already injected
+      if (doc.getElementById('dynamic-iframe-styles')) return;
+
+      const styleElement = doc.createElement('style');
+      styleElement.id = 'dynamic-iframe-styles';
+      styleElement.textContent = `
+        * {
+          box-sizing: border-box;
+        }
+
+        body {
+          margin: 0 !important;
+          padding: 0 !important;
+          overflow-x: hidden !important;
+          overflow-y: hidden !important;
+          word-wrap: break-word !important;
+          max-width: 100% !important;
+        }
+
+        html {
+          overflow-x: hidden !important;
+          overflow-y: hidden !important;
+          max-width: 100% !important;
+        }
+
+        /* Remove all possible scrollbars */
+        * {
+          overflow-x: hidden !important;
+          scrollbar-width: none !important; /* Firefox */
+          -ms-overflow-style: none !important; /* IE/Edge */
+        }
+
+        *::-webkit-scrollbar {
+          display: none !important; /* Chrome/Safari */
+        }
+
+        /* Ensure all content fits within iframe width */
+        * {
+          max-width: 100% !important;
+        }
+
+        /* Handle tables responsively */
+        table {
+          width: 100% !important;
+          table-layout: auto !important;
+          border-collapse: collapse !important;
+        }
+
+        /* Handle images responsively */
+        img {
+          max-width: 100% !important;
+          height: auto !important;
+        }
+
+        /* Handle pre/code blocks */
+        pre, code {
+          white-space: pre-wrap !important;
+          word-wrap: break-word !important;
+          overflow-wrap: break-word !important;
+          max-width: 100% !important;
+        }
+
+        /* Handle long words/URLs */
+        p, div, span {
+          word-wrap: break-word !important;
+          overflow-wrap: break-word !important;
+        }
+
+        /* Remove any fixed widths that might cause horizontal scroll */
+        [style*="width"] {
+          max-width: 100% !important;
+        }
+
+        /* Make all plot backgrounds transparent */
+        svg, .plotly-graph-div, .plot-container {
+          background: transparent !important;
+          background-color: transparent !important;
+        }
+
+        /* Make plotly SVG backgrounds transparent */
+        .main-svg, .svg-container, .bg {
+          fill: transparent !important;
+          background: transparent !important;
+        }
+
+        /* Target specific plotly background elements */
+        g[class*="bg"], rect[class*="bg"],
+        .draglayer .bg, .plot .bg,
+        rect[fill="white"], rect[fill="#ffffff"] {
+          fill: transparent !important;
+        }
+
+        /* General transparent backgrounds for charts */
+        .chart, .graph, .plot, .visualization {
+          background: transparent !important;
+          background-color: transparent !important;
+        }
+      `;
+
+      doc.head?.appendChild(styleElement);
+    } catch (err) {
+      console.warn('Failed to inject responsive CSS:', err);
+    }
+  };
 
   useEffect(() => {
     const iframe = iframeRef.current;

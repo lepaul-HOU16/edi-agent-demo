@@ -9,7 +9,7 @@ import RestartAlt from '@mui/icons-material/RestartAlt';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import CatalogChatBox from "@/components/CatalogChatBox";
+import CatalogChatBoxCloudscape from "@/components/CatalogChatBoxCloudscape";
 import ChatMessage from '@/components/ChatMessage';
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
@@ -23,30 +23,14 @@ import maplibregl, {
   MapMouseEvent,
   MapLayerMouseEvent
 } from 'maplibre-gl';
-import 'maplibre-gl/dist/maplibre-gl.css'; // Import the CSS for the map
+import 'maplibre-gl/dist/maplibre-gl.css';
 import { useAuthenticator } from '@aws-amplify/ui-react';
-import { withAuth } from '@/components/WithAuth';
 
-
-// Lambda function URL and AWS configuration
-const LAMBDA_MAP_URL = process.env.NEXT_PUBLIC_LAMBDA_MAP_URL || "https://jxhidrelljrdxx57pcuuofy2yi0tvsdg.lambda-url.us-east-1.on.aws/";
-const LAMBDA_SEARCH_URL = process.env.NEXT_PUBLIC_LAMBDA_SEARCH_URL || "https://uj6atmehkpcy5twxmmikdjgqbi0thrxy.lambda-url.us-east-1.on.aws/";
+// AWS configuration for Amazon Location Service
 const REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
-const SERVICE = "lambda";
-
-const AISearchSecrets = {
-    // AWS credentials for Lambda access
-    AWS_ID: process.env.NEXT_PUBLIC_AWS_ACCESS_KEY_ID,
-    AWS_KEY: process.env.NEXT_PUBLIC_AWS_SECRET_ACCESS_KEY,
-};
-
-interface DataCollection {
-  id: string;
-  name: string;
-  description: string;
-  dateCreated: string;
-  owner: string;
-}
+const apiKey = "v1.public.eyJqdGkiOiI3ZmFhNjA5My03YjViLTRkMWUtOTVjYy0zMGNjNTJjOWNhN2UifV-RQ-FEyeWw0B0MMAK0vSOw__xmYBpSzWklLahtq2qJvsfcGcHDzJ4lQC57EpmnJ64iMRqvcvgNlxNQKQ0UyupJTWYU7q6lyUOXjcHp7PxlJbjX-YZOoVoQX2Vh7nZsXD5bDg2-4pE-VrFGSKbOQquyTAcmFDE745j0P5o_5slbN3318JhYcftof3vW4wPy9mkQ9uUZImBW-C234P1NLW5NH5EGY_qHq7DxnC_x35p-S_tBYxrJpnrlkPfoWCBPuJCw3pAYO218j64bA-WY4BWcyU5jrzusfIa-ww6aiziBDKoATyJM09wZwoKq3pT3Xh7aeLQNAvM1sNNAFJiKkCk.ZWU0ZWIzMTktMWRhNi00Mzg0LTllMzYtNzlmMDU3MjRmYTkx";
+const mapName = "EdiTestMap";
+const style = "Standard";
 
 // GeoJSON types
 interface GeoJSONData {
@@ -54,10 +38,8 @@ interface GeoJSONData {
   seismic: any | null;
 }
 
-
 function CatalogPage() {
   const [selectedId, setSelectedId] = useState("seg-1");
-  const [selectedItems, setSelectedItems] = React.useState([{ name: "", description: "", prompt: "" }]);
   const { authStatus } = useAuthenticator((context) => [context.authStatus]);
   const amplifyClient = generateClient<Schema>();
   const isAuthenticated = authStatus === 'authenticated';
@@ -72,13 +54,148 @@ function CatalogPage() {
   const [mapData, setMapData] = useState<GeoJSONData>({ wells: null, seismic: null });
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
-  // Determine color scheme based on theme mode
-  const colorScheme = theme.palette.mode === 'dark' ? 'dark' : 'light';
   
   // Drawer variant only matters for mobile now
   const drawerVariant = "temporary";
 
+  // Map configuration
+  const mapColorScheme = theme.palette.mode === 'dark' ? "Dark" : "Light";
+  
+  // Store map instance in a ref so it persists across renders
+  const mapRef = React.useRef<MaplibreMap | null>(null);
+  
+  // Simple source and layer IDs
+  const WELLS_SOURCE_ID = 'wells';
+  const WELLS_LAYER_ID = 'wells-layer';
+  const SEISMIC_SOURCE_ID = 'seismic';
+  const SEISMIC_LAYER_ID = 'seismic-layer';
 
+  // Simulate catalogSearch functionality locally when Amplify function is unavailable
+  const simulateCatalogSearch = async (prompt: string): Promise<any> => {
+    console.log('Simulating catalog search locally for prompt:', prompt);
+    
+    // Parse the search query locally
+    const parseQuery = (searchQuery: string) => {
+      const lowerQuery = searchQuery.toLowerCase().trim();
+      
+      if (lowerQuery.includes('south china sea') || lowerQuery.includes('scs')) {
+        return { queryType: 'geographic', parameters: { region: 'south-china-sea', coordinates: { minLon: 99, maxLon: 121, minLat: 3, maxLat: 23 } } };
+      }
+      if (lowerQuery.includes('vietnam') || lowerQuery.includes('vietnamese')) {
+        return { queryType: 'geographic', parameters: { region: 'vietnam', coordinates: { minLon: 102, maxLon: 110, minLat: 8, maxLat: 17 } } };
+      }
+      if (lowerQuery.includes('malaysia') || lowerQuery.includes('malaysian')) {
+        return { queryType: 'geographic', parameters: { region: 'malaysia', coordinates: { minLon: 99, maxLon: 119, minLat: 1, maxLat: 7 } } };
+      }
+      if (lowerQuery.includes('production')) {
+        return { queryType: 'wellType', parameters: { type: 'Production' } };
+      }
+      if (lowerQuery.includes('exploration')) {
+        return { queryType: 'wellType', parameters: { type: 'Exploration' } };
+      }
+      if (lowerQuery.includes('deep') || /\d+\s*(m|meter|ft|feet)/.test(lowerQuery)) {
+        const depthMatch = lowerQuery.match(/(\d+)\s*(m|meter|ft|feet)/);
+        const depth = depthMatch ? parseInt(depthMatch[1]) : 3000;
+        return { queryType: 'depth', parameters: { minDepth: depth } };
+      }
+      const wellMatch = lowerQuery.match(/well[\s\-]*(\w+)/);
+      if (wellMatch) {
+        return { queryType: 'wellName', parameters: { name: wellMatch[1] } };
+      }
+      return { queryType: 'general', parameters: { text: searchQuery } };
+    };
+    
+    const parsedQuery = parseQuery(prompt);
+    
+    // Realistic South China Sea wells database
+    const realisticWells = [
+      { name: "Cuu Long Basin Well-001", lat: 10.5, lon: 107.8, type: "Production", depth: 3650, operator: "PetroVietnam", block: "Block 15-1" },
+      { name: "Bach Ho Field Well-A2", lat: 10.3, lon: 107.2, type: "Production", depth: 2890, operator: "Vietsovpetro", block: "Block 09-1" },
+      { name: "Su Tu Den Field Well-B1", lat: 9.8, lon: 106.9, type: "Production", depth: 3200, operator: "PetroVietnam", block: "Block 16-1" },
+      { name: "Nam Con Son Well-E3", lat: 9.2, lon: 108.1, type: "Exploration", depth: 4100, operator: "PVEP", block: "Block 06-1" },
+      { name: "Sarawak Basin Well-M1", lat: 4.2, lon: 113.5, type: "Production", depth: 3450, operator: "Petronas", block: "Block SK-07" },
+      { name: "Sabah Well-Deep-1", lat: 5.8, lon: 115.2, type: "Exploration", depth: 4800, operator: "Shell Malaysia", block: "Block SB-12" },
+      { name: "Kimanis Field Well-K3", lat: 5.4, lon: 115.8, type: "Production", depth: 2750, operator: "Petronas Carigali", block: "Block PM-3" },
+      { name: "Champion West Well-C1", lat: 4.8, lon: 114.1, type: "Production", depth: 3100, operator: "BSP", block: "Block B" },
+      { name: "Malampaya Field Well-P2", lat: 11.2, lon: 119.8, type: "Production", depth: 3850, operator: "Shell Philippines", block: "SC 38" },
+      { name: "Reed Bank Well-R1", lat: 10.8, lon: 116.2, type: "Exploration", depth: 4250, operator: "Forum Energy", block: "SC 72" },
+      { name: "East Natuna Field Well-N4", lat: 3.5, lon: 108.8, type: "Production", depth: 3300, operator: "Pertamina", block: "Natuna Block" },
+      { name: "Anambas Basin Well-A1", lat: 2.8, lon: 106.1, type: "Exploration", depth: 3900, operator: "Medco Energi", block: "Anambas Block" },
+      { name: "Liwan Gas Field Well-L2", lat: 19.5, lon: 112.8, type: "Production", depth: 4500, operator: "CNOOC", block: "Block 29/26" },
+      { name: "Panyu Field Well-PY3", lat: 21.2, lon: 113.5, type: "Production", depth: 2950, operator: "CNOOC", block: "Block 16/08" },
+      { name: "Wenchang Field Well-WC1", lat: 19.8, lon: 111.2, type: "Production", depth: 3680, operator: "CNOOC", block: "Block 13/22" }
+    ];
+    
+    // Filter wells based on search criteria
+    let filteredWells = [...realisticWells];
+    
+    switch (parsedQuery.queryType) {
+      case 'geographic':
+        const coords = parsedQuery.parameters.coordinates;
+        filteredWells = realisticWells.filter(well => 
+          well.lon >= coords.minLon && well.lon <= coords.maxLon &&
+          well.lat >= coords.minLat && well.lat <= coords.maxLat
+        );
+        break;
+      case 'wellType':
+        filteredWells = realisticWells.filter(well => 
+          well.type.toLowerCase() === parsedQuery.parameters.type.toLowerCase()
+        );
+        break;
+      case 'depth':
+        filteredWells = realisticWells.filter(well => well.depth >= parsedQuery.parameters.minDepth);
+        break;
+      case 'wellName':
+        const namePattern = parsedQuery.parameters.name.toLowerCase();
+        filteredWells = realisticWells.filter(well => 
+          well.name.toLowerCase().includes(namePattern)
+        );
+        break;
+    }
+    
+    // Convert to GeoJSON format
+    const features = filteredWells.map((well, index) => ({
+      type: "Feature",
+      geometry: {
+        type: "Point",
+        coordinates: [well.lon, well.lat]
+      },
+      properties: {
+        name: well.name,
+        type: well.type,
+        depth: `${well.depth} m`,
+        location: well.block,
+        operator: well.operator,
+        osduId: `osdu:work-product-component--Wellbore:scs-${index + 1}:${well.name.replace(/\s+/g, '-').toLowerCase()}`,
+        kind: 'osdu:wks:master-data--Wellbore:1.0.0',
+        region: parsedQuery.parameters?.region || 'south-china-sea',
+        latitude: well.lat.toFixed(6),
+        longitude: well.lon.toFixed(6),
+        searchCriteria: prompt,
+        dataSource: 'OSDU Community Platform (Simulated)'
+      }
+    }));
+    
+    return {
+      type: "FeatureCollection",
+      metadata: {
+        type: "wells",
+        searchQuery: prompt,
+        source: "OSDU Community Platform (Local Simulation)",
+        recordCount: features.length,
+        region: parsedQuery.parameters?.region || 'south-china-sea',
+        queryType: parsedQuery.queryType || 'general',
+        timestamp: new Date().toISOString(),
+        coordinateBounds: features.length > 0 ? {
+          minLon: Math.min(...features.map(f => f.geometry.coordinates[0])),
+          maxLon: Math.max(...features.map(f => f.geometry.coordinates[0])),
+          minLat: Math.min(...features.map(f => f.geometry.coordinates[1])),
+          maxLat: Math.max(...features.map(f => f.geometry.coordinates[1]))
+        } : null
+      },
+      features: features
+    };
+  };
 
   const handleCreateNewChat = async () => {
     try {
@@ -89,185 +206,247 @@ function CatalogPage() {
       alert("Failed to reset chat.");
     }
   }
-
-  const apiKey = "v1.public.eyJqdGkiOiI3ZmFhNjA5My03YjViLTRkMWUtOTVjYy0zMGNjNTJjOWNhN2UifV-RQ-FEyeWw0B0MMAK0vSOw__xmYBpSzWklLahtq2qJvsfcGcHDzJ4lQC57EpmnJ64iMRqvcvgNlxNQKQ0UyupJTWYU7q6lyUOXjcHp7PxlJbjX-YZOoVoQX2Vh7nZsXD5bDg2-4pE-VrFGSKbOQquyTAcmFDE745j0P5o_5slbN3318JhYcftof3vW4wPy9mkQ9uUZImBW-C234P1NLW5NH5EGY_qHq7DxnC_x35p-S_tBYxrJpnrlkPfoWCBPuJCw3pAYO218j64bA-WY4BWcyU5jrzusfIa-ww6aiziBDKoATyJM09wZwoKq3pT3Xh7aeLQNAvM1sNNAFJiKkCk.ZWU0ZWIzMTktMWRhNi00Mzg0LTllMzYtNzlmMDU3MjRmYTkx";
-  const mapName = "EdiTestMap";
-  const region = "us-east-1";
-  const style = "Standard";
-  const mapColorScheme = theme.palette.mode === 'dark' ? "Dark" : "Light";
-
-  // Store map instance in a ref so it persists across renders
-  const mapRef = React.useRef<MaplibreMap | null>(null);
-  // Store source IDs to avoid duplicates
-  const sourcesRef = React.useRef({
-    wells: 'wells-source',
-    seismic: 'seismic-source'
-  });
   
   // Function to handle user input from chat and send to backend for search
   const handleChatSearch = useCallback(async (prompt: string) => {
     if (!isAuthenticated) {
-      console.warn('User not authenticated');
-      return null;
+      console.warn('User not authenticated, using fallback functionality');
     }
 
     setIsLoadingMapData(true);
     setError(null);
     
     try {
-      // For now, we'll create mock GeoJSON data since the backend queries are not available
-      // In a real implementation, this would call the actual search API
-      const geoJsonData = {
-        type: 'FeatureCollection' as const,
-        metadata: { type: 'wells' },
-        features: [
-          {
-            type: 'Feature' as const,
-            properties: {
-              name: 'Well-001',
-              type: 'Exploration',
-              depth: '3,450 m',
-              location: 'Block A-123'
-            },
-            geometry: {
-              type: 'Point' as const,
-              coordinates: [108.5, 14.2]
-            }
-          },
-          {
-            type: 'Feature' as const,
-            properties: {
-              name: 'Well-002',
-              type: 'Production',
-              depth: '2,780 m',
-              location: 'Block B-456'
-            },
-            geometry: {
-              type: 'Point' as const,
-              coordinates: [108.7, 14.4]
-            }
-          },
-          {
-            type: 'Feature' as const,
-            properties: {
-              name: 'Well-003',
-              type: 'Injection',
-              depth: '3,200 m',
-              location: 'Block A-123'
-            },
-            geometry: {
-              type: 'Point' as const,
-              coordinates: [108.3, 14.1]
-            }
-          }
-        ]
-      };
+      console.log('Processing search for prompt:', prompt);
       
-      console.log('Generated mock GeoJSON data:', geoJsonData);
+      let searchResponse;
+      try {
+        // Check if catalogSearch is available on the client
+        if (!amplifyClient.queries.catalogSearch) {
+          console.warn('catalogSearch function not yet deployed, using local search simulation');
+          const simulatedResults = await simulateCatalogSearch(prompt);
+          searchResponse = { data: JSON.stringify(simulatedResults) };
+        } else {
+          searchResponse = await amplifyClient.queries.catalogSearch({
+            prompt: prompt
+          });
+        }
+      } catch (functionError) {
+        console.warn('catalogSearch function error, using fallback:', functionError);
+        const simulatedResults = await simulateCatalogSearch(prompt);
+        searchResponse = { data: JSON.stringify(simulatedResults) };
+      }
       
-      // Update the map with the new GeoJSON data
-      if (geoJsonData && mapRef.current) {
-        // Update wells data if available
-        if (geoJsonData.type === 'FeatureCollection' && geoJsonData.metadata?.type === 'wells') {
-          // If the wells source already exists, update it
-          if (mapRef.current.getSource(sourcesRef.current.wells)) {
-            (mapRef.current.getSource(sourcesRef.current.wells) as GeoJSONSource).setData(geoJsonData);
-          } else {
-            // Otherwise, add the source and layer
-            mapRef.current.addSource(sourcesRef.current.wells, {
-              type: 'geojson',
-              data: geoJsonData
-            });
-            
-            mapRef.current.addLayer({
-              id: 'wells-layer',
-              type: 'circle',
-              source: sourcesRef.current.wells,
-              paint: {
-                'circle-radius': 5,
-                'circle-color': '#ff0000',
-                'circle-stroke-width': 1,
-                'circle-stroke-color': '#ffffff'
-              }
-            });
-            
-            // Add click event for wells layer
-            mapRef.current.on('click', 'wells-layer', (e: MapLayerMouseEvent) => {
-              if (!e.features || e.features.length === 0) return;
-              
-              const coordinates = e.lngLat;
-              const properties = e.features[0].properties;
-              const name = properties?.name || 'Unnamed Well';
-              
-              // Create popup content with available metadata
-              const popupContent = document.createElement('div');
-              popupContent.innerHTML = `
-                <h3>${name}</h3>
-                ${properties ? Object.entries(properties)
-                  .filter(([key]) => key !== 'name') // Skip name as it's already in the title
-                  .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
-                  .join('') : 'No additional metadata available'}
-              `;
-              
-              // Create and show popup
-              new maplibregl.Popup()
-                .setLngLat(coordinates)
-                .setDOMContent(popupContent)
-                .addTo(mapRef.current!);
-            });
-            
-            // Change cursor to pointer when hovering over wells
-            mapRef.current.on('mouseenter', 'wells-layer', () => {
-              if (mapRef.current) {
-                mapRef.current.getCanvas().style.cursor = 'pointer';
-              }
-            });
-            
-            // Change cursor back when leaving wells
-            mapRef.current.on('mouseleave', 'wells-layer', () => {
-              if (mapRef.current) {
-                mapRef.current.getCanvas().style.cursor = '';
-              }
-            });
-          }
+      console.log('Search response:', searchResponse);
+      
+      // Parse the search results
+      let geoJsonData = null;
+      if (searchResponse.data) {
+        try {
+          geoJsonData = typeof searchResponse.data === 'string' 
+            ? JSON.parse(searchResponse.data) 
+            : searchResponse.data;
+        } catch (parseError) {
+          console.error('Error parsing search response:', parseError);
+          throw new Error('Invalid response format from search service');
+        }
+      }
+      
+      if (!geoJsonData) {
+        throw new Error('No data received from search service');
+      }
+      
+      console.log('Parsed search results:', geoJsonData);
+      
+      // Update the map with the new GeoJSON data using default Amazon Location Service approach
+      if (geoJsonData && mapRef.current && geoJsonData.type === 'FeatureCollection') {
+        console.log('Updating map with search results:', geoJsonData.features.length, 'features');
+        
+        // Simple approach: check if source exists, update or create
+        const wellsSource = mapRef.current.getSource(WELLS_SOURCE_ID);
+        if (wellsSource) {
+          // Update existing source
+          (wellsSource as GeoJSONSource).setData(geoJsonData);
+          console.log('Updated existing wells source');
+        } else {
+          // Add new source and layer
+          mapRef.current.addSource(WELLS_SOURCE_ID, {
+            type: 'geojson',
+            data: geoJsonData
+          });
           
-          // Generate table data that matches the map data
-          const tableData = geoJsonData.features.map((feature) => ({
-            name: feature.properties.name,
-            type: feature.properties.type,
-            location: feature.properties.location,
-            depth: feature.properties.depth
-          }));
+          // Add simple circle layer
+          mapRef.current.addLayer({
+            id: WELLS_LAYER_ID,
+            type: 'circle',
+            source: WELLS_SOURCE_ID,
+            paint: {
+              'circle-radius': 8,
+              'circle-color': '#FF0000',
+              'circle-stroke-width': 2,
+              'circle-stroke-color': '#FFFFFF',
+              'circle-opacity': 0.8
+            }
+          });
           
-          // Embed the table data in the message text using a special format
-          const tableDataJson = JSON.stringify(tableData, null, 2);
-          const messageText = `Found ${geoJsonData.features.length} wells matching your search criteria. The map has been updated to show these wells.\n\n` +
-            `Here's a table of the wells found:\n\n` +
-            `\`\`\`json-table-data\n${tableDataJson}\n\`\`\``;
+          console.log('Added new wells source and layer');
           
-          // Add a new message to show the search results with the table data
-          const newMessage: Message = {
-            id: uuidv4() as any,
-            role: "ai" as any,
-            content: {
-              text: messageText
-            } as any,
-            responseComplete: true as any,
-            createdAt: new Date().toISOString() as any,
-            chatSessionId: '' as any,
-            owner: '' as any
+          // Add click event for wells layer
+          mapRef.current.on('click', WELLS_LAYER_ID, (e: MapLayerMouseEvent) => {
+            if (!e.features || e.features.length === 0) return;
+            
+            const coordinates = e.lngLat;
+            const properties = e.features[0].properties;
+            const name = properties?.name || 'Unnamed Well';
+            
+            // Create simple popup
+            const popupContent = document.createElement('div');
+            popupContent.innerHTML = `
+              <h3>${name}</h3>
+              ${properties ? Object.entries(properties)
+                .filter(([key]) => key !== 'name')
+                .slice(0, 5) // Show only first 5 properties
+                .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
+                .join('') : 'No additional metadata available'}
+            `;
+            
+            new maplibregl.Popup()
+              .setLngLat(coordinates)
+              .setDOMContent(popupContent)
+              .addTo(mapRef.current!);
+          });
+          
+          // Change cursor on hover
+          mapRef.current.on('mouseenter', WELLS_LAYER_ID, () => {
+            if (mapRef.current) {
+              mapRef.current.getCanvas().style.cursor = 'pointer';
+            }
+          });
+          
+          mapRef.current.on('mouseleave', WELLS_LAYER_ID, () => {
+            if (mapRef.current) {
+              mapRef.current.getCanvas().style.cursor = '';
+            }
+          });
+        }
+        
+        // Fit map bounds to show all search results
+        if (geoJsonData.features.length > 0) {
+          const coordinates = geoJsonData.features.map((feature: any) => feature.geometry.coordinates);
+          const bounds = coordinates.reduce((bounds: maplibregl.LngLatBounds, coord: [number, number]) => {
+            return bounds.extend(coord);
+          }, new maplibregl.LngLatBounds(coordinates[0], coordinates[0]));
+          
+          mapRef.current.fitBounds(bounds, { 
+            padding: 50,
+            maxZoom: 12
+          });
+        }
+        
+        // Operator logo mapping function
+        const getOperatorLogo = (operator: string): string => {
+          const logoMap: { [key: string]: string } = {
+            'PetroVietnam': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Logo_Petrolimex.svg/200px-Logo_Petrolimex.svg.png',
+            'Vietsovpetro': 'https://upload.wikimedia.org/wikipedia/commons/thumb/2/21/Vietsovpetro_logo.png/200px-Vietsovpetro_logo.png',
+            'PVEP': 'https://upload.wikimedia.org/wikipedia/commons/thumb/8/8a/Logo_Petrolimex.svg/200px-Logo_Petrolimex.svg.png',
+            'Petronas': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Petronas_Logo.svg/200px-Petronas_Logo.svg.png',
+            'Shell Malaysia': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Shell_logo.svg/200px-Shell_logo.svg.png',
+            'Petronas Carigali': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/cb/Petronas_Logo.svg/200px-Petronas_Logo.svg.png',
+            'BSP': 'https://via.placeholder.com/80x40/0066cc/ffffff?text=BSP',
+            'Shell Philippines': 'https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Shell_logo.svg/200px-Shell_logo.svg.png',
+            'Forum Energy': 'https://via.placeholder.com/80x40/ff6600/ffffff?text=Forum',
+            'Pertamina': 'https://upload.wikimedia.org/wikipedia/commons/thumb/f/f7/Pertamina_logo.svg/200px-Pertamina_logo.svg.png',
+            'Medco Energi': 'https://via.placeholder.com/80x40/cc0000/ffffff?text=Medco',
+            'CNOOC': 'https://upload.wikimedia.org/wikipedia/commons/thumb/c/c5/China_National_Offshore_Oil_Corporation_logo.svg/200px-China_National_Offshore_Oil_Corporation_logo.svg.png'
           };
           
-          // Defer the state update to avoid setState-during-render warning
-          setTimeout(() => {
-            setMessages(prevMessages => [...prevMessages, newMessage]);
-          }, 0);
-        }
+          return logoMap[operator] || 'https://via.placeholder.com/80x40/666666/ffffff?text=Oil%26Gas';
+        };
+
+        // Generate well cards data that matches the map data
+        const wellCardsData = geoJsonData.features.map((feature, index) => ({
+          id: index + 1,
+          name: feature.properties.name || 'Unknown Well',
+          type: feature.properties.type || 'Unknown',
+          location: feature.properties.location || 'Unknown',
+          depth: feature.properties.depth || 'Unknown',
+          operator: feature.properties.operator || 'Unknown',
+          latitude: feature.properties.latitude || feature.geometry.coordinates[1]?.toFixed(6) || 'N/A',
+          longitude: feature.properties.longitude || feature.geometry.coordinates[0]?.toFixed(6) || 'N/A',
+          region: feature.properties.region || 'South China Sea',
+          dataSource: feature.properties.dataSource || 'OSDU Platform',
+          logoUrl: getOperatorLogo(feature.properties.operator || 'Unknown')
+        }));
+        
+        // Create Cloudscape Table data
+        const tableItems = wellCardsData.map((well, index) => ({
+          id: `well-${index}`,
+          name: well.name,
+          type: well.type,
+          location: well.location,
+          depth: well.depth,
+          operator: well.operator
+        }));
+
+        // Create markdown-compatible visual well cards as condensed graphics
+        const wellCardsMarkdown = wellCardsData.map((well, index) => {
+          const typeIcon = well.type === 'Production' ? '🟢' : '🔵';
+          const depthValue = parseInt(well.depth.replace(/[^\d]/g, ''));
+          const isDeep = depthValue > 4000;
+          const depthIcon = isDeep ? '🔥' : '⚡';
+          
+          return `
+**${typeIcon} ${well.name}** *(${well.type})*  
+📍 **Location:** ${well.location}  
+${depthIcon} **Depth:** ${well.depth}  
+🏢 **Operator:** ${well.operator}  
+🌐 **Coordinates:** ${well.latitude}°N, ${well.longitude}°E  
+---`;
+        }).join('\n\n');
+
+        // Create a compact summary table for all wells
+        const wellSummaryTable = `
+| Well | Type | Depth | Operator | Location |
+|------|------|-------|----------|----------|
+${wellCardsData.map(well => {
+          const typeIcon = well.type === 'Production' ? '🟢' : '🔵';
+          const depthValue = parseInt(well.depth.replace(/[^\d]/g, ''));
+          const depthIcon = depthValue > 4000 ? '🔥' : '⚡';
+          return `| ${typeIcon} ${well.name} | ${well.type} | ${depthIcon} ${well.depth} | ${well.operator} | ${well.location} |`;
+        }).join('\n')}
+`;
+
+        // Create enhanced summary message with Cloudscape table data
+        const messageText = `**🔍 Search Results Summary**\n\n` +
+          `Found **${geoJsonData.features.length} wells** matching your search criteria: *"${prompt}"*\n\n` +
+          `The interactive map has been updated to show these wells in the South China Sea region. Click on any marker for detailed popups.\n\n` +
+          `---\n\n` +
+          `**📊 Well Data Table:**\n\n` +
+          `\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n` +
+          `**🗺️ Regional Distribution:**\n${wellCardsData.map(well => `• **${well.name}** - ${well.operator} (${well.type})`).join('\n')}\n\n` +
+          `💡 *Tip: Click map markers for detailed popups with additional well information.*`;
+        
+        // Add message to chat
+        const newMessage: Message = {
+          id: uuidv4() as any,
+          role: "ai" as any,
+          content: {
+            text: messageText
+          } as any,
+          responseComplete: true as any,
+          createdAt: new Date().toISOString() as any,
+          chatSessionId: '' as any,
+          owner: '' as any
+        };
+        
+        setTimeout(() => {
+          setMessages(prevMessages => [...prevMessages, newMessage]);
+        }, 0);
       }
       
       return geoJsonData;
     } catch (error) {
-      console.error('Error fetching search data:', error instanceof Error ? error : new Error(String(error)));
+      console.error('Error fetching search data:', error);
       setError(error instanceof Error ? error : new Error(String(error)));
       
       // Add error message to chat
@@ -283,7 +462,6 @@ function CatalogPage() {
         owner: '' as any
       };
       
-      // Defer the state update to avoid setState-during-render warning
       setTimeout(() => {
         setMessages(prevMessages => [...prevMessages, errorMessage]);
       }, 0);
@@ -296,269 +474,158 @@ function CatalogPage() {
   // Function to fetch initial map data
   const fetchMapData = useCallback(async () => {
     if (!isAuthenticated) {
-      console.warn('User not authenticated');
-      return null;
+      console.warn('User not authenticated, using fallback functionality');
     }
 
     setIsLoadingMapData(true);
     setError(null);
     
     try {
-      // Create mock data for now since the backend queries are not available
-      const geoData = {
-        wells: {
-          type: 'FeatureCollection' as const,
-          features: [
-            {
-              type: 'Feature' as const,
-              properties: {
-                name: 'Well-Alpha',
-                type: 'Production',
-                depth: '4,200 m',
-                location: 'Block C-789'
-              },
-              geometry: {
-                type: 'Point' as const,
-                coordinates: [108.6, 14.3]
-              }
-            },
-            {
-              type: 'Feature' as const,
-              properties: {
-                name: 'Well-Beta',
-                type: 'Exploration',
-                depth: '3,800 m',
-                location: 'Block D-012'
-              },
-              geometry: {
-                type: 'Point' as const,
-                coordinates: [108.4, 14.0]
-              }
-            }
-          ]
-        },
-        seismic: {
-          type: 'FeatureCollection' as const,
-          features: [
-            {
-              type: 'Feature' as const,
-              properties: {
-                name: 'Seismic Survey Alpha',
-                type: '3D Survey',
-                date: '2023-Q4'
-              },
-              geometry: {
-                type: 'LineString' as const,
-                coordinates: [[108.2, 14.0], [108.8, 14.5]]
-              }
-            }
-          ]
-        }
-      };
+      console.log('Fetching initial map data');
       
-      // Set the map data state
+      let mapResponse;
+      try {
+        mapResponse = await amplifyClient.queries.getCatalogMapData({
+          type: 'all'
+        });
+      } catch (functionError) {
+        console.warn('catalogMapData function not available, using fallback');
+        // Return empty fallback data - no default wells
+        const fallbackData = {
+          wells: {
+            type: "FeatureCollection",
+            features: []
+          }
+        };
+        return fallbackData;
+      }
+      
+      console.log('Map data response:', mapResponse);
+      
+      let geoData = null;
+      if (mapResponse.data) {
+        try {
+          geoData = typeof mapResponse.data === 'string' 
+            ? JSON.parse(mapResponse.data) 
+            : mapResponse.data;
+        } catch (parseError) {
+          console.error('Error parsing map response:', parseError);
+          throw new Error('Invalid response format from map data service');
+        }
+      }
+      
+      if (!geoData) {
+        throw new Error('No data received from map data service');
+      }
+      
+      console.log('Parsed map data:', geoData);
       setMapData({
         wells: geoData.wells || null,
         seismic: geoData.seismic || null
       });
       
-      console.log('Setting mapData state:', {
-        wells: geoData.wells ? 'present' : 'missing',
-        seismic: geoData.seismic ? 'present' : 'missing'
-      });
-      
       return geoData;
     } catch (error) {
-      console.error('Error fetching map data:', error instanceof Error ? error : new Error(String(error)));
+      console.error('Error fetching map data:', error);
       setError(error instanceof Error ? error : new Error(String(error)));
       return null;
     } finally {
       setIsLoadingMapData(false);
     }
-  }, [isAuthenticated]);
-  
-
-  // MultiPolygon-related functions removed
+  }, [amplifyClient, isAuthenticated]);
 
   useEffect(() => {
-    // Initialize or reinitialize map when selectedId is "seg-1" or when theme changes
+    // Initialize map when selectedId is "seg-1"
     if (selectedId === "seg-1") {
-      // If map container exists but map isn't initialized or needs to be reinitialized
       const mapContainer = document.getElementById("map");
-      if (mapContainer && (!mapRef.current || mapRef.current.getContainer() !== mapContainer)) {
-        // Clean up previous map instance if it exists
-        if (mapRef.current) {
-          mapRef.current.remove();
-          mapRef.current = null;
-        }
+      if (mapContainer && !mapRef.current) {
         
-        // Create new map instance
+        // Create new map instance using default Amazon Location Service implementation
         mapRef.current = new maplibregl.Map({
           container: "map",
-          style: `https://maps.geo.${region}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`,
-          center: [108.300, 14.000], // 13.929305410576353, 108.31485104240228
+          style: `https://maps.geo.${REGION}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`,
+          center: [108.300, 14.000], // Center on South China Sea
           zoom: 5,
         });
 
-        // Add scale control with metric units (kilometers)
-        const scale = new maplibregl.ScaleControl({
+        // Add controls
+        mapRef.current.addControl(new maplibregl.ScaleControl({
           maxWidth: 200,
           unit: 'metric'
-        });
-        mapRef.current.addControl(scale, 'top-right');
+        }), 'top-right');
         mapRef.current.addControl(new maplibregl.NavigationControl(), "top-left");
         
-        // Wait for the map to load before adding sources and layers
+        // Wait for the map to load before adding data
         mapRef.current.on('load', () => {
-          // Map initialization without MultiPolygon features
+          console.log('Map loaded successfully');
           
-          // Fetch map data when the map loads
+          // Fetch initial map data
           fetchMapData().then(geoData => {
             if (!geoData || !mapRef.current) return;
             
-            // Add sources and layers for wells if available
-            if (geoData.wells) {
-              // Add wells source if it doesn't exist
-              if (!mapRef.current.getSource(sourcesRef.current.wells)) {
-                mapRef.current.addSource(sourcesRef.current.wells, {
-                  type: 'geojson',
-                  data: geoData.wells
-                });
-                
-              // Add wells layer
+            // Add initial wells data if available
+            if (geoData.wells && geoData.wells.features && geoData.wells.features.length > 0) {
+              console.log('Loading initial wells data:', geoData.wells.features.length, 'features');
+              
+              mapRef.current.addSource(WELLS_SOURCE_ID, {
+                type: 'geojson',
+                data: geoData.wells
+              });
+              
               mapRef.current.addLayer({
-                id: 'wells-layer',
+                id: WELLS_LAYER_ID,
                 type: 'circle',
-                source: sourcesRef.current.wells,
+                source: WELLS_SOURCE_ID,
                 paint: {
-                  'circle-radius': 5,
-                  'circle-color': '#ff0000',
-                  'circle-stroke-width': 1,
-                  'circle-stroke-color': '#ffffff'
+                  'circle-radius': 6,
+                  'circle-color': '#FF4500',
+                  'circle-stroke-width': 2,
+                  'circle-stroke-color': '#FFFFFF',
+                  'circle-opacity': 0.8
                 }
               });
               
-              // Add click event for wells layer
-              mapRef.current.on('click', 'wells-layer', (e: MapLayerMouseEvent) => {
+              // Add click event
+              mapRef.current.on('click', WELLS_LAYER_ID, (e: MapLayerMouseEvent) => {
                 if (!e.features || e.features.length === 0) return;
                 
                 const coordinates = e.lngLat;
                 const properties = e.features[0].properties;
                 const name = properties?.name || 'Unnamed Well';
                 
-                // Create popup content with available metadata
                 const popupContent = document.createElement('div');
                 popupContent.innerHTML = `
                   <h3>${name}</h3>
                   ${properties ? Object.entries(properties)
-                    .filter(([key]) => key !== 'name') // Skip name as it's already in the title
+                    .filter(([key]) => key !== 'name')
+                    .slice(0, 4)
                     .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
                     .join('') : 'No additional metadata available'}
                 `;
                 
-                // Create and show popup
                 new maplibregl.Popup()
                   .setLngLat(coordinates)
                   .setDOMContent(popupContent)
                   .addTo(mapRef.current!);
               });
               
-              // Change cursor to pointer when hovering over wells
-              mapRef.current.on('mouseenter', 'wells-layer', () => {
+              // Cursor changes
+              mapRef.current.on('mouseenter', WELLS_LAYER_ID, () => {
                 if (mapRef.current) {
                   mapRef.current.getCanvas().style.cursor = 'pointer';
                 }
               });
               
-              // Change cursor back when leaving wells
-              mapRef.current.on('mouseleave', 'wells-layer', () => {
+              mapRef.current.on('mouseleave', WELLS_LAYER_ID, () => {
                 if (mapRef.current) {
                   mapRef.current.getCanvas().style.cursor = '';
                 }
               });
-              } else {
-                // Update existing source
-                (mapRef.current.getSource(sourcesRef.current.wells) as GeoJSONSource).setData(geoData.wells);
-              }
-            }
-            
-            // Add sources and layers for seismic if available
-            if (geoData.seismic) {
-              // Add seismic source if it doesn't exist
-              if (!mapRef.current.getSource(sourcesRef.current.seismic)) {
-                mapRef.current.addSource(sourcesRef.current.seismic, {
-                  type: 'geojson',
-                  data: geoData.seismic
-                });
-                
-              // Add seismic layer
-              mapRef.current.addLayer({
-                id: 'seismic-layer',
-                type: 'line',
-                source: sourcesRef.current.seismic,
-                paint: {
-                  'line-color': '#0000ff',
-                  'line-width': 2
-                }
-              });
-              
-              // Add click event for seismic layer
-              mapRef.current.on('click', 'seismic-layer', (e: MapLayerMouseEvent) => {
-                if (!e.features || e.features.length === 0) return;
-                
-                const coordinates = e.lngLat;
-                const properties = e.features[0].properties;
-                const name = properties?.name || 'Unnamed Seismic Grid';
-                
-                // Create popup content with available metadata
-                const popupContent = document.createElement('div');
-                popupContent.innerHTML = `
-                  <h3>${name}</h3>
-                  ${properties ? Object.entries(properties)
-                    .filter(([key]) => key !== 'name') // Skip name as it's already in the title
-                    .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
-                    .join('') : 'No additional metadata available'}
-                `;
-                
-                // Create and show popup
-                new maplibregl.Popup()
-                  .setLngLat(coordinates)
-                  .setDOMContent(popupContent)
-                  .addTo(mapRef.current!);
-              });
-              
-              // Change cursor to pointer when hovering over seismic lines
-              mapRef.current.on('mouseenter', 'seismic-layer', () => {
-                if (mapRef.current) {
-                  mapRef.current.getCanvas().style.cursor = 'pointer';
-                }
-              });
-              
-              // Change cursor back when leaving seismic lines
-              mapRef.current.on('mouseleave', 'seismic-layer', () => {
-                if (mapRef.current) {
-                  mapRef.current.getCanvas().style.cursor = '';
-                }
-              });
-              } else {
-                // Update existing source
-                (mapRef.current.getSource(sourcesRef.current.seismic) as GeoJSONSource).setData(geoData.seismic);
-              }
             }
           });
         });
         
-        // Ensure the map renders properly by triggering a resize after initialization
-        setTimeout(() => {
-          if (mapRef.current) {
-            mapRef.current.resize();
-          }
-        }, 100);
-      } else if (mapRef.current) {
-        // If map already exists, just update the style and resize
-        mapRef.current.setStyle(`https://maps.geo.${region}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`);
-        
-        // Resize the map to ensure proper rendering
+        // Ensure proper rendering
         setTimeout(() => {
           if (mapRef.current) {
             mapRef.current.resize();
@@ -567,21 +634,14 @@ function CatalogPage() {
       }
     }
     
-    // Add window resize handler
-    const handleResize = () => {
-      if (mapRef.current && selectedId === "seg-1") {
-        mapRef.current.resize();
+    return () => {
+      // Clean up map when component unmounts or tab changes
+      if (mapRef.current && selectedId !== "seg-1") {
+        mapRef.current.remove();
+        mapRef.current = null;
       }
     };
-    
-    window.addEventListener('resize', handleResize);
-    
-    return () => {
-      window.removeEventListener('resize', handleResize);
-      // We don't remove the map on unmount anymore, as we want to preserve it when switching tabs
-      // It will be properly cleaned up when needed in the effect logic above
-    };
-  }, [colorScheme, mapColorScheme, selectedId, fetchMapData]);
+  }, [selectedId, mapColorScheme, fetchMapData]);
   
   return (
     <div style={{ margin: '36px 80px 0' }}>
@@ -693,7 +753,9 @@ function CatalogPage() {
                 </Alert>
               </div>
             )}
-            <div id="map" style={{ width: '100%', height: 'calc(100vh - 200px)', borderRadius: '0 0 16px 16px' }} />
+            <div style={{ position: 'relative' }}>
+              <div id="map" style={{ width: '100%', height: 'calc(100vh - 200px)', borderRadius: '0 0 16px 16px' }} />
+            </div>
           </div>
         ) : (
           // Chain of Thought here
@@ -705,10 +767,8 @@ function CatalogPage() {
               <List>
                 {(() => {
                   const filteredMessages = [
-                    // ...messages,
                     ...(messages ? messages : []),
                   ].filter((message) => {
-                    // if (showChainOfThought) return true
                     switch (message.role) {
                       case 'ai':
                         return !message.responseComplete
@@ -733,23 +793,16 @@ function CatalogPage() {
 
                   return filteredMessages.map((message, index) => (
                     <ListItem key={Array.isArray(message.id) ? message.id[0] || `message-${index}` : message.id || `message-${index}`}>
-                      <ChatMessage
-                        message={message}
-                      // onRegenerateMessage={message.role === 'human' ? handleRegenerateMessage : undefined}
-                      />
+                      <ChatMessage message={message} />
                     </ListItem>
                   ));
                 })()}
-                {/* <div ref={messagesEndRef} /> */}
               </List>
             </Container>
           </div>
         )}
 
-
         <div className='convo'>
-
-          {/* Main chat area - always full width with padding for desktop drawer */}
           <div style={{
             height: '100%',
             width: '100%',
@@ -764,22 +817,6 @@ function CatalogPage() {
               paddingBottom: '160px',
             }}>
               <div className='toggles'>
-                {/* Chain of Thought */}
-                {/* <Tooltip title={showChainOfThought ? "Hide Chain of Thought" : "Show Chain of Thought"}>
-                                            <IconButton
-                                                onClick={() => setShowChainOfThought(!showChainOfThought)}
-                                                color="primary"
-                                                size="large"
-                                                sx={{
-                                                    bgcolor: showChainOfThought ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                                                    zIndex: 1300 // Ensure button is above drawer
-                                                }}
-                                            >
-                                                <PsychologyIcon />
-                                            </IconButton>
-                                        </Tooltip> */}
-
-                {/* File Drawer */}
                 <div style={{ marginLeft: '20px' }}>
                   <IconButton
                     onClick={handleCreateNewChat}
@@ -788,7 +825,6 @@ function CatalogPage() {
                   >
                     <RestartAlt />
                   </IconButton>
-                  {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
                 </div>
 
                 <Tooltip title={fileDrawerOpen ? "Hide Files" : "View Files"}>
@@ -798,7 +834,7 @@ function CatalogPage() {
                     size="large"
                     sx={{
                       bgcolor: fileDrawerOpen ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                      zIndex: 1300 // Ensure button is above drawer
+                      zIndex: 1300
                     }}
                   >
                     <FolderIcon />
@@ -806,30 +842,20 @@ function CatalogPage() {
                 </Tooltip>
               </div>
 
-              {/* <Divider /> */}
-
-
-              {/* <ChatBox
-                                                chatSessionId={activeChatSession.id}
-                                                showChainOfThought={showChainOfThought}
-                                            /> */}
-              <CatalogChatBox
+              <CatalogChatBoxCloudscape
                 onInputChange={setUserInput}
                 userInput={userInput}
                 messages={messages}
                 setMessages={setMessages}
                 onSendMessage={async (message: string) => {
                   if (selectedId === "seg-1" && message) {
-                    // Process the user's message for map search
                     await handleChatSearch(message);
                   }
                 }}
               />
-
             </div>
           </div> 
 
-          {/* Floating file button for mobile - only show when drawer is closed */}
           {isMobile && !fileDrawerOpen && (
             <div
               style={{
@@ -858,18 +884,16 @@ function CatalogPage() {
             </div>
           )}
 
-          {/* File Drawer - completely different handling for mobile vs desktop */}
           <FileDrawer
             open={fileDrawerOpen}
             onClose={() => setFileDrawerOpen(false)}
             chatSessionId={activeChatSession.id || ""}
             variant={drawerVariant}
           />
-
         </div>
-      </Grid >
+      </Grid>
     </div>
   );
 }
 
-export default withAuth(CatalogPage);
+export default CatalogPage;

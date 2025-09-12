@@ -55,7 +55,7 @@ iframe {
 
 /* Image-specific styling */
 .image-iframe {
-  background: #f8f9fa;
+  /* background: #f8f9fa; */
   width: 100%;
   border-radius: 4px;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -93,7 +93,7 @@ iframe {
 }
 
 .html-iframe iframe {
-  background: white;
+  background: transparent;
   overflow: hidden;
 }
 
@@ -244,4 +244,45 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 
 .tables > div {
   padding: 10px 20px 0px 20px;
+}
+
+/* Improved scrolling behavior for chat containers */
+.convo {
+  overflow: hidden;
+  height: 100%;
+}
+
+.convo .messages-container {
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+}
+
+.convo .messages-container::-webkit-scrollbar {
+  width: 6px;
+}
+
+.convo .messages-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.convo .messages-container::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.3);
+  border-radius: 3px;
+}
+
+.convo .messages-container::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+/* Ensure proper container heights */
+.panel {
+  height: calc(100vh - 200px);
+  overflow: hidden;
+}
+
+.convo > div {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
 }
