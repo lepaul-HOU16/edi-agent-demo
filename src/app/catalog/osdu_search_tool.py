@@ -61,7 +61,7 @@ output_data = {
                         "query":"",
                         "aggregateBy": "",
                         "spatial_filter": {},
-                        "limit": 50,
+                        "limit": "",
                         "tabular_data": {
                         }
                     }
