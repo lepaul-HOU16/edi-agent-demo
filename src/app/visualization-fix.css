@@ -1,0 +1,33 @@
+/* Fix for visualization width overflow */
+.html-iframe-dynamic {
+  max-width: 100vw !important;
+  box-sizing: border-box !important;
+}
+
+.html-iframe-dynamic iframe {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure Plotly plots are responsive */
+.html-iframe-dynamic iframe .plotly-graph-div {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+/* Container constraints */
+.MuiBox-root {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Ensure no horizontal overflow */
+body, html {
+  overflow-x: hidden;
+}
+
+/* Chat container specific fixes */
+.chat-message-container {
+  max-width: 100%;
+  overflow-x: hidden;
+}

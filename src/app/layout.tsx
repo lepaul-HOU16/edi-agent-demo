@@ -23,6 +23,7 @@ import Grid from '@cloudscape-design/components/grid';
 import { applyMode, Mode } from '@cloudscape-design/global-styles';
 
 import "./globals.css";
+import "./visualization-fix.css";
 import "@aws-amplify/ui-react/styles.css";
 import { FileSystemProvider } from "@/contexts/FileSystemContext";
 

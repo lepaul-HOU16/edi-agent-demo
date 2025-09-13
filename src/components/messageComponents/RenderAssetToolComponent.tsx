@@ -20,6 +20,8 @@ interface RenderAssetToolComponentProps {
 
 const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ content, theme, chatSessionId }) => {
   const viewport = useViewport();
+  const [retryCount, setRetryCount] = React.useState(0);
+  const [isRetrying, setIsRetrying] = React.useState(false);
   
   // Dynamic iframe configuration for HTML content
   const dynamicIframe = useDynamicIframe({
@@ -107,15 +109,17 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
         {/* Asset Preview with viewport-aware sizing */}
         <Box sx={{
           width: '100%',
+          maxWidth: '100%',
           overflow: 'hidden'
         }}>
           <Box sx={{
             width: '100%',
+            maxWidth: '100%',
             height: '100%'
           }}>
             {/* Special handling for HTML files with dynamic height and responsive content */}
             {s3Key.toLowerCase().endsWith('.html') ? (
-              <Box sx={{ mb: 1 }}>
+              <Box sx={{ mb: 1, width: '100%', maxWidth: '100%' }}>
                 {dynamicIframe.isLoading ? (
                   <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
                     Loading HTML content...
@@ -128,14 +132,16 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                 <Box 
                   className="html-iframe-dynamic"
                   sx={{ 
-                    width: '100%', 
+                    width: '100%',
+                    maxWidth: '100%',
                     minHeight: '600px',
                     height: `${Math.max(dynamicIframe.height, 600)}px`,
-                    overflow: 'hidden', // Let the iframe handle scrolling internally
+                    overflow: 'hidden',
                     border: 'none',
                     transition: 'height 0.3s ease-in-out',
                     borderRadius: 1,
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                    position: 'relative'
                   }}
                 >
                   <iframe 
@@ -143,10 +149,12 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                     src={`/file/${s3Key}`}
                     style={{ 
                       width: '100%',
+                      maxWidth: '100%',
                       height: `${Math.max(dynamicIframe.height, 600)}px`,
                       border: 'none',
                       display: 'block',
-                      borderRadius: '4px'
+                      borderRadius: '4px',
+                      overflow: 'hidden'
                     }}
                     title="HTML Content"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
