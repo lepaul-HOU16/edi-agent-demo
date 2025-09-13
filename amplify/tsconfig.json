@@ -19,6 +19,9 @@
     "strictFunctionTypes": false,
     "strictBindCallApply": false,
     "strictPropertyInitialization": false,
+    "noErrorTruncation": true,
+    "suppressExcessPropertyErrors": true,
+    "suppressImplicitAnyIndexErrors": true,
     "paths": {
       "$amplify/*": [
         "../.amplify/generated/*"

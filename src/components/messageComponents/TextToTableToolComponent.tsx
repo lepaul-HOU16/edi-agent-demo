@@ -124,10 +124,6 @@ const TextToTableToolComponent = ({ content, theme }: {
     // Render the table
     return (
         <div ref={containerRef} style={{
-            backgroundColor: theme.palette.grey[50],
-            padding: theme.spacing(2),
-            borderRadius: theme.shape.borderRadius,
-            boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
             width: '100%',
             overflowX: 'auto'
         }}>
@@ -153,6 +149,8 @@ const TextToTableToolComponent = ({ content, theme }: {
             {/* Cloudscape Table */}
             <div className="cloudscape-table-wrapper">
                 <Table
+                    variant="borderless"
+                    stripedRows={false}
                     columnDefinitions={tableData.columns?.map((col: string) => ({
                         id: col,
                         header: col,

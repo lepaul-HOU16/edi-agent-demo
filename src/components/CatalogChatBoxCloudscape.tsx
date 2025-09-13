@@ -28,31 +28,44 @@ function DynamicTableDisplay({ tableData }: { tableData: any[] }) {
     const firstItem = tableData[0];
     return Object.keys(firstItem)
       .filter(key => key !== 'id') // Remove ID column
-      .map(key => ({
+      .map((key, index) => ({
         id: key,
         header: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '), // Format header: capitalize and replace underscores
-        cell: (item: any) => item[key]?.toString() || "N/A",
-        sortingField: key
+        cell: (item: any) => {
+          const value = item[key]?.toString() || "N/A";
+          return (
+            <div style={{
+              maxWidth: '150px',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap'
+            }} title={value}>
+              {value}
+            </div>
+          );
+        },
+        sortingField: key,
+        width: index === 0 ? '25%' : index === 1 ? '15%' : index === 2 ? '20%' : index === 3 ? '15%' : '25%'
       }));
   };
 
   const columnDefinitions = generateColumnDefinitions();
 
   return (
-    <div 
-      style={{ 
-        marginTop: '15px', 
-        marginBottom: '15px'
-      }}
-    >
-      <div className='tables'>
-        <Table
-          columnDefinitions={columnDefinitions}
-          items={tableData}
-          trackBy={(item) => item.name || `item-${Math.random()}`}
-        />
-      </div>
-      
+    <div className="convo-table-container" style={{
+      width: '100%',
+      maxWidth: '100%',
+      overflow: 'hidden',
+      margin: '16px 0'
+    }}>
+      <Table
+        columnDefinitions={columnDefinitions}
+        items={tableData}
+        trackBy={(item) => item.name || `item-${Math.random()}`}
+        variant="borderless"
+        stripedRows={false}
+        wrapLines={false}
+      />
     </div>
   );
 }
