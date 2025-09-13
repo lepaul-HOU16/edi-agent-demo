@@ -311,6 +311,54 @@ def upload_working_directory():
                             # If neither head nor body tag exists, add it at the start of the file
                             content = f'''{plotly_script}\n{content}'''
                     
+                    # Add transparency CSS to force transparent backgrounds
+                    transparency_css = '''
+<style>
+/* Force transparent background for the entire page */
+html, body {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Force transparent background for all common plot containers */
+.plotly-graph-div, .plot-container, .svg-container, .main-svg {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Force transparent background for matplotlib images */
+img {
+    background: transparent !important;
+    background-color: transparent !important;
+}
+
+/* Force transparent background for any other containers */
+div, section, main, article {
+    background-color: transparent !important;
+}
+
+/* Ensure text remains visible on transparent background */
+body {
+    color: #333 !important;
+}
+
+/* Dark mode text support */
+@media (prefers-color-scheme: dark) {
+    body {
+        color: #fff !important;
+    }
+}
+</style>'''
+                    
+                    # Inject transparency CSS
+                    if '</head>' in content:
+                        content = content.replace('</head>', f'''{transparency_css}\n</head>''')
+                    elif '<body>' in content:
+                        content = content.replace('<body>', f'''<head>{transparency_css}</head>\n<body>''')
+                    else:
+                        # If no HTML structure exists, wrap the content
+                        content = f'''<html><head>{transparency_css}</head><body>{content}</body></html>'''
+                    
                     # Function to process a path and return the full URL
                     def get_full_url(file_path):
                         # Only process relative paths that don't start with http/https/files
