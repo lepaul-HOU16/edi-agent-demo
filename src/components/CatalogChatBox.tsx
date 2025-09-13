@@ -36,19 +36,16 @@ function DynamicTableDisplay({ tableData }: { tableData: any[] }) {
   const columnDefinitions = generateColumnDefinitions();
 
   return (
-    <div 
-      style={{ 
-        marginTop: '15px', 
-        marginBottom: '15px'
-      }}
-    >
-      <div className='tables'>
-        <Table
-          columnDefinitions={columnDefinitions}
-          items={tableData}
-          trackBy={(item) => item.name || `item-${Math.random()}`}
-        />
-      </div>
+    <div className="catalog-table-container" style={{ width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
+      <Table
+        columnDefinitions={columnDefinitions}
+        items={tableData}
+        trackBy={(item) => item.name || `item-${Math.random()}`}
+        variant="borderless"
+        wrapLines={false}
+        stripedRows={true}
+        contentDensity="compact"
+      />
     </div>
   );
 }
@@ -91,10 +88,10 @@ function CustomAIMessage({ message }: { message: Message }) {
   };
   
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
-        <SupportAgentIcon sx={{ color: theme.palette.primary.main, width: 32, height: 32 }} />
-        <div>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '100%', overflowX: 'hidden' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%', maxWidth: '100%' }}>
+        <SupportAgentIcon sx={{ color: theme.palette.primary.main, width: 32, height: 32, flexShrink: 0 }} />
+        <div style={{ width: '100%', maxWidth: 'calc(100% - 40px)', overflowX: 'hidden' }}>
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {getCleanText()}
           </ReactMarkdown>

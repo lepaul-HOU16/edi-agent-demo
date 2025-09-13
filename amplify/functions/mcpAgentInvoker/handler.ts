@@ -2,7 +2,7 @@ import middy from "@middy/core";
 import httpErrorHandler from "@middy/http-error-handler";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
-import mcpMiddleware from "middy-mcp";
+// import mcpMiddleware from "middy-mcp"; // Commented out - module not available
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { setChatSessionId } from "../tools/toolUtils";
@@ -145,5 +145,5 @@ export const handler = middy(async (
     return {};
 })
     .use(logMiddleware())
-    .use(mcpMiddleware({ server }))
+    // .use(mcpMiddleware({ server })) // Commented out - middy-mcp module not available
     .use(httpErrorHandler());

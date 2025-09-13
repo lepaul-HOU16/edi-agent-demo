@@ -287,3 +287,231 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   display: flex;
   flex-direction: column;
 }
+
+/* Catalog chat table styling - fix width and padding issues */
+.catalog-table-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Fix table to fit container width without horizontal scroll */
+.catalog-table-container table,
+.catalog-table-container [data-testid="table"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+}
+
+/* Reduce excessive padding in table cells */
+.catalog-table-container th,
+.catalog-table-container td,
+.catalog-table-container [data-testid="table-header"],
+.catalog-table-container [data-testid="table-cell"] {
+  padding: 4px 8px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+}
+
+/* Compact table header styling */
+.catalog-table-container thead th {
+  padding: 6px 8px !important;
+  font-weight: 600 !important;
+  font-size: 12px !important;
+  background-color: #f5f5f5 !important;
+  border-bottom: 1px solid #e0e0e0 !important;
+}
+
+/* Compact table body styling */
+.catalog-table-container tbody td {
+  padding: 4px 8px !important;
+  font-size: 11px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+}
+
+/* Remove excessive margins around table */
+.catalog-table-container > div {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Ensure table wrapper doesn't add extra padding */
+.catalog-table-container .awsui-table-wrapper,
+.catalog-table-container [class*="awsui_wrapper"] {
+  padding: 0 !important;
+  margin: 0 !important;
+}
+
+/* Make table columns responsive */
+.catalog-table-container th:first-child,
+.catalog-table-container td:first-child {
+  width: 25% !important;
+}
+
+.catalog-table-container th:nth-child(2),
+.catalog-table-container td:nth-child(2) {
+  width: 15% !important;
+}
+
+.catalog-table-container th:nth-child(3),
+.catalog-table-container td:nth-child(3) {
+  width: 20% !important;
+}
+
+.catalog-table-container th:nth-child(4),
+.catalog-table-container td:nth-child(4) {
+  width: 15% !important;
+}
+
+.catalog-table-container th:nth-child(5),
+.catalog-table-container td:nth-child(5) {
+  width: 25% !important;
+}
+
+/* Cloudscape specific overrides for catalog tables */
+.catalog-table-container [class*="awsui_header-cell"],
+.catalog-table-container [class*="awsui_body-cell"] {
+  padding: 4px 8px !important;
+}
+
+.catalog-table-container [class*="awsui_table-root"] {
+  width: 100% !important;
+}
+
+/* Dark mode support for catalog tables */
+[data-mode="dark"] .catalog-table-container thead th {
+  background-color: #2d3142 !important;
+  border-bottom: 1px solid #404040 !important;
+  color: #ffffff !important;
+}
+
+[data-mode="dark"] .catalog-table-container tbody td {
+  border-bottom: 1px solid #404040 !important;
+  background-color: transparent !important;
+}
+
+/* Conversation panel table container - prevent horizontal scrolling */
+.convo-table-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure tables within conversations fit container width */
+.convo-table-container table,
+.convo-table-container [data-testid="table"],
+.convo-table-container [class*="awsui_table-root"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  table-layout: fixed !important;
+  overflow: hidden !important;
+}
+
+/* Make table cells responsive within conversation panel */
+.convo-table-container th,
+.convo-table-container td,
+.convo-table-container [data-testid="table-header"],
+.convo-table-container [data-testid="table-cell"],
+.convo-table-container [class*="awsui_header-cell"],
+.convo-table-container [class*="awsui_body-cell"] {
+  max-width: 150px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+  padding: 6px 8px !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure table wrapper doesn't cause overflow */
+.convo-table-container .awsui-table-wrapper,
+.convo-table-container [class*="awsui_wrapper"],
+.convo-table-container [class*="awsui_table-wrapper"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Prevent Cloudscape table container from expanding beyond parent */
+.convo .convo-table-container [class*="awsui_container"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+/* Additional responsive constraints for conversation panel */
+.convo {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+.convo .messages-container {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Ensure message content doesn't exceed container width */
+.convo .messages-container > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+  box-sizing: border-box !important;
+}
+
+/* Dark mode support for conversation tables */
+[data-mode="dark"] .convo-table-container {
+  color: #ffffff !important;
+}
+
+[data-mode="dark"] .convo-table-container [class*="awsui_header-cell"] {
+  background-color: #2d3142 !important;
+  border-bottom: 1px solid #404040 !important;
+  color: #ffffff !important;
+}
+
+[data-mode="dark"] .convo-table-container [class*="awsui_body-cell"] {
+  border-bottom: 1px solid #404040 !important;
+  background-color: transparent !important;
+  color: #ffffff !important;
+}
+
+/* Remove row shading/alternating colors from Cloudscape tables */
+.cloudscape-table-wrapper [class*="awsui_row"] {
+  background-color: transparent !important;
+}
+
+.cloudscape-table-wrapper [class*="awsui_row-odd"],
+.cloudscape-table-wrapper [class*="awsui_row-even"] {
+  background-color: transparent !important;
+}
+
+.cloudscape-table-wrapper tbody tr:nth-child(odd),
+.cloudscape-table-wrapper tbody tr:nth-child(even) {
+  background-color: transparent !important;
+}
+
+/* Ensure table cells don't have alternating backgrounds */
+.cloudscape-table-wrapper [class*="awsui_body-cell"] {
+  background-color: transparent !important;
+}
+
+/* Remove striped table styling */
+.cloudscape-table-wrapper table[class*="awsui_table-striped"] tr:nth-child(odd),
+.cloudscape-table-wrapper table[class*="awsui_table-striped"] tr:nth-child(even) {
+  background-color: transparent !important;
+}
+
+/* Dark mode - ensure no row shading */
+[data-mode="dark"] .cloudscape-table-wrapper [class*="awsui_row"] {
+  background-color: transparent !important;
+}
+
+[data-mode="dark"] .cloudscape-table-wrapper [class*="awsui_body-cell"] {
+  background-color: transparent !important;
+}
