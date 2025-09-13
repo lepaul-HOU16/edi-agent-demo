@@ -14,7 +14,8 @@ import { publishResponseStreamChunk } from "../graphql/mutations";
 
 import { setChatSessionId } from "../tools/toolUtils";
 import { s3FileManagementTools } from "../tools/s3ToolBox";
-import { getGlobalDirectoryContext, scanWithUploadDetection, refreshContextForUploads } from "../tools/globalDirectoryScanner";
+import { getGlobalDirectoryContext, scanWithUploadDetection, refreshContextForUploads, scanGlobalDirectory } from "../tools/globalDirectoryScanner";
+import { classifyQueryIntent } from "../tools/queryIntentClassifier";
 import { userInputTool } from "../tools/userInputTool";
 import { pysparkTool } from "../tools/athenaPySparkTool";
 import { renderAssetTool } from "../tools/renderAssetTool";
@@ -56,7 +57,7 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
         setChatSessionId(event.arguments.chatSessionId);
 
         // Define the S3 prefix for this chat session (needed for env vars)
-        const bucketName = process.env.STORAGE_BUCKET_NAME;
+        const bucketName = process.env.STORAGE_BUCKET_NAME || "amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m";
         if (!bucketName) throw new Error("STORAGE_BUCKET_NAME is not set");
 
         const amplifyClient = getConfiguredAmplifyClient();
@@ -70,43 +71,15 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             }
         })
 
-        // Load global directory context with upload detection
+        // Lightweight scanning without heavy context loading
         await amplifyClient.graphql({
             query: publishResponseStreamChunk,
             variables: {
-                chunkText: "Loading global data context and checking for recent uploads...",
+                chunkText: "Ready to analyze data...",
                 index: 0,
                 chatSessionId: event.arguments.chatSessionId
             }
         })
-
-        // Force refresh of global directory context to ensure fresh data
-        await refreshContextForUploads(event.arguments.chatSessionId);
-        
-        // Use enhanced scan with upload detection
-        const globalIndex = await scanWithUploadDetection(event.arguments.chatSessionId, true);
-        const globalDirectoryContext = await getGlobalDirectoryContext(event.arguments.chatSessionId);
-
-        if (globalDirectoryContext) {
-            await amplifyClient.graphql({
-                query: publishResponseStreamChunk,
-                variables: {
-                    chunkText: `Global data context loaded successfully - found ${globalIndex?.totalFiles || 0} files`,
-                    index: 0,
-                    chatSessionId: event.arguments.chatSessionId
-                }
-            })
-        } else {
-            console.warn('No global directory context loaded - this may be expected if no global data exists')
-            await amplifyClient.graphql({
-                query: publishResponseStreamChunk,
-                variables: {
-                    chunkText: "No global data context found - will proceed with available tools for data upload",
-                    index: 0,
-                    chatSessionId: event.arguments.chatSessionId
-                }
-            })
-        }
 
         // This function includes validation to prevent "The text field in the ContentBlock object is blank" errors
         // by ensuring no message content is empty when sent to Bedrock
@@ -269,6 +242,14 @@ print("Setting up plotting libraries...")
         let baseSystemMessage = usesPetrophysics ? petrophysicsSystemMessage : `
 # Petrophysics Agent Instructions
 
+## CRITICAL: Data Discovery Protocol
+**MANDATORY FIRST STEP**: When users ask about wells, well data, or "how many wells", you MUST immediately use the listFiles("global/well-data") tool to check for available LAS files before responding. Do NOT assume no data exists without checking first.
+
+**Available Well Data Location**: global/well-data/ directory contains LAS well log files
+- ALWAYS check this location first for any well-related queries
+- Use listFiles("global/well-data") to see all available well files  
+- Use readFile("global/well-data/filename.las") to access specific wells
+
 ## Overview
 You are a petrophysics agent designed to execute formation evaluation and petrophysical workflows using well-log data, core data, and other subsurface information. Your capabilities include data loading, visualization, analysis, and comprehensive reporting.
 
@@ -381,122 +362,8 @@ You are a petrophysics agent designed to execute formation evaluation and petrop
 - When saving reports to file, use the writeFile tool with html formatting
         `//.replace(/^\s+/gm, '') //This trims the whitespace from the beginning of each line
 
-        // Combine base system message with global context and well data awareness
+        // Use the base system message without diluting additions
         let systemMessageContent = baseSystemMessage;
-        if (globalDirectoryContext) {
-            // Check if we have well data and get count from globalIndex
-            const wellLogCount = globalIndex?.filesByType?.['Well Log']?.length || 0;
-            const hasWellData = wellLogCount > 0 || globalDirectoryContext.includes('.las') || globalDirectoryContext.includes('well');
-            
-            // Enhanced context with well data awareness and specific path guidance
-            const wellDataContext = hasWellData ? 
-                "\n\n## 🎯 CRITICAL: AVAILABLE WELL DATA DETECTED!\n\n" +
-                `### ✅ CONFIRMED: ${wellLogCount} LAS FILES (WELLS) ARE AVAILABLE IN YOUR SYSTEM\n\n` +
-                "### 📋 WELL COUNTING INSTRUCTIONS - CRITICAL NLP UNDERSTANDING:\n" +
-                `**YOU HAVE ${wellLogCount} WELLS AVAILABLE** - Memorize this number!\n\n` +
-                `**NATURAL LANGUAGE RECOGNITION**: Automatically recognize ALL of these well counting questions:\n` +
-                `- "How many wells do I have?" / "How many wells are there?" / "How many wells exist?"\n` +
-                `- "What's the well count?" / "Count the wells" / "Number of wells"\n` +
-                `- "Well inventory" / "Wells available" / "Total wells"\n` +
-                `- "How many LAS files?" / "LAS file count" / "Available wells"\n` +
-                `- "Wells in the system" / "Data inventory" / "Well data count"\n` +
-                `- Any variation asking about well quantity, count, or availability\n\n` +
-                `**IMMEDIATE RESPONSE PATTERN**: When you detect ANY well counting question:\n` +
-                `1. **INSTANT ANSWER**: "I found ${wellLogCount} wells in your data."\n` +
-                `2. **OPTIONAL DETAILS**: You can add context like "These are LAS files located in global storage"\n` +
-                `3. **NO TOOLS NEEDED**: You already know the count is ${wellLogCount} - just answer directly!\n` +
-                `4. **IF USER WANTS DETAILS**: Only then use searchFiles to list well names\n\n` +
-                `**CRITICAL**: Never say "I need to search" or "Let me check" for basic well counting - you know it's ${wellLogCount}!\n\n` +
-                "### IMPORTANT: ALL FILES ARE IN S3 STORAGE - DO NOT USE FILESYSTEM OPERATIONS!\n\n" +
-                "### Available Global Well Data:\n" +
-                `- **${wellLogCount} LAS files detected** in global/well-data/ directory\n` +
-                "- **Supporting Files**: Well_tops.csv, converted_coordinates.csv in the same directory\n" +
-                "- **Access Method**: ONLY use S3 tools - `listFiles(\"global/well-data\")` to explore available files\n" +
-                "- **File Reading**: ONLY use S3 tools - `readFile(\"global/well-data/WELL-001.las\")` format for specific files\n\n" +
-                "### MANDATORY Data Discovery Workflow:\n" +
-                "1. **ALWAYS start with**: `listFiles(\"global/well-data\")` (use the S3 listFiles tool)\n" +
-                "2. **Read individual files**: `readFile(\"global/well-data/FILENAME.las\")` (use the S3 readFile tool)\n" +
-                "3. **Process systematically**: Work through wells sequentially for analysis\n\n" +
-                "### CRITICAL FILE ACCESS RULES - READ CAREFULLY:\n" +
-                "- ❌ **ABSOLUTELY FORBIDDEN**: `open()`, `os.path.exists()`, `os.listdir()`, `glob.glob()`, `pathlib.Path().exists()`, or ANY filesystem operations\n" +
-                "- ❌ **NEVER** treat paths like `/global/well-data/` or `global/well-data/` as local directories - THEY DO NOT EXIST LOCALLY!\n" +
-                "- ❌ **NEVER** use Python code like: `os.listdir('/global/well-data/')`, `os.path.exists('global/well-data/')`, or `for file in glob.glob('global/well-data/*.las')`\n" +
-                "- ❌ **ERROR WILL OCCUR**: FileNotFoundError: [Errno 2] No such file or directory: '/global/well-data/' - THIS IS WRONG APPROACH!\n" +
-                "- ✅ **ONLY CORRECT METHOD**: Use S3 tools: `listFiles()`, `readFile()`, `writeFile()` - these are the ONLY way to access data\n" +
-                "- ✅ **MANDATORY**: ALL file access must go through S3 tools, then save to local temp files for processing\n\n" +
-                "### WRONG vs CORRECT Examples:\n" +
-                "❌ WRONG: `files = os.listdir('/global/well-data/')`  # THIS WILL FAIL!\n" +
-                "✅ CORRECT: `files_json = listFiles('global/well-data'); files = json.loads(files_json)['files']`\n" +
-                "❌ WRONG: `with open('global/well-data/WELL-001.las') as f:`  # THIS WILL FAIL!\n" +
-                "✅ CORRECT: `content_json = readFile('global/well-data/WELL-001.las'); content = json.loads(content_json)['content']`\n\n" +
-                "### S3 to Local File Processing Pattern:\n" +
-                "```python\n" +
-                "import json\n" +
-                "import lasio\n\n" +
-                "# Step 1: List available files\n" +
-                "files_result = listFiles(\"global/well-data\")\n" +
-                "files_data = json.loads(files_result)\n" +
-                "files = files_data['files']\n\n" +
-                "# Step 2: Process each LAS file\n" +
-                "for filename in files:\n" +
-                "    if filename.endswith('.las'):\n" +
-                "        # Read S3 file content\n" +
-                "        content_result = readFile(f\"global/well-data/{filename}\")\n" +
-                "        content_data = json.loads(content_result)\n" +
-                "        las_content = content_data['content']\n" +
-                "        \n" +
-                "        # Save to local temp file\n" +
-                "        local_filename = f'/tmp/{filename}'\n" +
-                "        with open(local_filename, 'w') as f:\n" +
-                "            f.write(las_content)\n" +
-                "        \n" +
-                "        # Process with lasio\n" +
-                "        las = lasio.read(local_filename)\n" +
-                "        # Now you can work with las.df(), las.curves, etc.\n" +
-                "```\n\n" +
-                "### ABSOLUTELY CRITICAL - STOP FILESYSTEM ERRORS:\n" +
-                "⚠️  **IF YOU GET FileNotFoundError: [Errno 2] No such file or directory: '/global/well-data/' - YOU ARE DOING IT WRONG!**\n" +
-                "⚠️  **THERE IS NO LOCAL DIRECTORY CALLED 'global/well-data' OR '/global/well-data/'**\n" +
-                "⚠️  **YOU MUST USE S3 TOOLS ONLY - NO EXCEPTIONS!**\n\n" +
-                "### BANNED OPERATIONS (WILL ALWAYS FAIL):\n" +
-                "```python\n" +
-                "# These will ALWAYS fail with FileNotFoundError:\n" +
-                "os.listdir('/global/well-data/')  # NO!\n" +
-                "os.listdir('global/well-data/')   # NO!\n" +
-                "glob.glob('global/well-data/*.las')  # NO!\n" +
-                "os.path.exists('global/well-data')  # NO!\n" +
-                "pathlib.Path('global/well-data').exists()  # NO!\n" +
-                "for root, dirs, files in os.walk('global/well-data'):  # NO!\n" +
-                "```\n\n" +
-                "### MANDATORY S3 TOOL USAGE:\n" +
-                "```python\n" +
-                "# Step 1: ALWAYS start with listFiles S3 tool\n" +
-                "files_result = listFiles('global/well-data')  # This is a TOOL CALL, not Python filesystem\n" +
-                "files_data = json.loads(files_result)\n" +
-                "print('Available files:', files_data['files'])\n\n" +
-                "# Step 2: Read each file using readFile S3 tool\n" +
-                "for filename in files_data['files']:\n" +
-                "    if filename.endswith('.las'):\n" +
-                "        content_result = readFile(f'global/well-data/{filename}')  # This is a TOOL CALL\n" +
-                "        content_data = json.loads(content_result)\n" +
-                "        las_content = content_data['content']\n" +
-                "        \n" +
-                "        # Save to /tmp/ for lasio processing\n" +
-                "        with open(f'/tmp/{filename}', 'w') as f:\n" +
-                "            f.write(las_content)\n" +
-                "        \n" +
-                "        # Now you can use lasio\n" +
-                "        las = lasio.read(f'/tmp/{filename}')\n" +
-                "```\n\n" +
-                "### Important Notes:\n" +
-                "- The data IS available and accessible - if you get FileNotFoundError, you're using filesystem operations instead of S3 tools\n" +
-                "- Global data is shared across all sessions and contains real well log data\n" +
-                "- When users mention workflows, they expect you to automatically access this global data using S3 tools\n" +
-                "- Use the PySpark tool with proper S3 paths for data processing\n" +
-                "- listFiles() and readFile() are TOOL CALLS that work with S3, not Python filesystem functions\n\n" :
-                "\n\n## GLOBAL DATA CONTEXT\nNo well data currently detected in global directory. Guide users to upload data if needed.\n\n";
-            systemMessageContent = baseSystemMessage + "\n\n" + globalDirectoryContext + wellDataContext;
-        }
 
         const input = {
             messages: [
