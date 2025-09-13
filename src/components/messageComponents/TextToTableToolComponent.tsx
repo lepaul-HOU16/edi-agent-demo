@@ -1,9 +1,13 @@
 import React from 'react';
 import { Theme } from '@mui/material/styles';
-import { Button, Typography } from '@mui/material';
+import { Typography } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import { Message } from '@/../utils/types';
+
+// Import Cloudscape components directly
+import Table from '@cloudscape-design/components/table';
+import Pagination from '@cloudscape-design/components/pagination';
 
 const TextToTableToolComponent = ({ content, theme }: {
     content: Message['content'],
@@ -144,162 +148,88 @@ const TextToTableToolComponent = ({ content, theme }: {
                         {tableData.messageContentType === 'tool_table' ? 'Table Data' : 'Table View'}
                     </Typography>
                 </div>
-                <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: theme.spacing(2)
-                }}>
-                    <Typography variant="body2" color="textSecondary">
-                        Page {currentPage + 1} of {totalPages || 1}
-                    </Typography>
-                    <div style={{ display: 'flex', gap: theme.spacing(1) }}>
-                        <Button
-                            size="small"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handlePageChange(currentPage - 1);
-                            }}
-                            disabled={currentPage === 0}
-                            variant="outlined"
-                        >
-                            Previous
-                        </Button>
-                        <Button
-                            size="small"
-                            onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                handlePageChange(currentPage + 1);
-                            }}
-                            disabled={currentPage >= totalPages - 1}
-                            variant="outlined"
-                        >
-                            Next
-                        </Button>
-                    </div>
-                </div>
             </div>
 
-            <div style={{ overflowX: 'auto', width: '100%' }}>
-                <table style={{
-                    width: '100%',
-                    borderCollapse: 'collapse',
-                    fontSize: '0.875rem',
-                    boxShadow: '0 2px 4px rgba(0,0,0,0.05)',
-                    backgroundColor: theme.palette.common.white
-                }}>
-                    <thead style={{
-                        position: 'sticky',
-                        top: 0,
-                        zIndex: 1
-                    }}>
-                        <tr style={{
-                            backgroundColor: theme.palette.primary.main,
-                            color: theme.palette.primary.contrastText
-                        }}>
-                            {tableData.columns?.map((col: string, i: number) => (
-                                <th key={i} style={{
-                                    padding: theme.spacing(1, 1.5),
-                                    textAlign: 'left',
-                                    fontWeight: 'bold'
-                                }}>
-                                    {col}
-                                </th>
-                            ))}
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {paginatedData.map((row: Record<string, string | undefined>, rowIndex: number) => {
-                            const hasFilePath = !!row.FilePath;
-                            const rowBgColor = rowIndex % 2 === 0 ? theme.palette.common.white : theme.palette.grey[50];
-
+            {/* Cloudscape Table */}
+            <div className="cloudscape-table-wrapper">
+                <Table
+                    columnDefinitions={tableData.columns?.map((col: string) => ({
+                        id: col,
+                        header: col,
+                        cell: (item: Record<string, string | undefined>) => {
+                            const cellValue = String(item[col] || '');
+                            const hasFilePath = !!item.FilePath;
+                            
                             return (
-                                <tr
-                                    key={`row-${rowIndex}-${row.FilePath || rowIndex}`}
-                                    style={{
-                                        backgroundColor: rowBgColor,
-                                        borderBottom: `1px solid ${theme.palette.grey[200]}`,
-                                        cursor: hasFilePath ? 'pointer' : 'default',
-                                        transition: 'background-color 0.2s ease'
-                                    }}
-                                    onClick={() => {
-                                        if (hasFilePath && row.FilePath) {
-                                            const pathWithOriginRemoved = row.FilePath.startsWith('http')
-                                                ? new URL(row.FilePath).pathname
-                                                : row.FilePath;
-                                            const encodedPath = pathWithOriginRemoved.split('/').map((segment: string) => encodeURIComponent(segment)).join('/');
-                                            window.open(`${encodedPath}`, '_blank');
-                                        }
-                                    }}
-                                    onMouseEnter={(e) => {
-                                        if (hasFilePath) {
-                                            e.currentTarget.style.backgroundColor = theme.palette.action.hover;
-                                        }
-                                    }}
-                                    onMouseLeave={(e) => {
-                                        if (hasFilePath) {
-                                            e.currentTarget.style.backgroundColor = rowBgColor;
-                                        }
-                                    }}
-                                >
-                                    {tableData.columns?.map((col: string, colIndex: number) => (
-                                        <td key={colIndex} style={{
-                                            padding: theme.spacing(1, 1.5),
-                                            borderBottom: `1px solid ${theme.palette.grey[200]}`,
-                                            maxWidth: '250px',
-                                            overflow: 'hidden',
-                                            textOverflow: 'ellipsis',
-                                            position: 'relative'
-                                        }}>
-                                            {row.error && col === tableData.columns?.[0] ? (
-                                                <span style={{ color: theme.palette.error.main }}>
-                                                    {row.error}
-                                                </span>
-                                            ) : (
-                                                <div style={{
-                                                    maxHeight: '100px',
-                                                    overflow: 'auto',
-                                                    whiteSpace: 'pre-wrap',
-                                                    display: 'flex',
-                                                    alignItems: 'flex-start',
-                                                    gap: '4px',
-                                                    overflowY: 'auto',
-                                                    msOverflowStyle: '-ms-autohiding-scrollbar',
-                                                    scrollbarWidth: 'thin'
-                                                }}>
-                                                    {String(row[col] || '')}
-                                                    {hasFilePath && colIndex === 0 && (
-                                                        <VisibilityIcon
-                                                            fontSize="small"
-                                                            style={{
-                                                                fontSize: '14px',
-                                                                opacity: 0.6,
-                                                                color: theme.palette.primary.main,
-                                                                flexShrink: 0
-                                                            }}
-                                                        />
-                                                    )}
-                                                </div>
+                                <div style={{
+                                    display: 'flex',
+                                    alignItems: 'flex-start',
+                                    gap: '4px',
+                                    maxHeight: '100px',
+                                    overflow: 'auto',
+                                    whiteSpace: 'pre-wrap'
+                                }}>
+                                    {item.error && col === tableData.columns?.[0] ? (
+                                        <span style={{ color: '#d13212' }}>
+                                            {item.error}
+                                        </span>
+                                    ) : (
+                                        <>
+                                            {cellValue}
+                                            {hasFilePath && col === tableData.columns?.[0] && (
+                                                <VisibilityIcon
+                                                    fontSize="small"
+                                                    style={{
+                                                        fontSize: '14px',
+                                                        opacity: 0.6,
+                                                        color: theme.palette.primary.main,
+                                                        flexShrink: 0
+                                                    }}
+                                                />
                                             )}
-                                        </td>
-                                    ))}
-                                </tr>
+                                        </>
+                                    )}
+                                </div>
                             );
-                        })}
-                    </tbody>
-                </table>
-
-                {tableData.matchedFileCount && (
-                    <Typography variant="caption" color="textSecondary" style={{
-                        display: 'block',
-                        marginTop: theme.spacing(1),
-                        textAlign: 'right'
-                    }}>
-                        Showing results from {tableData.matchedFileCount} matched files
-                    </Typography>
-                )}
+                        },
+                        width: col === 'FilePath' ? 200 : undefined,
+                        minWidth: 120
+                    })) || []}
+                    items={paginatedData}
+                    onRowClick={({ detail }) => {
+                        const item = detail.item as Record<string, string | undefined>;
+                        const hasFilePath = !!item.FilePath;
+                        if (hasFilePath && item.FilePath) {
+                            const pathWithOriginRemoved = item.FilePath.startsWith('http')
+                                ? new URL(item.FilePath).pathname
+                                : item.FilePath;
+                            const encodedPath = pathWithOriginRemoved.split('/').map((segment: string) => encodeURIComponent(segment)).join('/');
+                            window.open(`${encodedPath}`, '_blank');
+                        }
+                    }}
+                    trackBy="FilePath"
+                    empty="No data available"
+                    pagination={
+                        totalPages > 1 ? (
+                            <Pagination
+                                currentPageIndex={currentPage + 1}
+                                pagesCount={totalPages}
+                                onChange={({ detail }) => handlePageChange(detail.currentPageIndex - 1)}
+                            />
+                        ) : undefined
+                    }
+                />
             </div>
+
+            {tableData.matchedFileCount && (
+                <Typography variant="caption" color="textSecondary" style={{
+                    display: 'block',
+                    marginTop: theme.spacing(1),
+                    textAlign: 'right'
+                }}>
+                    Showing results from {tableData.matchedFileCount} matched files
+                </Typography>
+            )}
         </div>
     );
 };

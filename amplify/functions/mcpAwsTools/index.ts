@@ -128,10 +128,10 @@ const langGraphTools: DynamicStructuredTool[] = [
 import plotly.io as pio
 import plotly.graph_objects as go
 
-# Create a custom layout
+# Create a custom layout with transparent background
 custom_layout = go.Layout(
-    paper_bgcolor='white',
-    plot_bgcolor='white',
+    paper_bgcolor='rgba(0,0,0,0)',
+    plot_bgcolor='rgba(0,0,0,0)',
     xaxis=dict(showgrid=False),
     yaxis=dict(
         showgrid=True,
@@ -142,8 +142,8 @@ custom_layout = go.Layout(
 
 # Create and register the template
 custom_template = go.layout.Template(layout=custom_layout)
-pio.templates["white_clean_log"] = custom_template
-pio.templates.default = "white_clean_log"
+pio.templates["transparent_clean_log"] = custom_template
+pio.templates.default = "transparent_clean_log"
 `,
     }),
     listFiles,

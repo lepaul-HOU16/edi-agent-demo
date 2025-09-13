@@ -121,6 +121,8 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
     const s3Client = getS3Client();
     const bucketName = getBucketName();
     
+    console.log(`[DEBUG] Scanning S3 directory: ${prefix} (depth: ${currentDepth}/${maxDepth}) in bucket: ${bucketName}`);
+    
     const dirInfo: DirectoryInfo = {
         name: path.basename(prefix) || 'global',
         path: prefix,
@@ -131,6 +133,7 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
     };
 
     if (currentDepth >= maxDepth) {
+        console.log(`[DEBUG] Max depth ${maxDepth} reached for ${prefix}`);
         return dirInfo;
     }
 
@@ -147,8 +150,17 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
                 Delimiter: '/'
             };
 
+            console.log(`[DEBUG] S3 ListObjects params:`, JSON.stringify(listParams, null, 2));
             const command = new ListObjectsV2Command(listParams);
             const response = await s3Client.send(command);
+            console.log(`[DEBUG] S3 response for ${prefix}:`, {
+                KeyCount: response.KeyCount,
+                IsTruncated: response.IsTruncated,
+                ContentsCount: response.Contents?.length || 0,
+                CommonPrefixesCount: response.CommonPrefixes?.length || 0,
+                Contents: response.Contents?.map(c => ({ Key: c.Key, Size: c.Size })) || [],
+                CommonPrefixes: response.CommonPrefixes?.map(cp => cp.Prefix) || []
+            });
 
             // Process files (Contents)
             if (response.Contents) {
@@ -168,6 +180,7 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
                             type: getFileType(fileName)
                         };
                         
+                        console.log(`[DEBUG] Found file in ${prefix}: ${fileName} (${item.Size} bytes)`);
                         dirInfo.files.push(fileInfo);
                         dirInfo.fileCount++;
                         dirInfo.totalSize += item.Size || 0;
@@ -182,6 +195,7 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
                     if (scannedFiles >= CONFIG.MAX_FILES) break;
                     
                     const subdirPrefix = prefixObj.Prefix as string;
+                    console.log(`[DEBUG] Found subdirectory: ${subdirPrefix}`);
                     const subdirInfo = await scanS3Directory(subdirPrefix, maxDepth, currentDepth + 1);
                     
                     if (subdirInfo.fileCount > 0 || subdirInfo.subdirectories.length > 0) {
@@ -201,6 +215,7 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
         console.error(`Error scanning directory ${prefix}:`, error);
     }
 
+    console.log(`[DEBUG] Scan completed for ${prefix}: ${dirInfo.fileCount} files, ${dirInfo.subdirectories.length} subdirectories`);
     return dirInfo;
 }
 

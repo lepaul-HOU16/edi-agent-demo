@@ -5,6 +5,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
 import { Message } from '../../../utils/types';
+import Table from '@cloudscape-design/components/table';
 
 // Helper function to parse and render ASCII tables from PySpark stdout
 const renderAsciiTable = (tableText: string, theme: Theme) => {
@@ -49,6 +50,27 @@ const renderAsciiTable = (tableText: string, theme: Theme) => {
   const dataRows = lines
     .slice(dataStartIndex, dataEndIndex)
     .filter(line => line.trim() !== '' && !separatorPattern.test(line));
+
+  // Convert to Cloudscape Table format
+  const columnDefinitions = headerCells.map((header) => ({
+    id: header.trim(),
+    header: header.trim(),
+    cell: (item: Record<string, string>) => item[header.trim()] || '',
+    minWidth: 120
+  }));
+
+  const items = dataRows.map((row, rowIdx) => {
+    const cells = row
+      .split('|')
+      .filter(cell => cell.trim() !== '');
+    
+    const rowData: Record<string, string> = {};
+    headerCells.forEach((header, cellIdx) => {
+      rowData[header.trim()] = cells[cellIdx]?.trim() || '';
+    });
+    
+    return { ...rowData, _id: rowIdx.toString() };
+  });
   
   return (
     <div style={{ 
@@ -58,52 +80,12 @@ const renderAsciiTable = (tableText: string, theme: Theme) => {
       boxShadow: `inset 0 0 5px ${theme.palette.grey[300]}`,
       marginBottom: theme.spacing(2)
     }}>
-      <table style={{ 
-        width: '100%', 
-        borderCollapse: 'collapse',
-        fontSize: '0.875rem'
-      }}>
-        <thead>
-          <tr style={{
-            backgroundColor: theme.palette.primary.main,
-            color: theme.palette.primary.contrastText
-          }}>
-            {headerCells.map((cell, idx) => (
-              <th key={idx} style={{ 
-                padding: theme.spacing(0.75, 1),
-                textAlign: 'left',
-                fontWeight: 'bold',
-                whiteSpace: 'nowrap'
-              }}>
-                {cell.trim()}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {dataRows.map((row, rowIdx) => {
-            const cells = row
-              .split('|')
-              .filter(cell => cell.trim() !== '');
-            
-            return (
-              <tr key={rowIdx} style={{
-                backgroundColor: rowIdx % 2 === 0 ? theme.palette.common.white : theme.palette.grey[50],
-                borderBottom: `1px solid ${theme.palette.grey[200]}`
-              }}>
-                {cells.map((cell, cellIdx) => (
-                  <td key={cellIdx} style={{ 
-                    padding: theme.spacing(0.75, 1),
-                    whiteSpace: 'nowrap'
-                  }}>
-                    {cell.trim()}
-                  </td>
-                ))}
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <Table
+        columnDefinitions={columnDefinitions}
+        items={items}
+        trackBy="_id"
+        empty="No data available"
+      />
     </div>
   );
 };

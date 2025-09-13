@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>HTML Rendering Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .header {
+            background: #f4f4f4;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .content-section {
+            margin: 20px 0;
+            padding: 15px;
+            border-left: 4px solid #007bff;
+            background: #f8f9fa;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+        .data-table th,
+        .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        .data-table th {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+        .status-ok {
+            color: #28a745;
+            font-weight: bold;
+        }
+        .status-warning {
+            color: #ffc107;
+            font-weight: bold;
+        }
+        .footer {
+            margin-top: 30px;
+            padding: 15px;
+            background: #e9ecef;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Well Log Details for Wells 1-5</h1>
+        <p><strong>S3 Key:</strong> chatSessionArtifacts/sessionId=2be3bc0a-4bdc-408a-a5fa-12d54bcf5e80/reports/well_details.html</p>
+    </div>
+
+    <div class="content-section">
+        <h2>Key Observations:</h2>
+        <ul>
+            <li><span class="status-ok">✓</span> All wells have a consistent step size of 0.25 meters</li>
+            <li><span class="status-ok">✓</span> All wells use -999.25 as the null/missing value</li>
+            <li><span class="status-warning">⚠</span> Depth ranges are similar, mostly between ~1650m to ~4050m</li>
+            <li><span class="status-ok">✓</span> The wells were logged between July and November 2025 (simulated/future data)</li>
+        </ul>
+    </div>
+
+    <div class="content-section">
+        <h2>Well Data Summary</h2>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Well ID</th>
+                    <th>Depth Range (m)</th>
+                    <th>Log Date</th>
+                    <th>Step Size (m)</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>Well-001</td>
+                    <td>1650.00 - 4050.00</td>
+                    <td>2025-07-15</td>
+                    <td>0.25</td>
+                    <td class="status-ok">Complete</td>
+                </tr>
+                <tr>
+                    <td>Well-002</td>
+                    <td>1680.00 - 4020.00</td>
+                    <td>2025-08-22</td>
+                    <td>0.25</td>
+                    <td class="status-ok">Complete</td>
+                </tr>
+                <tr>
+                    <td>Well-003</td>
+                    <td>1700.00 - 4080.00</td>
+                    <td>2025-09-10</td>
+                    <td>0.25</td>
+                    <td class="status-ok">Complete</td>
+                </tr>
+                <tr>
+                    <td>Well-004</td>
+                    <td>1620.00 - 3990.00</td>
+                    <td>2025-10-05</td>
+                    <td>0.25</td>
+                    <td class="status-warning">Partial</td>
+                </tr>
+                <tr>
+                    <td>Well-005</td>
+                    <td>1750.00 - 4100.00</td>
+                    <td>2025-11-18</td>
+                    <td>0.25</td>
+                    <td class="status-ok">Complete</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="content-section">
+        <h2>Technical Details</h2>
+        <p><strong>Data Quality:</strong> High quality measurements with consistent logging parameters across all wells.</p>
+        <p><strong>Null Value Handling:</strong> Missing values are represented as -999.25 throughout the dataset.</p>
+        <p><strong>Measurement Precision:</strong> Depth measurements recorded to 0.25m precision, suitable for geological analysis.</p>
+    </div>
+
+    <div class="footer">
+        <p><strong>Report Generated:</strong> December 9, 2025</p>
+        <p><strong>Data Source:</strong> Well logging database</p>
+        <p>Would you like me to provide more details about these wells or their log curves?</p>
+    </div>
+</body>
+</html>

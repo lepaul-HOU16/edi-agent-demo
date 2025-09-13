@@ -12,6 +12,9 @@ import { validate } from 'jsonschema';
 import { stringifyLimitStringLength } from "../../../utils/langChainUtils";
 import { BaseMessage, AIMessage, HumanMessage } from "@langchain/core/messages";
 import { match } from "assert";
+// Import intelligent context system
+import { classifyQueryIntent } from "./queryIntentClassifier";
+import { getBasicWellContext, enhanceToolResponseWithContext } from "./wellDataContextProvider";
 // import { stringifyLimitStringLength } from "../../../utils/stringUtils";
 
 // Schema for listing files
@@ -424,12 +427,32 @@ export const listFiles = tool(
                 const directories = items.filter(item => item.type === 'directory');
                 const files = items.filter(item => item.type === 'file');
 
-                return JSON.stringify({
+                // Create base response
+                const baseResponse = {
                     path: directory,
                     directories: directories.map(d => d.name),
                     files: files.map(f => f.name),
                     items // Keep the original items with type info for backward compatibility
-                });
+                };
+
+                // Check if this appears to be a well-related query (accessing global well data)
+                if (directory.includes('well') || globalDir.includes('well-data')) {
+                    console.log('Detected well-related directory listing, enhancing with context');
+                    try {
+                        const wellContext = await getBasicWellContext();
+                        return JSON.stringify({
+                            ...baseResponse,
+                            wellDataContext: wellContext,
+                            note: "Well data detected - you have access to comprehensive petrophysical datasets"
+                        });
+                    } catch (contextError) {
+                        console.error('Error adding well context:', contextError);
+                        // Return original response if context enhancement fails
+                        return JSON.stringify(baseResponse);
+                    }
+                }
+
+                return JSON.stringify(baseResponse);
             }
 
             // Handle session-specific directory listing
@@ -456,7 +479,7 @@ export const listFiles = tool(
     },
     {
         name: "listFiles",
-        description: "Lists files and directories from S3 storage. The response clearly distinguishes between directories and files. Use 'global' or 'global/path' to access shared files across all sessions, or a regular path for session-specific files.",
+        description: "Lists files and directories from S3 storage. The response clearly distinguishes between directories and files. Use 'global' or 'global/path' to access shared files across all sessions, or a regular path for session-specific files. Automatically provides well data context when accessing well-related directories.",
         schema: listFilesSchema,
     }
 );
@@ -1054,6 +1077,12 @@ export const textToTableTool = tool(
             matchingFiles.push(...userFiles);
 
             // Search in global files
+            const globalWellDataFiles = await findFilesMatchingPattern(
+                GLOBAL_PREFIX + 'well-data/',
+                params.filePattern
+            );
+            matchingFiles.push(...globalWellDataFiles);
+
             const globalWellFiles = await findFilesMatchingPattern(
                 GLOBAL_PREFIX + 'well-files/',
                 params.filePattern
@@ -1368,25 +1397,96 @@ export const textToTableTool = tool(
                     columnNames.push('FilePath');
                 }
 
-                // Create HTML content
+                // Create HTML content with Cloudscape-style table styling
                 let htmlContent = `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <title>${params.tableTitle}</title>
                     <style>
-                        body { font-family: Arial, sans-serif; margin: 20px; }
-                        table { border-collapse: collapse; width: 100%; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #f2f2f2; }
-                        tr:nth-child(even) { background-color: #f9f9f9; }
-                        tr:hover { background-color: #f1f1f1; }
-                        a { color: #0066cc; text-decoration: none; }
-                        a:hover { text-decoration: underline; }
-                        h1 { color: #333; }
+                        body { 
+                            font-family: "Amazon Ember", "Helvetica Neue", Roboto, Arial, sans-serif;
+                            margin: 20px;
+                            background-color: #fafbfc;
+                            color: #232f3e;
+                            line-height: 20px;
+                        }
+                        h1 { 
+                            color: #232f3e;
+                            font-size: 28px;
+                            font-weight: 700;
+                            margin-bottom: 16px;
+                        }
+                        table { 
+                            width: 100%;
+                            border-collapse: separate;
+                            border-spacing: 0;
+                            border: 1px solid #d5dbdb;
+                            border-radius: 8px;
+                            background-color: #ffffff;
+                            font-size: 14px;
+                            line-height: 20px;
+                            margin: 16px 0;
+                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                        }
+                        thead {
+                            background-color: #fafbfc;
+                        }
+                        th { 
+                            padding: 12px 16px;
+                            text-align: left;
+                            font-weight: 700;
+                            color: #232f3e;
+                            border-bottom: 2px solid #d5dbdb;
+                            vertical-align: top;
+                        }
+                        th:first-child {
+                            border-top-left-radius: 8px;
+                        }
+                        th:last-child {
+                            border-top-right-radius: 8px;
+                        }
+                        tbody tr:nth-child(even) { 
+                            background-color: #fafbfc;
+                        }
+                        tbody tr:hover { 
+                            background-color: #f2f3f3;
+                        }
+                        td { 
+                            padding: 12px 16px;
+                            border-bottom: 1px solid #e9ebed;
+                            color: #232f3e;
+                            vertical-align: top;
+                        }
+                        td:first-child {
+                            font-weight: 500;
+                        }
+                        tbody tr:last-child td {
+                            border-bottom: none;
+                        }
+                        tbody tr:last-child td:first-child {
+                            border-bottom-left-radius: 8px;
+                        }
+                        tbody tr:last-child td:last-child {
+                            border-bottom-right-radius: 8px;
+                        }
+                        a { 
+                            color: #0972d3;
+                            text-decoration: none;
+                            font-weight: 500;
+                        }
+                        a:hover { 
+                            text-decoration: underline;
+                            color: #0258a3;
+                        }
+                        a:focus {
+                            outline: 2px solid #0972d3;
+                            outline-offset: 2px;
+                        }
                     </style>
                 </head>
                 <body>
+                    <h1>${params.tableTitle}</h1>
                     <table>
                         <thead>
                             <tr>
@@ -1643,6 +1743,33 @@ export const searchFiles = tool(
     async ({ filePattern, maxFiles = 100, includeGlobal = true }) => {
         try {
             const matchingFiles: string[] = [];
+            const debugInfo: string[] = [];
+
+            // Classify the search pattern to determine if it's well-related
+            const queryIntent = classifyQueryIntent(filePattern);
+            console.log('Search pattern query intent:', queryIntent);
+
+            // Add diagnostic info for LAS file searches
+            if (filePattern.includes('las') || filePattern.includes('\\.las')) {
+                debugInfo.push(`Searching for LAS files with pattern: ${filePattern}`);
+                
+                // Direct S3 listing for debugging
+                const s3Client = getS3Client();
+                const bucketName = getBucketName();
+                
+                try {
+                    const directListCommand = new ListObjectsV2Command({
+                        Bucket: bucketName,
+                        Prefix: 'global/well-files/',
+                        MaxKeys: 50
+                    });
+                    const directResponse = await s3Client.send(directListCommand);
+                    const directFiles = (directResponse.Contents || []).map(item => item.Key).filter(key => key && key.includes('.las'));
+                    debugInfo.push(`Direct S3 listing found ${directFiles.length} LAS files: ${directFiles.slice(0,5).join(', ')}${directFiles.length > 5 ? '...' : ''}`);
+                } catch (debugError) {
+                    debugInfo.push(`Direct S3 listing failed: ${debugError}`);
+                }
+            }
 
             // Search in user files
             const userFiles = await findFilesMatchingPattern(
@@ -1650,20 +1777,30 @@ export const searchFiles = tool(
                 filePattern
             );
             matchingFiles.push(...userFiles);
+            debugInfo.push(`User files found: ${userFiles.length}`);
 
             // Search in global files if requested
             if (includeGlobal) {
+                const globalWellDataFiles = await findFilesMatchingPattern(
+                    GLOBAL_PREFIX + 'well-data/',
+                    filePattern
+                );
+                matchingFiles.push(...globalWellDataFiles);
+                debugInfo.push(`Global well-data files found: ${globalWellDataFiles.length}`);
+
                 const globalWellFiles = await findFilesMatchingPattern(
                     GLOBAL_PREFIX + 'well-files/',
                     filePattern
                 );
                 matchingFiles.push(...globalWellFiles);
+                debugInfo.push(`Global well-files found: ${globalWellFiles.length}`);
 
                 const globalProductionFiles = await findFilesMatchingPattern(
                     GLOBAL_PREFIX + 'production-data/',
                     filePattern
                 );
                 matchingFiles.push(...globalProductionFiles);
+                debugInfo.push(`Global production-data files found: ${globalProductionFiles.length}`);
             }
 
             // Format file paths for display
@@ -1679,8 +1816,8 @@ export const searchFiles = tool(
             const limitedFiles = formattedFiles.slice(0, maxFiles);
             const hasMore = formattedFiles.length > maxFiles;
 
-            // Return results
-            return JSON.stringify({
+            // Create base result
+            const baseResult = {
                 files: limitedFiles,
                 count: limitedFiles.length,
                 totalCount: formattedFiles.length,
@@ -1688,8 +1825,37 @@ export const searchFiles = tool(
                 pattern: filePattern,
                 message: hasMore
                     ? `Found ${formattedFiles.length} files, showing first ${maxFiles}. Use a more specific pattern to narrow results.`
-                    : `Found ${formattedFiles.length} files.`
-            });
+                    : `Found ${formattedFiles.length} files.`,
+                debugInfo: debugInfo.length > 0 ? debugInfo : undefined
+            };
+
+            // If this appears to be a well-related search or found well files, enhance with context
+            const foundWellFiles = matchingFiles.some(file => 
+                file.includes('well') || file.includes('.las') || file.includes('WELL')
+            );
+            
+            if (queryIntent.isWellRelated || foundWellFiles || filePattern.includes('well') || filePattern.includes('las')) {
+                console.log('Detected well-related search, enhancing with context');
+                try {
+                    const wellContext = await getBasicWellContext();
+                    return JSON.stringify({
+                        ...baseResult,
+                        wellDataContext: wellContext,
+                        queryClassification: {
+                            category: queryIntent.category,
+                            confidence: Math.round(queryIntent.confidence * 100),
+                            reasoning: queryIntent.reasoning
+                        },
+                        note: "Well-related files detected - comprehensive petrophysical datasets available"
+                    });
+                } catch (contextError) {
+                    console.error('Error adding well context to search:', contextError);
+                    // Return original response if context enhancement fails
+                    return JSON.stringify(baseResult);
+                }
+            }
+
+            return JSON.stringify(baseResult);
         } catch (error: any) {
             return JSON.stringify({
                 error: `Error searching files: ${error.message || error}`,
@@ -1701,6 +1867,7 @@ export const searchFiles = tool(
         name: "searchFiles",
         description: `
         Search for files matching a regex pattern across user and global storage.
+        Automatically provides intelligent context when searching for well-related data.
         
         File pattern examples:
         - ".*\\.txt$" - all text files

@@ -22,10 +22,28 @@ export const reActAgentFunction = defineFunction({
   }
 });
 
-export const mcpAgentInvoker = defineFunction({
-  name: 'mcpAgentInvoker',
-  entry: '../functions/mcpAgentInvoker/handler.ts',
-  timeoutSeconds: 900,
+// export const mcpAgentInvoker = defineFunction({
+//   name: 'mcpAgentInvoker',
+//   entry: '../functions/mcpAgentInvoker/handler.ts',
+//   timeoutSeconds: 900,
+// });
+
+export const catalogMapDataFunction = defineFunction({
+  name: 'catalogMapData',
+  entry: '../functions/catalogMapData/index.ts',
+  timeoutSeconds: 60,
+});
+
+export const catalogSearchFunction = defineFunction({
+  name: 'catalogSearch',
+  entry: '../functions/catalogSearch/index.ts',
+  timeoutSeconds: 60,
+  environment: {
+    OSDU_BASE_URL: 'https://community.opensubsurface.org',
+    OSDU_API_VERSION: 'v2',
+    OSDU_PARTITION_ID: 'opendes',
+    // Add OSDU_ACCESS_TOKEN as environment variable when available
+  }
 });
 
 export const schema = a.schema({
@@ -134,6 +152,22 @@ export const schema = a.schema({
       // origin: a.string(), //When invoking the agent programatically, specify the host origin for serving files
     })
     .handler(a.handler.function(reActAgentFunction).async())
+    .authorization((allow) => [allow.authenticated()]),
+
+  getCatalogMapData: a.query()
+    .arguments({
+      type: a.string().required(),
+    })
+    .returns(a.string())
+    .handler(a.handler.function(catalogMapDataFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  catalogSearch: a.query()
+    .arguments({
+      prompt: a.string().required(),
+    })
+    .returns(a.string())
+    .handler(a.handler.function(catalogSearchFunction))
     .authorization((allow) => [allow.authenticated()]),
 })
   .authorization((allow) => [

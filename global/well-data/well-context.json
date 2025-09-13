@@ -1,0 +1,90 @@
+{
+  "wellDatabase": {
+    "activeWells": [
+      {
+        "wellId": "WELL-001",
+        "wellName": "Eagle Ford 1H",
+        "location": {
+          "latitude": 28.7505,
+          "longitude": -97.3573,
+          "county": "Karnes",
+          "state": "TX"
+        },
+        "spudDate": "2023-01-15",
+        "completionDate": "2023-03-22",
+        "totalDepth": 12850,
+        "formation": "Eagle Ford Shale",
+        "wellType": "Horizontal",
+        "status": "Producing",
+        "logs": ["GR", "RHOB", "NPHI", "RT", "CALI", "DTC"],
+        "productionData": {
+          "oil": { "initial": 1250, "current": 850, "unit": "bbl/day" },
+          "gas": { "initial": 2.8, "current": 1.9, "unit": "mcf/day" },
+          "water": { "initial": 45, "current": 180, "unit": "bbl/day" }
+        }
+      },
+      {
+        "wellId": "WELL-002", 
+        "wellName": "Permian Basin 2H",
+        "location": {
+          "latitude": 31.9686,
+          "longitude": -102.0779,
+          "county": "Midland",
+          "state": "TX"
+        },
+        "spudDate": "2023-02-10",
+        "completionDate": "2023-04-18",
+        "totalDepth": 11200,
+        "formation": "Wolfcamp Shale",
+        "wellType": "Horizontal", 
+        "status": "Producing",
+        "logs": ["GR", "RHOB", "NPHI", "RT", "CALI", "DTC", "PEF"],
+        "productionData": {
+          "oil": { "initial": 1650, "current": 1100, "unit": "bbl/day" },
+          "gas": { "initial": 3.2, "current": 2.1, "unit": "mcf/day" },
+          "water": { "initial": 85, "current": 320, "unit": "bbl/day" }
+        }
+      }
+    ],
+    "formations": [
+      {
+        "name": "Eagle Ford Shale",
+        "type": "Unconventional",
+        "lithology": "Shale/Carbonate",
+        "averagePorosityRange": "8-12%",
+        "averagePermeabilityRange": "0.001-0.1 mD",
+        "productionCharacteristics": "Oil and gas production with high initial rates and steep decline"
+      },
+      {
+        "name": "Wolfcamp Shale", 
+        "type": "Unconventional",
+        "lithology": "Shale/Limestone",
+        "averagePorosityRange": "6-10%",
+        "averagePermeabilityRange": "0.0001-0.05 mD",
+        "productionCharacteristics": "Primarily oil production with associated gas"
+      }
+    ],
+    "lastUpdated": "2024-12-09T20:58:00Z"
+  },
+  "analysisGuidelines": {
+    "logQualityThresholds": {
+      "gamma_ray": { "min": 0, "max": 300, "units": "API" },
+      "density": { "min": 1.5, "max": 3.0, "units": "g/cm3" },
+      "neutron": { "min": -0.05, "max": 0.6, "units": "fraction" },
+      "resistivity": { "min": 0.1, "max": 10000, "units": "ohm-m" }
+    },
+    "cutoffCriteria": {
+      "shaleVolume": { "max": 0.4, "description": "Maximum shale volume for reservoir quality" },
+      "porosity": { "min": 0.08, "description": "Minimum porosity for commercial production" },
+      "waterSaturation": { "max": 0.6, "description": "Maximum water saturation for oil production" }
+    },
+    "standardWorkflows": [
+      "Basic log QC and conditioning",
+      "Shale volume calculation from gamma ray",
+      "Porosity determination from density log", 
+      "Water saturation from Archie equation",
+      "Net pay identification",
+      "Petrophysical property statistics"
+    ]
+  }
+}

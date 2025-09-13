@@ -2,15 +2,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getUrl } from 'aws-amplify/storage';
 import { CircularProgress } from '@mui/material';
-import AceEditor from 'react-ace';
+// AceEditor temporarily removed for memory optimization
+// import AceEditor from 'react-ace';
 import { useViewport, calculateOptimalIframeDimensions, getFileTypeFromExtension } from '../hooks/useViewport';
 
-import 'ace-builds/src-noconflict/mode-javascript';
-import 'ace-builds/src-noconflict/mode-json';
-import 'ace-builds/src-noconflict/mode-yaml';
-import 'ace-builds/src-noconflict/mode-html';
-import 'ace-builds/src-noconflict/mode-text';
-import 'ace-builds/src-noconflict/theme-github';
+// Ace editor imports temporarily removed for memory optimization
+// import 'ace-builds/src-noconflict/mode-javascript';
+// import 'ace-builds/src-noconflict/mode-json';
+// import 'ace-builds/src-noconflict/mode-yaml';
+// import 'ace-builds/src-noconflict/mode-html';
+// import 'ace-builds/src-noconflict/mode-text';
+// import 'ace-builds/src-noconflict/theme-github';
 
 interface FileViewerProps {
   s3Key: string;
@@ -190,71 +192,86 @@ export default function FileViewer({
     return <div className="flex justify-center items-center h-full">No file selected</div>;
   }
 
-  // For HTML files, render differently based on edit mode
-  if (isHtmlFile) {
-    if (isEditMode) {
-      return (
-        <div className="relative w-full h-full flex flex-col">
-          <AceEditor
-            mode="html"
-            theme="github"
-            name="file-editor"
-            value={content || fileContent || ''}
-            onChange={onContentChange}
-            width="100%"
-            height="100%"
-            fontSize={14}
-            showPrintMargin={false}
-            showGutter={true}
-            highlightActiveLine={true}
-            setOptions={{
-              enableBasicAutocompletion: true,
-              enableLiveAutocompletion: true,
-              enableSnippets: true,
-              showLineNumbers: true,
-              tabSize: 2,
-            }}
-          />
-        </div>
-      );
-    }
+    // For HTML files, render differently based on edit mode
+    if (isHtmlFile) {
+        if (isEditMode) {
+            return (
+                <div className="relative w-full h-full flex flex-col">
+                    <textarea
+                        value={content || fileContent || ''}
+                        onChange={(e) => onContentChange?.(e.target.value)}
+                        className="w-full h-full p-4 font-mono text-sm border border-gray-300 rounded"
+                        style={{
+                            resize: 'none',
+                            outline: 'none',
+                            fontSize: '14px',
+                            lineHeight: '1.4',
+                        }}
+                        placeholder="Edit HTML content..."
+                    />
+                </div>
+            );
+        }
 
-    // Use viewport-aware sizing for HTML files
-    const htmlDimensions = calculateOptimalIframeDimensions(viewport, 'html');
-    console.log('Rendering HTML file with viewport-aware sizing:', htmlDimensions);
-    
-    return (
-      <div className="w-full relative html-iframe">
-        {iframeLoading && (
-          <div className="iframe-loading">
-            <CircularProgress />
-          </div>
-        )}
-        <iframe
-          ref={htmlIframeRef}
-          src={`/file/${s3Key.split('/').map((item: string) => decodeURIComponent(item)).join('/')}`}
-          style={{
-            border: 'none',
-            margin: 0,
-            padding: 0,
-            width: htmlDimensions.width,
-            height: htmlDimensions.height,
-            maxHeight: htmlDimensions.maxHeight,
-            overflow: 'hidden'
-          }}
-          className="w-full"
-          title="HTML File Viewer"
-          sandbox="allow-same-origin allow-scripts allow-forms allow-downloads"
-          onLoad={() => {
-            setIframeLoading(false);
-            console.log('HTML iframe loaded successfully');
-            // Try to resize based on content
-            resizeIframeToContent(htmlIframeRef.current);
-          }}
-        />
-      </div>
-    );
-  }
+        // Use enhanced sizing for HTML files containing Plotly charts
+        const htmlDimensions = calculateOptimalIframeDimensions(viewport, 'html');
+        console.log('Rendering HTML file with viewport-aware sizing:', htmlDimensions);
+        
+        return (
+            <div className="w-full relative html-iframe">
+                {iframeLoading && (
+                    <div className="iframe-loading">
+                        <CircularProgress />
+                    </div>
+                )}
+                <iframe
+                    ref={htmlIframeRef}
+                    src={`/file/${s3Key.split('/').map((item: string) => decodeURIComponent(item)).join('/')}`}
+                    style={{
+                        border: 'none',
+                        margin: 0,
+                        padding: 0,
+                        width: '100%',
+                        height: '600px', // Increased height for better Plotly display
+                        minHeight: '600px',
+                        overflow: 'visible' // Allow content to expand
+                    }}
+                    className="w-full plotly-iframe"
+                    title="HTML File Viewer"
+                    sandbox="allow-same-origin allow-scripts allow-forms allow-downloads"
+                    onLoad={() => {
+                        setIframeLoading(false);
+                        console.log('HTML iframe loaded successfully');
+                        
+                        // Enhanced resizing for Plotly content
+                        const iframe = htmlIframeRef.current;
+                        if (iframe) {
+                            try {
+                                const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+                                if (iframeDoc) {
+                                    // Wait for Plotly to render
+                                    setTimeout(() => {
+                                        // Look for Plotly elements and ensure proper sizing
+                                        const plotlyElements = iframeDoc.querySelectorAll('.js-plotly-plot, .plotly-graph-div');
+                                        if (plotlyElements.length > 0) {
+                                            console.log('Found Plotly elements, applying enhanced sizing');
+                                            // Set a larger height for Plotly content
+                                            iframe.style.height = '700px';
+                                            iframe.style.minHeight = '700px';
+                                        }
+                                        resizeIframeToContent(iframe);
+                                    }, 1000); // Give Plotly time to render
+                                }
+                            } catch (e) {
+                                console.warn('Could not access iframe content for enhanced sizing:', e);
+                                resizeIframeToContent(iframe);
+                            }
+                        }
+                    }}
+                />
+            </div>
+        );
+    }
 
   // If we have text content for non-HTML files, display it
   if (
@@ -277,25 +294,17 @@ export default function FileViewer({
     if (isEditMode) {
       return (
         <div className="relative w-full h-full flex flex-col">
-          <AceEditor
-            mode={editorMode}
-            theme="github"
-            name="file-editor"
+          <textarea
             value={content || fileContent || ''}
-            onChange={onContentChange}
-            width="100%"
-            height="100%"
-            fontSize={14}
-            showPrintMargin={false}
-            showGutter={true}
-            highlightActiveLine={true}
-            setOptions={{
-              enableBasicAutocompletion: true,
-              enableLiveAutocompletion: true,
-              enableSnippets: true,
-              showLineNumbers: true,
-              tabSize: 2,
+            onChange={(e) => onContentChange?.(e.target.value)}
+            className="w-full h-full p-4 font-mono text-sm border border-gray-300 rounded"
+            style={{
+              resize: 'none',
+              outline: 'none',
+              fontSize: '14px',
+              lineHeight: '1.4',
             }}
+            placeholder={`Edit ${editorMode} content...`}
           />
         </div>
       );
@@ -340,8 +349,7 @@ export default function FileViewer({
             height: 'auto',
             maxWidth: '100%',
             display: 'block',
-            borderRadius: '4px',
-            background: '#f8f9fa'
+            borderRadius: '4px'
           }}
           onLoad={() => {
             setIframeLoading(false);

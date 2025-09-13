@@ -24,7 +24,7 @@ import DuckDuckGoSearchToolComponent from './messageComponents/DuckDuckGoSearchT
 import WebBrowserToolComponent from './messageComponents/WebBrowserToolComponent';
 import CreateProjectToolComponent from './messageComponents/CreateProjectToolComponent';
 import CustomWorkshopComponent from './messageComponents/CustomWorkshopComponent'
-import { PlotDataToolComponent } from '../components/PlotDataToolComponent';
+import LightweightPlotComponent from '../components/LightweightPlotComponent';
 
 const ChatMessage = (params: {
     message: Message,
@@ -123,7 +123,7 @@ const ChatMessage = (params: {
                 case 'webBrowserTool':
                     return <WebBrowserToolComponent content={message.content} theme={theme} />;
                 case 'plotDataTool':
-                    return <PlotDataToolComponent 
+                    return <LightweightPlotComponent 
                         content={message.content} 
                         theme={theme} 
                         chatSessionId={(message as any).chatSessionId || ''} 

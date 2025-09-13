@@ -33,16 +33,40 @@ plt.rcParams['savefig.transparent'] = True
 
 # Also configure plotly for transparent backgrounds
 import plotly.io as pio
-pio.templates.default = "plotly_white"
+import plotly.graph_objects as go
+
+# Create a custom template with transparent backgrounds
+transparent_template = pio.templates["plotly_white"].copy()
+transparent_template.layout.paper_bgcolor = 'rgba(0,0,0,0)'
+transparent_template.layout.plot_bgcolor = 'rgba(0,0,0,0)'
+
+# Register the custom template
+pio.templates["transparent"] = transparent_template
+
+# Set the transparent template as default
+pio.templates.default = "transparent"
+
+# Configure kaleido for PNG export
 pio.kaleido.scope.default_format = "png"
 pio.kaleido.scope.default_engine = "kaleido"
 
-# Set plotly default layout for transparent backgrounds
+# Set global config for transparent plots
 import plotly.graph_objects as go
-go.Figure().update_layout(
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)'
-)
+from plotly.graph_objects import Figure
+
+# Create a wrapper function to ensure all figures have transparent backgrounds
+def create_transparent_figure(*args, **kwargs):
+    fig = Figure(*args, **kwargs)
+    fig.update_layout(
+        paper_bgcolor='rgba(0,0,0,0)',
+        plot_bgcolor='rgba(0,0,0,0)'
+    )
+    return fig
+
+# Make the transparent figure creator available globally
+go.TransparentFigure = create_transparent_figure
+
+print("✅ Plotly configured for transparent PNG exports")
 
 s3BucketName = '${process.env.STORAGE_BUCKET_NAME}'
 chatSessionS3Prefix = '${getChatSessionPrefix()}'

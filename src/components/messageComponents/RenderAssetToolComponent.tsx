@@ -116,10 +116,15 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
             {/* Special handling for HTML files with dynamic height and responsive content */}
             {s3Key.toLowerCase().endsWith('.html') ? (
               <Box sx={{ mb: 1 }}>
-                <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
-                  Using dynamic height HTML rendering {dynamicIframe.isLoading && '(calculating size...)'}
-                  {dynamicIframe.error && ` - ${dynamicIframe.error}`}
-                </Typography>
+                {dynamicIframe.isLoading ? (
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
+                    Loading HTML content...
+                  </Typography>
+                ) : (
+                  <Typography variant="caption" color="textSecondary" sx={{ display: 'block', mb: 1 }}>
+                    HTML content rendered at {dynamicIframe.height}px height
+                  </Typography>
+                )}
                 <Box 
                   className="html-iframe-dynamic"
                   sx={{ 
@@ -127,7 +132,9 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                     height: `${dynamicIframe.height}px`,
                     overflow: 'hidden',
                     border: 'none',
-                    transition: 'height 0.3s ease-in-out'
+                    transition: 'height 0.3s ease-in-out',
+                    borderRadius: 1,
+                    boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
                   }}
                 >
                   <iframe 
@@ -137,7 +144,8 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                       width: '100%',
                       height: `${dynamicIframe.height}px`,
                       border: 'none',
-                      display: 'block'
+                      display: 'block',
+                      borderRadius: '4px'
                     }}
                     title="HTML Content"
                     sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
