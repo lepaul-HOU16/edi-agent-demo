@@ -24,7 +24,7 @@ import DuckDuckGoSearchToolComponent from './messageComponents/DuckDuckGoSearchT
 import WebBrowserToolComponent from './messageComponents/WebBrowserToolComponent';
 import CreateProjectToolComponent from './messageComponents/CreateProjectToolComponent';
 import CustomWorkshopComponent from './messageComponents/CustomWorkshopComponent'
-import { PlotDataToolComponent } from '../components/PlotDataToolComponent';
+import { PlotDataToolComponent } from './messageComponents/PlotDataToolComponent';
 import InteractiveAgentSummaryComponent from './messageComponents/InteractiveAgentSummaryComponent';
 
 const ChatMessage = (params: {
