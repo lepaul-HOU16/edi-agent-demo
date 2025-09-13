@@ -202,39 +202,160 @@ const InteractiveAgentSummaryComponent: React.FC<InteractiveAgentSummaryProps> =
     };
   }, [content]);
 
-  // Create simple visual indicator for each method (CSS-only)
-  const createVisualIndicator = (method: StatisticalData) => {
+  // Create varied data science visualizations (avoid repeating same type)
+  const createDataScienceVisualization = (method: StatisticalData, index: number, totalMethods: number) => {
     const percentage = Math.round(method.mean * 100);
     const color = method.confidence === 'high' ? '#16a34a' : 
                   method.confidence === 'medium' ? '#2563eb' : '#dc2626';
     
-    return (
-      <div style={{ 
-        position: 'relative',
-        width: '80px',
-        height: '80px',
-        borderRadius: '50%',
-        background: `conic-gradient(${color} ${percentage * 3.6}deg, #f1f5f9 ${percentage * 3.6}deg)`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        margin: '0 auto'
-      }}>
-        <div style={{
-          width: '60px',
-          height: '60px',
-          borderRadius: '50%',
-          backgroundColor: 'white',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: '12px',
-          fontWeight: 'bold'
-        }}>
-          {method.mean.toFixed(3)}
-        </div>
-      </div>
-    );
+    // Rotate through different visualization types to avoid repetition
+    const vizType = index % 4;
+    
+    switch (vizType) {
+      case 0: // Box plot style indicator
+        return (
+          <div style={{ 
+            width: '100px',
+            height: '80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto'
+          }}>
+            {/* Box plot visualization */}
+            <div style={{ position: 'relative', width: '60px', height: '50px' }}>
+              {/* Whiskers */}
+              <div style={{
+                position: 'absolute',
+                left: '28px',
+                top: '5px',
+                width: '4px',
+                height: '40px',
+                backgroundColor: '#e5e7eb'
+              }} />
+              {/* Box */}
+              <div style={{
+                position: 'absolute',
+                left: '20px',
+                top: '15px',
+                width: '20px',
+                height: '20px',
+                backgroundColor: color,
+                border: '2px solid ' + color,
+                opacity: 0.8
+              }} />
+              {/* Median line */}
+              <div style={{
+                position: 'absolute',
+                left: '20px',
+                top: `${15 + (method.median / method.mean) * 20}px`,
+                width: '20px',
+                height: '2px',
+                backgroundColor: 'white'
+              }} />
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '4px' }}>
+              {method.mean.toFixed(3)}
+            </div>
+          </div>
+        );
+        
+      case 1: // Histogram style
+        return (
+          <div style={{ 
+            width: '100px',
+            height: '80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto'
+          }}>
+            {/* Histogram bars */}
+            <div style={{ display: 'flex', alignItems: 'end', height: '50px', gap: '2px' }}>
+              {[0.3, 0.7, 1.0, 0.8, 0.4].map((height, i) => (
+                <div key={i} style={{
+                  width: '8px',
+                  height: `${height * method.mean * 40}px`,
+                  backgroundColor: color,
+                  opacity: 0.7 + (height * 0.3)
+                }} />
+              ))}
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '4px' }}>
+              {method.mean.toFixed(3)}
+            </div>
+          </div>
+        );
+        
+      case 2: // Heat map cell style
+        return (
+          <div style={{ 
+            width: '100px',
+            height: '80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto'
+          }}>
+            {/* Heatmap grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 12px)', gap: '2px', marginBottom: '8px' }}>
+              {Array.from({length: 16}, (_, i) => (
+                <div key={i} style={{
+                  width: '12px',
+                  height: '12px',
+                  backgroundColor: color,
+                  opacity: Math.random() * method.mean + 0.2
+                }} />
+              ))}
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold' }}>
+              {method.mean.toFixed(3)}
+            </div>
+          </div>
+        );
+        
+      default: // Gauge/arc style (different from donut)
+        const arcLength = percentage * 1.8; // 180 degrees max
+        return (
+          <div style={{ 
+            width: '100px',
+            height: '80px',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            margin: '0 auto'
+          }}>
+            {/* Gauge arc */}
+            <div style={{ position: 'relative', width: '70px', height: '35px' }}>
+              <div style={{
+                width: '70px',
+                height: '70px',
+                borderRadius: '50%',
+                background: `conic-gradient(from 270deg, ${color} ${arcLength}deg, #f1f5f9 ${arcLength}deg)`,
+                clipPath: 'polygon(0 50%, 100% 50%, 100% 100%, 0 100%)'
+              }} />
+              {/* Needle */}
+              <div style={{
+                position: 'absolute',
+                bottom: '0',
+                left: '50%',
+                width: '2px',
+                height: '25px',
+                backgroundColor: '#374151',
+                transformOrigin: 'bottom',
+                transform: `translateX(-50%) rotate(${arcLength - 90}deg)`
+              }} />
+            </div>
+            <div style={{ fontSize: '11px', fontWeight: 'bold', marginTop: '4px' }}>
+              {method.mean.toFixed(3)}
+            </div>
+          </div>
+        );
+    }
   };
 
   // Parse HTML tables for Cloudscape rendering
@@ -268,7 +389,7 @@ const InteractiveAgentSummaryComponent: React.FC<InteractiveAgentSummaryProps> =
       const rowMatches = tableHtml.match(/<tr[^>]*>[\s\S]*?<\/tr>/gi) || [];
       const dataRows = [];
 
-      rowMatches.forEach((row: string) => {
+      rowMatches.forEach(row => {
         // Skip header rows
         if (row.includes('<th') && !row.includes('<td')) return;
         
@@ -327,8 +448,7 @@ const InteractiveAgentSummaryComponent: React.FC<InteractiveAgentSummaryProps> =
     if (!text) return null;
 
     // Check for geological content patterns
-    const hasGeologicalContent = text.match(/(?:lithology|sandstone|limestone|shale|density|neutron|porosity|reservoir)/i);
-    if (!hasGeologicalContent) return null;
+    if (!text.match(/(?:lithology|sandstone|limestone|shale|density|neutron|porosity|reservoir)/i)) return null;
 
     // Extract lithology data
     const lithologies = [];
@@ -477,209 +597,228 @@ const InteractiveAgentSummaryComponent: React.FC<InteractiveAgentSummaryProps> =
   // Render geological analysis if detected (prioritize over outline)
   if (geologicalData && geologicalData.lithologies.length > 0) {
     return (
-      <div style={{ margin: '0' }}>
-        {/* Compact Lithology Grid - Horizontal Cards */}
-        <div style={{ marginBottom: '16px' }}>
-          <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '500' }}>
-            Lithology Characteristics
-          </h4>
+      <Container
+        header={<Header variant="h2">{analysisData.title || 'Analysis Results'}</Header>}
+      >
+        <SpaceBetween direction="vertical" size="s">
           
-          <div style={{ 
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: '8px',
-            alignItems: 'stretch'
-          }}>
-            {geologicalData.lithologies.map((item, index) => (
-              <div key={index} style={{ 
-                flex: '0 0 180px',
-                padding: '8px 12px',
-                backgroundColor: 'white',
-                borderRadius: '4px',
-                border: '1px solid #e9ecef',
-                borderLeft: `4px solid ${item.color}`
-              }}>
-                <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
-                  <div style={{ 
-                    width: '8px', 
-                    height: '8px', 
-                    borderRadius: '50%', 
-                    backgroundColor: item.color,
-                    marginRight: '6px'
-                  }}></div>
-                  <strong style={{ fontSize: '13px' }}>{item.name}</strong>
-                </div>
-                
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
-                  <span style={{ fontSize: '11px', color: '#6c757d' }}>Density</span>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
-                    <span style={{ fontWeight: 'bold', color: item.color }}>{item.density}</span>
-                    <span style={{ fontSize: '10px', color: '#6c757d' }}>g/cm³</span>
-                  </div>
-                </div>
-                
-                <div style={{ marginBottom: '4px' }}>
-                  <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Porosity</div>
-                  <div style={{ fontSize: '12px' }}>{item.porosity}</div>
-                </div>
-                
-                <div style={{ fontSize: '11px', color: '#495057' }}>
-                  {item.description}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Formation Type Analysis - Only show if we have diverse lithologies */}
-        {geologicalData.lithologies.length > 1 && (
-          <div style={{ marginBottom: '16px' }}>
+          {/* Compact Lithology Grid - Horizontal Cards */}
+          <div style={{ marginBottom: '12px' }}>
             <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '500' }}>
-              Formation Type
+              Lithology Characteristics
             </h4>
-            <div style={{ fontSize: '13px', color: '#374151' }}>
-              {geologicalData.lithologies.length === 3 ? 
-                'Mixed lithology formation with varied permeability characteristics' :
-                `${geologicalData.lithologies.map(l => l.name.toLowerCase()).join(' and ')} formation`}
-            </div>
-          </div>
-        )}
-
-        {/* Reservoir Zone Analysis using Cloudscape Table */}
-        {geologicalData.reservoirZones.length > 0 && (
-          <div style={{ marginBottom: '16px' }}>
-            <Table
-              columnDefinitions={[
-                {
-                  id: "zone",
-                  header: "Zone Type",
-                  cell: item => (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      <div style={{ 
-                        width: '10px', 
-                        height: '10px', 
-                        borderRadius: '2px', 
-                        backgroundColor: item.color 
-                      }}></div>
-                      <strong>{item.name}</strong>
-                    </div>
-                  )
-                },
-                {
-                  id: "porosity",
-                  header: "Porosity Range",
-                  cell: item => (
-                    <Badge color={item.name === 'Excellent Reservoir' ? 'green' : 
-                                 item.name === 'Marginal Reservoir' ? 'blue' : 'red'}>
-                      {item.porosityRange}
-                    </Badge>
-                  )
-                },
-                {
-                  id: "quality",
-                  header: "Reservoir Quality",
-                  cell: item => item.quality
-                },
-                {
-                  id: "potential", 
-                  header: "Hydrocarbon Potential",
-                  cell: item => item.potential
-                }
-              ]}
-              items={geologicalData.reservoirZones}
-              loadingText="Loading reservoir data"
-              empty={
-                <Box textAlign="center" color="inherit">
-                  <b>No reservoir zones identified</b>
-                  <Box variant="p" color="inherit">
-                    No reservoir zone data detected in the analysis.
-                  </Box>
-                </Box>
-              }
-              header={
-                <Header variant="h3">
-                  Reservoir Zone Analysis
-                </Header>
-              }
-            />
-          </div>
-        )}
-
-        {/* Key Insights using clean list format */}
-        {geologicalData.insights.length > 0 && (
-          <div style={{ marginBottom: '16px' }}>
-            <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '500' }}>
-              Key Geological Insights
-            </h4>
+            
             <div style={{ 
-              display: 'grid', 
-              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))', 
-              gap: '8px' 
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '8px',
+              alignItems: 'stretch'
             }}>
-              {geologicalData.insights.map((insight, index) => (
-                <div key={index} style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                  <div style={{ 
-                    width: '6px', 
-                    height: '6px', 
-                    borderRadius: '50%', 
-                    backgroundColor: '#3b82f6',
-                    marginTop: '6px',
-                    minWidth: '6px'
-                  }}></div>
-                  <div style={{ fontSize: '13px', color: '#374151' }}>{insight}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Recommendations using clean list format */}
-        {geologicalData.recommendations.length > 0 && (
-          <div style={{ marginBottom: '0' }}>
-            <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '500' }}>
-              Exploration Strategy
-            </h4>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {geologicalData.recommendations.map((rec, index) => (
+              {geologicalData.lithologies.map((item, index) => (
                 <div key={index} style={{ 
-                  display: 'flex', 
-                  alignItems: 'flex-start', 
-                  gap: '12px',
-                  padding: '8px',
-                  backgroundColor: '#f0f9ff',
-                  borderRadius: '6px',
-                  borderLeft: '4px solid #3b82f6'
+                  flex: '0 0 180px',
+                  padding: '8px 12px',
+                  backgroundColor: 'white',
+                  borderRadius: '4px',
+                  border: '1px solid #e9ecef',
+                  borderLeft: `4px solid ${item.color}`
                 }}>
-                  <div style={{ 
-                    fontSize: '14px',
-                    color: '#3b82f6',
-                    fontWeight: 'bold',
-                    marginTop: '2px'
-                  }}>
-                    {index + 1}
+                  <div style={{ display: 'flex', alignItems: 'center', marginBottom: '6px' }}>
+                    <div style={{ 
+                      width: '8px', 
+                      height: '8px', 
+                      borderRadius: '50%', 
+                      backgroundColor: item.color,
+                      marginRight: '6px'
+                    }}></div>
+                    <strong style={{ fontSize: '13px' }}>{item.name}</strong>
                   </div>
-                  <div style={{ fontSize: '13px', color: '#374151' }}>{rec}</div>
+                  
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                    <span style={{ fontSize: '11px', color: '#6c757d' }}>Density</span>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: '2px' }}>
+                      <span style={{ fontWeight: 'bold', color: item.color }}>{item.density}</span>
+                      <span style={{ fontSize: '10px', color: '#6c757d' }}>g/cm³</span>
+                    </div>
+                  </div>
+                  
+                  <div style={{ marginBottom: '4px' }}>
+                    <div style={{ fontSize: '11px', color: '#6c757d', marginBottom: '2px' }}>Porosity</div>
+                    <div style={{ fontSize: '12px' }}>{item.porosity}</div>
+                  </div>
+                  
+                  <div style={{ fontSize: '11px', color: '#495057' }}>
+                    {item.description}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
-        )}
-      </div>
+
+          {/* Formation Type Analysis - Only show if we have diverse lithologies */}
+          {geologicalData.lithologies.length > 1 && (
+            <div style={{ marginBottom: '12px' }}>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '500' }}>
+                Formation Type
+              </h4>
+              <div style={{ fontSize: '13px', color: '#374151' }}>
+                {geologicalData.lithologies.length === 3 ? 
+                  'Mixed lithology formation with varied permeability characteristics' :
+                  `${geologicalData.lithologies.map(l => l.name.toLowerCase()).join(' and ')} formation`}
+              </div>
+            </div>
+          )}
+
+          {/* Reservoir Zone Analysis using Cloudscape Table */}
+          {geologicalData.reservoirZones.length > 0 && (
+            <Container header={<Header variant="h3">Reservoir Zone Analysis</Header>}>
+              <Table
+                columnDefinitions={[
+                  {
+                    id: "zone",
+                    header: "Zone Type",
+                    cell: item => (
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <div style={{ 
+                          width: '10px', 
+                          height: '10px', 
+                          borderRadius: '2px', 
+                          backgroundColor: item.color 
+                        }}></div>
+                        <strong>{item.name}</strong>
+                      </div>
+                    )
+                  },
+                  {
+                    id: "porosity",
+                    header: "Porosity Range",
+                    cell: item => (
+                      <Badge color={item.name === 'Excellent Reservoir' ? 'green' : 
+                                   item.name === 'Marginal Reservoir' ? 'blue' : 'red'}>
+                        {item.porosityRange}
+                      </Badge>
+                    )
+                  },
+                  {
+                    id: "quality",
+                    header: "Reservoir Quality",
+                    cell: item => item.quality
+                  },
+                  {
+                    id: "potential", 
+                    header: "Hydrocarbon Potential",
+                    cell: item => item.potential
+                  }
+                ]}
+                items={geologicalData.reservoirZones}
+                loadingText="Loading reservoir data"
+                empty={
+                  <Box textAlign="center" color="inherit">
+                    <b>No reservoir zones identified</b>
+                    <Box variant="p" color="inherit">
+                      No reservoir zone data detected in the analysis.
+                    </Box>
+                  </Box>
+                }
+              />
+            </Container>
+          )}
+
+          {/* Key Insights using Cloudscape List */}
+          {geologicalData.insights.length > 0 && (
+            <Container header={<Header variant="h3">Key Geological Insights</Header>}>
+              <ColumnLayout columns={2} variant="text-grid">
+                {geologicalData.insights.map((insight, index) => (
+                  <Box key={index} padding="s" margin={{ bottom: 'xs' }}>
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
+                      <div style={{ 
+                        width: '6px', 
+                        height: '6px', 
+                        borderRadius: '50%', 
+                        backgroundColor: '#3b82f6',
+                        marginTop: '6px',
+                        minWidth: '6px'
+                      }}></div>
+                      <Box variant="small">{insight}</Box>
+                    </div>
+                  </Box>
+                ))}
+              </ColumnLayout>
+            </Container>
+          )}
+
+          {/* Recommendations using Cloudscape List */}
+          {geologicalData.recommendations.length > 0 && (
+            <Container header={<Header variant="h3">Exploration Strategy</Header>}>
+              <SpaceBetween direction="vertical" size="xs">
+                {geologicalData.recommendations.map((rec, index) => (
+                  <Box key={index} padding="s" margin={{ bottom: 'xs' }}>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'flex-start', 
+                      gap: '12px',
+                      padding: '8px',
+                      backgroundColor: '#f0f9ff',
+                      borderRadius: '6px',
+                      borderLeft: '4px solid #3b82f6'
+                    }}>
+                      <div style={{ 
+                        fontSize: '14px',
+                        color: '#3b82f6',
+                        fontWeight: 'bold',
+                        marginTop: '2px'
+                      }}>
+                        {index + 1}
+                      </div>
+                      <Box variant="small">{rec}</Box>
+                    </div>
+                  </Box>
+                ))}
+              </SpaceBetween>
+            </Container>
+          )}
+          
+        </SpaceBetween>
+      </Container>
     );
   }
 
   // Render HTML tables if detected (like Clean Sand Intervals report)
   if (htmlTableData && htmlTableData.length > 0) {
     return (
-      <>
-        {htmlTableData.map((tableData, index) => (
-          <Table
-            key={index}
-            columnDefinitions={tableData.columnDefinitions}
-            items={tableData.items}
-          />
-        ))}
-      </>
+      <Container
+        header={<Header variant="h2">{analysisData.title || 'Data Analysis Report'}</Header>}
+      >
+        <SpaceBetween direction="vertical" size="m">
+          {htmlTableData.map((tableData, index) => (
+            <Container 
+              key={index}
+              header={<Header variant="h3">{tableData.title}</Header>}
+            >
+              <Table
+                columnDefinitions={tableData.columnDefinitions}
+                items={tableData.items}
+                loadingText="Loading data"
+                empty={
+                  <Box textAlign="center" color="inherit">
+                    <b>No data available</b>
+                    <Box variant="p" color="inherit">
+                      No data found in this table.
+                    </Box>
+                  </Box>
+                }
+                header={
+                  <Header
+                    counter={`(${tableData.items.length})`}
+                  >
+                    {tableData.title}
+                  </Header>
+                }
+              />
+            </Container>
+          ))}
+        </SpaceBetween>
+      </Container>
     );
   }
 
@@ -931,9 +1070,9 @@ const InteractiveAgentSummaryComponent: React.FC<InteractiveAgentSummaryProps> =
                     {method.method.replace(/Method.*$/i, '').trim()}
                   </Box>
                   
-                  {/* CSS-only Donut Chart */}
+                  {/* CSS-only Data Science Visualization */}
                   <div style={{ margin: '8px 0' }}>
-                    {createVisualIndicator(method)}
+                    {createDataScienceVisualization(method, index, analysisData.methods.length)}
                   </div>
                   
                   {/* Confidence Badge */}

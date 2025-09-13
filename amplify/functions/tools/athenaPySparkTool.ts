@@ -31,42 +31,62 @@ plt.rcParams['axes.facecolor'] = 'none'
 plt.rcParams['savefig.facecolor'] = 'none'
 plt.rcParams['savefig.transparent'] = True
 
+# Additional matplotlib configurations for complete transparency
+plt.rcParams['figure.edgecolor'] = 'none'
+plt.rcParams['axes.edgecolor'] = 'black'
+plt.rcParams['patch.facecolor'] = 'none'
+plt.rcParams['patch.edgecolor'] = 'black'
+
+# Ensure all new figures have transparent backgrounds
+import matplotlib.pyplot as plt
+original_figure = plt.figure
+
+def transparent_figure(*args, **kwargs):
+    fig = original_figure(*args, **kwargs)
+    fig.patch.set_alpha(0.0)  # Make figure background transparent
+    return fig
+
+plt.figure = transparent_figure
+
+# Also patch the subplot function
+original_subplots = plt.subplots
+
+def transparent_subplots(*args, **kwargs):
+    fig, axes = original_subplots(*args, **kwargs)
+    fig.patch.set_alpha(0.0)  # Make figure background transparent
+    if hasattr(axes, '__iter__'):
+        for ax in axes.flat:
+            ax.patch.set_alpha(0.0)  # Make axes background transparent
+    else:
+        axes.patch.set_alpha(0.0)  # Make single axis background transparent
+    return fig, axes
+
+plt.subplots = transparent_subplots
+
 # Also configure plotly for transparent backgrounds
 import plotly.io as pio
 import plotly.graph_objects as go
 
-# Create a custom template with transparent backgrounds
-transparent_template = pio.templates["plotly_white"].copy()
-transparent_template.layout.paper_bgcolor = 'rgba(0,0,0,0)'
-transparent_template.layout.plot_bgcolor = 'rgba(0,0,0,0)'
-
-# Register the custom template
-pio.templates["transparent"] = transparent_template
-
-# Set the transparent template as default
-pio.templates.default = "transparent"
-
-# Configure kaleido for PNG export
+# Set plotly defaults for transparent backgrounds
+pio.templates.default = "plotly_white"
 pio.kaleido.scope.default_format = "png"
 pio.kaleido.scope.default_engine = "kaleido"
 
-# Set global config for transparent plots
-import plotly.graph_objects as go
-from plotly.graph_objects import Figure
+# Create a custom template with transparent backgrounds
+transparent_template = pio.templates["plotly_white"].to_plotly_json()
+transparent_template['layout']['paper_bgcolor'] = 'rgba(0,0,0,0)'
+transparent_template['layout']['plot_bgcolor'] = 'rgba(0,0,0,0)'
 
-# Create a wrapper function to ensure all figures have transparent backgrounds
-def create_transparent_figure(*args, **kwargs):
-    fig = Figure(*args, **kwargs)
-    fig.update_layout(
-        paper_bgcolor='rgba(0,0,0,0)',
-        plot_bgcolor='rgba(0,0,0,0)'
-    )
-    return fig
+# Register and set the transparent template as default
+pio.templates["plotly_transparent"] = transparent_template
+pio.templates.default = "plotly_transparent"
 
-# Make the transparent figure creator available globally
-go.TransparentFigure = create_transparent_figure
+# Also set kaleido scope configuration for transparent PNG export
+pio.kaleido.scope.default_width = None
+pio.kaleido.scope.default_height = None
+pio.kaleido.scope.default_scale = 1
 
-print("✅ Plotly configured for transparent PNG exports")
+print("✓ Configured matplotlib and plotly for transparent backgrounds")
 
 s3BucketName = '${process.env.STORAGE_BUCKET_NAME}'
 chatSessionS3Prefix = '${getChatSessionPrefix()}'
@@ -692,9 +712,20 @@ const pysparkToolSchema = z.object({
     scriptPath: z.string().describe("Path for the script file. If code is provided, the script will be saved here. If code is not provided, an existing script at this path will be executed. Must start with 'scripts/'")
 });
 
-export const pysparkTool = (props: { additionalSetupScript?: string, additionalToolDescription?: string }) => tool(
-    async (params) => {
-        const { code, scriptPath, timeout = 300, description = "PySpark execution" } = params;
+type PySparkToolProps = { additionalSetupScript?: string, additionalToolDescription?: string };
+type PySparkToolInput = {
+    code: string;
+    timeout?: number;
+    description?: string;
+    scriptPath: string;
+};
+
+export const pysparkTool = (props: PySparkToolProps) => tool(
+    async (params: any) => {
+        const code = params.code;
+        const scriptPath = params.scriptPath;
+        const timeout = params.timeout || 300;
+        const description = params.description || "PySpark execution";
         const { additionalSetupScript = '' } = props;
         let progressIndex = 0;
         const chatSessionId = getChatSessionId();

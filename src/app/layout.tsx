@@ -20,13 +20,17 @@ import LightModeIcon from '@mui/icons-material/LightMode';
 import Button from '@cloudscape-design/components/button';
 import TopNavigation from "@cloudscape-design/components/top-navigation";
 import Grid from '@cloudscape-design/components/grid';
+import { applyMode, Mode } from '@cloudscape-design/global-styles';
 
 import "./globals.css";
-import './app.scss';
+import "@aws-amplify/ui-react/styles.css";
 import { FileSystemProvider } from "@/contexts/FileSystemContext";
+
+import './app.scss';
 import { type Schema } from "@/../amplify/data/resource";
 import { generateClient } from 'aws-amplify/api';
 import { sendMessage } from '@/../utils/amplifyUtils';
+import { memoryManager } from '@/utils/memoryUtils';
 
 const amplifyClient = generateClient<Schema>();
 const inter = Inter({
@@ -95,6 +99,9 @@ export default function RootLayout({
   };
   
   useEffect(() => {
+    // Apply the mode when component mounts and when darkMode changes
+    applyMode(darkMode ? Mode.Dark : Mode.Light);
+    
     // Try to load the preference from localStorage if available
     if (typeof window !== 'undefined') {
       const savedMode = localStorage.getItem('darkMode');
@@ -102,6 +109,17 @@ export default function RootLayout({
         setDarkMode(savedMode === 'true');
       }
     }
+  }, [darkMode]);
+
+  // Memory monitoring setup
+  useEffect(() => {
+    // Start memory monitoring when app loads
+    const stopMonitoring = memoryManager.startMemoryMonitoring(30000);
+    
+    // Cleanup function
+    return () => {
+      stopMonitoring();
+    };
   }, []);
   
   const toggleDarkMode = () => {
@@ -116,12 +134,6 @@ export default function RootLayout({
   
   return (
     <html lang="en" data-mode={darkMode ? 'dark' : 'light'}>
-      <head>
-        <link
-          rel="stylesheet"
-          href="https://unpkg.com/@cloudscape-design/global-styles@1.0.44/index.css"
-        />
-      </head>
       <body
         className={`${inter.variable} antialiased`}
       >

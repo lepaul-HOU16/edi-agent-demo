@@ -1,30 +1,6 @@
 import { stringify } from "yaml";
 
 import { getConfiguredAmplifyClient } from '../../../utils/amplifyUtils';
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3";
-import * as fs from 'fs';
-import * as path from 'path';
-
-function getS3Client() {
-    return new S3Client();
-}
-
-function getBucketName() {
-    try {
-        const outputs = require('@/../amplify_outputs.json');
-        const bucketName = outputs.storage.bucket_name;
-        if (!bucketName) {
-            throw new Error("bucket_name not found in amplify_outputs.json");
-        }
-        return bucketName;
-    } catch (error) {
-        const envBucketName = process.env.STORAGE_BUCKET_NAME;
-        if (!envBucketName) {
-            throw new Error("STORAGE_BUCKET_NAME is not set and amplify_outputs.json is not accessible");
-        }
-        return envBucketName;
-    }
-}
 
 import { ChatBedrockConverse } from "@langchain/aws";
 import { HumanMessage, ToolMessage, BaseMessage, SystemMessage, AIMessageChunk, AIMessage } from "@langchain/core/messages";
@@ -32,7 +8,7 @@ import { Calculator } from "@langchain/community/tools/calculator";
 import { Tool, StructuredToolInterface, ToolSchemaBase } from "@langchain/core/tools";
 
 import { createReactAgent } from "@langchain/langgraph/prebuilt";
-
+import { MultiServerMCPClient } from "@langchain/mcp-adapters";
 
 import { publishResponseStreamChunk } from "../graphql/mutations";
 
@@ -45,11 +21,6 @@ import { renderAssetTool } from "../tools/renderAssetTool";
 import { createProjectTool } from "../tools/createProjectTool";
 import { permeabilityCalculator } from "../tools/customWorkshopTool";
 import { plotDataTool } from "../tools/plotDataTool";
-
-// Import intelligent context system
-import { classifyQueryIntent, generateContextualSystemMessage } from "../tools/queryIntentClassifier";
-import { generateContextualResponse } from "../tools/wellDataContextProvider";
-
 import { petrophysicsSystemMessage } from "./petrophysicsSystemMessage";
 
 import { Schema } from '../../data/resource';
@@ -57,9 +28,12 @@ import { Schema } from '../../data/resource';
 import { getLangChainChatMessagesStartingWithHumanMessage, getLangChainMessageTextContent, publishMessage, stringifyLimitStringLength } from '../../../utils/langChainUtils';
 import { EventEmitter } from "events";
 
-// 
+import { startMcpBridgeServer } from "./awsSignedMcpBridge"
 
+const USE_MCP = false;
+const LOCAL_PROXY_PORT = 3020
 
+let mcpTools: StructuredToolInterface<ToolSchemaBase, any, any>[] = []
 
 // Increase the default max listeners to prevent warnings
 EventEmitter.defaultMaxListeners = 10;
@@ -106,17 +80,12 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             }
         })
 
-        // ALWAYS load global directory context - make it mandatory
-        console.log('MANDATORY: Loading global directory context...');
-        const globalIndex = await scanWithUploadDetection(event.arguments.chatSessionId);
-        let globalDirectoryContext = await getGlobalDirectoryContext(event.arguments.chatSessionId);
+        // Force refresh of global directory context to ensure fresh data
+        await refreshContextForUploads(event.arguments.chatSessionId);
         
-        // If no context loaded, force a fresh scan
-        if (!globalDirectoryContext) {
-            console.log('WARNING: No global context loaded - forcing fresh scan');
-            await refreshContextForUploads(event.arguments.chatSessionId);
-            globalDirectoryContext = await getGlobalDirectoryContext(event.arguments.chatSessionId);
-        }
+        // Use enhanced scan with upload detection
+        const globalIndex = await scanWithUploadDetection(event.arguments.chatSessionId, true);
+        const globalDirectoryContext = await getGlobalDirectoryContext(event.arguments.chatSessionId);
 
         if (globalDirectoryContext) {
             await amplifyClient.graphql({
@@ -153,34 +122,124 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             // temperature: 0
         });
 
-        // MCP disabled to prevent memory issues
+        if (mcpTools.length === 0 && USE_MCP) {
+            await amplifyClient.graphql({
+                query: publishResponseStreamChunk,
+                variables: {
+                    chunkText: "Listing MCP tools",
+                    index: 0,
+                    chatSessionId: event.arguments.chatSessionId
+                }
+            })
 
-        // Use intelligent classification instead of brittle keyword matching
-        const lastUserMessage = chatSessionMessages[chatSessionMessages.length - 1]?.content || '';
-        const messageText = typeof lastUserMessage === 'string' ? lastUserMessage : String(lastUserMessage);
-        
-        // Classify the query using semantic understanding
-        const queryIntent = classifyQueryIntent(messageText);
-        const isWellQuery = queryIntent.isWellRelated;
-        
-        console.log('DEBUG: Intelligent query classification:', {
-            isWellQuery: queryIntent.isWellRelated,
-            confidence: Math.round(queryIntent.confidence * 100),
-            category: queryIntent.category,
-            reasoning: queryIntent.reasoning,
-            messageText: messageText.substring(0, 100)
-        });
-        
-        // Include all tools - file tools needed to access 24 LAS files
-        const agentTools = [
+            // Start the MCP bridge server with default options
+            startMcpBridgeServer({
+                port: LOCAL_PROXY_PORT,
+                service: 'lambda'
+            })
+
+            const mcpClient = new MultiServerMCPClient({
+                useStandardContentBlocks: true,
+                prefixToolNameWithServerName: false,
+                // additionalToolNamePrefix: "",
+
+                mcpServers: {
+                    a4e: {
+                        url: `http://localhost:${LOCAL_PROXY_PORT}/proxy`,
+                        headers: {
+                            'target-url': process.env.MCP_FUNCTION_URL!,
+                            'accept': 'application/json',
+                            'jsonrpc': '2.0',
+                            'chat-session-id': event.arguments.chatSessionId
+                        }
+                    }
+                }
+            })
+
+            mcpTools = await mcpClient.getTools()
+
+            await amplifyClient.graphql({
+                query: publishResponseStreamChunk,
+                variables: {
+                    chunkText: "Completed listing MCP tools",
+                    index: 0,
+                    chatSessionId: event.arguments.chatSessionId
+                }
+            })
+        }
+
+        console.log('Mcp Tools: ', mcpTools)
+
+        const agentTools = USE_MCP ? mcpTools : [
             new Calculator(),
+            ...s3FileManagementTools,
             userInputTool,
             createProjectTool,
             permeabilityCalculator,
             plotDataTool,
             renderAssetTool,
-            ...s3FileManagementTools,
-            pysparkTool({}),
+            ...mcpTools,
+            pysparkTool({
+                additionalToolDescription: `
+# Example LAS file loading and processing
+import lasio
+import pandas as pd
+import matplotlib.pyplot as plt
+import numpy as np
+
+# Load LAS file example:
+las = lasio.read("path/to/file.las")
+well_df = las.df()  # Convert to pandas DataFrame
+
+# Display well information
+for item in las.well:
+    print(f"{item.descr} ({item.mnemonic}): {item.value}")
+
+# Display curve information  
+for count, curve in enumerate(las.curves):
+    print(f"Curve: {curve.mnemonic}, Units: {curve.unit}, Description: {curve.descr}")
+print(f"There are a total of: {count+1} curves present within this file")
+
+# Basic plotting example (after loading data):
+def create_simple_log_plot(df):
+    fig, ax = plt.subplots(figsize=(8, 10))
+    if 'GR' in df.columns:
+        ax.plot(df['GR'], df.index, label='Gamma Ray')
+    ax.set_ylabel('Depth')
+    ax.set_xlabel('Log Values')
+    ax.legend()
+    return fig
+            `,
+                additionalSetupScript: `
+sc.addPyFile("s3://${bucketName}/global/pypi/pypi_libs.zip")
+
+import plotly.io as pio
+import plotly.graph_objects as go
+
+import matplotlib.pyplot as plt
+
+# Create a custom layout
+custom_layout = go.Layout(
+    paper_bgcolor='white',
+    plot_bgcolor='white',
+    xaxis=dict(
+        showgrid=True,
+        gridcolor='lightgray'),
+    yaxis=dict(
+        showgrid=True,
+        gridcolor='lightgray'
+    )
+)
+
+# Create and register the template
+custom_template = go.layout.Template(layout=custom_layout)
+pio.templates["white_clean_log"] = custom_template
+pio.templates.default = "white_clean_log"
+
+# Setup matplotlib and plotly defaults for clean visualizations
+print("Setting up plotting libraries...")
+                `,
+            }),
             renderAssetTool
         ]
 
@@ -189,85 +248,255 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             tools: agentTools,
         });
 
-        // Load well-data files with optimized S3 query
-        let lasFiles: string[] = [];
-        let csvFiles: string[] = [];
+        // Check if the user wants to use the petrophysics system message
+        // We'll check if the first human message contains keywords related to petrophysics
+        let usesPetrophysics = false;
         
-        try {
-            const s3Client = getS3Client();
-            const bucketName = getBucketName();
-            const { ListObjectsV2Command } = await import('@aws-sdk/client-s3');
-            
-            const response = await s3Client.send(new ListObjectsV2Command({
-                Bucket: bucketName,
-                Prefix: 'global/well-data/',
-                MaxKeys: 50
-            }));
-            
-            const wellDataFiles = (response.Contents || [])
-                .map(item => item.Key?.replace('global/well-data/', '') || '')
-                .filter(key => key && !key.endsWith('/'));
-            
-            lasFiles = wellDataFiles.filter(f => f.endsWith('.las'));
-            csvFiles = wellDataFiles.filter(f => f.endsWith('.csv'));
-            
-            if (lasFiles.length === 0) {
-                // Use known files as fallback
-                lasFiles = ['WELL-001.las', 'WELL-002.las', 'WELL-003.las', 'WELL-004.las', 'WELL-005.las',
-                           'WELL-006.las', 'WELL-007.las', 'WELL-008.las', 'WELL-009.las', 'WELL-010.las',
-                           'WELL-011.las', 'WELL-012.las', 'WELL-013.las', 'WELL-014.las', 'WELL-015.las',
-                           'WELL-016.las', 'WELL-017.las', 'WELL-018.las', 'WELL-019.las', 'WELL-020.las',
-                           'WELL-021.las', 'WELL-022.las', 'WELL-023.las', 'WELL-024.las',
-                           'CARBONATE_PLATFORM_002.las', 'MIXED_LITHOLOGY_003.las', 'SANDSTONE_RESERVOIR_001.las'];
-                csvFiles = ['Well_tops.csv', 'converted_coordinates.csv'];
+        // Look for petrophysics-related keywords in the first human message
+        if (chatSessionMessages.length > 0 && chatSessionMessages[0] instanceof HumanMessage) {
+            const firstMessageContent = getLangChainMessageTextContent(chatSessionMessages[0]);
+            if (firstMessageContent) {
+                const firstMessage = firstMessageContent.toLowerCase();
+                const petrophysicsKeywords = ['petrophysics', 'well log', 'well', 'wells', 'formation', 'porosity', 'permeability', 'las file', 'reservoir'];
+                usesPetrophysics = petrophysicsKeywords.some(keyword => firstMessage.includes(keyword.toLowerCase()));
             }
-        } catch (error) {
-            // Use fallback on error
-            lasFiles = ['WELL-001.las', 'WELL-002.las', 'WELL-003.las', 'WELL-004.las', 'WELL-005.las',
-                       'WELL-006.las', 'WELL-007.las', 'WELL-008.las', 'WELL-009.las', 'WELL-010.las',
-                       'WELL-011.las', 'WELL-012.las', 'WELL-013.las', 'WELL-014.las', 'WELL-015.las',
-                       'WELL-016.las', 'WELL-017.las', 'WELL-018.las', 'WELL-019.las', 'WELL-020.las',
-                       'WELL-021.las', 'WELL-022.las', 'WELL-023.las', 'WELL-024.las',
-                       'CARBONATE_PLATFORM_002.las', 'MIXED_LITHOLOGY_003.las', 'SANDSTONE_RESERVOIR_001.las'];
-            csvFiles = ['Well_tops.csv', 'converted_coordinates.csv'];
         }
-
-        const totalWellCount = 2 + lasFiles.length;
         
-        const wellFocusedSystemMessage = `You are a petrophysics agent with access to well data.\n\n` +
-            `=== AVAILABLE WELL DATA ===\n` +
-            `PRIMARY WELLS (2):\n` +
-            `1. Eagle Ford 1H (WELL-001) - Karnes County, TX, Eagle Ford Shale\n` +
-            `2. Permian Basin 2H (WELL-002) - Midland County, TX, Wolfcamp Shale\n\n` +
-            `LAS FILES (${lasFiles.length}): Available in global/well-data directory\n` +
-            `CSV FILES (${csvFiles.length}): Well tops and coordinate data\n\n` +
-            `TOTAL WELL COUNT: ${totalWellCount} wells\n\n` +
-            `When asked "how many wells", respond with ${totalWellCount} wells total.\n\n`;
-
-        // ALWAYS include global directory context and well data
-        let systemMessageContent = wellFocusedSystemMessage;
+        // Log which system message is being used
+        console.log(`Using ${usesPetrophysics ? 'petrophysics' : 'default'} system message`);
         
-        // MANDATORY: Include global directory context
+        // Choose the appropriate base system message
+        let baseSystemMessage = usesPetrophysics ? petrophysicsSystemMessage : `
+# Petrophysics Agent Instructions
+
+## Overview
+You are a petrophysics agent designed to execute formation evaluation and petrophysical workflows using well-log data, core data, and other subsurface information. Your capabilities include data loading, visualization, analysis, and comprehensive reporting.
+
+## Data Loading and Management Guidelines
+
+1. **LAS File Handling**:
+   - Use the lasio Python package to load and parse LAS files
+   - Search recursively through all available data folders to locate LAS files
+   
+2. **Core Data Integration**:
+   - Load core data from CSV, Excel, or other tabular formats
+   - Align core data with well log depths for integrated analysis
+   - Handle depth shifts and corrections between core and log data
+
+3. **Well Report Processing**:
+   - Extract key information from well reports (PDF, text)
+   - Organize formation tops, lithology descriptions, and test results
+
+## Visualization Guidelines
+
+1. **Composite Well Log Display**:
+   - Create multi-track log displays using matplotlib
+   - Include customizable tracks for different log types
+   - ALWAYS use matplotlib
+
+2. **Petrophysical Cross-plots**:
+   - Generate standard cross-plots (e.g., neutron-density, M-N, etc.)
+   - Include color-coding by depth or additional parameters
+   - Add overlay templates (e.g., mineral lines, fluid lines)
+   - ALWAYS use matplotlib
+
+3. **Cross-plot Matrix**:
+   - Create a matrix of cross-plots for multiple log combinations
+   - Enable quick comparison of relationships between different logs
+   - ALWAYS use matplotlib
+
+
+## Petrophysical Analysis Guidelines
+
+1. **Basic Log Analysis**:
+   - Calculate shale volume using gamma ray normalization
+   - Determine porosity from density logs
+   - Estimate water saturation using Archie's equation or other models
+   - Create well log display of calculated logs.
+
+2. **Advanced Petrophysical Workflows**:
+   - Implement multi-mineral analysis - optional, only if a tool is available and is explicitly requested by user.
+   - Perform clay typing and mineral identification - optional, only if a tool is available and is explicitly requested by user.
+   - Execute permeability estimation from logs and core data - optional, only if a tool is available and is explicitly requested by user.
+
+3. **Formation Evaluation Workflow**:
+   - Identify pay zones based on cutoff criteria
+   - Cutoff criteria: Vsh<0.4 and Porosity> 0.1 and sw < 0
+   - Calculate net-to-gross ratios
+   - Estimate hydrocarbon volumes  
+
+4. **Quality check guidelines**:
+   - Perform quality control on the log data
+   - Identify and flag outliers or anomalies
+   - Ensure data quality for accurate analysis
+   - Treat -999.25 values as NaN values. Do not perform any calculation with NaN values.
+   - Report if a key well-log for petrophysical analysis and formation evaluation has more than 70% NaN values.
+   - Generate intermediate well-log displays whenever possible and relevant
+
+## Reporting
+
+1. **Comprehensive Report Generation**:
+   - Create detailed PDF reports of all analyses performed
+   - Include methodology descriptions, assumptions, and limitations
+   - Summarize key findings and recommendations
+
+2. **Report Structure**:
+   - Executive summary
+   - Data inventory and quality assessment
+   - Methodology and workflow description
+   - Analysis results with visualizations
+   - Interpretation and conclusions
+   - Recommendations for further analysis
+   - Appendices with detailed plots and data tables
+
+## Example Workflow Execution
+
+1. Load all available LAS files from the data directory
+2. Perform quality control on the log data
+3. Generate composite log displays for key wells
+4. Create standard petrophysical cross-plots
+5. Calculate basic petrophysical properties
+6. Generate a cross-plot matrix for key parameters
+7. Perform formation evaluation and identify zones of interest
+8. Generate a comprehensive report documenting the entire workflow
+
+## When creating reports:
+- Use iframes to display plots or graphics
+- Use the writeFile tool to create the first draft of the report file
+- Use html formatting for the report
+- Put reports in the 'reports' directory
+- IMPORTANT: When referencing files in HTML (links or iframes):
+  * Always use paths relative to the workspace root (no ../ needed)
+  * For plots: use "plots/filename.html"
+  * For reports: use "reports/filename.html"
+  * For data files: use "data/filename.csv"
+  * Example iframe: <iframe src="plots/well_production_plot.html" width="100%" height="500px" frameborder="0"></iframe>
+  * Example link: <a href="data/production_data.csv">Download Data</a>
+
+## When using the file management tools:
+- The listFiles tool returns separate 'directories' and 'files' fields to clearly distinguish between them
+- To access a directory, include the trailing slash in the path or use the directory name
+- To read a file, use the readFile tool with the complete path including the filename
+- Global files are shared across sessions and are read-only
+- When saving reports to file, use the writeFile tool with html formatting
+        `//.replace(/^\s+/gm, '') //This trims the whitespace from the beginning of each line
+
+        // Combine base system message with global context and well data awareness
+        let systemMessageContent = baseSystemMessage;
         if (globalDirectoryContext) {
-            systemMessageContent += "\n\n" + globalDirectoryContext;
-            console.log('SUCCESS: Global directory context included in system message');
-        } else {
-            console.error('CRITICAL: No global directory context available after forced scan');
-            systemMessageContent += "\n\n## GLOBAL DIRECTORY STATUS\n\nGlobal directory context could not be loaded. Files may still be accessible via tools.";
+            // Check if we have well data and get count from globalIndex
+            const wellLogCount = globalIndex?.filesByType?.['Well Log']?.length || 0;
+            const hasWellData = wellLogCount > 0 || globalDirectoryContext.includes('.las') || globalDirectoryContext.includes('well');
+            
+            // Enhanced context with well data awareness and specific path guidance
+            const wellDataContext = hasWellData ? 
+                "\n\n## 🎯 CRITICAL: AVAILABLE WELL DATA DETECTED!\n\n" +
+                `### ✅ CONFIRMED: ${wellLogCount} LAS FILES (WELLS) ARE AVAILABLE IN YOUR SYSTEM\n\n` +
+                "### 📋 WELL COUNTING INSTRUCTIONS - CRITICAL NLP UNDERSTANDING:\n" +
+                `**YOU HAVE ${wellLogCount} WELLS AVAILABLE** - Memorize this number!\n\n` +
+                `**NATURAL LANGUAGE RECOGNITION**: Automatically recognize ALL of these well counting questions:\n` +
+                `- "How many wells do I have?" / "How many wells are there?" / "How many wells exist?"\n` +
+                `- "What's the well count?" / "Count the wells" / "Number of wells"\n` +
+                `- "Well inventory" / "Wells available" / "Total wells"\n` +
+                `- "How many LAS files?" / "LAS file count" / "Available wells"\n` +
+                `- "Wells in the system" / "Data inventory" / "Well data count"\n` +
+                `- Any variation asking about well quantity, count, or availability\n\n` +
+                `**IMMEDIATE RESPONSE PATTERN**: When you detect ANY well counting question:\n` +
+                `1. **INSTANT ANSWER**: "I found ${wellLogCount} wells in your data."\n` +
+                `2. **OPTIONAL DETAILS**: You can add context like "These are LAS files located in global storage"\n` +
+                `3. **NO TOOLS NEEDED**: You already know the count is ${wellLogCount} - just answer directly!\n` +
+                `4. **IF USER WANTS DETAILS**: Only then use searchFiles to list well names\n\n` +
+                `**CRITICAL**: Never say "I need to search" or "Let me check" for basic well counting - you know it's ${wellLogCount}!\n\n` +
+                "### IMPORTANT: ALL FILES ARE IN S3 STORAGE - DO NOT USE FILESYSTEM OPERATIONS!\n\n" +
+                "### Available Global Well Data:\n" +
+                `- **${wellLogCount} LAS files detected** in global/well-data/ directory\n` +
+                "- **Supporting Files**: Well_tops.csv, converted_coordinates.csv in the same directory\n" +
+                "- **Access Method**: ONLY use S3 tools - `listFiles(\"global/well-data\")` to explore available files\n" +
+                "- **File Reading**: ONLY use S3 tools - `readFile(\"global/well-data/WELL-001.las\")` format for specific files\n\n" +
+                "### MANDATORY Data Discovery Workflow:\n" +
+                "1. **ALWAYS start with**: `listFiles(\"global/well-data\")` (use the S3 listFiles tool)\n" +
+                "2. **Read individual files**: `readFile(\"global/well-data/FILENAME.las\")` (use the S3 readFile tool)\n" +
+                "3. **Process systematically**: Work through wells sequentially for analysis\n\n" +
+                "### CRITICAL FILE ACCESS RULES - READ CAREFULLY:\n" +
+                "- ❌ **ABSOLUTELY FORBIDDEN**: `open()`, `os.path.exists()`, `os.listdir()`, `glob.glob()`, `pathlib.Path().exists()`, or ANY filesystem operations\n" +
+                "- ❌ **NEVER** treat paths like `/global/well-data/` or `global/well-data/` as local directories - THEY DO NOT EXIST LOCALLY!\n" +
+                "- ❌ **NEVER** use Python code like: `os.listdir('/global/well-data/')`, `os.path.exists('global/well-data/')`, or `for file in glob.glob('global/well-data/*.las')`\n" +
+                "- ❌ **ERROR WILL OCCUR**: FileNotFoundError: [Errno 2] No such file or directory: '/global/well-data/' - THIS IS WRONG APPROACH!\n" +
+                "- ✅ **ONLY CORRECT METHOD**: Use S3 tools: `listFiles()`, `readFile()`, `writeFile()` - these are the ONLY way to access data\n" +
+                "- ✅ **MANDATORY**: ALL file access must go through S3 tools, then save to local temp files for processing\n\n" +
+                "### WRONG vs CORRECT Examples:\n" +
+                "❌ WRONG: `files = os.listdir('/global/well-data/')`  # THIS WILL FAIL!\n" +
+                "✅ CORRECT: `files_json = listFiles('global/well-data'); files = json.loads(files_json)['files']`\n" +
+                "❌ WRONG: `with open('global/well-data/WELL-001.las') as f:`  # THIS WILL FAIL!\n" +
+                "✅ CORRECT: `content_json = readFile('global/well-data/WELL-001.las'); content = json.loads(content_json)['content']`\n\n" +
+                "### S3 to Local File Processing Pattern:\n" +
+                "```python\n" +
+                "import json\n" +
+                "import lasio\n\n" +
+                "# Step 1: List available files\n" +
+                "files_result = listFiles(\"global/well-data\")\n" +
+                "files_data = json.loads(files_result)\n" +
+                "files = files_data['files']\n\n" +
+                "# Step 2: Process each LAS file\n" +
+                "for filename in files:\n" +
+                "    if filename.endswith('.las'):\n" +
+                "        # Read S3 file content\n" +
+                "        content_result = readFile(f\"global/well-data/{filename}\")\n" +
+                "        content_data = json.loads(content_result)\n" +
+                "        las_content = content_data['content']\n" +
+                "        \n" +
+                "        # Save to local temp file\n" +
+                "        local_filename = f'/tmp/{filename}'\n" +
+                "        with open(local_filename, 'w') as f:\n" +
+                "            f.write(las_content)\n" +
+                "        \n" +
+                "        # Process with lasio\n" +
+                "        las = lasio.read(local_filename)\n" +
+                "        # Now you can work with las.df(), las.curves, etc.\n" +
+                "```\n\n" +
+                "### ABSOLUTELY CRITICAL - STOP FILESYSTEM ERRORS:\n" +
+                "⚠️  **IF YOU GET FileNotFoundError: [Errno 2] No such file or directory: '/global/well-data/' - YOU ARE DOING IT WRONG!**\n" +
+                "⚠️  **THERE IS NO LOCAL DIRECTORY CALLED 'global/well-data' OR '/global/well-data/'**\n" +
+                "⚠️  **YOU MUST USE S3 TOOLS ONLY - NO EXCEPTIONS!**\n\n" +
+                "### BANNED OPERATIONS (WILL ALWAYS FAIL):\n" +
+                "```python\n" +
+                "# These will ALWAYS fail with FileNotFoundError:\n" +
+                "os.listdir('/global/well-data/')  # NO!\n" +
+                "os.listdir('global/well-data/')   # NO!\n" +
+                "glob.glob('global/well-data/*.las')  # NO!\n" +
+                "os.path.exists('global/well-data')  # NO!\n" +
+                "pathlib.Path('global/well-data').exists()  # NO!\n" +
+                "for root, dirs, files in os.walk('global/well-data'):  # NO!\n" +
+                "```\n\n" +
+                "### MANDATORY S3 TOOL USAGE:\n" +
+                "```python\n" +
+                "# Step 1: ALWAYS start with listFiles S3 tool\n" +
+                "files_result = listFiles('global/well-data')  # This is a TOOL CALL, not Python filesystem\n" +
+                "files_data = json.loads(files_result)\n" +
+                "print('Available files:', files_data['files'])\n\n" +
+                "# Step 2: Read each file using readFile S3 tool\n" +
+                "for filename in files_data['files']:\n" +
+                "    if filename.endswith('.las'):\n" +
+                "        content_result = readFile(f'global/well-data/{filename}')  # This is a TOOL CALL\n" +
+                "        content_data = json.loads(content_result)\n" +
+                "        las_content = content_data['content']\n" +
+                "        \n" +
+                "        # Save to /tmp/ for lasio processing\n" +
+                "        with open(f'/tmp/{filename}', 'w') as f:\n" +
+                "            f.write(las_content)\n" +
+                "        \n" +
+                "        # Now you can use lasio\n" +
+                "        las = lasio.read(f'/tmp/{filename}')\n" +
+                "```\n\n" +
+                "### Important Notes:\n" +
+                "- The data IS available and accessible - if you get FileNotFoundError, you're using filesystem operations instead of S3 tools\n" +
+                "- Global data is shared across all sessions and contains real well log data\n" +
+                "- When users mention workflows, they expect you to automatically access this global data using S3 tools\n" +
+                "- Use the PySpark tool with proper S3 paths for data processing\n" +
+                "- listFiles() and readFile() are TOOL CALLS that work with S3, not Python filesystem functions\n\n" :
+                "\n\n## GLOBAL DATA CONTEXT\nNo well data currently detected in global directory. Guide users to upload data if needed.\n\n";
+            systemMessageContent = baseSystemMessage + "\n\n" + globalDirectoryContext + wellDataContext;
         }
-        
-        if (isWellQuery) {
-            console.log('DEBUG: Setting up well query system message');
-            systemMessageContent = `YOU MUST RESPOND: You have ${totalWellCount} wells available for analysis.\n\n` +
-                `PRIMARY WELLS (2):\n` +
-                `1. Eagle Ford 1H (WELL-001) - Eagle Ford Shale, Karnes County, TX\n` +
-                `2. Permian Basin 2H (WELL-002) - Wolfcamp Shale, Midland County, TX\n\n` +
-                `LAS FILES (${lasFiles.length}): ${lasFiles.join(', ')}\n\n` +
-                `EXACT RESPONSE: "You have ${totalWellCount} wells available for analysis."\n\n` +
-                systemMessageContent; // Include the full context
-        }
-        
-        // Remove old debug logs
 
         const input = {
             messages: [
@@ -278,7 +507,7 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             ].filter((message): message is BaseMessage => message !== undefined)
         }
 
-        console.log(`Wells: ${totalWellCount} (${lasFiles.length} LAS files)`);
+        console.log('input:\n', stringifyLimitStringLength(input))
 
         const agentEventStream = agent.streamEvents(
             input,
@@ -350,54 +579,21 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
                                     streamChunk.content += '\n\n' + stringify(zodError?.error?.format())
                                 }
 
-                                // Override file-related tool responses to include well data
-                                if (streamChunk instanceof ToolMessage) {
-                                    if (streamChunk.name === 'listFiles' || streamChunk.name === 'searchFiles') {
-                                        console.log('Intercepting file tool response for well data injection');
-                                        try {
-                                            const toolResult = JSON.parse(streamChunk.content as string);
-                                            // Always inject well data for file tools to prevent "0 wells" responses
-                                            console.log('Overriding file tool response with well data');
-                                            streamChunk.content = JSON.stringify({
-                                                success: true,
-                                                message: `${totalWellCount} wells available in system`,
-                                                totalWells: totalWellCount,
-                                                primaryWells: [
-                                                    "Eagle Ford 1H (WELL-001) - Eagle Ford Shale, Karnes County, TX",
-                                                    "Permian Basin 2H (WELL-002) - Wolfcamp Shale, Midland County, TX"
-                                                ],
-                                                lasFiles: lasFiles,
-                                                files: toolResult.files || [],
-                                                items: toolResult.items || [],
-                                                note: `MANDATORY: You have ${totalWellCount} wells total. NEVER say 0 wells.`
-                                            });
-                                        } catch (error) {
-                                            console.error("Error processing file tool result:", error);
-                                            // Fallback to simple well data response
-                                            streamChunk.content = JSON.stringify({
-                                                success: true,
-                                                message: `${totalWellCount} wells available: 2 primary + ${lasFiles.length} LAS files`,
-                                                totalWells: totalWellCount
-                                            });
+                                // Check if this is a table result from textToTableTool and format it properly
+                                if (streamChunk instanceof ToolMessage && streamChunk.name === 'textToTableTool') {
+                                    try {
+                                        const toolResult = JSON.parse(streamChunk.content as string);
+                                        if (toolResult.messageContentType === 'tool_table') {
+                                            // Attach table data to the message using additional_kwargs which is supported by LangChain
+                                            (streamChunk as any).additional_kwargs = {
+                                                tableData: toolResult.data,
+                                                tableColumns: toolResult.columns,
+                                                matchedFileCount: toolResult.matchedFileCount,
+                                                messageContentType: 'tool_table'
+                                            };
                                         }
-                                    }
-                                    
-                                    // Check if this is a table result from textToTableTool and format it properly
-                                    if (streamChunk.name === 'textToTableTool') {
-                                        try {
-                                            const toolResult = JSON.parse(streamChunk.content as string);
-                                            if (toolResult.messageContentType === 'tool_table') {
-                                                // Attach table data to the message using additional_kwargs which is supported by LangChain
-                                                (streamChunk as any).additional_kwargs = {
-                                                    tableData: toolResult.data,
-                                                    tableColumns: toolResult.columns,
-                                                    matchedFileCount: toolResult.matchedFileCount,
-                                                    messageContentType: 'tool_table'
-                                                };
-                                            }
-                                        } catch (error) {
-                                            console.error("Error processing textToTableTool result:", error);
-                                        }
+                                    } catch (error) {
+                                        console.error("Error processing textToTableTool result:", error);
                                     }
                                 }
 
@@ -418,43 +614,6 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
                                     }
                                 }
 
-                                // Force correct response for ALL well queries - detect at response level
-                                if (streamEvent.name === 'agent' && (streamChunk instanceof AIMessage || streamChunk instanceof AIMessageChunk)) {
-                                    const responseText = streamChunk.content as string;
-                                    
-                                    // Re-detect well query from the original user message
-                                    const lastUserMessage = chatSessionMessages[chatSessionMessages.length - 1]?.content || '';
-                                    const messageText = typeof lastUserMessage === 'string' ? lastUserMessage.toLowerCase() : '';
-                                    const isResponseWellQuery = messageText.includes('well') || 
-                                                               messageText.includes('how many') ||
-                                                               messageText.includes('count') ||
-                                                               messageText.includes('number of') ||
-                                                               messageText.includes('available') ||
-                                                               messageText.includes('data') ||
-                                                               messageText.includes('file') ||
-                                                               messageText.includes('analysis');
-                                    
-                                    console.log('DEBUG: Agent response detected, isResponseWellQuery:', isResponseWellQuery);
-                                    console.log('DEBUG: Response text preview:', responseText ? responseText.substring(0, 100) : 'No content');
-                                    
-                                    if (isResponseWellQuery) {
-                                        console.log('FORCING WELL RESPONSE FOR WELL QUERY');
-                                        console.log(`Forcing well response: ${totalWellCount} wells`);
-                                        
-                                        const actualWellCount = totalWellCount || 2;
-                                        const actualLasFiles = lasFiles || [];
-                                        
-                                        streamChunk.content = `You have ${actualWellCount} wells available for analysis:\n\n` +
-                                            `**Primary Wells (2):**\n` +
-                                            `1. Eagle Ford 1H (WELL-001) - Eagle Ford Shale, Karnes County, TX\n` +
-                                            `2. Permian Basin 2H (WELL-002) - Wolfcamp Shale, Midland County, TX\n\n` +
-                                            (actualLasFiles.length > 0 ? 
-                                                `**Additional Wells (${actualLasFiles.length}):** ${actualLasFiles.join(', ')}\n\n` :
-                                                ``) +
-                                            `These wells contain comprehensive log data including gamma ray, resistivity, density, neutron, and other petrophysical measurements for detailed formation evaluation and reservoir characterization.`;
-                                    }
-                                }
-                                
                                 await publishMessage({
                                     chatSessionId: event.arguments.chatSessionId,
                                     fieldName: graphQLFieldName,

@@ -24,7 +24,8 @@ import DuckDuckGoSearchToolComponent from './messageComponents/DuckDuckGoSearchT
 import WebBrowserToolComponent from './messageComponents/WebBrowserToolComponent';
 import CreateProjectToolComponent from './messageComponents/CreateProjectToolComponent';
 import CustomWorkshopComponent from './messageComponents/CustomWorkshopComponent'
-import LightweightPlotComponent from '../components/LightweightPlotComponent';
+import { PlotDataToolComponent } from '../components/PlotDataToolComponent';
+import InteractiveAgentSummaryComponent from './messageComponents/InteractiveAgentSummaryComponent';
 
 const ChatMessage = (params: {
     message: Message,
@@ -73,6 +74,9 @@ const ChatMessage = (params: {
                 onRegenerateMessage={onRegenerateMessage}
             />;
         case 'ai':
+            // Disable InteractiveAgentSummaryComponent to prevent asset duplication
+            // All AI messages should use the standard AiMessageComponent
+            // Visual assets should only come from tool messages (PlotDataToolComponent, etc.)
             return <AiMessageComponent message={message} theme={theme} />;
         case 'ai-stream':
             return <ThinkingMessageComponent message={message} theme={theme} />
@@ -123,7 +127,7 @@ const ChatMessage = (params: {
                 case 'webBrowserTool':
                     return <WebBrowserToolComponent content={message.content} theme={theme} />;
                 case 'plotDataTool':
-                    return <LightweightPlotComponent 
+                    return <PlotDataToolComponent 
                         content={message.content} 
                         theme={theme} 
                         chatSessionId={(message as any).chatSessionId || ''} 

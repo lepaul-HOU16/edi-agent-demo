@@ -23,7 +23,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
   
   // Dynamic iframe configuration for HTML content
   const dynamicIframe = useDynamicIframe({
-    minHeight: 200,
+    minHeight: 500,
     maxHeight: viewport.height * 0.8,
     debounceMs: 200,
     contentPadding: 20
@@ -129,8 +129,9 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                   className="html-iframe-dynamic"
                   sx={{ 
                     width: '100%', 
-                    height: `${dynamicIframe.height}px`,
-                    overflow: 'hidden',
+                    minHeight: '600px',
+                    height: `${Math.max(dynamicIframe.height, 600)}px`,
+                    overflow: 'hidden', // Let the iframe handle scrolling internally
                     border: 'none',
                     transition: 'height 0.3s ease-in-out',
                     borderRadius: 1,
@@ -142,7 +143,7 @@ const RenderAssetToolComponent: React.FC<RenderAssetToolComponentProps> = ({ con
                     src={`/file/${s3Key}`}
                     style={{ 
                       width: '100%',
-                      height: `${dynamicIframe.height}px`,
+                      height: `${Math.max(dynamicIframe.height, 600)}px`,
                       border: 'none',
                       display: 'block',
                       borderRadius: '4px'

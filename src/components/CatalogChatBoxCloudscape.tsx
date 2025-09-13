@@ -15,8 +15,11 @@ import {
 import ExpandablePromptInput from './ExpandablePromptInput';
 import { v4 as uuidv4 } from 'uuid';
 
-// Component to render a clean dynamic table within a chat message
+// Component to render a dynamic table within a chat message
 function DynamicTableDisplay({ tableData }: { tableData: any[] }) {
+  const [currentPageIndex, setCurrentPageIndex] = useState(1);
+  const pageSize = 10;
+  
   // Generate column definitions dynamically based on the first item's keys
   const generateColumnDefinitions = () => {
     if (!tableData || tableData.length === 0) return [];
@@ -36,11 +39,21 @@ function DynamicTableDisplay({ tableData }: { tableData: any[] }) {
   const columnDefinitions = generateColumnDefinitions();
 
   return (
-    <Table
-      columnDefinitions={columnDefinitions}
-      items={tableData}
-      trackBy={(item) => item.name || `item-${Math.random()}`}
-    />
+    <div 
+      style={{ 
+        marginTop: '15px', 
+        marginBottom: '15px'
+      }}
+    >
+      <div className='tables'>
+        <Table
+          columnDefinitions={columnDefinitions}
+          items={tableData}
+          trackBy={(item) => item.name || `item-${Math.random()}`}
+        />
+      </div>
+      
+    </div>
   );
 }
 

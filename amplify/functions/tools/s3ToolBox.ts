@@ -12,9 +12,6 @@ import { validate } from 'jsonschema';
 import { stringifyLimitStringLength } from "../../../utils/langChainUtils";
 import { BaseMessage, AIMessage, HumanMessage } from "@langchain/core/messages";
 import { match } from "assert";
-// Import intelligent context system
-import { classifyQueryIntent } from "./queryIntentClassifier";
-import { getBasicWellContext, enhanceToolResponseWithContext } from "./wellDataContextProvider";
 // import { stringifyLimitStringLength } from "../../../utils/stringUtils";
 
 // Schema for listing files
@@ -427,32 +424,12 @@ export const listFiles = tool(
                 const directories = items.filter(item => item.type === 'directory');
                 const files = items.filter(item => item.type === 'file');
 
-                // Create base response
-                const baseResponse = {
+                return JSON.stringify({
                     path: directory,
                     directories: directories.map(d => d.name),
                     files: files.map(f => f.name),
                     items // Keep the original items with type info for backward compatibility
-                };
-
-                // Check if this appears to be a well-related query (accessing global well data)
-                if (directory.includes('well') || globalDir.includes('well-data')) {
-                    console.log('Detected well-related directory listing, enhancing with context');
-                    try {
-                        const wellContext = await getBasicWellContext();
-                        return JSON.stringify({
-                            ...baseResponse,
-                            wellDataContext: wellContext,
-                            note: "Well data detected - you have access to comprehensive petrophysical datasets"
-                        });
-                    } catch (contextError) {
-                        console.error('Error adding well context:', contextError);
-                        // Return original response if context enhancement fails
-                        return JSON.stringify(baseResponse);
-                    }
-                }
-
-                return JSON.stringify(baseResponse);
+                });
             }
 
             // Handle session-specific directory listing
@@ -479,7 +456,7 @@ export const listFiles = tool(
     },
     {
         name: "listFiles",
-        description: "Lists files and directories from S3 storage. The response clearly distinguishes between directories and files. Use 'global' or 'global/path' to access shared files across all sessions, or a regular path for session-specific files. Automatically provides well data context when accessing well-related directories.",
+        description: "Lists files and directories from S3 storage. The response clearly distinguishes between directories and files. Use 'global' or 'global/path' to access shared files across all sessions, or a regular path for session-specific files.",
         schema: listFilesSchema,
     }
 );
@@ -1077,28 +1054,33 @@ export const textToTableTool = tool(
             matchingFiles.push(...userFiles);
 
             // Search in global files
-            const globalWellDataFiles = await findFilesMatchingPattern(
-                GLOBAL_PREFIX + 'well-data/',
-                params.filePattern
-            );
-            matchingFiles.push(...globalWellDataFiles);
-
+            // Remove directory prefix from pattern if it exists to avoid double-prefixing
+            let wellPattern = params.filePattern;
+            if (wellPattern.startsWith('well-data/')) {
+                wellPattern = wellPattern.replace('well-data/', '');
+            }
+            
             const globalWellFiles = await findFilesMatchingPattern(
-                GLOBAL_PREFIX + 'well-files/',
-                params.filePattern
+                GLOBAL_PREFIX + 'well-data/',
+                wellPattern
             );
             matchingFiles.push(...globalWellFiles);
 
+            let productionPattern = params.filePattern;
+            if (productionPattern.startsWith('production-data/')) {
+                productionPattern = productionPattern.replace('production-data/', '');
+            }
+
             const globalProductionFiles = await findFilesMatchingPattern(
                 GLOBAL_PREFIX + 'production-data/',
-                params.filePattern
+                productionPattern
             );
             matchingFiles.push(...globalProductionFiles);
 
             console.log(`Found ${matchingFiles.length} matching files`);
 
             // Filter out files which are not text files based on the suffix
-            const textExtensions = ['.txt', '.md', '.json', '.jsonl', '.yaml', '.yml', '.xml'];
+            const textExtensions = ['.txt', '.md', '.json', '.jsonl', '.yaml', '.yml', '.xml', '.las'];
             const filteredFiles = matchingFiles.filter(file => {
                 const lowerCaseFile = file.toLowerCase();
                 return textExtensions.some(ext => lowerCaseFile.endsWith(ext.toLowerCase()));
@@ -1397,96 +1379,25 @@ export const textToTableTool = tool(
                     columnNames.push('FilePath');
                 }
 
-                // Create HTML content with Cloudscape-style table styling
+                // Create HTML content
                 let htmlContent = `
                 <!DOCTYPE html>
                 <html>
                 <head>
                     <title>${params.tableTitle}</title>
                     <style>
-                        body { 
-                            font-family: "Amazon Ember", "Helvetica Neue", Roboto, Arial, sans-serif;
-                            margin: 20px;
-                            background-color: #fafbfc;
-                            color: #232f3e;
-                            line-height: 20px;
-                        }
-                        h1 { 
-                            color: #232f3e;
-                            font-size: 28px;
-                            font-weight: 700;
-                            margin-bottom: 16px;
-                        }
-                        table { 
-                            width: 100%;
-                            border-collapse: separate;
-                            border-spacing: 0;
-                            border: 1px solid #d5dbdb;
-                            border-radius: 8px;
-                            background-color: #ffffff;
-                            font-size: 14px;
-                            line-height: 20px;
-                            margin: 16px 0;
-                            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-                        }
-                        thead {
-                            background-color: #fafbfc;
-                        }
-                        th { 
-                            padding: 12px 16px;
-                            text-align: left;
-                            font-weight: 700;
-                            color: #232f3e;
-                            border-bottom: 2px solid #d5dbdb;
-                            vertical-align: top;
-                        }
-                        th:first-child {
-                            border-top-left-radius: 8px;
-                        }
-                        th:last-child {
-                            border-top-right-radius: 8px;
-                        }
-                        tbody tr:nth-child(even) { 
-                            background-color: #fafbfc;
-                        }
-                        tbody tr:hover { 
-                            background-color: #f2f3f3;
-                        }
-                        td { 
-                            padding: 12px 16px;
-                            border-bottom: 1px solid #e9ebed;
-                            color: #232f3e;
-                            vertical-align: top;
-                        }
-                        td:first-child {
-                            font-weight: 500;
-                        }
-                        tbody tr:last-child td {
-                            border-bottom: none;
-                        }
-                        tbody tr:last-child td:first-child {
-                            border-bottom-left-radius: 8px;
-                        }
-                        tbody tr:last-child td:last-child {
-                            border-bottom-right-radius: 8px;
-                        }
-                        a { 
-                            color: #0972d3;
-                            text-decoration: none;
-                            font-weight: 500;
-                        }
-                        a:hover { 
-                            text-decoration: underline;
-                            color: #0258a3;
-                        }
-                        a:focus {
-                            outline: 2px solid #0972d3;
-                            outline-offset: 2px;
-                        }
+                        body { font-family: Arial, sans-serif; margin: 20px; }
+                        table { border-collapse: collapse; width: 100%; }
+                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+                        th { background-color: #f2f2f2; }
+                        tr:nth-child(even) { background-color: #f9f9f9; }
+                        tr:hover { background-color: #f1f1f1; }
+                        a { color: #0066cc; text-decoration: none; }
+                        a:hover { text-decoration: underline; }
+                        h1 { color: #333; }
                     </style>
                 </head>
                 <body>
-                    <h1>${params.tableTitle}</h1>
                     <table>
                         <thead>
                             <tr>
@@ -1637,11 +1548,26 @@ async function findFilesMatchingPattern(basePrefix: string, pattern: string): Pr
         console.log(`Corrected pattern from ${pattern} to ${correctedPattern}`);
     }
 
-    // If pattern doesn't have any wildcards, treat it as a contains search
-    if (!correctedPattern.includes('*') && !correctedPattern.includes('?') &&
-        !correctedPattern.includes('[') && !correctedPattern.includes('(') &&
-        !correctedPattern.includes('|')) {
-        // Change to match the pattern anywhere in the path after the base prefix
+    // Convert glob patterns to regex patterns
+    if (correctedPattern.includes('*') || correctedPattern.includes('?')) {
+        // This looks like a glob pattern, convert to regex
+        // Escape regex special characters except * and ?
+        let regexPattern = correctedPattern
+            .replace(/[.+^${}()|[\]\\]/g, '\\$&') // Escape regex special chars
+            .replace(/\*/g, '.*')  // Convert * to .*
+            .replace(/\?/g, '.');  // Convert ? to .
+        
+        // If the pattern looks like it should match the full path (contains directory separators)
+        // anchor it, otherwise allow it to match anywhere
+        if (correctedPattern.includes('/')) {
+            correctedPattern = `^${regexPattern}$`;
+        } else {
+            correctedPattern = `.*${regexPattern}.*`;
+        }
+        console.log(`Converted glob pattern to regex: ${correctedPattern}`);
+    } else if (!correctedPattern.includes('[') && !correctedPattern.includes('(') &&
+               !correctedPattern.includes('|') && !correctedPattern.includes('\\')) {
+        // If pattern doesn't have any regex wildcards, treat it as a contains search
         correctedPattern = `.*${correctedPattern}.*`;
         console.log(`Added wildcards to pattern: ${correctedPattern}`);
     }
@@ -1672,6 +1598,7 @@ async function findFilesMatchingPattern(basePrefix: string, pattern: string): Pr
             }));
 
             // console.log('Common Prefixes: ', listCommonPrefixesResponse.CommonPrefixes)
+            // Check both subdirectories (CommonPrefixes) and direct files (Contents)
             const matchingPrefixes = (listCommonPrefixesResponse.CommonPrefixes || [])
                 .filter(item => {
                     if (!item.Prefix) return false
@@ -1680,21 +1607,55 @@ async function findFilesMatchingPattern(basePrefix: string, pattern: string): Pr
                     return isMatch
                 })
 
-            if (matchingPrefixes.length === 0 && matchingFiles.length === 0) matchingPrefixes.push({ Prefix: searchPrefix }) //If no matching prefixes are found, search for all file matches under the search prefix.
-            console.log('Matching Prefixes: ', matchingPrefixes)
+            // Also check files in the current directory level
+            (listCommonPrefixesResponse.Contents || [])
+                .forEach(item => {
+                    if (!item.Key) return
+                    const relativePath = item.Key.replace(basePrefix, '');
+                    // Skip directory markers and empty paths
+                    if (relativePath && !relativePath.endsWith('/')) {
+                        const isMatch = fileMatchesPattern(relativePath, correctedPattern);
+                        if (isMatch) matchingFiles.push(item.Key)
+                    }
+                })
 
+            // If no matching prefixes found but we haven't found files yet, search the base prefix without delimiter
+            if (matchingPrefixes.length === 0 && matchingFiles.length === 0) {
+                console.log('No matching prefixes found, searching base prefix without delimiter')
+                const listAllFilesResult = await s3Client.send(new ListObjectsV2Command({
+                    Bucket: bucketName,
+                    Prefix: searchPrefix,
+                    MaxKeys: 1000
+                }));
+                
+                (listAllFilesResult.Contents || [])
+                    .forEach(item => {
+                        if (!item.Key) return
+                        const relativePath = item.Key.replace(basePrefix, '');
+                        // Skip directory markers and empty paths
+                        if (relativePath && !relativePath.endsWith('/')) {
+                            const isMatch = fileMatchesPattern(relativePath, correctedPattern);
+                            if (isMatch) matchingFiles.push(item.Key)
+                        }
+                    })
+            }
+
+            console.log('Matching Prefixes: ', matchingPrefixes.length)
+            console.log('Matching Files in this iteration: ', matchingFiles.length)
+
+            // Process subdirectories if any were found
             for await (const item of matchingPrefixes) {
                 const listFilesCommandResult = await s3Client.send(new ListObjectsV2Command({
                     Bucket: bucketName,
                     Prefix: item.Prefix,
-                    MaxKeys: 1000, // Fetch in larger batches,
+                    MaxKeys: 1000
                 }));
                 (listFilesCommandResult.Contents || [])
-                    .map(item => {
-                        if (!item.Key) return
-                        const relativePath = item.Key.replace(basePrefix, '');
+                    .forEach(fileItem => {
+                        if (!fileItem.Key) return
+                        const relativePath = fileItem.Key.replace(basePrefix, '');
                         const isMatch = fileMatchesPattern(relativePath, correctedPattern);
-                        if (isMatch) matchingFiles.push(item.Key)
+                        if (isMatch) matchingFiles.push(fileItem.Key)
                     })
             }
 
@@ -1743,33 +1704,6 @@ export const searchFiles = tool(
     async ({ filePattern, maxFiles = 100, includeGlobal = true }) => {
         try {
             const matchingFiles: string[] = [];
-            const debugInfo: string[] = [];
-
-            // Classify the search pattern to determine if it's well-related
-            const queryIntent = classifyQueryIntent(filePattern);
-            console.log('Search pattern query intent:', queryIntent);
-
-            // Add diagnostic info for LAS file searches
-            if (filePattern.includes('las') || filePattern.includes('\\.las')) {
-                debugInfo.push(`Searching for LAS files with pattern: ${filePattern}`);
-                
-                // Direct S3 listing for debugging
-                const s3Client = getS3Client();
-                const bucketName = getBucketName();
-                
-                try {
-                    const directListCommand = new ListObjectsV2Command({
-                        Bucket: bucketName,
-                        Prefix: 'global/well-files/',
-                        MaxKeys: 50
-                    });
-                    const directResponse = await s3Client.send(directListCommand);
-                    const directFiles = (directResponse.Contents || []).map(item => item.Key).filter(key => key && key.includes('.las'));
-                    debugInfo.push(`Direct S3 listing found ${directFiles.length} LAS files: ${directFiles.slice(0,5).join(', ')}${directFiles.length > 5 ? '...' : ''}`);
-                } catch (debugError) {
-                    debugInfo.push(`Direct S3 listing failed: ${debugError}`);
-                }
-            }
 
             // Search in user files
             const userFiles = await findFilesMatchingPattern(
@@ -1777,30 +1711,31 @@ export const searchFiles = tool(
                 filePattern
             );
             matchingFiles.push(...userFiles);
-            debugInfo.push(`User files found: ${userFiles.length}`);
 
             // Search in global files if requested
             if (includeGlobal) {
-                const globalWellDataFiles = await findFilesMatchingPattern(
-                    GLOBAL_PREFIX + 'well-data/',
-                    filePattern
-                );
-                matchingFiles.push(...globalWellDataFiles);
-                debugInfo.push(`Global well-data files found: ${globalWellDataFiles.length}`);
-
+                // Remove directory prefix from pattern if it exists to avoid double-prefixing
+                let wellPattern = filePattern;
+                if (wellPattern.startsWith('well-data/')) {
+                    wellPattern = wellPattern.replace('well-data/', '');
+                }
+                
                 const globalWellFiles = await findFilesMatchingPattern(
-                    GLOBAL_PREFIX + 'well-files/',
-                    filePattern
+                    GLOBAL_PREFIX + 'well-data/',
+                    wellPattern
                 );
                 matchingFiles.push(...globalWellFiles);
-                debugInfo.push(`Global well-files found: ${globalWellFiles.length}`);
+
+                let productionPattern = filePattern;
+                if (productionPattern.startsWith('production-data/')) {
+                    productionPattern = productionPattern.replace('production-data/', '');
+                }
 
                 const globalProductionFiles = await findFilesMatchingPattern(
                     GLOBAL_PREFIX + 'production-data/',
-                    filePattern
+                    productionPattern
                 );
                 matchingFiles.push(...globalProductionFiles);
-                debugInfo.push(`Global production-data files found: ${globalProductionFiles.length}`);
             }
 
             // Format file paths for display
@@ -1816,8 +1751,8 @@ export const searchFiles = tool(
             const limitedFiles = formattedFiles.slice(0, maxFiles);
             const hasMore = formattedFiles.length > maxFiles;
 
-            // Create base result
-            const baseResult = {
+            // Return results
+            return JSON.stringify({
                 files: limitedFiles,
                 count: limitedFiles.length,
                 totalCount: formattedFiles.length,
@@ -1825,37 +1760,8 @@ export const searchFiles = tool(
                 pattern: filePattern,
                 message: hasMore
                     ? `Found ${formattedFiles.length} files, showing first ${maxFiles}. Use a more specific pattern to narrow results.`
-                    : `Found ${formattedFiles.length} files.`,
-                debugInfo: debugInfo.length > 0 ? debugInfo : undefined
-            };
-
-            // If this appears to be a well-related search or found well files, enhance with context
-            const foundWellFiles = matchingFiles.some(file => 
-                file.includes('well') || file.includes('.las') || file.includes('WELL')
-            );
-            
-            if (queryIntent.isWellRelated || foundWellFiles || filePattern.includes('well') || filePattern.includes('las')) {
-                console.log('Detected well-related search, enhancing with context');
-                try {
-                    const wellContext = await getBasicWellContext();
-                    return JSON.stringify({
-                        ...baseResult,
-                        wellDataContext: wellContext,
-                        queryClassification: {
-                            category: queryIntent.category,
-                            confidence: Math.round(queryIntent.confidence * 100),
-                            reasoning: queryIntent.reasoning
-                        },
-                        note: "Well-related files detected - comprehensive petrophysical datasets available"
-                    });
-                } catch (contextError) {
-                    console.error('Error adding well context to search:', contextError);
-                    // Return original response if context enhancement fails
-                    return JSON.stringify(baseResult);
-                }
-            }
-
-            return JSON.stringify(baseResult);
+                    : `Found ${formattedFiles.length} files.`
+            });
         } catch (error: any) {
             return JSON.stringify({
                 error: `Error searching files: ${error.message || error}`,
@@ -1867,7 +1773,6 @@ export const searchFiles = tool(
         name: "searchFiles",
         description: `
         Search for files matching a regex pattern across user and global storage.
-        Automatically provides intelligent context when searching for well-related data.
         
         File pattern examples:
         - ".*\\.txt$" - all text files

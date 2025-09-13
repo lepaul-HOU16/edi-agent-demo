@@ -2,17 +2,15 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { getUrl } from 'aws-amplify/storage';
 import { CircularProgress } from '@mui/material';
-// AceEditor temporarily removed for memory optimization
-// import AceEditor from 'react-ace';
+import AceEditor from 'react-ace';
 import { useViewport, calculateOptimalIframeDimensions, getFileTypeFromExtension } from '../hooks/useViewport';
 
-// Ace editor imports temporarily removed for memory optimization
-// import 'ace-builds/src-noconflict/mode-javascript';
-// import 'ace-builds/src-noconflict/mode-json';
-// import 'ace-builds/src-noconflict/mode-yaml';
-// import 'ace-builds/src-noconflict/mode-html';
-// import 'ace-builds/src-noconflict/mode-text';
-// import 'ace-builds/src-noconflict/theme-github';
+import 'ace-builds/src-noconflict/mode-javascript';
+import 'ace-builds/src-noconflict/mode-json';
+import 'ace-builds/src-noconflict/mode-yaml';
+import 'ace-builds/src-noconflict/mode-html';
+import 'ace-builds/src-noconflict/mode-text';
+import 'ace-builds/src-noconflict/theme-github';
 
 interface FileViewerProps {
   s3Key: string;
@@ -197,17 +195,25 @@ export default function FileViewer({
         if (isEditMode) {
             return (
                 <div className="relative w-full h-full flex flex-col">
-                    <textarea
+                    <AceEditor
+                        mode="html"
+                        theme="github"
+                        name="file-editor"
                         value={content || fileContent || ''}
-                        onChange={(e) => onContentChange?.(e.target.value)}
-                        className="w-full h-full p-4 font-mono text-sm border border-gray-300 rounded"
-                        style={{
-                            resize: 'none',
-                            outline: 'none',
-                            fontSize: '14px',
-                            lineHeight: '1.4',
+                        onChange={onContentChange}
+                        width="100%"
+                        height="100%"
+                        fontSize={14}
+                        showPrintMargin={false}
+                        showGutter={true}
+                        highlightActiveLine={true}
+                        setOptions={{
+                            enableBasicAutocompletion: true,
+                            enableLiveAutocompletion: true,
+                            enableSnippets: true,
+                            showLineNumbers: true,
+                            tabSize: 2,
                         }}
-                        placeholder="Edit HTML content..."
                     />
                 </div>
             );
@@ -294,17 +300,25 @@ export default function FileViewer({
     if (isEditMode) {
       return (
         <div className="relative w-full h-full flex flex-col">
-          <textarea
+          <AceEditor
+            mode={editorMode}
+            theme="github"
+            name="file-editor"
             value={content || fileContent || ''}
-            onChange={(e) => onContentChange?.(e.target.value)}
-            className="w-full h-full p-4 font-mono text-sm border border-gray-300 rounded"
-            style={{
-              resize: 'none',
-              outline: 'none',
-              fontSize: '14px',
-              lineHeight: '1.4',
+            onChange={onContentChange}
+            width="100%"
+            height="100%"
+            fontSize={14}
+            showPrintMargin={false}
+            showGutter={true}
+            highlightActiveLine={true}
+            setOptions={{
+              enableBasicAutocompletion: true,
+              enableLiveAutocompletion: true,
+              enableSnippets: true,
+              showLineNumbers: true,
+              tabSize: 2,
             }}
-            placeholder={`Edit ${editorMode} content...`}
           />
         </div>
       );
