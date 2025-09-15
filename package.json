@@ -34,6 +34,7 @@
     "@cloudscape-design/components": "^3.0.1025",
     "@cloudscape-design/global-styles": "^1.0.44",
     "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@langchain/aws": "^0.1.11",
     "@langchain/community": "^0.3.28",
