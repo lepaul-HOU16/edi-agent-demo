@@ -35,7 +35,7 @@ interface GlobalDirectoryIndex {
     summary: string;
 }
 
-// Cache instance
+// Cache instance - Force fresh scan after fix
 let globalDataCache: GlobalDataCache = {
     data: null,
     timestamp: 0,
@@ -136,7 +136,8 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
 
     try {
         let continuationToken: string | undefined;
-        let scannedFiles = 0;
+        let individualFileCount = 0; // Counter for files in this directory only
+        let totalScannedGlobally = 0; // Counter for global MAX_FILES limit
         
         do {
             const listParams = {
@@ -153,7 +154,7 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
             // Process files (Contents)
             if (response.Contents) {
                 for (const item of response.Contents) {
-                    if (scannedFiles >= CONFIG.MAX_FILES) break;
+                    if (totalScannedGlobally >= CONFIG.MAX_FILES) break;
                     
                     const key = item.Key as string;
                     if (key === prefix || key.endsWith('/')) continue; // Skip directory markers
@@ -171,7 +172,8 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
                         dirInfo.files.push(fileInfo);
                         dirInfo.fileCount++;
                         dirInfo.totalSize += item.Size || 0;
-                        scannedFiles++;
+                        individualFileCount++;
+                        totalScannedGlobally++;
                     }
                 }
             }
@@ -179,7 +181,7 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
             // Process subdirectories (CommonPrefixes)
             if (response.CommonPrefixes && currentDepth < maxDepth - 1) {
                 for (const prefixObj of response.CommonPrefixes) {
-                    if (scannedFiles >= CONFIG.MAX_FILES) break;
+                    if (totalScannedGlobally >= CONFIG.MAX_FILES) break;
                     
                     const subdirPrefix = prefixObj.Prefix as string;
                     const subdirInfo = await scanS3Directory(subdirPrefix, maxDepth, currentDepth + 1);
@@ -190,12 +192,13 @@ async function scanS3Directory(prefix: string, maxDepth: number, currentDepth: n
                         dirInfo.totalSize += subdirInfo.totalSize;
                     }
                     
-                    scannedFiles += subdirInfo.fileCount;
+                    // Only add to global counter, not double-counting for local directory logic
+                    totalScannedGlobally += subdirInfo.fileCount;
                 }
             }
 
             continuationToken = response.NextContinuationToken;
-        } while (continuationToken && scannedFiles < CONFIG.MAX_FILES);
+        } while (continuationToken && individualFileCount < CONFIG.MAX_FILES);
 
     } catch (error) {
         console.error(`Error scanning directory ${prefix}:`, error);
