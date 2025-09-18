@@ -380,6 +380,11 @@ const ChatBox = (params: {
 
   const handleSend = useCallback(async (userMessage: string) => {
     if (userMessage.trim()) {
+      console.log('=== CHATBOX DEBUG: Sending message ===');
+      console.log('User message:', userMessage);
+      console.log('Chat session ID:', params.chatSessionId);
+      console.log('Timestamp:', new Date().toISOString());
+      
       setIsLoading(true);
 
       const newMessage: Schema['ChatMessage']['createType'] = {
@@ -390,10 +395,31 @@ const ChatBox = (params: {
         chatSessionId: params.chatSessionId as any
       } as any
 
-      await sendMessage({
-        chatSessionId: params.chatSessionId as any,
-        newMessage: newMessage as any
-      })
+      console.log('New message object:', newMessage);
+
+      try {
+        const result = await sendMessage({
+          chatSessionId: params.chatSessionId as any,
+          newMessage: newMessage as any
+        });
+        
+        console.log('=== CHATBOX DEBUG: Send message result ===');
+        console.log('Result:', result);
+        console.log('New message data:', result.newMessageData);
+        console.log('Invoke response:', result.invokeResponse);
+        
+        if (result.invokeResponse?.data) {
+          console.log('Agent response data:', result.invokeResponse.data);
+        }
+        if (result.invokeResponse?.errors) {
+          console.error('Agent response errors:', result.invokeResponse.errors);
+        }
+      } catch (error) {
+        console.error('=== CHATBOX DEBUG: Send message error ===');
+        console.error('Error:', error);
+        console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+        setIsLoading(false);
+      }
 
       params.onInputChange('');
     }
