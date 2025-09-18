@@ -1,6 +1,6 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
-import { data, lightweightAgentFunction } from './data/resource';
+import { data, lightweightAgentFunction, catalogMapDataFunction, catalogSearchFunction } from './data/resource';
 import { storage } from './storage/resource';
 import { aws_iam as iam } from 'aws-cdk-lib';
 import { McpServerConstruct } from './custom/mcpServer';
@@ -9,7 +9,9 @@ const backend = defineBackend({
   auth,
   data,
   storage,
-  lightweightAgentFunction
+  lightweightAgentFunction,
+  catalogMapDataFunction,
+  catalogSearchFunction
 });
 
 backend.stack.tags.setTag('Project', 'workshop-a4e');
@@ -17,6 +19,7 @@ backend.stack.tags.setTag('Project', 'workshop-a4e');
 // Add MCP Server with petrophysical capabilities
 const mcpServer = new McpServerConstruct(backend.stack, 'McpServer', {});
 
+<<<<<<< Updated upstream
 // Add IAM permissions to the Lambda function
 backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
   new iam.PolicyStatement({
@@ -30,6 +33,23 @@ backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
     ],
   })
 );
+=======
+// Add IAM permissions to the Lambda functions
+const s3PolicyStatement = new iam.PolicyStatement({
+  actions: [
+    "s3:ListBucket",
+    "s3:GetObject"
+  ],
+  resources: [
+    "arn:aws:s3:::amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m",
+    "arn:aws:s3:::amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m/*",
+  ],
+});
+
+backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
+backend.catalogMapDataFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
+backend.catalogSearchFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
+>>>>>>> Stashed changes
 
 backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
   new iam.PolicyStatement({

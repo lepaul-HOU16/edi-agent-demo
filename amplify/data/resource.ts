@@ -40,6 +40,9 @@ export const catalogMapDataFunction = defineFunction({
   name: 'catalogMapData',
   entry: '../functions/catalogMapData/index.ts',
   timeoutSeconds: 60,
+  environment: {
+    STORAGE_BUCKET_NAME: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
+  }
 });
 
 export const catalogSearchFunction = defineFunction({
@@ -50,6 +53,7 @@ export const catalogSearchFunction = defineFunction({
     OSDU_BASE_URL: 'https://community.opensubsurface.org',
     OSDU_API_VERSION: 'v2',
     OSDU_PARTITION_ID: 'opendes',
+    STORAGE_BUCKET_NAME: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
     // Add OSDU_ACCESS_TOKEN as environment variable when available
   }
 });

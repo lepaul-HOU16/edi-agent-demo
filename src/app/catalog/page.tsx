@@ -24,7 +24,7 @@ import maplibregl, {
   MapLayerMouseEvent
 } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
-import { useAuthenticator } from '@aws-amplify/ui-react';
+import { withAuth } from '@/components/WithAuth';
 
 // AWS configuration for Amazon Location Service
 const REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
@@ -38,11 +38,9 @@ interface GeoJSONData {
   seismic: any | null;
 }
 
-function CatalogPage() {
+function CatalogPageBase() {
   const [selectedId, setSelectedId] = useState("seg-1");
-  const { authStatus } = useAuthenticator((context) => [context.authStatus]);
   const amplifyClient = generateClient<Schema>();
-  const isAuthenticated = authStatus === 'authenticated';
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [fileDrawerOpen, setFileDrawerOpen] = useState(false);
@@ -85,7 +83,10 @@ function CatalogPage() {
         return { queryType: 'geographic', parameters: { region: 'vietnam', coordinates: { minLon: 102, maxLon: 110, minLat: 8, maxLat: 17 } } };
       }
       if (lowerQuery.includes('malaysia') || lowerQuery.includes('malaysian')) {
-        return { queryType: 'geographic', parameters: { region: 'malaysia', coordinates: { minLon: 99, maxLon: 119, minLat: 1, maxLat: 7 } } };
+        return { queryType: 'geographic', parameters: { region: 'malaysia', coordinates: { minLon: 100.25, maxLon: 104.5, minLat: 1.0, maxLat: 6.5 } } };
+      }
+      if (lowerQuery.includes('my wells') || lowerQuery.includes('show me my wells') || lowerQuery.includes('personal wells')) {
+        return { queryType: 'myWells', parameters: { region: 'malaysia', coordinates: { minLon: 100.25, maxLon: 104.5, minLat: 1.0, maxLat: 6.5 } } };
       }
       if (lowerQuery.includes('production')) {
         return { queryType: 'wellType', parameters: { type: 'Production' } };
@@ -130,6 +131,10 @@ function CatalogPage() {
     let filteredWells = [...realisticWells];
     
     switch (parsedQuery.queryType) {
+      case 'myWells':
+        // For "My Wells" queries, don't filter - let the backend handle S3 data
+        filteredWells = realisticWells;
+        break;
       case 'geographic':
         const coords = parsedQuery.parameters.coordinates;
         filteredWells = realisticWells.filter(well => 
@@ -209,10 +214,6 @@ function CatalogPage() {
   
   // Function to handle user input from chat and send to backend for search
   const handleChatSearch = useCallback(async (prompt: string) => {
-    if (!isAuthenticated) {
-      console.warn('User not authenticated, using fallback functionality');
-    }
-
     setIsLoadingMapData(true);
     setError(null);
     
@@ -221,20 +222,15 @@ function CatalogPage() {
       
       let searchResponse;
       try {
-        // Check if catalogSearch is available on the client
-        if (!amplifyClient.queries.catalogSearch) {
-          console.warn('catalogSearch function not yet deployed, using local search simulation');
-          const simulatedResults = await simulateCatalogSearch(prompt);
-          searchResponse = { data: JSON.stringify(simulatedResults) };
-        } else {
-          searchResponse = await amplifyClient.queries.catalogSearch({
-            prompt: prompt
-          });
-        }
+        console.log('Attempting to call catalogSearch function...');
+        searchResponse = await amplifyClient.queries.catalogSearch({
+          prompt: prompt
+        });
+        console.log('catalogSearch response received:', searchResponse);
       } catch (functionError) {
-        console.warn('catalogSearch function error, using fallback:', functionError);
-        const simulatedResults = await simulateCatalogSearch(prompt);
-        searchResponse = { data: JSON.stringify(simulatedResults) };
+        console.error('catalogSearch function error:', functionError);
+        // Show the actual error instead of falling back to simulation
+        throw new Error(`Search function failed: ${functionError instanceof Error ? functionError.message : String(functionError)}`);
       }
       
       console.log('Search response:', searchResponse);
@@ -469,14 +465,10 @@ ${wellCardsData.map(well => {
     } finally {
       setIsLoadingMapData(false);
     }
-  }, [amplifyClient, isAuthenticated]);
+  }, [amplifyClient]);
 
   // Function to fetch initial map data
   const fetchMapData = useCallback(async () => {
-    if (!isAuthenticated) {
-      console.warn('User not authenticated, using fallback functionality');
-    }
-
     setIsLoadingMapData(true);
     setError(null);
     
@@ -485,19 +477,15 @@ ${wellCardsData.map(well => {
       
       let mapResponse;
       try {
+        console.log('Attempting to call getCatalogMapData function...');
         mapResponse = await amplifyClient.queries.getCatalogMapData({
           type: 'all'
         });
+        console.log('getCatalogMapData response received:', mapResponse);
       } catch (functionError) {
-        console.warn('catalogMapData function not available, using fallback');
-        // Return empty fallback data - no default wells
-        const fallbackData = {
-          wells: {
-            type: "FeatureCollection",
-            features: []
-          }
-        };
-        return fallbackData;
+        console.error('getCatalogMapData function error:', functionError);
+        // Show the actual error instead of falling back to empty data
+        throw new Error(`Map data function failed: ${functionError instanceof Error ? functionError.message : String(functionError)}`);
       }
       
       console.log('Map data response:', mapResponse);
@@ -532,7 +520,7 @@ ${wellCardsData.map(well => {
     } finally {
       setIsLoadingMapData(false);
     }
-  }, [amplifyClient, isAuthenticated]);
+  }, [amplifyClient]);
 
   useEffect(() => {
     // Initialize map when selectedId is "seg-1"
@@ -544,8 +532,8 @@ ${wellCardsData.map(well => {
         mapRef.current = new maplibregl.Map({
           container: "map",
           style: `https://maps.geo.${REGION}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`,
-          center: [108.300, 14.000], // Center on South China Sea
-          zoom: 5,
+          center: [106.9, 10.2], // Center on Vietnamese territorial waters
+          zoom: 7,
         });
 
         // Add controls
@@ -555,74 +543,10 @@ ${wellCardsData.map(well => {
         }), 'top-right');
         mapRef.current.addControl(new maplibregl.NavigationControl(), "top-left");
         
-        // Wait for the map to load before adding data
+        // Wait for the map to load before setup
         mapRef.current.on('load', () => {
-          console.log('Map loaded successfully');
-          
-          // Fetch initial map data
-          fetchMapData().then(geoData => {
-            if (!geoData || !mapRef.current) return;
-            
-            // Add initial wells data if available
-            if (geoData.wells && geoData.wells.features && geoData.wells.features.length > 0) {
-              console.log('Loading initial wells data:', geoData.wells.features.length, 'features');
-              
-              mapRef.current.addSource(WELLS_SOURCE_ID, {
-                type: 'geojson',
-                data: geoData.wells
-              });
-              
-              mapRef.current.addLayer({
-                id: WELLS_LAYER_ID,
-                type: 'circle',
-                source: WELLS_SOURCE_ID,
-                paint: {
-                  'circle-radius': 6,
-                  'circle-color': '#FF4500',
-                  'circle-stroke-width': 2,
-                  'circle-stroke-color': '#FFFFFF',
-                  'circle-opacity': 0.8
-                }
-              });
-              
-              // Add click event
-              mapRef.current.on('click', WELLS_LAYER_ID, (e: MapLayerMouseEvent) => {
-                if (!e.features || e.features.length === 0) return;
-                
-                const coordinates = e.lngLat;
-                const properties = e.features[0].properties;
-                const name = properties?.name || 'Unnamed Well';
-                
-                const popupContent = document.createElement('div');
-                popupContent.innerHTML = `
-                  <h3>${name}</h3>
-                  ${properties ? Object.entries(properties)
-                    .filter(([key]) => key !== 'name')
-                    .slice(0, 4)
-                    .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
-                    .join('') : 'No additional metadata available'}
-                `;
-                
-                new maplibregl.Popup()
-                  .setLngLat(coordinates)
-                  .setDOMContent(popupContent)
-                  .addTo(mapRef.current!);
-              });
-              
-              // Cursor changes
-              mapRef.current.on('mouseenter', WELLS_LAYER_ID, () => {
-                if (mapRef.current) {
-                  mapRef.current.getCanvas().style.cursor = 'pointer';
-                }
-              });
-              
-              mapRef.current.on('mouseleave', WELLS_LAYER_ID, () => {
-                if (mapRef.current) {
-                  mapRef.current.getCanvas().style.cursor = '';
-                }
-              });
-            }
-          });
+          console.log('Map loaded successfully - wells will only appear when searched');
+          // No initial data loading - wells will only appear when searched for
         });
         
         // Ensure proper rendering
@@ -724,7 +648,7 @@ ${wellCardsData.map(well => {
                 zIndex: 10,
                 backgroundColor: 'rgba(255, 255, 255, 0.7)',
                 width: '200px',
-                height: '200px',
+                height: '100px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -895,5 +819,8 @@ ${wellCardsData.map(well => {
     </div>
   );
 }
+
+// Apply auth protection
+const CatalogPage = withAuth(CatalogPageBase);
 
 export default CatalogPage;
