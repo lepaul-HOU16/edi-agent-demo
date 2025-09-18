@@ -6,6 +6,6 @@ export const lightweightAgent = defineFunction({
   timeoutSeconds: 300,
   memoryMB: 1024,
   environment: {
-    AGENT_MODEL_ID: 'us.anthropic.claude-3-haiku-20240307-v1:0'
+    AGENT_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
   }
 });

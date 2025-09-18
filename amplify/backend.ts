@@ -25,8 +25,8 @@ backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
       "s3:GetObject"
     ],
     resources: [
-      "arn:aws:s3:::amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m",
-      "arn:aws:s3:::amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m/*",
+      backend.storage.resources.bucket.bucketArn,
+      `${backend.storage.resources.bucket.bucketArn}/*`,
     ],
   })
 );

@@ -158,13 +158,13 @@ export const sendMessage = async (props: {
   }
   
   console.log('Invoking lightweight agent...');
-  console.log('Foundation model ID: anthropic.claude-3-haiku-20240307-v1:0');
+  console.log('Foundation model ID: us.anthropic.claude-3-5-sonnet-20241022-v2:0');
   console.log('Message text:', (props.newMessage.content as any).text);
   
   const invokeResponse = await amplifyClient.mutations.invokeLightweightAgent({
     chatSessionId: props.chatSessionId,
     message: (props.newMessage.content as any).text,
-    foundationModelId: 'anthropic.claude-3-haiku-20240307-v1:0'
+    foundationModelId: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
   })
 
   console.log('=== AMPLIFY UTILS DEBUG: Agent invocation complete ===');
@@ -176,6 +176,7 @@ export const sendMessage = async (props: {
     // If agent was successful, create AI response message
     if (invokeResponse.data.success && invokeResponse.data.message) {
       console.log('Creating AI response message...');
+      console.log('Agent artifacts:', invokeResponse.data.artifacts);
       
       const aiMessage: Schema['ChatMessage']['createType'] = {
         role: 'ai' as any,
@@ -183,7 +184,9 @@ export const sendMessage = async (props: {
           text: invokeResponse.data.message
         } as any,
         chatSessionId: props.chatSessionId as any,
-        responseComplete: true as any
+        responseComplete: true as any,
+        // Add artifacts if present
+        ...(invokeResponse.data.artifacts && { artifacts: invokeResponse.data.artifacts })
       };
       
       const { data: aiMessageData, errors: aiMessageErrors } = await amplifyClient.models.ChatMessage.create(aiMessage as any);

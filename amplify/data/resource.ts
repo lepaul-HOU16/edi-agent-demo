@@ -7,8 +7,8 @@ export const lightweightAgentFunction = defineFunction({
   memoryMB: 1024,
   resourceGroupName: 'data',
   environment: {
-    AGENT_MODEL_ID: 'us.anthropic.claude-3-haiku-20240307-v1:0',
-    TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-haiku-20240307-v1:0',
+    AGENT_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+    TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
     TEXT_TO_TABLE_CONCURRENCY: '5',
     ORIGIN_BASE_PATH: process.env.ORIGIN_BASE_PATH || '',
     S3_BUCKET: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
@@ -105,6 +105,7 @@ export const schema = a.schema({
       role: a.enum(["human", "ai", "tool"]),
       responseComplete: a.boolean(),
       chatSessionIdUnderscoreFieldName: a.string(), //This is so that when invoking multiple agents, an agent can query it's own messages
+      artifacts: a.json().array(), // Add artifacts field
 
       //auto-generated fields
       owner: a.string(),

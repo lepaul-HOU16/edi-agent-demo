@@ -87,17 +87,17 @@ class CloudMCPValidator:
     async def _test_porosity_calculation(self) -> ValidationResult:
         """Test porosity calculation for professional standards compliance"""
         try:
-            # Test density porosity calculation
+            # Test density porosity calculation with correct parameter names
             request_data = {
                 "tool": "calculate_porosity",
                 "parameters": {
-                    "well_name": "SANDSTONE_RESERVOIR_001",
-                    "depth_start": 1800,
-                    "depth_end": 2000,
+                    "wellName": "SANDSTONE_RESERVOIR_001",
+                    "depthStart": 1800,
+                    "depthEnd": 2000,
                     "method": "density",
                     "parameters": {
-                        "matrix_density": 2.65,
-                        "fluid_density": 1.0
+                        "matrixDensity": 2.65,
+                        "fluidDensity": 1.0
                     }
                 }
             }
@@ -172,13 +172,13 @@ class CloudMCPValidator:
             request_data = {
                 "tool": "calculate_shale_volume",
                 "parameters": {
-                    "well_name": "MIXED_LITHOLOGY_003",
-                    "depth_start": 2100,
-                    "depth_end": 2200,
+                    "wellName": "MIXED_LITHOLOGY_003",
+                    "depthStart": 2100,
+                    "depthEnd": 2200,
                     "method": "larionov_tertiary",
                     "parameters": {
-                        "gr_clean": 25,
-                        "gr_shale": 150
+                        "grClean": 25,
+                        "grShale": 150
                     }
                 }
             }
@@ -228,9 +228,9 @@ class CloudMCPValidator:
             request_data = {
                 "tool": "calculate_saturation",
                 "parameters": {
-                    "well_name": "SANDSTONE_RESERVOIR_001",
-                    "depth_start": 1800,
-                    "depth_end": 2000,
+                    "wellName": "SANDSTONE_RESERVOIR_001",
+                    "depthStart": 1800,
+                    "depthEnd": 2000,
                     "method": "archie",
                     "parameters": {
                         "a": 1.0,
@@ -284,12 +284,12 @@ class CloudMCPValidator:
         """Test statistical analysis completeness"""
         try:
             request_data = {
-                "tool": "calculate_statistics",
+                "tool": "assess_data_quality",
                 "parameters": {
-                    "well_name": "CARBONATE_PLATFORM_002",
-                    "curve": "GR",
-                    "depth_start": 2000,
-                    "depth_end": 2200
+                    "wellName": "CARBONATE_PLATFORM_002",
+                    "curveName": "GR",
+                    "depthStart": 2000,
+                    "depthEnd": 2200
                 }
             }
             
@@ -337,9 +337,9 @@ class CloudMCPValidator:
             request_data = {
                 "tool": "calculate_porosity",
                 "parameters": {
-                    "well_name": "NONEXISTENT_WELL",
-                    "depth_start": 5000,
-                    "depth_end": 6000,
+                    "wellName": "NONEXISTENT_WELL",
+                    "depthStart": 5000,
+                    "depthEnd": 6000,
                     "method": "invalid_method"
                 }
             }
@@ -391,10 +391,10 @@ class CloudMCPValidator:
             tasks = []
             for i in range(5):
                 request_data = {
-                    "tool": "calculate_statistics",
+                    "tool": "assess_data_quality",
                     "parameters": {
-                        "well_name": "SANDSTONE_RESERVOIR_001",
-                        "curve": "RHOB"
+                        "wellName": "SANDSTONE_RESERVOIR_001",
+                        "curveName": "RHOB"
                     }
                 }
                 tasks.append(self._make_mcp_request(request_data))
@@ -442,12 +442,12 @@ class CloudMCPValidator:
         """Test data quality validation capabilities"""
         try:
             request_data = {
-                "tool": "assess_curve_quality",
+                "tool": "assess_data_quality",
                 "parameters": {
-                    "well_name": "MIXED_LITHOLOGY_003",
-                    "curve_name": "RHOB",
-                    "depth_start": 2000,
-                    "depth_end": 2100
+                    "wellName": "MIXED_LITHOLOGY_003",
+                    "curveName": "RHOB",
+                    "depthStart": 2000,
+                    "depthEnd": 2100
                 }
             }
             
@@ -492,57 +492,112 @@ class CloudMCPValidator:
 
     async def _make_mcp_request(self, request_data: Dict) -> Dict:
         """Make request to cloud MCP server"""
+        headers = {
+            'Content-Type': 'application/json',
+            'X-API-Key': 'TKUAnchYg7agFQPUnD2Hn1wIHYtgh81Fa2G2XQcg',
+            'accept': 'application/json'
+        }
+        
+        # Convert to MCP protocol format
+        mcp_request = {
+            "jsonrpc": "2.0",
+            "id": "1",
+            "method": "tools/call",
+            "params": {
+                "name": request_data["tool"],
+                "arguments": request_data["parameters"]
+            }
+        }
+        
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                f"{self.cloud_endpoint}/mcp",
-                json=request_data,
-                timeout=aiohttp.ClientTimeout(total=10)
+                self.cloud_endpoint,
+                json=mcp_request,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30)
             ) as response:
-                return await response.json()
+                result = await response.json()
+                if 'result' in result and 'content' in result['result']:
+                    content = result['result']['content'][0]['text']
+                    try:
+                        # Parse the JSON response from the tool
+                        return json.loads(content)
+                    except json.JSONDecodeError:
+                        return {"error": "Invalid JSON response", "raw_content": content}
+                return result
 
     def _validate_methodology(self, response: Dict) -> bool:
         """Validate methodology documentation completeness"""
-        methodology = response.get('methodology', {})
-        return all(key in methodology for key in ['formula', 'method', 'parameters'])
+        if 'methodology' not in response:
+            return False
+        methodology = response['methodology']
+        required_fields = ['formula', 'method', 'variable_definitions', 'parameters', 'industry_standards']
+        return all(field in methodology for field in required_fields)
 
     def _validate_parameters(self, response: Dict) -> bool:
         """Validate parameter justification"""
-        parameters = response.get('methodology', {}).get('parameters', {})
-        if not parameters:
+        if 'methodology' not in response or 'parameters' not in response['methodology']:
             return False
+        parameters = response['methodology']['parameters']
         
-        # Check if parameters have justification
-        for param_data in parameters.values():
-            if isinstance(param_data, dict) and 'justification' not in param_data:
+        # Check if parameters have proper justification structure
+        for param_name, param_data in parameters.items():
+            if not isinstance(param_data, dict):
+                return False
+            if 'justification' not in param_data or 'source' not in param_data:
                 return False
         return True
 
     def _validate_uncertainty_analysis(self, response: Dict) -> bool:
         """Validate uncertainty analysis presence"""
-        quality_metrics = response.get('quality_metrics', {})
-        return 'uncertainty_range' in quality_metrics or 'uncertainty_analysis' in quality_metrics
+        if 'quality_metrics' not in response:
+            return False
+        quality_metrics = response['quality_metrics']
+        return 'uncertainty_analysis' in quality_metrics
 
     def _validate_professional_interpretation(self, response: Dict) -> bool:
         """Validate professional geological interpretation"""
-        return ('geological_interpretation' in str(response) or 
-                'professional_summary' in response or
-                'interpretation' in response.get('results', {}))
+        if 'results' not in response:
+            return False
+        results = response['results']
+        
+        # Check for geological interpretation in results
+        has_geological = 'geological_interpretation' in results
+        has_professional_summary = 'professional_summary' in response
+        
+        return has_geological or has_professional_summary
 
     def _check_method_justification(self, response: Dict, method: str) -> bool:
         """Check if method selection is justified"""
-        return ('method_selection' in str(response) or 
-                'rationale' in str(response) or
-                f'{method}' in str(response))
+        if 'methodology' not in response:
+            return False
+        methodology = response['methodology']
+        return 'method' in methodology and method.lower() in methodology['method'].lower()
 
     def _check_parameter_documentation(self, response: Dict) -> bool:
         """Check parameter documentation quality"""
-        return ('justification' in str(response) and 
-                'parameters' in str(response))
+        if 'methodology' not in response or 'parameters' not in response['methodology']:
+            return False
+        parameters = response['methodology']['parameters']
+        
+        # Check if all parameters have proper documentation
+        for param_data in parameters.values():
+            if not isinstance(param_data, dict):
+                return False
+            if not all(key in param_data for key in ['justification', 'source', 'units']):
+                return False
+        return True
 
     def _check_industry_standards(self, response: Dict) -> bool:
         """Check industry standards compliance"""
-        standards_keywords = ['API', 'SPE', 'industry', 'standard', 'recommended']
-        return any(keyword in str(response).lower() for keyword in standards_keywords)
+        if 'methodology' not in response:
+            return False
+        methodology = response['methodology']
+        industry_standards = methodology.get('industry_standards', [])
+        
+        # Check for recognized industry standards
+        recognized_standards = ['API', 'SPE', 'API RP 40', 'SPE Recommended Practices']
+        return any(standard in str(industry_standards) for standard in recognized_standards)
 
     def _validate_archie_equation(self, response: Dict) -> bool:
         """Validate Archie equation documentation"""
@@ -679,8 +734,8 @@ class CloudMCPValidator:
 # Example usage
 async def main():
     """Example validation of cloud deployment"""
-    # Replace with your actual cloud endpoint
-    cloud_endpoint = "https://your-amplify-deployment.amazonaws.com"
+    # Amplify sandbox endpoint
+    cloud_endpoint = "https://foz31nms96.execute-api.us-east-1.amazonaws.com/prod/mcp"
     
     validator = CloudMCPValidator(cloud_endpoint)
     

@@ -55,7 +55,7 @@ async function testAIResponsePersistence() {
     const agentResponse = await client.mutations.invokeLightweightAgent({
       chatSessionId: testSessionId,
       message: 'list wells',
-      foundationModelId: 'anthropic.claude-3-haiku-20240307-v1:0'
+      foundationModelId: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
     });
     
     console.log('Agent response:', agentResponse);
