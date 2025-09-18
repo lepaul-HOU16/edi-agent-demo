@@ -48,6 +48,17 @@ amplify/backend/awscloudformation
 amplify/backend/amplify-cfn-templates
 amplify/backend/auth/cognito*/*
 amplify/backend/api/*/pipelineFunctions/
+
+# Security - prevent secrets from being committed
+*.key
+*.pem
+*.p12
+*.pfx
+*secret*
+*password*
+*credentials*
+.aws/
+config/secrets.json
 amplify/backend/api/*/build/
 amplify/backend/api/*/resolvers/
 amplify/backend/api/*/transform.out
