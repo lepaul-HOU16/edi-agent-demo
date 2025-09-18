@@ -74,17 +74,13 @@ const ChatMessage = (params: {
                 onRegenerateMessage={onRegenerateMessage}
             />;
         case 'ai':
-            // Check if message contains analysis data that should use interactive visualization
+            // Check if message contains actual statistical data that should use interactive visualization
             const messageText = (message as any).content?.text || '';
-            const hasAnalysisData = messageText.includes('Analysis') || 
-                                  messageText.includes('Method') || 
-                                  messageText.includes('Statistical') ||
-                                  messageText.includes('Mean:') ||
-                                  messageText.includes('Median:') ||
-                                  messageText.includes('Standard Deviation:') ||
-                                  messageText.includes('Methodology');
+            const hasStatisticalData = messageText.includes('Mean:') &&
+                                     messageText.includes('Median:') &&
+                                     messageText.includes('Standard Deviation:');
             
-            if (hasAnalysisData && messageText.length > 200) {
+            if (hasStatisticalData && messageText.length > 200) {
                 return <InteractiveAgentSummaryComponent 
                     content={message.content} 
                     theme={theme} 

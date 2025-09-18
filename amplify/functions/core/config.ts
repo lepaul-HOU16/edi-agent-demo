@@ -1,7 +1,7 @@
 // Centralized configuration
 export const AGENT_CONFIG = {
   MAX_MEMORY: '4096',
-  DEFAULT_MODEL: 'anthropic.claude-3-haiku-20240307-v1:0',
+  DEFAULT_MODEL: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
   TIMEOUT: 300000, // 5 minutes
   MAX_ITERATIONS: 10
 } as const;

@@ -23,7 +23,7 @@ describe('Text to Table Tool', function () {
 
     const outputs = loadOutputs();
     process.env.STORAGE_BUCKET_NAME = outputs?.storage?.bucket_name;
-    process.env.TEXT_TO_TABLE_MODEL_ID = 'anthropic.claude-3-haiku-20240307-v1:0';
+    process.env.TEXT_TO_TABLE_MODEL_ID = 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
 
     // Create some test files
     await createTestFile('data/test1.txt', `

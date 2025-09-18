@@ -51,7 +51,7 @@ export class EnhancedStrandsAgent {
   private methodologyDocumentation: Map<string, MethodologyDocumentation>;
 
   constructor(modelId?: string, s3Bucket?: string) {
-    this.modelId = modelId || 'anthropic.claude-3-haiku-20240307-v1:0';
+    this.modelId = modelId || 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
     this.s3Bucket = s3Bucket || process.env.S3_BUCKET || '';
     this.s3Client = new S3Client({ region: 'us-east-1' });
 
@@ -822,8 +822,8 @@ Or specify a different well from the list above.`,
     console.log('⏰ Call Timestamp:', new Date().toISOString());
     
     try {
-      const mcpApiUrl = 'https://foz31nms96.execute-api.us-east-1.amazonaws.com/prod/mcp';
-      const mcpApiKey = 'TKUAnchYg7agFQPUnD2Hn1wIHYtgh81Fa2G2XQcg';
+      const mcpApiUrl = 'https://51qjmsinl6.execute-api.us-east-1.amazonaws.com/prod/mcp';
+      const mcpApiKey = 'YL1FeTcnVjQfc4BAltJn45FiZC8q1bJq4vsiCca0';
       
       console.log('🌐 MCP API URL:', mcpApiUrl);
       console.log('🔑 Using API Key:', mcpApiKey ? 'Present' : 'Missing');

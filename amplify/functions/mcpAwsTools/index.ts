@@ -5,7 +5,7 @@ import { ZodRawShape } from "zod";
 import mcpMiddleware from "middy-mcp";
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
-import { petrophysicsTools } from "../tools/petrophysicsTools";
+import { enhancedPetrophysicsTools } from "../tools/enhancedPetrophysicsTools";
 
 
 // Create an MCP server focused on petrophysical analysis
@@ -15,8 +15,8 @@ const server = new McpServer({
 });
 
 
-// Register petrophysical tools (lightweight, no LangChain dependencies)
-for (const petrophysicsTool of petrophysicsTools) {
+// Register enhanced petrophysical tools (professional enterprise-grade responses)
+for (const petrophysicsTool of enhancedPetrophysicsTools) {
     console.log('Registering petrophysical tool ', petrophysicsTool.name)
     
     server.registerTool(

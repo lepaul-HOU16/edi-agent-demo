@@ -366,6 +366,14 @@
               "isRequired": false,
               "attributes": []
             },
+            "artifacts": {
+              "name": "artifacts",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
             "owner": {
               "name": "owner",
               "isArray": false,
