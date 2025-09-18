@@ -10,6 +10,7 @@ import remarkGfm from 'remark-gfm';
 import { stringify } from 'yaml';
 import { Message } from '@/../utils/types';
 import CopyButton from './CopyButton';
+import ArtifactRenderer from '../ArtifactRenderer';
 
 interface AiMessageComponentProps {
   message: Message;
@@ -43,6 +44,12 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {(message as any).content?.text}
           </ReactMarkdown>
+          
+          {/* Render artifacts if present */}
+          {(message as any).artifacts && (
+            <ArtifactRenderer artifacts={(message as any).artifacts} />
+          )}
+          
           {(message as any).toolCalls && (message as any).toolCalls !== '[]' && (
             <div style={{
               backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],

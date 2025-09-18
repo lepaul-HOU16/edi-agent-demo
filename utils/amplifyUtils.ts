@@ -134,20 +134,70 @@ export const sendMessage = async (props: {
   chatSessionId: string,
   newMessage: Schema['ChatMessage']['createType']
 }) => {
+  console.log('=== AMPLIFY UTILS DEBUG: sendMessage called ===');
+  console.log('Props:', props);
+  console.log('Chat session ID:', props.chatSessionId);
+  console.log('Message content:', props.newMessage.content);
+  
   const amplifyClient = generateClient<Schema>();
+  
+  console.log('Creating new message in database...');
   const { data: newMessageData, errors: newMessageErrors } = await amplifyClient.models.ChatMessage.create(props.newMessage)
+  
   if (newMessageErrors) {
-    console.error("Error creating new message:", newMessageErrors);
+    console.error("=== AMPLIFY UTILS DEBUG: Error creating new message ===");
+    console.error("Errors:", newMessageErrors);
     throw new Error("Error creating new message");
   }
+  
+  console.log('New message created successfully:', newMessageData);
 
-  if (!props.newMessage.content || !(props.newMessage.content as any).text) throw new Error("content.text is missing")
-  const invokeResponse = await amplifyClient.queries.invokeReActAgent({
+  if (!props.newMessage.content || !(props.newMessage.content as any).text) {
+    console.error('=== AMPLIFY UTILS DEBUG: Missing content.text ===');
+    throw new Error("content.text is missing");
+  }
+  
+  console.log('Invoking lightweight agent...');
+  console.log('Foundation model ID: anthropic.claude-3-haiku-20240307-v1:0');
+  console.log('Message text:', (props.newMessage.content as any).text);
+  
+  const invokeResponse = await amplifyClient.mutations.invokeLightweightAgent({
     chatSessionId: props.chatSessionId,
-    // userInput: props.newMessage.content.text
+    message: (props.newMessage.content as any).text,
+    foundationModelId: 'anthropic.claude-3-haiku-20240307-v1:0'
   })
 
-  console.log('invokeResponse: ', invokeResponse)
+  console.log('=== AMPLIFY UTILS DEBUG: Agent invocation complete ===');
+  console.log('Invoke response:', invokeResponse);
+  
+  if (invokeResponse.data) {
+    console.log('Agent response data:', invokeResponse.data);
+    
+    // If agent was successful, create AI response message
+    if (invokeResponse.data.success && invokeResponse.data.message) {
+      console.log('Creating AI response message...');
+      
+      const aiMessage: Schema['ChatMessage']['createType'] = {
+        role: 'ai' as any,
+        content: {
+          text: invokeResponse.data.message
+        } as any,
+        chatSessionId: props.chatSessionId as any,
+        responseComplete: true as any
+      };
+      
+      const { data: aiMessageData, errors: aiMessageErrors } = await amplifyClient.models.ChatMessage.create(aiMessage as any);
+      
+      if (aiMessageErrors) {
+        console.error('Error creating AI message:', aiMessageErrors);
+      } else {
+        console.log('AI message created successfully:', aiMessageData?.id);
+      }
+    }
+  }
+  if (invokeResponse.errors) {
+    console.error('Agent response errors:', invokeResponse.errors);
+  }
 
   return {
     newMessageData,

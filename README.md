@@ -40,6 +40,46 @@ npx ampx sandbox --stream-function-logs
 npm run dev
 ```
 
+## MCP Server Integration
+
+The system includes both local and cloud-native MCP server options for petrophysical analysis:
+
+### Local Development (Python MCP Server)
+```bash
+# Install Python dependencies
+uv pip install mcp pandas numpy
+
+# Run the local MCP server
+python mcp-well-data-server.py
+
+# Test the local server
+node test-mcp-petrophysics-integration.js
+```
+
+### Cloud Deployment (Lambda MCP Server)
+```bash
+# Deploy to AWS Amplify (includes MCP server)
+npx ampx sandbox --stream-function-logs
+
+# After deployment, update MCP configuration
+# Edit .kiro/settings/mcp.json with your API Gateway URL and API key
+
+# Test the cloud server
+MCP_SERVER_URL=https://your-api-gateway-url.amazonaws.com/prod/mcp \
+MCP_API_KEY=your-api-key \
+node test-mcp-petrophysics-integration.js
+```
+
+### Available MCP Tools
+- `list_wells` - List all wells from S3 storage
+- `get_well_info` - Get well header information and curves
+- `calculate_porosity` - Density, neutron, effective porosity calculations
+- `calculate_shale_volume` - Larionov, Clavier, linear methods
+- `calculate_saturation` - Archie equation water saturation
+- `assess_data_quality` - Comprehensive data quality assessment
+- `perform_uncertainty_analysis` - Monte Carlo uncertainty analysis
+```
+
 5. Open your browser to the local URL (ex: localhost:3000)
 
 6. Create an account by clicking the "Login" button.
