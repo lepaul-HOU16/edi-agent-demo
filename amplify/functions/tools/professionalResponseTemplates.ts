@@ -80,6 +80,7 @@ export class ProfessionalResponseBuilder {
           value: parameters.fluidDensity || 1.0,
           units: "g/cc",
           justification: "Fresh water equivalent for formation fluid",
+          source: "Industry standard for formation fluid properties",
           temperature_corrected: true
         }
       },
@@ -716,9 +717,9 @@ export class ProfessionalResponseBuilder {
           source: "API RP 40 uncertainty quantification"
         },
         distribution_type: {
-          value: "Normal",
+          value: 1,
           units: "probability distribution",
-          justification: "Conservative assumption for measurement uncertainties",
+          justification: "Normal distribution (Conservative assumption for measurement uncertainties)",
           source: "Central Limit Theorem application"
         }
       },

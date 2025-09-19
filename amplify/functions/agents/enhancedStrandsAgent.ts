@@ -26,6 +26,7 @@ import {
   CalculationAuditTrail
 } from '../../../src/types/petrophysics';
 import { methodologyRegistry } from '../../../src/services/methodologyDocumentation';
+import { ProfessionalResponseBuilder } from '../tools/professionalResponseTemplates';
 
 /**
  * Enhanced Strands Agent with comprehensive petrophysical expertise
@@ -159,8 +160,8 @@ export class EnhancedStrandsAgent {
           return await this.handleCompletionAnalysis(message, intent.wellName);
 
         case 'shale_analysis_workflow':
-          console.log('🪨 Executing: Shale Analysis Workflow');
-          return await this.handleShaleAnalysisWorkflow(message);
+          console.log('🪨 Executing: Comprehensive Shale Analysis Workflow');
+          return await this.handleComprehensiveShaleAnalysisWorkflow(message);
 
         case 'well_data_discovery':
           console.log('🔍 Executing: Well Data Discovery');
@@ -363,10 +364,16 @@ export class EnhancedStrandsAgent {
           /\bidentify.*cleanest.*sand.*intervals\b/,
           /\bclear.*engaging.*visualizations\b/,
           /\bshale.*volume.*vs.*depth\b/,
-          /\bgamma.*ray.*shale.*analysis\b/
+          /\bgamma.*ray.*shale.*analysis\b/,
+          /\banalyze.*gamma.*ray.*logs\b/,
+          /\bgamma.*ray.*logs.*wells\b/,
+          /\blarionov.*method\b/,
+          /\bshale.*volume.*using.*larionov\b/,
+          /\bengaging.*visualizations\b/
         ],
-        keywords: ['analyze', 'gamma', 'ray', 'logs', 'calculate', 'shale', 'volume', 'larionov', 'interactive', 'plots', 'depth', 'cleanest', 'sand', 'intervals', 'visualizations'],
-        requiresWell: false
+        keywords: ['analyze', 'gamma', 'ray', 'logs', 'calculate', 'shale', 'volume', 'larionov', 'interactive', 'plots', 'depth', 'cleanest', 'sand', 'intervals', 'visualizations', 'method'],
+        requiresWell: false,
+        priority: true  // High priority for specific shale analysis requests
       },
       {
         type: 'well_data_discovery',
@@ -398,10 +405,24 @@ export class EnhancedStrandsAgent {
       }
     ];
 
-    // Score each intent
+    // Score each intent with priority handling
     let bestIntent = { type: 'unknown', score: 0, wellName, method: null };
+    let highPriorityIntents: any[] = [];
+    let regularIntents: any[] = [];
 
+    // Separate high priority and regular intents
     for (const intent of intentPatterns) {
+      if ((intent as any).priority) {
+        highPriorityIntents.push(intent);
+      } else {
+        regularIntents.push(intent);
+      }
+    }
+
+    // Process high priority intents first
+    const allIntents = [...highPriorityIntents, ...regularIntents];
+
+    for (const intent of allIntents) {
       let score = 0;
 
       // Pattern matching
@@ -419,6 +440,11 @@ export class EnhancedStrandsAgent {
         }
       }
 
+      // Priority bonus - high priority intents get significant boost
+      if ((intent as any).priority && score > 0) {
+        score += 20; // Major boost for priority intents that match
+      }
+
       // Bonus for having required well name
       if (intent.requiresWell && wellName) {
         score += 5;
@@ -426,7 +452,16 @@ export class EnhancedStrandsAgent {
         score -= 3; // Penalty for missing required well
       }
 
-      if (score > bestIntent.score) {
+      // For high priority intents, if they have any match at all, prefer them over regular intents
+      if ((intent as any).priority && score > 10) {
+        bestIntent = {
+          type: intent.type,
+          score,
+          wellName,
+          method: this.extractMethod(message, intent.type)
+        };
+        break; // Stop processing once we find a matching priority intent
+      } else if (score > bestIntent.score) {
         bestIntent = {
           type: intent.type,
           score,
@@ -634,7 +669,17 @@ Available methods: density, neutron, effective`
     }
 
     const calcMethod = method || 'larionov_tertiary';
-    return await this.callMCPTool('calculate_shale_volume', { wellName, method: calcMethod });
+    const result = await this.callMCPTool('calculate_shale_volume', { wellName, method: calcMethod });
+    
+    if (result.success) {
+      const response = {
+        success: true,
+        message: this.formatShaleVolumeResponse(result)
+      };
+      return response;
+    }
+    
+    return result;
   }
 
   private async handleCalculateSaturation(message: string, wellName: string | null): Promise<any> {
@@ -671,37 +716,46 @@ Available methods: density, neutron, effective`
     return await this.executeFormationEvaluationWorkflow(message);
   }
 
-  private async handleShaleAnalysisWorkflow(message: string): Promise<any> {
-    // Get list of wells first
-    const wellsResult = await this.callMCPTool('list_wells', {});
-    if (!wellsResult.success) {
-      return wellsResult;
+  private async handleComprehensiveShaleAnalysisWorkflow(message: string): Promise<any> {
+    console.log('🪨 === COMPREHENSIVE SHALE ANALYSIS WORKFLOW START ===');
+    
+    // Extract analysis type from message (single well, multi-well, or field overview)
+    let analysisType = 'field_overview'; // Default to field overview
+    const wellName = this.extractWellName(message);
+    
+    if (wellName) {
+      analysisType = 'single_well';
+    } else if (message.toLowerCase().includes('multi') || message.toLowerCase().includes('correlation')) {
+      analysisType = 'multi_well_correlation';
     }
-
-    const wellCount = wellsResult.count || 0;
-    const wellNames = wellsResult.wells || [];
-
-    return {
-      success: true,
-      message: `Gamma Ray Shale Analysis Workflow
-
-I found ${wellCount} wells available for shale analysis:
-${wellNames.slice(0, 5).map((well: string, index: number) => `${index + 1}. ${well}`).join('\n')}
-${wellCount > 5 ? `... and ${wellCount - 5} more wells` : ''}
-
-Shale Analysis Workflow:
-1. Analyze gamma ray logs from all wells
-2. Calculate shale volume using Larionov method
-3. Create interactive plots showing shale volume vs depth
-4. Identify cleanest sand intervals
-5. Generate clear, engaging visualizations
-
-To proceed with a specific well, try:
-"calculate shale volume for ${wellNames[0] || 'WELL_NAME'} using larionov method"
-
-For multi-well correlation analysis:
-"multi-well correlation analysis for presentation"`
+    
+    console.log('🎯 Analysis Type:', analysisType);
+    console.log('🏷️ Well Name:', wellName || 'All Wells');
+    
+    // Call comprehensive shale analysis tool
+    const parameters = {
+      analysisType,
+      ...(wellName && { wellName })
     };
+    
+    console.log('📋 Calling comprehensive_shale_analysis tool with parameters:', parameters);
+    
+    const result = await this.callMCPTool('comprehensive_shale_analysis', parameters);
+    
+    if (result.success) {
+      console.log('✅ Comprehensive Shale Analysis Success');
+      console.log('🪨 === COMPREHENSIVE SHALE ANALYSIS WORKFLOW END (SUCCESS) ===');
+      return result;
+    }
+    
+    console.log('❌ Comprehensive Shale Analysis Failed:', result);
+    console.log('🪨 === COMPREHENSIVE SHALE ANALYSIS WORKFLOW END (FAILED) ===');
+    return result;
+  }
+
+  private async handleShaleAnalysisWorkflow(message: string): Promise<any> {
+    // Redirect to comprehensive workflow for engaging visualizations
+    return await this.handleComprehensiveShaleAnalysisWorkflow(message);
   }
 
   private async handleWellDataDiscovery(message: string): Promise<any> {
@@ -811,77 +865,88 @@ Or specify a different well from the list above.`,
   }
 
   /**
-   * Call MCP server tools for petrophysical calculations
+   * Call local MCP server tools for petrophysical calculations
    */
   private async callMCPTool(toolName: string, parameters: any): Promise<any> {
     const mcpCallId = Math.random().toString(36).substr(2, 9);
-    console.log('🔧 === MCP TOOL CALL START ===');
+    console.log('🔧 === LOCAL MCP TOOL CALL START ===');
     console.log('🆔 MCP Call ID:', mcpCallId);
     console.log('🛠️ Tool Name:', toolName);
     console.log('📋 Parameters:', JSON.stringify(parameters, null, 2));
     console.log('⏰ Call Timestamp:', new Date().toISOString());
     
     try {
-      const mcpApiUrl = 'https://51qjmsinl6.execute-api.us-east-1.amazonaws.com/prod/mcp';
-      const mcpApiKey = 'YL1FeTcnVjQfc4BAltJn45FiZC8q1bJq4vsiCca0';
+      // Import the tools we need directly with proper paths for Lambda runtime
+      let petrophysicsTools: any[] = [];
+      let enhancedPetrophysicsTools: any[] = [];
       
-      console.log('🌐 MCP API URL:', mcpApiUrl);
-      console.log('🔑 Using API Key:', mcpApiKey ? 'Present' : 'Missing');
-
-      const requestPayload = {
-        jsonrpc: '2.0',
-        id: Date.now().toString(),
-        method: 'tools/call',
-        params: {
-          name: toolName,
-          arguments: parameters
-        }
-      };
+      try {
+        const petrophysicsModule = await import('../tools/petrophysicsTools.js');
+        petrophysicsTools = petrophysicsModule.petrophysicsTools || [];
+        console.log('✅ Imported petrophysicsTools:', petrophysicsTools.length, 'tools');
+      } catch (e) {
+        console.log('⚠️ Could not import petrophysicsTools:', (e as Error).message);
+      }
       
-      console.log('📤 Request Payload:', JSON.stringify(requestPayload, null, 2));
+      try {
+        const enhancedModule = await import('../tools/enhancedPetrophysicsTools.js');
+        enhancedPetrophysicsTools = enhancedModule.enhancedPetrophysicsTools || [];
+        console.log('✅ Imported enhancedPetrophysicsTools:', enhancedPetrophysicsTools.length, 'tools');
+      } catch (e) {
+        console.log('⚠️ Could not import enhancedPetrophysicsTools:', (e as Error).message);
+      }
       
-      const response = await fetch(mcpApiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'x-api-key': mcpApiKey
-        },
-        body: JSON.stringify(requestPayload)
-      });
-
-      console.log('📡 HTTP Response Status:', response.status, response.statusText);
-      console.log('📡 HTTP Response Headers:', Object.fromEntries(response.headers.entries()));
-
-      const data = await response.json();
-      console.log('📥 Raw MCP Response:', JSON.stringify(data, null, 2));
+      // Find the tool in either collection
+      const allTools = [...petrophysicsTools, ...enhancedPetrophysicsTools];
+      console.log('🔍 Available tools:', allTools.map(t => t.name || 'unnamed'));
       
-      if (data.result && data.result.content && data.result.content[0]) {
-        const result = JSON.parse(data.result.content[0].text);
-        console.log('✅ MCP Tool Success - Parsed Result:', JSON.stringify(result, null, 2));
-        console.log('🔧 === MCP TOOL CALL END (SUCCESS) ===');
-        return result;
-      } else if (data.error) {
-        console.error('❌ MCP Server Error:', data.error);
-        console.log('🔧 === MCP TOOL CALL END (ERROR) ===');
-        throw new Error(`MCP Server Error: ${data.error.message}`);
-      } else {
-        console.error('❌ Unexpected MCP Response Format:', data);
-        console.log('🔧 === MCP TOOL CALL END (UNEXPECTED FORMAT) ===');
-        throw new Error('Unexpected MCP server response format');
+      const tool = allTools.find(t => t.name === toolName);
+      
+      if (!tool) {
+        console.error('❌ Tool not found:', toolName);
+        console.log('🔧 === LOCAL MCP TOOL CALL END (TOOL NOT FOUND) ===');
+        return {
+          success: false,
+          message: `Tool ${toolName} not found. Available tools: ${allTools.map(t => t.name || 'unnamed').join(', ')}`,
+          toolName,
+          parameters
+        };
       }
 
+      console.log('✅ Tool found, executing locally...');
+      const result = await tool.func(parameters);
+      
+      // Parse result if it's a string (should be JSON)
+      let parsedResult;
+      if (typeof result === 'string') {
+        try {
+          parsedResult = JSON.parse(result);
+        } catch (e) {
+          // If not JSON, wrap in success response
+          parsedResult = {
+            success: true,
+            message: result
+          };
+        }
+      } else {
+        parsedResult = result;
+      }
+      
+      console.log('✅ Local MCP Tool Success');
+      console.log('🔧 === LOCAL MCP TOOL CALL END (SUCCESS) ===');
+      return parsedResult;
+
     } catch (error) {
-      console.error('❌ === MCP TOOL CALL ERROR ===');
+      console.error('❌ === LOCAL MCP TOOL CALL ERROR ===');
       console.error('🆔 MCP Call ID:', mcpCallId);
       console.error('🛠️ Tool Name:', toolName);
       console.error('📋 Parameters:', parameters);
       console.error('💥 Error:', error);
       console.error('⏰ Error Timestamp:', new Date().toISOString());
-      console.error('🔧 === MCP TOOL CALL END (EXCEPTION) ===');
+      console.error('🔧 === LOCAL MCP TOOL CALL END (EXCEPTION) ===');
       return {
         success: false,
-        message: `Error calling MCP tool ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: `Error calling local MCP tool ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
         toolName,
         parameters
       };
@@ -1553,41 +1618,146 @@ Ready for Analysis:
   }
 
   /**
-   * Format porosity calculation response for user display
+   * Format porosity calculation response using Professional Response Builder
    */
   private formatPorosityResponse(result: any): string {
     const calcResult = result.result;
     const stats = calcResult?.statistics;
-    const quality = calcResult?.quality;
 
     if (!stats) {
-      return `Porosity Calculation Failed
-
-${result.message || 'Unknown error occurred during calculation'}`;
+      // Handle errors using professional error response
+      return JSON.stringify(ProfessionalResponseBuilder.buildProfessionalErrorResponse(
+        'calculate_porosity',
+        'calculation_failed',
+        result.message || 'Unknown error occurred during calculation',
+        { wellName: result.wellName, method: result.method }
+      ), null, 2);
     }
 
-    return `Porosity Calculation Results
+    try {
+      // Extract calculation data for professional formatting
+      const values = calcResult?.values || [];
+      const parameters = result.parameters || {};
+      const depthRange = calcResult?.depthRange;
 
-Well: ${result.wellName}
-Method: ${result.method}
-Parameters: Matrix Density = ${result.parameters?.matrixDensity || 2.65} g/cc, Fluid Density = ${result.parameters?.fluidDensity || 1.0} g/cc
+      // Build professional response using the template
+      const professionalResponse = ProfessionalResponseBuilder.buildPorosityResponse(
+        result.wellName,
+        result.method || 'density',
+        values,
+        parameters,
+        stats,
+        depthRange
+      );
 
-Statistics:
-- Mean Porosity: ${(stats.mean * 100).toFixed(2)}%
-- Standard Deviation: ${(stats.standardDeviation * 100).toFixed(2)}%
-- Range: ${(stats.min * 100).toFixed(2)}% - ${(stats.max * 100).toFixed(2)}%
-- Data Points: ${stats.validCount}/${stats.count} (${((stats.validCount/stats.count)*100).toFixed(1)}% valid)
+      // Return formatted professional response
+      return JSON.stringify(professionalResponse, null, 2);
+      
+    } catch (error) {
+      console.error('Error building professional porosity response:', error);
+      // Fallback to professional error response
+      return JSON.stringify(ProfessionalResponseBuilder.buildProfessionalErrorResponse(
+        'calculate_porosity',
+        'formatting_error',
+        'Error formatting professional response',
+        { originalError: error instanceof Error ? error.message : 'Unknown error' }
+      ), null, 2);
+    }
+  }
 
-Quality Assessment:
-- Quality Flag: ${quality?.qualityFlag || 'Unknown'}
-- Data Completeness: ${((quality?.dataCompleteness || 0)*100).toFixed(1)}%
-- Confidence Level: ${quality?.confidenceLevel || 'Unknown'}
+  /**
+   * Format shale volume calculation response using Professional Response Builder
+   */
+  private formatShaleVolumeResponse(result: any): string {
+    const calcResult = result.result;
+    const stats = calcResult?.statistics;
 
-Methodology: ${calcResult?.methodology || 'Standard industry methods applied'}
+    if (!stats) {
+      // Handle errors using professional error response
+      return JSON.stringify(ProfessionalResponseBuilder.buildProfessionalErrorResponse(
+        'calculate_shale_volume',
+        'calculation_failed',
+        result.message || 'Unknown error occurred during calculation',
+        { wellName: result.wellName, method: result.method }
+      ), null, 2);
+    }
 
-Next Steps:
-- Calculate other porosity methods: "calculate effective porosity for ${result.wellName}"
-- Perform formation evaluation: "formation evaluation for ${result.wellName}"
-- Generate methodology documentation: "methodology for porosity"`;
+    try {
+      // Extract calculation data for professional formatting
+      const values = calcResult?.values || [];
+      const parameters = result.parameters || {};
+      const depthRange = calcResult?.depthRange;
+
+      // Build professional response using the template
+      const professionalResponse = ProfessionalResponseBuilder.buildShaleVolumeResponse(
+        result.wellName,
+        result.method || 'larionov_tertiary',
+        values,
+        parameters,
+        stats,
+        depthRange
+      );
+
+      // Return formatted professional response
+      return JSON.stringify(professionalResponse, null, 2);
+      
+    } catch (error) {
+      console.error('Error building professional shale volume response:', error);
+      // Fallback to professional error response
+      return JSON.stringify(ProfessionalResponseBuilder.buildProfessionalErrorResponse(
+        'calculate_shale_volume',
+        'formatting_error',
+        'Error formatting professional response',
+        { originalError: error instanceof Error ? error.message : 'Unknown error' }
+      ), null, 2);
+    }
+  }
+
+  /**
+   * Format saturation calculation response using Professional Response Builder
+   */
+  private formatSaturationResponse(result: any): string {
+    const calcResult = result.result;
+    const stats = calcResult?.statistics;
+
+    if (!stats) {
+      // Handle errors using professional error response
+      return JSON.stringify(ProfessionalResponseBuilder.buildProfessionalErrorResponse(
+        'calculate_saturation',
+        'calculation_failed',
+        result.message || 'Unknown error occurred during calculation',
+        { wellName: result.wellName, method: result.method }
+      ), null, 2);
+    }
+
+    try {
+      // Extract calculation data for professional formatting
+      const values = calcResult?.values || [];
+      const parameters = result.parameters || {};
+      const depthRange = calcResult?.depthRange;
+
+      // Build professional response using the template
+      const professionalResponse = ProfessionalResponseBuilder.buildSaturationResponse(
+        result.wellName,
+        result.method || 'archie',
+        values,
+        parameters,
+        stats,
+        depthRange
+      );
+
+      // Return formatted professional response
+      return JSON.stringify(professionalResponse, null, 2);
+      
+    } catch (error) {
+      console.error('Error building professional saturation response:', error);
+      // Fallback to professional error response
+      return JSON.stringify(ProfessionalResponseBuilder.buildProfessionalErrorResponse(
+        'calculate_saturation',
+        'formatting_error',
+        'Error formatting professional response',
+        { originalError: error instanceof Error ? error.message : 'Unknown error' }
+      ), null, 2);
+    }
   }
 }

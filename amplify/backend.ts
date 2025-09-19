@@ -19,23 +19,20 @@ backend.stack.tags.setTag('Project', 'workshop-a4e');
 // Add MCP Server with petrophysical capabilities
 const mcpServer = new McpServerConstruct(backend.stack, 'McpServer', {});
 
-<<<<<<< Updated upstream
-// Add IAM permissions to the Lambda function
-backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
-  new iam.PolicyStatement({
-    actions: [
-      "s3:ListBucket",
-      "s3:GetObject"
-    ],
-    resources: [
-      backend.storage.resources.bucket.bucketArn,
-      `${backend.storage.resources.bucket.bucketArn}/*`,
-    ],
-  })
-);
-=======
 // Add IAM permissions to the Lambda functions
 const s3PolicyStatement = new iam.PolicyStatement({
+  actions: [
+    "s3:ListBucket",
+    "s3:GetObject"
+  ],
+  resources: [
+    backend.storage.resources.bucket.bucketArn,
+    `${backend.storage.resources.bucket.bucketArn}/*`,
+  ],
+});
+
+// Add permissions for the bucket with actual LAS files
+const actualS3BucketPolicyStatement = new iam.PolicyStatement({
   actions: [
     "s3:ListBucket",
     "s3:GetObject"
@@ -49,7 +46,11 @@ const s3PolicyStatement = new iam.PolicyStatement({
 backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
 backend.catalogMapDataFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
 backend.catalogSearchFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
->>>>>>> Stashed changes
+
+// Add permissions for the actual bucket with LAS files
+backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
+backend.catalogMapDataFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
+backend.catalogSearchFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
 
 backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
   new iam.PolicyStatement({
@@ -69,11 +70,11 @@ mcpServer.lambdaFunction.addToRolePolicy(
       "s3:GetObject"
     ],
     resources: [
-      "arn:aws:s3:::amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m",
-      "arn:aws:s3:::amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m/*",
+      backend.storage.resources.bucket.bucketArn,
+      `${backend.storage.resources.bucket.bucketArn}/*`,
     ],
   })
 );
 
 // Add environment variables for S3 bucket access
-mcpServer.lambdaFunction.addEnvironment('S3_BUCKET', 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m');
+mcpServer.lambdaFunction.addEnvironment('S3_BUCKET', backend.storage.resources.bucket.bucketName);

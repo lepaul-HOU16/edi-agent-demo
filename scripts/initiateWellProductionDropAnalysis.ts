@@ -14,7 +14,7 @@ import { stringify } from 'yaml';
 import { pysparkTool } from '../amplify/functions/tools/athenaPySparkTool';
 import { createChatSession, createChatMessage } from '../amplify/functions/graphql/mutations';
 
-import { invokeReActAgent, listChatMessageByChatSessionIdAndCreatedAt } from "../utils/graphqlStatements";
+import { listChatMessageByChatSessionIdAndCreatedAt } from "../utils/graphqlStatements";
 import * as APITypes from "../amplify/functions/graphql/API";
 import { readFile } from "../amplify/functions/tools/s3ToolBox";
 
@@ -243,19 +243,16 @@ pio.templates.default = "white_clean_log"
             process.exit(1);
         }
 
-        const invokeReActAgentResponse = await amplifyClient.graphql({
-            query: invokeReActAgent,
-            variables: {
-                chatSessionId: newChatSession.createChatSession.id,
-                userId: 'test-user',
-                // origin: domainUrl
-            },
+        // Use lightweight agent instead of deprecated reActAgent
+        const invokeLightweightAgentResponse = await amplifyClient.mutations.invokeLightweightAgent({
+            chatSessionId: newChatSession.createChatSession.id,
+            message: 'Analyze well production drop',
         });
 
-        console.log('Invoke ReAct Agent Response: ', invokeReActAgentResponse);
+        console.log('Invoke Lightweight Agent Response: ', invokeLightweightAgentResponse);
 
-        if (invokeReActAgentResponse.errors) {
-            console.error(invokeReActAgentResponse.errors);
+        if (invokeLightweightAgentResponse.errors) {
+            console.error(invokeLightweightAgentResponse.errors);
             process.exit(1);
         }
 

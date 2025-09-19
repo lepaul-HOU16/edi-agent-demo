@@ -11,30 +11,14 @@ export const lightweightAgentFunction = defineFunction({
     TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
     TEXT_TO_TABLE_CONCURRENCY: '5',
     ORIGIN_BASE_PATH: process.env.ORIGIN_BASE_PATH || '',
-    S3_BUCKET: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
+    S3_BUCKET: 'amplify-digitalassistant--workshopstoragebucketd9b-1kur1xycq1xq',
     AMPLIFY_BRANCH: process.env.AMPLIFY_BRANCH || 'main',
     AMPLIFY_APP_ID: process.env.AMPLIFY_APP_ID || 'unknown'
   }
 });
 
-// Temporarily disabled to avoid memory conflicts during Strands migration
-// export const reActAgentFunction = defineFunction({
-//   name: 'reActAgent',
-//   entry: '../functions/reActAgent/handler.ts',
-//   timeoutSeconds: 900,
-//   environment: {
-//     AGENT_MODEL_ID: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
-//     TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-haiku-20240307-v1:0',
-//     TEXT_TO_TABLE_CONCURRENCY: '10',
-//     ORIGIN_BASE_PATH: process.env.ORIGIN_BASE_PATH || ''
-//   }
-// });
-
-// export const mcpAgentInvoker = defineFunction({
-//   name: 'mcpAgentInvoker',
-//   entry: '../functions/mcpAgentInvoker/handler.ts',
-//   timeoutSeconds: 900,
-// });
+// ReActAgent has been deprecated and replaced with EnhancedStrandsAgent via lightweightAgent
+// MCP functionality is now handled locally within EnhancedStrandsAgent
 
 export const catalogMapDataFunction = defineFunction({
   name: 'catalogMapData',
@@ -171,16 +155,8 @@ export const schema = a.schema({
     .handler(a.handler.function(lightweightAgentFunction))
     .authorization((allow) => [allow.authenticated()]),
 
-  // invokeReActAgent: a.query()
-  //   .arguments({ 
-  //     chatSessionId: a.id().required(), 
-  //     foundationModelId: a.string(), // Optionally, chose the foundation model to use for the agent
-  //     respondToAgent: a.boolean(), //When an agent is invoked by another agent, the agent will create a tool response message with it's output
-  //     userId: a.string(), //When invoking the agent programatically, specify which user should be the owner of the message
-  //     // origin: a.string(), //When invoking the agent programatically, specify the host origin for serving files
-  //   })
-  //   .handler(a.handler.function(reActAgentFunction).async())
-  //   .authorization((allow) => [allow.authenticated()]),
+  // invokeReActAgent has been deprecated - use invokeLightweightAgent instead
+  // which now uses EnhancedStrandsAgent with local MCP tools
 
   getCatalogMapData: a.query()
     .arguments({
@@ -199,7 +175,6 @@ export const schema = a.schema({
     .authorization((allow) => [allow.authenticated()]),
 })
   .authorization((allow) => [
-    // allow.resource(reActAgentFunction), // Disabled during migration
     allow.resource(lightweightAgentFunction).to(["query", "mutate"])
   ]);
 

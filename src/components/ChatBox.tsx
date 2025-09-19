@@ -14,7 +14,6 @@ import ExpandablePromptInput from './ExpandablePromptInput';
 
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
-const amplifyClient = generateClient<Schema>();
 
 // DefaultPrompts component removed
 
@@ -28,10 +27,21 @@ const ChatBox = (params: {
 }) => {
   const { chatSessionId, showChainOfThought } = params
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
+  const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
   
   // Use provided messages and setMessages if available, otherwise use local state
   const messages = params.messages || localMessages;
   const setMessages = params.setMessages || setLocalMessages;
+
+  // Initialize Amplify client after component mounts
+  useEffect(() => {
+    try {
+      const client = generateClient<Schema>();
+      setAmplifyClient(client);
+    } catch (error) {
+      console.error('Failed to generate Amplify client:', error);
+    }
+  }, []);
 
   const [, setResponseStreamChunks] = useState<(Schema["recieveResponseStreamChunk"]["returnType"] | null)[]>([]);
   const [streamChunkMessage, setStreamChunkMessage] = useState<Message>();
@@ -54,6 +64,8 @@ const ChatBox = (params: {
 
   //Subscribe to the chat messages
   useEffect(() => {
+    if (!amplifyClient) return;
+
     const messageSubscriptionHandler = async () => {
       console.log('Creating message subscription for garden: ', params.chatSessionId)
       const messagesSub = amplifyClient.models.ChatMessage.observeQuery({
@@ -62,18 +74,23 @@ const ChatBox = (params: {
         }
       }).subscribe({
         next: ({ items }) => {
-          setMessages((prevMessages) => {
-            // Only take the most recent messagesPerPage messages
-            const recentMessages = items.slice(-messagesPerPage);
-            const sortedMessages = combineAndSortMessages(prevMessages, recentMessages)
-            if (sortedMessages[sortedMessages.length - 1] && sortedMessages[sortedMessages.length - 1].responseComplete) {
+        setMessages((prevMessages) => {
+          // Only take the most recent messagesPerPage messages
+          const recentMessages = items.slice(-messagesPerPage);
+          const sortedMessages = combineAndSortMessages(prevMessages, recentMessages)
+          if (sortedMessages[sortedMessages.length - 1] && sortedMessages[sortedMessages.length - 1].responseComplete) {
+            // Defer state updates to prevent rendering issues
+            setTimeout(() => {
               setIsLoading(false)
               setStreamChunkMessage(undefined)
               setResponseStreamChunks([])
-            }
+            }, 0)
+          }
+          setTimeout(() => {
             setHasMoreMessages(items.length > messagesPerPage);
-            return sortedMessages
-          })
+          }, 0)
+          return sortedMessages
+        })
         }
       })
 
@@ -83,10 +100,10 @@ const ChatBox = (params: {
     }
 
     messageSubscriptionHandler()
-  }, [params.chatSessionId])
+  }, [params.chatSessionId, amplifyClient])
 
   const loadMoreMessages = useCallback(async () => {
-    if (isLoadingMore || !hasMoreMessages) return;
+    if (isLoadingMore || !hasMoreMessages || !amplifyClient) return;
 
     setIsLoadingMore(true);
     const nextPage = page + 1;
@@ -116,7 +133,7 @@ const ChatBox = (params: {
     } finally {
       setIsLoadingMore(false);
     }
-  }, [page, hasMoreMessages, isLoadingMore, params.chatSessionId]);
+  }, [page, hasMoreMessages, isLoadingMore, params.chatSessionId, amplifyClient]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
@@ -233,6 +250,8 @@ const ChatBox = (params: {
 
   //Subscribe to the response stream chunks for the garden
   useEffect(() => {
+    if (!amplifyClient) return;
+
     const responseStreamChunkSubscriptionHandler = async () => {
       console.log('Creating response stream chunk subscription for garden: ', params.chatSessionId)
       const responseStreamChunkSub = amplifyClient.subscriptions.recieveResponseStreamChunk({ chatSessionId: params.chatSessionId }).subscribe({
@@ -277,10 +296,14 @@ const ChatBox = (params: {
     }
 
     responseStreamChunkSubscriptionHandler()
-  }, [params.chatSessionId])
+  }, [params.chatSessionId, amplifyClient])
 
   // Update function to handle message regeneration
   const handleRegenerateMessage = useCallback(async (messageId: string, messageText: string) => {
+    if (!amplifyClient) {
+      console.error('Amplify client not initialized');
+      return false;
+    }
 
     // Find the message to regenerate to get its timestamp
     const messageToRegenerate = messages.find(msg => (msg as any).id === messageId);

@@ -6,6 +6,7 @@ import mcpMiddleware from "middy-mcp";
 
 import { APIGatewayProxyEvent } from 'aws-lambda';
 import { enhancedPetrophysicsTools } from "../tools/enhancedPetrophysicsTools";
+import { petrophysicsTools } from "../tools/petrophysicsTools";
 
 
 // Create an MCP server focused on petrophysical analysis
@@ -17,7 +18,7 @@ const server = new McpServer({
 
 // Register enhanced petrophysical tools (professional enterprise-grade responses)
 for (const petrophysicsTool of enhancedPetrophysicsTools) {
-    console.log('Registering petrophysical tool ', petrophysicsTool.name)
+    console.log('Registering enhanced petrophysical tool ', petrophysicsTool.name)
     
     server.registerTool(
         petrophysicsTool.name,
@@ -33,7 +34,37 @@ for (const petrophysicsTool of enhancedPetrophysicsTools) {
                     content: [{ type: "text", text: result }],
                 };
             } catch (error) {
-                console.error(`Error in petrophysical tool ${petrophysicsTool.name}:`, error);
+                console.error(`Error in enhanced petrophysical tool ${petrophysicsTool.name}:`, error);
+                return {
+                    content: [{ type: "text", text: JSON.stringify({
+                        success: false,
+                        error: `Tool execution failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+                    }) }],
+                };
+            }
+        }
+    );
+}
+
+// Register basic petrophysical tools (includes list_wells, get_well_info, etc.)
+for (const petrophysicsTool of petrophysicsTools) {
+    console.log('Registering basic petrophysical tool ', petrophysicsTool.name)
+    
+    server.registerTool(
+        petrophysicsTool.name,
+        {
+            title: petrophysicsTool.name,
+            description: petrophysicsTool.description,
+            inputSchema: (petrophysicsTool.inputSchema as any).shape as ZodRawShape
+        },
+        async (args: any) => {
+            try {
+                const result = await petrophysicsTool.func(args);
+                return {
+                    content: [{ type: "text", text: result }],
+                };
+            } catch (error) {
+                console.error(`Error in basic petrophysical tool ${petrophysicsTool.name}:`, error);
                 return {
                     content: [{ type: "text", text: JSON.stringify({
                         success: false,

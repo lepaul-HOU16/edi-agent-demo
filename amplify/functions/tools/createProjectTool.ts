@@ -1,4 +1,3 @@
-import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 
 import { getConfiguredAmplifyClient } from '../../../utils/amplifyUtils';
@@ -29,8 +28,11 @@ const createProjectToolSchema = z.object({
     }).describe("Recommend an action like: 'Schedule Job', 'Send procedure to rig manager', or something else that should be done based on the analysis."),
 });
 
-export const createProjectTool = tool(
-    async (args) => {
+export const createProjectTool = {
+    name: "createProject",
+    description: "Creates a new project with the specified details. Use the drafting status if more information is needed.",
+    schema: createProjectToolSchema,
+    func: async (args: z.infer<typeof createProjectToolSchema>) => {
         try {
             const amplifyClient = getConfiguredAmplifyClient();
             
@@ -64,13 +66,8 @@ export const createProjectTool = tool(
                 message: `Failed to create project: ${errorMessage} \n\n ${JSON.stringify(error)}`
             };
         }
-    },
-    {
-        name: "createProject",
-        description: "Creates a new project with the specified details. Use the drafting status if more information is needed.",
-        schema: createProjectToolSchema
     }
-);
+};
 
 const typeChecks = () => {
     const testProject: Schema["Project"]["createType"] = {} as z.infer<typeof createProjectToolSchema>;
