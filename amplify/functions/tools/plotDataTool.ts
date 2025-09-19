@@ -1,6 +1,5 @@
-import { tool } from "@langchain/core/tools";
 import { z } from "zod";
-import { readFile } from "./s3ToolBox";
+import { readFile } from "./s3Utils";
 
 // Schema for plot data tool
 const plotDataToolSchema = z.object({
@@ -32,8 +31,32 @@ function validateCsvFileExtension(filePath: string): boolean {
     return filePath.toLowerCase().endsWith('.csv');
 }
 
-export const plotDataTool = tool(
-    async (params) => {
+export const plotDataTool = {
+    name: "plotDataTool",
+    description: `
+Use this tool to create plots from CSV files with support for multiple data series and multiple files.
+The tool will validate file existence and column names before returning the plot configuration.
+Only CSV files (with .csv extension) are supported.
+
+Example usage:
+- Plot temperature vs time from a weather data CSV
+- Compare monthly sales for multiple products in a single chart
+- Visualize data from multiple CSV files in a single plot
+- Display additional information in tooltips using the tooltipColumn parameter
+
+For multiple data series from the same file:
+- Provide an array of objects for yAxisColumns to plot multiple columns against the same x-axis
+- Optionally specify a tooltipColumn for each series to show custom information in tooltips
+
+For multiple data series from different files:
+- Provide an array of file paths to the filePaths parameter
+- OR use the dataSeries parameter for more control over how each file's data is plotted
+- Use tooltipColumn to specify which column should appear in tooltips
+
+The tool supports line, scatter, and bar plots.
+`,
+    schema: plotDataToolSchema,
+    func: async (params: z.infer<typeof plotDataToolSchema>) => {
         const { filePaths, dataSeries, xAxisColumn, yAxisColumns, plotType = "line", title, xAxisLabel, yAxisLabel, tooltipColumn } = params
         try {
             // Check if file paths have .csv extension
@@ -60,7 +83,7 @@ export const plotDataTool = tool(
                     }
                 }
                 
-                await processMultipleFiles(dataSeries, plotType, title, xAxisLabel, yAxisLabel);
+                await processMultipleFiles(dataSeries as SeriesConfig[], plotType, title, xAxisLabel, yAxisLabel);
                 return params;
             }
             
@@ -77,7 +100,7 @@ export const plotDataTool = tool(
                 }
                 
                 // Create dataSeries from multiple files
-                const generatedDataSeries = normalizedFilePaths.map((filePath, index) => {
+                const generatedDataSeries: SeriesConfig[] = normalizedFilePaths.map((filePath, index) => {
                     // For multiple files, we'll use the same column in each file
                     // but create series names based on the file names
                     const fileBaseName = filePath.split('/').pop()?.split('.')[0] || `Series ${index + 1}`;
@@ -85,12 +108,12 @@ export const plotDataTool = tool(
                     // If yAxisColumns is a string, use it for all files
                     if (typeof yAxisColumns === 'string') {
                         return {
-                            filePath,
-                            xAxisColumn,
+                            filePath: filePath,
+                            xAxisColumn: xAxisColumn!,
                             yAxisColumn: yAxisColumns,
-                            tooltipColumn,
+                            tooltipColumn: tooltipColumn,
                             label: fileBaseName
-                        };
+                        } as SeriesConfig;
                     }
                     
                     // If yAxisColumns is already an array, use the first one for simplicity
@@ -100,12 +123,12 @@ export const plotDataTool = tool(
                         yAxisColumns;
                     
                     return {
-                        filePath,
-                        xAxisColumn,
-                        yAxisColumn,
-                        tooltipColumn,
+                        filePath: filePath,
+                        xAxisColumn: xAxisColumn!,
+                        yAxisColumn: yAxisColumn,
+                        tooltipColumn: tooltipColumn,
                         label: fileBaseName
-                    };
+                    } as SeriesConfig;
                 });
                 
                 await processMultipleFiles(generatedDataSeries, plotType, title, xAxisLabel, yAxisLabel);
@@ -122,34 +145,8 @@ export const plotDataTool = tool(
                 suggestion: "Check the file format and column names"
             });
         }
-    },
-    {
-        name: "plotDataTool",
-        description: `
-Use this tool to create plots from CSV files with support for multiple data series and multiple files.
-The tool will validate file existence and column names before returning the plot configuration.
-Only CSV files (with .csv extension) are supported.
-
-Example usage:
-- Plot temperature vs time from a weather data CSV
-- Compare monthly sales for multiple products in a single chart
-- Visualize data from multiple CSV files in a single plot
-- Display additional information in tooltips using the tooltipColumn parameter
-
-For multiple data series from the same file:
-- Provide an array of objects for yAxisColumns to plot multiple columns against the same x-axis
-- Optionally specify a tooltipColumn for each series to show custom information in tooltips
-
-For multiple data series from different files:
-- Provide an array of file paths to the filePaths parameter
-- OR use the dataSeries parameter for more control over how each file's data is plotted
-- Use tooltipColumn to specify which column should appear in tooltips
-
-The tool supports line, scatter, and bar plots.
-`,
-        schema: plotDataToolSchema,
     }
-);
+};
 
 // Define interfaces for data structures
 interface DataPoint {
@@ -178,10 +175,20 @@ interface SeriesConfig {
     color?: string;
 }
 
+// Type for the dataSeries parameter from schema
+interface DataSeriesInput {
+    filePath: string;
+    xAxisColumn: string;
+    yAxisColumn: string;
+    tooltipColumn?: string;
+    label?: string;
+    color?: string;
+}
+
 // Helper function to process a single file
 async function processSingleFile(filePath: string, xAxisColumn?: string, yAxisColumns?: any, plotType: string = "line", title?: string, xAxisLabel?: string, yAxisLabel?: string, tooltipColumn?: string) {
     // Read the CSV file
-    const fileContent = await readFile.invoke({ filename: filePath });
+    const fileContent = await readFile({ filename: filePath });
     const fileData = JSON.parse(fileContent);
 
     if (fileData.error) {
@@ -304,7 +311,7 @@ async function processMultipleFiles(dataSeries: SeriesConfig[], plotType: string
         const { filePath, xAxisColumn, yAxisColumn, label, color, tooltipColumn } = series;
         
         // Read the CSV file
-        const fileContent = await readFile.invoke({ filename: filePath });
+        const fileContent = await readFile({ filename: filePath });
         const fileData = JSON.parse(fileContent);
 
         if (fileData.error) {

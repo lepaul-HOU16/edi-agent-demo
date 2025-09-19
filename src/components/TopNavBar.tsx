@@ -30,8 +30,8 @@ const TopNavBar: React.FC = () => {
 
   const handleCreateNewChat = async () => {
     try {
-      // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+      // Invoke the lightweight agent for initialization (replaced deprecated reActAgent)
+      amplifyClient.mutations.invokeLightweightAgent({ chatSessionId: "initialize", message: "initialize" })
 
       const newChatSession = await amplifyClient.models.ChatSession.create({});
       router.push(`/chat/${newChatSession.data!.id}`);
@@ -44,7 +44,7 @@ const TopNavBar: React.FC = () => {
   const handleCreatePetrophysicsChat = async () => {
     try {
       // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" })
+      amplifyClient.mutations.invokeLightweightAgent({ chatSessionId: "initialize", message: "initialize" })
 
       const newChatSession = await amplifyClient.models.ChatSession.create({});
       

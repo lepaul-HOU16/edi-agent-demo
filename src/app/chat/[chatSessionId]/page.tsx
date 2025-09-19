@@ -32,8 +32,6 @@ import FileDrawer from '@/components/FileDrawer';
 import { sendMessage } from '../../../../utils/amplifyUtils';
 import zIndex from '@mui/material/styles/zIndex';
 
-const amplifyClient = generateClient<Schema>();
-
 function Page({
     params,
 }: {
@@ -47,6 +45,7 @@ function Page({
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [messages, setMessages] = useState<Message[]>([]);
     const router = useRouter();
+    const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
     
     // Chain of thought auto-scroll state
     const [chainOfThoughtAutoScroll, setChainOfThoughtAutoScroll] = useState<boolean>(true);
@@ -139,6 +138,8 @@ function Page({
     }, []);
 
     const setActiveChatSessionAndUpload = async (newChatSession: any) => {
+        if (!amplifyClient) return;
+        
         try {
             const resolvedParams = await params;
             const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
@@ -154,6 +155,8 @@ function Page({
 
     //Get the chat session info
     useEffect(() => {
+        if (!amplifyClient) return;
+        
         let isMounted = true;
         
         const fetchChatSession = async () => {
@@ -199,7 +202,7 @@ function Page({
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [amplifyClient]);
 
     // Drawer variant only matters for mobile now
     const drawerVariant = "temporary";
@@ -207,6 +210,16 @@ function Page({
     // Add state for segmented control
     const [selectedId, setSelectedId] = useState("seg-1");
     const [selectedItems, setSelectedItems] = React.useState([{ name: "", description: "", prompt: "" }]);
+
+    // Initialize Amplify client
+    useEffect(() => {
+        try {
+            const client = generateClient<Schema>();
+            setAmplifyClient(client);
+        } catch (error) {
+            console.error('Failed to generate Amplify client:', error);
+        }
+    }, []);
 
     if (!activeChatSession || !activeChatSession.id) {
         return (
@@ -227,10 +240,9 @@ function Page({
     }
 
     const handleCreateNewChat = async () => {
+        if (!amplifyClient) return;
+        
         try {
-            // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-            await amplifyClient.queries.invokeReActAgent({ chatSessionId: "initialize" });
-
             // Create a default name with date and time for the new chat session
             const defaultName = `New Canvas - ${new Date().toLocaleString()}`;
             const newChatSession = await amplifyClient.models.ChatSession.create({
@@ -355,9 +367,9 @@ function Page({
                                     ],
                                 }}
                                 onSelectionChange={({ detail }) => {
-                                    setSelectedItems(detail?.selectedItems ?? [])
-                                    // Defer state update to avoid updating component during render
+                                    // Defer both state updates to avoid updating component during render
                                     setTimeout(() => {
+                                        setSelectedItems(detail?.selectedItems ?? [])
                                         setUserInput(detail?.selectedItems[0]?.prompt || '')
                                     }, 0)
                                 }}

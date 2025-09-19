@@ -26,6 +26,8 @@ import CreateProjectToolComponent from './messageComponents/CreateProjectToolCom
 import CustomWorkshopComponent from './messageComponents/CustomWorkshopComponent'
 import { PlotDataToolComponent } from '../components/PlotDataToolComponent';
 import InteractiveAgentSummaryComponent from './messageComponents/InteractiveAgentSummaryComponent';
+import ProfessionalResponseComponent from './messageComponents/ProfessionalResponseComponent';
+import { ComprehensiveShaleAnalysisComponent } from './messageComponents/ComprehensiveShaleAnalysisComponent';
 
 const ChatMessage = (params: {
     message: Message,
@@ -74,8 +76,32 @@ const ChatMessage = (params: {
                 onRegenerateMessage={onRegenerateMessage}
             />;
         case 'ai':
-            // Check if message contains actual statistical data that should use interactive visualization
+            // Check if message contains professional response JSON
             const messageText = (message as any).content?.text || '';
+            
+            // Try to detect professional response JSON
+            let professionalResponse = null;
+            try {
+                if (messageText.trim().startsWith('{') && messageText.trim().endsWith('}')) {
+                    const parsed = JSON.parse(messageText);
+                    if (parsed.responseType === 'professional' && parsed.calculationType) {
+                        professionalResponse = parsed;
+                    }
+                }
+            } catch (e) {
+                // Not JSON, continue with regular processing
+            }
+
+            // Route professional responses to specialized components
+            if (professionalResponse) {
+                return <ProfessionalResponseComponent 
+                    content={message.content} 
+                    theme={theme}
+                    chatSessionId={(message as any).chatSessionId || ''}
+                />;
+            }
+            
+            // Check if message contains actual statistical data that should use interactive visualization
             const hasStatisticalData = messageText.includes('Mean:') &&
                                      messageText.includes('Median:') &&
                                      messageText.includes('Standard Deviation:');
@@ -89,6 +115,13 @@ const ChatMessage = (params: {
             } else {
                 return <AiMessageComponent message={message} theme={theme} />;
             }
+        case 'professional-response':
+            // Handle professional response messages with rich formatting
+            return <ProfessionalResponseComponent 
+                content={message.content} 
+                theme={theme}
+                chatSessionId={(message as any).chatSessionId || ''}
+            />;
         case 'ai-stream':
             return <ThinkingMessageComponent message={message} theme={theme} />
         case 'tool':
@@ -145,6 +178,17 @@ const ChatMessage = (params: {
                     />;
                 case 'permeabilityCalculator':
                     return <CustomWorkshopComponent content={message.content} theme={theme} />;
+                case 'comprehensive_shale_analysis':
+                    // Parse the comprehensive shale analysis data and render with engaging visualizations
+                    try {
+                        const analysisData = JSON.parse((message as any).content?.text || '{}');
+                        if (analysisData.messageContentType === 'comprehensive_shale_analysis') {
+                            return <ComprehensiveShaleAnalysisComponent data={analysisData} />;
+                        }
+                    } catch (e) {
+                        // If parsing fails, fall back to default component
+                    }
+                    return <DefaultToolMessageComponent message={message} />;
                 default:
                     return <DefaultToolMessageComponent message={message} />;
             }

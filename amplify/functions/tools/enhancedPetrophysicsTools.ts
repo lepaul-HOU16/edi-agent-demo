@@ -6,11 +6,6 @@
 import { z } from "zod";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { ProfessionalResponseBuilder } from "./professionalResponseTemplates";
-import { PorosityCalculator } from "../../../src/services/calculators/porosityCalculator";
-import { ShaleVolumeCalculator } from "../../../src/services/calculators/shaleVolumeCalculator";
-import { SaturationCalculator } from "../../../src/services/calculators/saturationCalculator";
-import { QualityControlCalculator } from "../../../src/services/calculators/qualityControlCalculator";
-import { UncertaintyAnalysisCalculator } from "../../../src/services/calculators/uncertaintyAnalysisCalculator";
 
 // Import existing tools and enhance them
 import { 
@@ -109,16 +104,19 @@ interface MCPTool {
   func: (args: any) => Promise<string>;
 }
 
-// Initialize clients and calculators
+// Initialize S3 client
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
-const porosityCalculator = new PorosityCalculator();
-const shaleVolumeCalculator = new ShaleVolumeCalculator();
-const saturationCalculator = new SaturationCalculator();
-const qualityControlCalculator = new QualityControlCalculator();
-const uncertaintyAnalysisCalculator = new UncertaintyAnalysisCalculator();
-
 const S3_BUCKET = process.env.S3_BUCKET || 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m';
 const WELL_DATA_PREFIX = 'global/well-data/';
+
+// Simple calculation functions
+function calculateDensityPorosity(rhobData: number[], params: { matrixDensity: number; fluidDensity: number }): number[] {
+  return rhobData.map(rhob => {
+    if (rhob === -999.25 || isNaN(rhob) || !isFinite(rhob)) return -999.25;
+    const phi = (params.matrixDensity - rhob) / (params.matrixDensity - params.fluidDensity);
+    return Math.max(0, Math.min(1, phi));
+  });
+}
 
 /**
  * ENHANCED: Professional Porosity Calculation
@@ -209,7 +207,10 @@ export const enhancedCalculatePorosityTool: MCPTool = {
             if (rhob === -999.25 || isNaN(rhob) || !isFinite(rhob)) return rhob;
             return rhob > 10 ? rhob / 50 : rhob; // Auto-scale if needed
           });
-          values = porosityCalculator.calculateDensityPorosity(scaledRhobData, calcParams);
+          values = calculateDensityPorosity(scaledRhobData, {
+            matrixDensity: calcParams.matrixDensity,
+            fluidDensity: calcParams.fluidDensity
+          });
           break;
         case 'neutron':
           const nphiData = filteredWellData.curves.find(c => c.name === 'NPHI')?.data || [];
@@ -222,7 +223,10 @@ export const enhancedCalculatePorosityTool: MCPTool = {
           const rhobDataEff = filteredWellData.curves.find(c => c.name === 'RHOB')?.data || [];
           const nphiDataEff = filteredWellData.curves.find(c => c.name === 'NPHI')?.data || [];
           const scaledRhobDataEff = rhobDataEff.map(rhob => rhob > 10 ? rhob / 50 : rhob);
-          const densityPhi = porosityCalculator.calculateDensityPorosity(scaledRhobDataEff, calcParams);
+          const densityPhi = calculateDensityPorosity(scaledRhobDataEff, {
+            matrixDensity: calcParams.matrixDensity,
+            fluidDensity: calcParams.fluidDensity
+          });
           const neutronPhi = nphiDataEff.map(nphi => nphi > 3 ? nphi / 100 : nphi);
           values = densityPhi.map((dphi, i) => {
             const nphi = neutronPhi[i];
@@ -740,11 +744,18 @@ export const enhancedPerformUncertaintyAnalysisTool: MCPTool = {
   }
 };
 
-// Export all enhanced tools
+// Import the comprehensive shale analysis tool
+import { comprehensiveShaleAnalysisTool } from "./comprehensiveShaleAnalysisTool";
+
+// Export all enhanced tools (including imported basic tools)
 export const enhancedPetrophysicsTools = [
+  listWellsTool,  // Import from petrophysicsTools
+  getWellInfoTool,  // Import from petrophysicsTools
+  getCurveDataTool,  // Import from petrophysicsTools
   enhancedCalculatePorosityTool,
   enhancedCalculateShaleVolumeTool,
   enhancedCalculateSaturationTool,
   enhancedAssessDataQualityTool,
-  enhancedPerformUncertaintyAnalysisTool
+  enhancedPerformUncertaintyAnalysisTool,
+  comprehensiveShaleAnalysisTool  // NEW: Comprehensive workflow orchestrator
 ];
