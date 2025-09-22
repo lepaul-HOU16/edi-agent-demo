@@ -744,8 +744,10 @@ export const enhancedPerformUncertaintyAnalysisTool: MCPTool = {
   }
 };
 
-// Import the comprehensive shale analysis tool
+// Import the comprehensive analysis tools
 import { comprehensiveShaleAnalysisTool } from "./comprehensiveShaleAnalysisTool";
+import { comprehensivePorosityAnalysisTool } from "./comprehensivePorosityAnalysisTool";
+import { comprehensiveMultiWellCorrelationTool } from "./comprehensiveMultiWellCorrelationTool";
 
 // Export all enhanced tools (including imported basic tools)
 export const enhancedPetrophysicsTools = [
@@ -757,5 +759,7 @@ export const enhancedPetrophysicsTools = [
   enhancedCalculateSaturationTool,
   enhancedAssessDataQualityTool,
   enhancedPerformUncertaintyAnalysisTool,
-  comprehensiveShaleAnalysisTool  // NEW: Comprehensive workflow orchestrator
+  comprehensiveShaleAnalysisTool,  // Comprehensive workflow orchestrator
+  comprehensivePorosityAnalysisTool,  // NEW: Comprehensive porosity analysis with artifacts
+  comprehensiveMultiWellCorrelationTool  // NEW: Comprehensive multi-well correlation with artifacts
 ];

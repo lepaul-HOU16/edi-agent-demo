@@ -15,9 +15,10 @@ import ArtifactRenderer from '../ArtifactRenderer';
 interface AiMessageComponentProps {
   message: Message;
   theme: Theme;
+  enhancedComponent?: React.ReactNode;
 }
 
-const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme }) => {
+const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme, enhancedComponent }) => {
   // Track expanded state for all tool calls
   const [expandedToolCalls, setExpandedToolCalls] = useState<Record<string, boolean>>({});
 
@@ -37,17 +38,30 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme 
           sx={{ 
             color: theme.palette.primary.main,
             width: 32, 
-            height: 32
+            height: 32,
+            flexShrink: 0
           }} 
         />
-        <div>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {(message as any).content?.text}
-          </ReactMarkdown>
-          
-          {/* Render artifacts if present */}
-          {(message as any).artifacts && (
-            <ArtifactRenderer artifacts={(message as any).artifacts} />
+        <div style={{ 
+          width: '100%',
+          minWidth: 0 // Allows flex child to shrink below content size
+        }}>
+          {/* Enhanced component takes priority and renders full width */}
+          {enhancedComponent ? (
+            <div style={{ width: '100%' }}>
+              {enhancedComponent}
+            </div>
+          ) : (
+            <>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {(message as any).content?.text}
+              </ReactMarkdown>
+              
+              {/* Render artifacts if present */}
+              {(message as any).artifacts && (
+                <ArtifactRenderer artifacts={(message as any).artifacts} />
+              )}
+            </>
           )}
           
           {(message as any).toolCalls && (message as any).toolCalls !== '[]' && (
