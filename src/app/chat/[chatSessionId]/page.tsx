@@ -376,25 +376,45 @@ function Page({
                                 selectedItems={selectedItems}
                                 items={[
                                     {
-                                        name: 'Well Data Discovery & Summary',
-                                        description: 'Discover and analyze available well log data to provide quick insights into the dataset.',
-                                        prompt: 'How many wells do I have? Explore the well data in global/well-data/ directory and create a summary showing what log types are available across the wells. Generate a simple visualization showing the spatial distribution of wells and basic statistics about the dataset.',
+                                        name: 'Production Well Data Discovery (24 Wells)',
+                                        description: 'Comprehensive analysis of all 24 production wells (WELL-001 through WELL-024) with spatial distribution and log curve inventory.',
+                                        prompt: 'Analyze the complete dataset of 24 production wells from WELL-001 through WELL-024. Generate a comprehensive summary showing available log curves (GR, RHOB, NPHI, DTC, CALI, resistivity), spatial distribution, depth ranges, and data quality assessment. Create interactive visualizations showing field overview and well statistics.',
                                     },
                                     {
-                                        name: 'Gamma Ray Shale Analysis',
-                                        description: 'Calculate and visualize shale volume across wells using gamma ray data.',
-                                        prompt: 'Analyze the gamma ray logs from the wells and calculate shale volume using the Larionov method. Create interactive plots showing shale volume vs depth for the wells and identify the cleanest sand intervals. Focus on creating clear, engaging visualizations.',
+                                        name: 'Multi-Well Correlation Analysis (WELL-001 to WELL-005)',
+                                        description: 'AI-powered correlation analysis with interactive visualization panels, geological interpretation, and development strategy recommendations using the first 5 wells.',
+                                        prompt: 'Create a comprehensive multi-well correlation analysis for wells WELL-001, WELL-002, WELL-003, WELL-004, and WELL-005. Generate normalized log correlations showing gamma ray, resistivity, and porosity data. Include geological correlation lines, reservoir zone identification, and statistical analysis. Create interactive visualization components with expandable technical documentation.',
                                     },
                                     {
-                                        name: 'Porosity from Density-Neutron',
-                                        description: 'Calculate porosity and create density-neutron crossplot for reservoir characterization.',
-                                        prompt: 'Extract density and neutron log data from the wells and calculate porosity. Create a density-neutron crossplot to identify lithology and highlight high-porosity zones. Generate depth plots showing porosity variations and identify the best reservoir intervals.',
+                                        name: 'Comprehensive Shale Analysis (WELL-001)',
+                                        description: 'Advanced shale volume calculation using gamma ray data from WELL-001 with interactive depth plots and reservoir quality assessment.',
+                                        prompt: 'Perform comprehensive shale analysis on WELL-001 using gamma ray data. Calculate shale volume using Larionov method, identify clean sand intervals, and generate interactive depth plots. Include statistical summaries, uncertainty analysis, and reservoir quality assessment with expandable technical details.',
                                     },
                                     {
-                                        name: 'Multi-Well Log Correlation',
-                                        description: 'Create correlation panel showing key logs across multiple wells.',
-                                        prompt: 'Create a correlation panel showing gamma ray, resistivity, and porosity logs across 4-5 wells. Normalize the logs and create an interactive visualization that highlights geological patterns and reservoir zones. Make it visually appealing for presentation purposes.',
-                                    }
+                                        name: 'Integrated Porosity Analysis (Wells 001-003)',
+                                        description: 'Multi-well porosity analysis using density-neutron data from WELL-001, WELL-002, and WELL-003 with crossplot generation.',
+                                        prompt: 'Perform integrated porosity analysis for WELL-001, WELL-002, and WELL-003 using RHOB (density) and NPHI (neutron) data. Generate density-neutron crossplots, calculate porosity, identify lithology, and create reservoir quality indices. Include interactive visualizations and professional documentation.',
+                                    },
+                                    {
+                                        name: 'Professional Porosity Calculation (WELL-001)',
+                                        description: 'Enterprise-grade porosity calculation using density-neutron methodology with complete uncertainty analysis and SPE/API documentation.',
+                                        prompt: 'Calculate porosity for WELL-001 using enhanced professional methodology. Include density porosity, neutron porosity, and effective porosity calculations with statistical analysis, uncertainty assessment, and complete technical documentation following SPE/API standards.',
+                                    },
+                                    // {
+                                    //     name: 'Advanced Shale Volume Analysis (WELL-001)',
+                                    //     description: 'Professional shale volume calculation using Larionov methods with geological interpretation and reservoir assessment.',
+                                    //     prompt: 'Perform advanced shale volume calculation for WELL-001 using Larionov tertiary method. Include net-to-gross analysis, clean sand identification, statistical validation, and professional geological interpretation with industry-standard documentation.',
+                                    // },
+                                    // {
+                                    //     name: 'Water Saturation Assessment (WELL-001)',
+                                    //     description: 'Comprehensive water saturation calculation using Archie equation with hydrocarbon assessment and completion recommendations.',
+                                    //     prompt: 'Calculate water saturation for WELL-001 using enhanced Archie equation methodology. Include resistivity analysis, porosity integration, hydrocarbon saturation assessment, and completion strategy recommendations with uncertainty analysis.',
+                                    // },
+                                    // {
+                                    //     name: 'Data Quality Assessment (WELL-001)',
+                                    //     description: 'Professional log data quality evaluation with completeness analysis, outlier detection, and SPE-standard quality metrics.',
+                                    //     prompt: 'Assess data quality for gamma ray curve in WELL-001. Perform comprehensive quality analysis including data completeness, outlier detection, statistical validation, and professional recommendations following SPE data quality standards.',
+                                    // }
                                 ]}
                                 loadingText="Loading resources"
                                 cardsPerRow={[{ cards: 1 }, { minWidth: 500, cards: 1 }]}

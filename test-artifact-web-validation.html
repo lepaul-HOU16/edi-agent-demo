@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Artifact Debug Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 4px; }
+        .success { background: #e8f5e8; border-color: #4caf50; }
+        .error { background: #fee; border-color: #f44336; }
+        .info { background: #e3f2fd; border-color: #2196f3; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 4px; overflow-x: auto; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+        .primary { background: #2196f3; color: white; border: none; }
+        .secondary { background: #757575; color: white; border: none; }
+        #logs { max-height: 400px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Artifact Debug Validation Test</h1>
+        <p><strong>Purpose:</strong> Test if artifacts are being returned by the deployed agent and troubleshoot the artifact flow pipeline.</p>
+        
+        <div class="test-section info">
+            <h3>📋 Test Instructions</h3>
+            <ol>
+                <li><strong>Open Browser Console:</strong> Press F12 or right-click → Inspect → Console</li>
+                <li><strong>Visit Application:</strong> Go to your deployed application URL</li>
+                <li><strong>Open Chat:</strong> Navigate to a chat session</li>
+                <li><strong>Send Test Message:</strong> Type: <code>"perform comprehensive shale analysis on well Bakken_Horizontal_1"</code></li>
+                <li><strong>Check Console:</strong> Look for artifact-related logs</li>
+                <li><strong>Check CloudWatch:</strong> Look at Lambda logs for detailed debugging</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>🎯 What to Look For</h3>
+            
+            <h4>Frontend Console Logs (F12 → Console):</h4>
+            <ul>
+                <li><code>amplifyUtils.ts:185 Invoke response data:</code> - Should show artifacts array</li>
+                <li><code>amplifyUtils.ts:215 Agent artifacts:</code> - Should NOT be empty array</li>
+                <li>Any error messages about GraphQL or authentication</li>
+            </ul>
+
+            <h4>CloudWatch Lambda Logs (AWS Console → Lambda → lightweightAgent → Monitor → Logs):</h4>
+            <ul>
+                <li><code>🔍 HANDLER: Agent response received</code></li>
+                <li><code>🎯 HANDLER: Artifacts being returned</code></li>
+                <li><code>✅ HANDLER: Artifacts survive JSON serialization</code></li>
+                <li><code>🏁 HANDLER: Final response structure</code></li>
+                <li><code>🎉 HANDLER: Artifacts preserved in serialization!</code></li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🚨 Expected Issues & Solutions</h3>
+            
+            <div style="margin: 10px 0;">
+                <strong>Issue 1: Artifacts empty in frontend</strong><br>
+                <em>Console shows:</em> <code>artifacts: Array(0)</code><br>
+                <em>Solution:</em> Check CloudWatch logs for "💥 HANDLER: ARTIFACTS LOST DURING SERIALIZATION!"
+            </div>
+
+            <div style="margin: 10px 0;">
+                <strong>Issue 2: GraphQL errors</strong><br>
+                <em>Console shows:</em> Authentication or permission errors<br>
+                <em>Solution:</em> Check AWS credentials and API permissions
+            </div>
+
+            <div style="margin: 10px 0;">
+                <strong>Issue 3: Agent execution failure</strong><br>
+                <em>CloudWatch shows:</em> Tool import errors or MCP failures<br>
+                <em>Solution:</em> Check tool imports and S3 bucket access
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Debugging Steps</h3>
+            <ol>
+                <li><strong>Verify Deployment:</strong> Confirm the enhanced debugging handler is deployed</li>
+                <li><strong>Test Message:</strong> Send the exact message: "perform comprehensive shale analysis on well Bakken_Horizontal_1"</li>
+                <li><strong>Check Response Time:</strong> Should complete in 30-60 seconds</li>
+                <li><strong>Verify Success:</strong> Should get success message, even without artifacts</li>
+                <li><strong>Examine Logs:</strong> CloudWatch logs should show detailed artifact flow tracing</li>
+            </ol>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Expected Results</h3>
+            
+            <h4>✅ Success Case:</h4>
+            <ul>
+                <li>Frontend console shows: <code>artifacts: Array(1)</code></li>
+                <li>CloudWatch shows: "🎉 HANDLER: Artifacts preserved in serialization!"</li>
+                <li>Chat displays interactive shale analysis visualization</li>
+            </ul>
+
+            <h4>❌ Failure Case (Current Issue):</h4>
+            <ul>
+                <li>Frontend console shows: <code>artifacts: Array(0)</code></li>
+                <li>CloudWatch shows where artifacts are lost in the pipeline</li>
+                <li>Chat displays only text message without visualizations</li>
+            </ul>
+        </div>
+
+        <div class="test-section info">
+            <h3>🎯 Next Steps After Testing</h3>
+            <p>Based on where the artifacts are lost:</p>
+            <ul>
+                <li><strong>Lost in Tool:</strong> Fix comprehensive shale analysis tool</li>
+                <li><strong>Lost in Agent:</strong> Fix enhanced strands agent artifact processing</li>
+                <li><strong>Lost in Handler:</strong> Fix Lambda handler serialization</li>
+                <li><strong>Lost in GraphQL:</strong> Fix GraphQL schema or response mapping</li>
+                <li><strong>Lost in Frontend:</strong> Fix frontend artifact processing</li>
+            </ul>
+        </div>
+
+        <div class="test-section">
+            <h3>🔍 CloudWatch Log Group</h3>
+            <p><strong>Log Group:</strong> <code>/aws/lambda/amplify-digitalassistant-agentfixlp-sandbox-3d38283154-lightweightAgent</code></p>
+            <p><strong>Filter Pattern:</strong> Search for "HANDLER" or "ARTIFACTS" to find relevant logs</p>
+            <p><strong>Time Range:</strong> Look for logs from the time you sent the test message</p>
+        </div>
+
+        <div class="test-section success">
+            <h3>✅ Validation Complete</h3>
+            <p>Once you've run this test and checked both the frontend console and CloudWatch logs, you'll have identified exactly where artifacts are being lost in the pipeline. This will allow for a targeted fix to restore artifact functionality.</p>
+        </div>
+    </div>
+
+    <script>
+        console.log('🔍 Artifact Debug Validation Test Page Loaded');
+        console.log('📋 Follow the instructions above to test artifact flow');
+        console.log('🎯 Send message: "perform comprehensive shale analysis on well Bakken_Horizontal_1"');
+        console.log('⚠️ Watch for artifact-related console logs and check CloudWatch Lambda logs');
+    </script>
+</body>
+</html>
