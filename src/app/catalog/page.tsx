@@ -116,6 +116,9 @@ function CatalogPageBase() {
   const [activePolygon, setActivePolygon] = useState<PolygonFilter | null>(null);
   const [isDrawingMode, setIsDrawingMode] = useState<boolean>(false);
   
+  // Table data state for the main table
+  const [currentTableData, setCurrentTableData] = useState<any[]>([]);
+  
   // Drawer variant only matters for mobile now
   const drawerVariant = "temporary";
 
@@ -188,7 +191,7 @@ function CatalogPageBase() {
   };
 
   // Function to detect if query is contextual (filter) vs new search
-  const analyzeQuery = (query: string): ContextualQuery => {
+  const analyzeQuery = useCallback((query: string): ContextualQuery => {
     const lowerQuery = query.toLowerCase().trim();
     
     // Contextual filter patterns
@@ -323,11 +326,23 @@ function CatalogPageBase() {
       operation: 'new',
       originalQuery: query
     };
-  };
+  }, [currentContext, activePolygon]);
 
   // Function to apply filters to current context data
   const applyContextualFilter = (contextData: any, filterType: string, filterValue: any): any => {
+    console.log('🔧 APPLYING CONTEXTUAL FILTER:');
+    console.log('  Filter type:', filterType);
+    console.log('  Filter value:', filterValue);
+    console.log('  Input data source:', contextData?.metadata?.source);
+    console.log('  Input feature count:', contextData?.features?.length || 0);
+    console.log('  Sample input wells:', contextData?.features?.slice(0, 3)?.map((f: any) => ({
+      name: f.properties?.name,
+      depth: f.properties?.depth,
+      operator: f.properties?.operator || f.properties?.dataSource
+    })) || []);
+    
     if (!contextData || !contextData.features) {
+      console.log('❌ No context data to filter');
       return contextData;
     }
     
@@ -335,17 +350,27 @@ function CatalogPageBase() {
     
     switch (filterType) {
       case 'depth':
+        console.log('🔧 Applying depth filter...');
+        const beforeDepthFilter = filteredFeatures.length;
+        
         filteredFeatures = filteredFeatures.filter(feature => {
           const depthStr = feature.properties?.depth || '0';
           const depth = parseInt(depthStr.replace(/[^\d]/g, ''));
           
-          if (filterValue.operator === '>') {
-            return depth > filterValue.value;
-          } else if (filterValue.operator === '<') {
-            return depth < filterValue.value;
+          const passes = filterValue.operator === '>' 
+            ? depth > filterValue.value 
+            : filterValue.operator === '<' 
+              ? depth < filterValue.value 
+              : true;
+              
+          if (passes) {
+            console.log(`  ✅ ${feature.properties?.name}: ${depthStr} → ${depth} (passes ${filterValue.operator} ${filterValue.value})`);
           }
-          return true;
+          
+          return passes;
         });
+        
+        console.log(`🔧 Depth filter results: ${beforeDepthFilter} → ${filteredFeatures.length} wells`);
         break;
         
       case 'operator':
@@ -399,8 +424,16 @@ function CatalogPageBase() {
     };
   };
 
-  // Function to save context
+  // Function to save context with enhanced debugging
   const saveContext = useCallback((data: any, query: string, filters: string[] = []) => {
+    console.log('🔄 SAVING CONTEXT:');
+    console.log('  Query:', query);
+    console.log('  Data type:', data?.type);
+    console.log('  Feature count:', data?.features?.length || 0);
+    console.log('  Data source:', data?.metadata?.source);
+    console.log('  Query type:', data?.metadata?.queryType);
+    console.log('  Applied filters:', filters);
+    
     const context: SearchContext = {
       data,
       originalQuery: query,
@@ -410,8 +443,18 @@ function CatalogPageBase() {
       queryType: data?.metadata?.queryType || 'general'
     };
     
+    // Log sample data for verification
+    if (data?.features?.length > 0) {
+      console.log('  Sample wells in new context:');
+      data.features.slice(0, 3).forEach((f: any, i: number) => {
+        console.log(`    ${i + 1}. ${f.properties?.name} (${f.properties?.depth}, ${f.properties?.operator || f.properties?.dataSource})`);
+      });
+    }
+    
     setCurrentContext(context);
     setContextHistory(prev => [context, ...prev].slice(0, 10)); // Keep last 10 contexts
+    
+    console.log('✅ Context saved successfully');
   }, []);
 
   // Function to clear context
@@ -428,6 +471,9 @@ function CatalogPageBase() {
     try {
       // Clear the messages state to reset the conversation
       setMessages([]);
+      // Clear the table data and context
+      setCurrentTableData([]);
+      clearContext();
     } catch (error) {
       console.error("Error resetting chat:", error);
       alert("Failed to reset chat.");
@@ -444,13 +490,32 @@ function CatalogPageBase() {
       
       // Analyze query to determine if contextual or new search
       const queryAnalysis = analyzeQuery(prompt);
-      console.log('Query analysis:', queryAnalysis);
+      console.log('🔍 QUERY ANALYSIS:', queryAnalysis);
+      console.log('🔍 CURRENT CONTEXT STATE:', {
+        hasContext: !!currentContext,
+        contextQuery: currentContext?.originalQuery || 'none',
+        contextRecordCount: currentContext?.recordCount || 0,
+        contextDataSource: currentContext?.data?.metadata?.source || 'none',
+        contextQueryType: currentContext?.data?.metadata?.queryType || 'none'
+      });
       
       let geoJsonData = null;
       
       if (queryAnalysis.isContextual && queryAnalysis.operation === 'filter' && currentContext) {
-        // Handle contextual filtering
-        console.log('Processing contextual filter on current data');
+        // Handle contextual filtering - FRONTEND ONLY (no backend call)
+        console.log('🎯 PROCESSING CONTEXTUAL FILTER (frontend-only)');
+        console.log('🎯 FILTERING DATASET:', {
+          originalQuery: currentContext.originalQuery,
+          dataSource: currentContext.data?.metadata?.source,
+          recordCount: currentContext.recordCount,
+          sampleWells: currentContext.data?.features?.slice(0, 3)?.map((f: any) => ({
+            name: f.properties?.name,
+            depth: f.properties?.depth,
+            operator: f.properties?.operator || f.properties?.dataSource
+          })) || []
+        });
+        
+        console.log('🎯 APPLYING FILTER:', queryAnalysis.filterType, '=', queryAnalysis.filterValue);
         
         geoJsonData = applyContextualFilter(
           currentContext.data,
@@ -462,24 +527,102 @@ function CatalogPageBase() {
         const newFilters = [...currentContext.appliedFilters, `${queryAnalysis.filterType}: ${JSON.stringify(queryAnalysis.filterValue)}`];
         saveContext(geoJsonData, currentContext.originalQuery, newFilters);
         
-      } else {
-        // Handle new search
-        console.log('Processing new search query');
+        // **UPDATE MAIN TABLE DATA WITH FILTERED RESULTS**
+        const filteredTableData = geoJsonData.features.map((feature, index) => ({
+          id: `well-${index}`,
+          name: feature.properties.name || 'Unknown Well',
+          type: feature.properties.type || 'Unknown', 
+          location: feature.properties.location || 'Unknown',
+          depth: feature.properties.depth || 'Unknown',
+          operator: feature.properties.operator || 'Unknown'
+        }));
+        setCurrentTableData(filteredTableData);
+        console.log('✅ Updated main table with', filteredTableData.length, 'filtered wells');
         
-        // Clear context for new search
-        if (!queryAnalysis.isContextual) {
+        // **KEY CHANGE: Update map immediately with filtered data**
+        console.log('Updating map with filtered data:', geoJsonData.features.length, 'wells');
+        if (mapComponentRef.current && geoJsonData) {
+          try {
+            mapComponentRef.current.updateMapData(geoJsonData);
+            
+            // Auto-zoom map to fit filtered wells
+            if (geoJsonData.features && geoJsonData.features.length > 0) {
+              const bounds = {
+                minLon: Math.min(...geoJsonData.features.map(f => f.geometry.coordinates[0])),
+                maxLon: Math.max(...geoJsonData.features.map(f => f.geometry.coordinates[0])),
+                minLat: Math.min(...geoJsonData.features.map(f => f.geometry.coordinates[1])),
+                maxLat: Math.max(...geoJsonData.features.map(f => f.geometry.coordinates[1]))
+              };
+              
+              // Fit map to filtered bounds with padding
+              if (mapComponentRef.current.fitBounds) {
+                mapComponentRef.current.fitBounds(bounds);
+              }
+            }
+            
+            console.log('✅ Map updated and zoomed to filtered data');
+          } catch (error) {
+            console.error('❌ Error updating map with filtered data:', error);
+          }
+        }
+        
+      } else {
+        // Handle contextual queries without context or new searches
+        if (queryAnalysis.isContextual && !currentContext) {
+          console.log('⚠️ Contextual filter attempted without current data');
+          
+          // Add helpful message to user
+          const noContextMessage: Message = {
+            id: uuidv4() as any,
+            role: "ai" as any,
+            content: {
+              text: `**⚠️ No Data to Filter**\n\nYou're trying to apply a filter ("${prompt}") but there's no current dataset loaded.\n\n**To use filters:**\n1. First search for wells: "*Show me all wells in South China Sea*"\n2. Then apply filters: "*wells with depth greater than 3500m*"\n\n💡 *Filters work on existing search results, not as standalone queries.*`
+            } as any,
+            responseComplete: true as any,
+            createdAt: new Date().toISOString() as any,
+            chatSessionId: '' as any,
+            owner: '' as any
+          };
+          
+          setTimeout(() => {
+            setMessages(prevMessages => [...prevMessages, noContextMessage]);
+          }, 0);
+          
+          setIsLoadingMapData(false);
+          return null;
+        }
+        
+        // Handle new search
+        console.log('🆕 PROCESSING NEW SEARCH QUERY');
+        
+        // Don't clear context immediately - check if it's actually a new search first
+        // Only clear if it's definitely a geography-based new search
+        const isGeographicNewSearch = /(?:show|find|get).*wells.*(?:vietnam|malaysia|brunei|philippines|china|south china sea|scs)/i.test(prompt.toLowerCase()) ||
+                                     /my wells|personal wells|user wells/i.test(prompt.toLowerCase());
+        
+        if (isGeographicNewSearch) {
+          console.log('🆕 CLEARING CONTEXT for geographic new search');
           clearContext();
+        } else {
+          console.log('🆕 KEEPING CONTEXT - might be a filter that backend misclassified');
         }
         
         let searchResponse;
         try {
-          console.log('Attempting to call catalogSearch function...');
+          console.log('🔍 CALLING BACKEND catalogSearch function...');
+          console.log('🔍 SEARCH PROMPT:', prompt);
+          
           searchResponse = await amplifyClient.queries.catalogSearch({
             prompt: prompt
           });
-          console.log('catalogSearch response received:', searchResponse);
+          
+          console.log('🔍 BACKEND RESPONSE RECEIVED:', {
+            hasData: !!searchResponse.data,
+            dataLength: searchResponse.data ? String(searchResponse.data).length : 0,
+            dataType: typeof searchResponse.data
+          });
         } catch (functionError) {
-          console.error('catalogSearch function error:', functionError);
+          console.error('❌ catalogSearch function error:', functionError);
           // Show the actual error instead of falling back to simulation
           throw new Error(`Search function failed: ${functionError instanceof Error ? functionError.message : String(functionError)}`);
         }
@@ -490,8 +633,22 @@ function CatalogPageBase() {
             geoJsonData = typeof searchResponse.data === 'string' 
               ? JSON.parse(searchResponse.data) 
               : searchResponse.data;
+              
+            console.log('✅ PARSED BACKEND DATA:', {
+              type: geoJsonData?.type,
+              featureCount: geoJsonData?.features?.length || 0,
+              dataSource: geoJsonData?.metadata?.source,
+              queryType: geoJsonData?.metadata?.queryType,
+              sampleWells: geoJsonData?.features?.slice(0, 3)?.map((f: any) => ({
+                name: f.properties?.name,
+                type: f.properties?.type,
+                depth: f.properties?.depth,
+                operator: f.properties?.operator || f.properties?.dataSource
+              })) || []
+            });
+            
           } catch (parseError) {
-            console.error('Error parsing search response:', parseError);
+            console.error('❌ Error parsing search response:', parseError);
             throw new Error('Invalid response format from search service');
           }
         }
@@ -501,7 +658,21 @@ function CatalogPageBase() {
         }
         
         // Save context for new search
+        console.log('🔄 SAVING NEW SEARCH CONTEXT...');
         saveContext(geoJsonData, prompt);
+        
+        // **UPDATE MAIN TABLE DATA WITH NEW SEARCH RESULTS**
+        const newTableData = geoJsonData.features.map((feature, index) => ({
+          id: `well-${index}`,
+          name: feature.properties.name || 'Unknown Well',
+          type: feature.properties.type || 'Unknown', 
+          location: feature.properties.location || 'Unknown',
+          depth: feature.properties.depth || 'Unknown',
+          operator: feature.properties.operator || 'Unknown'
+        }));
+        setCurrentTableData(newTableData);
+        console.log('✅ Updated main table with', newTableData.length, 'new search results');
+        console.log('✅ Sample table data:', newTableData.slice(0, 3));
       }
       
       console.log('Processed search results:', geoJsonData);
@@ -514,7 +685,23 @@ function CatalogPageBase() {
           console.log('✅ MapComponent ref is available, calling updateMapData...');
           try {
             mapComponentRef.current.updateMapData(geoJsonData);
-            console.log('✅ Successfully called updateMapData on MapComponent');
+            
+            // Auto-zoom map to fit all results with padding
+            if (geoJsonData.features && geoJsonData.features.length > 0) {
+              const bounds = {
+                minLon: Math.min(...geoJsonData.features.map(f => f.geometry.coordinates[0])),
+                maxLon: Math.max(...geoJsonData.features.map(f => f.geometry.coordinates[0])),
+                minLat: Math.min(...geoJsonData.features.map(f => f.geometry.coordinates[1])),
+                maxLat: Math.max(...geoJsonData.features.map(f => f.geometry.coordinates[1]))
+              };
+              
+              // Fit map to results with padding
+              if (mapComponentRef.current.fitBounds) {
+                mapComponentRef.current.fitBounds(bounds);
+              }
+            }
+            
+            console.log('✅ Successfully called updateMapData and fitBounds on MapComponent');
           } catch (error) {
             console.error('❌ Error calling updateMapData:', error);
           }
@@ -704,7 +891,7 @@ ${wellCardsData.map(well => {
     } finally {
       setIsLoadingMapData(false);
     }
-  }, [amplifyClient]);
+  }, [amplifyClient, currentContext, saveContext, clearContext]);
 
   // Function to fetch initial map data
   const fetchMapData = useCallback(async () => {
@@ -1096,6 +1283,73 @@ ${wellCardsData.map(well => {
                   </IconButton>
                 </Tooltip>
               </div>
+
+              {/* Main Data Table - Updates with filtered results */}
+              {currentTableData.length > 0 && (
+                <div style={{ marginTop: '20px', marginBottom: '20px', padding: '0 16px' }}>
+                  <Container
+                    header={
+                      <Header
+                        variant="h2"
+                        description={`Showing ${currentTableData.length} wells`}
+                      >
+                        Well Data Results
+                      </Header>
+                    }
+                  >
+                    <Table
+                      columnDefinitions={[
+                        {
+                          id: "name",
+                          header: "Well Name",
+                          cell: (item: any) => item.name || "N/A",
+                          sortingField: "name"
+                        },
+                        {
+                          id: "type", 
+                          header: "Type",
+                          cell: (item: any) => item.type || "N/A",
+                          sortingField: "type"
+                        },
+                        {
+                          id: "depth",
+                          header: "Depth", 
+                          cell: (item: any) => item.depth || "N/A",
+                          sortingField: "depth"
+                        },
+                        {
+                          id: "operator",
+                          header: "Operator",
+                          cell: (item: any) => item.operator || "N/A", 
+                          sortingField: "operator"
+                        },
+                        {
+                          id: "location",
+                          header: "Location",
+                          cell: (item: any) => item.location || "N/A",
+                          sortingField: "location"
+                        }
+                      ]}
+                      items={currentTableData}
+                      trackBy={(item) => item.id || `item-${Math.random()}`}
+                      empty={
+                        <Box textAlign="center" color="inherit">
+                          <b>No wells found</b>
+                          <Box
+                            padding={{ bottom: "s" }}
+                            variant="p"
+                            color="inherit"
+                          >
+                            Try searching for wells or adjusting your filters.
+                          </Box>
+                        </Box>
+                      }
+                      sortingDisabled={false}
+                      variant="container"
+                    />
+                  </Container>
+                </div>
+              )}
 
               <CatalogChatBoxCloudscape
                 onInputChange={setUserInput}
