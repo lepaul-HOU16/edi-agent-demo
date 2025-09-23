@@ -318,7 +318,18 @@ export const comprehensiveShaleAnalysisTool: MCPTool = {
       const correlationData: any[] = [];
       const failedWells: string[] = [];
 
-      for (const wellName of targetWells.slice(0, 10)) { // Limit to 10 wells for performance
+      // FIXED: Respect analysis type for well count
+      let wellsToProcess: string[] = [];
+      
+      if (analysisType === "single_well") {
+        // For single well analysis, only process one well
+        wellsToProcess = targetWells.slice(0, 1);
+      } else {
+        // For multi-well or field analysis, process multiple wells  
+        wellsToProcess = targetWells.slice(0, 10); // Limit to 10 wells for performance
+      }
+
+      for (const wellName of wellsToProcess) {
         try {
           console.log(`Attempting to analyze well: ${wellName}`);
           const wellAnalysis = await analyzeSingleWell(wellName, method, parameters, vshCutoff, depthRange);
@@ -343,7 +354,11 @@ export const comprehensiveShaleAnalysisTool: MCPTool = {
       if (wellAnalyses.length === 0) {
         // Create mock analysis for demonstration when no real wells can be analyzed
         console.log('🎭 Creating mock shale analysis for demonstration purposes');
-        const mockAnalysis = createMockShaleAnalysis(targetWells[0] || 'DEMO-WELL-001');
+        // FIXED: Use correct well name for single well analysis
+        const primaryWell = analysisType === "single_well" && targetWells.length > 0 
+          ? targetWells[0] 
+          : (targetWells[0] || 'DEMO-WELL-001');
+        const mockAnalysis = createMockShaleAnalysis(primaryWell);
         const mockFieldSummary = {
           averageNetToGross: 0.65,
           averageShaleVolume: 0.35,

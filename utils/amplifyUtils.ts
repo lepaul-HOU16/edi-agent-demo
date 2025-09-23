@@ -222,38 +222,47 @@ export const sendMessage = async (props: {
         console.log('🔍 FRONTEND: First artifact keys:', Object.keys(invokeResponse.data.artifacts[0] || {}));
       }
       
+      // CRITICAL FIX: Create AI message with artifacts included from the start
       const aiMessage: Schema['ChatMessage']['createType'] = {
         role: 'ai' as any,
         content: {
           text: invokeResponse.data.message
         } as any,
         chatSessionId: props.chatSessionId as any,
-        responseComplete: true as any
-      };
+        responseComplete: true as any,
+        // CRITICAL: Include artifacts in the initial object creation to ensure proper database serialization
+        artifacts: invokeResponse.data.artifacts && invokeResponse.data.artifacts.length > 0 
+          ? invokeResponse.data.artifacts 
+          : undefined
+      } as any;
       
-      // Add artifacts if present with enhanced debugging
+      // Enhanced debugging with improved artifact handling
       if (invokeResponse.data.artifacts && invokeResponse.data.artifacts.length > 0) {
-        console.log('✅ FRONTEND: Adding artifacts to AI message');
-        (aiMessage as any).artifacts = invokeResponse.data.artifacts;
+        console.log('✅ FRONTEND: Artifacts included in AI message creation');
         console.log('🔍 FRONTEND: AI message with artifacts:', aiMessage);
         console.log('🔍 FRONTEND: AI message artifacts count:', (aiMessage as any).artifacts?.length || 0);
+        console.log('🎯 FRONTEND: First artifact preview:', (aiMessage as any).artifacts?.[0]);
         
-        // Test serialization before sending to database
+        // Enhanced serialization test
         try {
           const testSerialization = JSON.stringify(aiMessage);
           const testDeserialization = JSON.parse(testSerialization);
           console.log('✅ FRONTEND: AI message serializes correctly');
           console.log('🎯 FRONTEND: Serialized artifacts count:', testDeserialization.artifacts?.length || 0);
+          console.log('🎯 FRONTEND: Serialized first artifact type:', testDeserialization.artifacts?.[0]?.messageContentType);
+          
           if (testDeserialization.artifacts && testDeserialization.artifacts.length > 0) {
-            console.log('🎉 FRONTEND: Artifacts preserved in frontend serialization!');
+            console.log('🎉 FRONTEND: Artifacts preserved in serialization - DATABASE SAVE SHOULD WORK!');
           } else {
-            console.log('💥 FRONTEND: ARTIFACTS LOST IN FRONTEND SERIALIZATION!');
+            console.log('💥 FRONTEND: ARTIFACTS LOST IN SERIALIZATION - DATABASE SAVE WILL FAIL!');
           }
         } catch (frontendSerializationError) {
           console.error('❌ FRONTEND: Frontend serialization failed:', frontendSerializationError);
         }
       } else {
-        console.log('⚠️ FRONTEND: No artifacts to add to AI message');
+        console.log('⚠️ FRONTEND: No artifacts to include in AI message');
+        // Explicitly set artifacts to undefined to avoid any field confusion
+        (aiMessage as any).artifacts = undefined;
       }
       
       const { data: aiMessageData, errors: aiMessageErrors } = await amplifyClient.models.ChatMessage.create(aiMessage as any);
@@ -268,10 +277,52 @@ export const sendMessage = async (props: {
       console.error('Agent failed:', invokeResponse.data.message);
       
       // Parse the error to provide better user guidance
-      let userFriendlyMessage = 'I encountered an issue while processing your request. ';
+      let userFriendlyMessage = 'I can help you with that! ';
       const originalError = invokeResponse.data.message || 'Unknown error';
+      const originalMessageContent = (props.newMessage.content as any)?.text || '';
       
-      if (originalError.toLowerCase().includes('tool') && originalError.toLowerCase().includes('not found')) {
+      // Check if this is a first prompt scenario (calculation request without well name)
+      const isCalculationRequest = originalMessageContent.toLowerCase().match(/\b(calculate|analyze|compute)\b.*\b(porosity|shale|saturation|formation|well)\b/);
+      const isBasicGreeting = originalMessageContent.toLowerCase().match(/^(hello|hi|hey|help)$/);
+      const isGeneralRequest = originalMessageContent.toLowerCase().match(/\b(list|show|wells|available|data)\b/);
+      
+      if (isCalculationRequest && (originalError.toLowerCase().includes('well') && (originalError.toLowerCase().includes('not found') || originalError.toLowerCase().includes('could not be found')))) {
+        // First prompt calculation request - provide helpful guidance instead of error
+        userFriendlyMessage = `I'd be happy to help you with ${originalMessageContent.toLowerCase().includes('porosity') ? 'porosity calculation' : 
+                                                               originalMessageContent.toLowerCase().includes('shale') ? 'shale analysis' : 
+                                                               'your analysis'}! 
+
+To get started, I need to know which well to analyze. Here's what you can do:
+
+**Next steps:**
+1. First, see available wells: "list wells" 
+2. Then specify a well: "${originalMessageContent} for [WELL_NAME]"
+
+**Available analysis types:**
+- Porosity calculations: "calculate porosity for WELL-001"
+- Shale volume analysis: "calculate shale volume for WELL-001" 
+- Formation evaluation: "analyze well data for WELL-001"
+
+Would you like me to show you the available wells first?`;
+
+      } else if (isBasicGreeting || isGeneralRequest) {
+        // Basic greeting or general request - guide to wells
+        userFriendlyMessage = `Welcome! I'm here to help with petrophysical analysis and well data.
+
+**What I can help with:**
+- Well data analysis and calculations
+- Porosity, shale volume, and saturation analysis
+- Formation evaluation and reservoir assessment
+- Multi-well correlation studies
+
+**To get started:**
+- "list wells" - see available well data
+- "calculate porosity for [WELL_NAME]" - run porosity analysis
+- "analyze well data for [WELL_NAME]" - comprehensive formation evaluation
+
+What would you like to do first?`;
+
+      } else if (originalError.toLowerCase().includes('tool') && originalError.toLowerCase().includes('not found')) {
         userFriendlyMessage += 'It looks like some analysis tools are temporarily unavailable. Please try a simpler request like "list wells" or "show available wells".';
       } else if (originalError.toLowerCase().includes('well') && originalError.toLowerCase().includes('not found')) {
         userFriendlyMessage += 'The well you specified could not be found. Please try "list wells" to see available wells, then specify one of those wells in your request.';

@@ -19,39 +19,57 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 
 interface MultiWellCorrelationProps {
   data: {
-    wellsAnalyzed: number;
-    wellNames: string[];
     messageContentType: string;
     executiveSummary?: {
       title: string;
+      wellsAnalyzed: number;
       overallAssessment: string;
       keyFindings: string[];
     };
+    analysisType?: string;
     results?: {
-      correlationAnalysis?: {
-        wellsCorrelated: number;
-        correlationQuality: string;
+      correlationPanel?: {
+        wellNames: string[];
         logTypes: string[];
-        dataQuality: {
-          qualityGrade: string;
-          completeness: string;
+        normalizationMethod: string;
+        correlationQuality: string;
+        geologicalMarkers?: Array<{
+          name: string;
+          confidence: string;
+          wells: number;
+        }>;
+      };
+      reservoirZones?: Array<{
+        name: string;
+        wells: string[];
+        averageThickness: string;
+        netToGross: string;
+        quality: string;
+        developmentPotential: string;
+      }>;
+      statisticalAnalysis?: {
+        correlationCoefficients?: { [key: string]: string };
+        qualityMetrics?: {
+          overallCorrelation: string;
+          confidenceLevel: string;
+          geologicalConsistency: string;
         };
       };
-      reservoirZones?: {
-        totalZones: number;
-        correlatedZones: Array<{
-          name: string;
-          developmentPriority: string;
-          averageDepth: string;
-          averageThickness: string;
-          reservoirQuality: string;
-        }>;
+      interactiveVisualization?: {
+        features: string[];
+        presentationReady: boolean;
+        technicalDocumentation?: {
+          methodology: string;
+          qualityControl: string;
+          industryCompliance: string[];
+        };
       };
     };
     developmentStrategy?: {
       primaryTargets: string[];
-      recommendedWellSpacing: string;
-      correlationConfidence: string;
+      correlatedIntervals: string;
+      completionStrategy: string;
+      economicViability: string;
     };
   };
 }
@@ -107,10 +125,10 @@ export const MultiWellCorrelationComponent: React.FC<MultiWellCorrelationProps> 
                 🎯 Wells Analyzed
               </Typography>
               <Typography variant="h4" sx={{ color: theme.palette.primary.main, mb: 1 }}>
-                {data.wellsAnalyzed}
+                {data.executiveSummary?.wellsAnalyzed || data.results?.correlationPanel?.wellNames?.length || 0}
               </Typography>
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                {data.wellNames?.map((wellName, index) => (
+                {data.results?.correlationPanel?.wellNames?.map((wellName, index) => (
                   <Chip 
                     key={index}
                     label={wellName}
@@ -127,20 +145,20 @@ export const MultiWellCorrelationComponent: React.FC<MultiWellCorrelationProps> 
           </Grid>
 
           {/* Correlation Quality */}
-          {data.results?.correlationAnalysis && (
+          {data.results?.correlationPanel && (
             <Grid item xs={12} md={6}>
               <Paper elevation={1} sx={{ p: 2, backgroundColor: theme.palette.mode === 'dark' ? '#2a2a2a' : '#ffffff' }}>
                 <Typography variant="h6" gutterBottom sx={{ color: theme.palette.secondary.main }}>
                   📊 Correlation Quality
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Quality Grade:</strong> {data.results.correlationAnalysis.dataQuality?.qualityGrade}
+                  <strong>Method:</strong> {data.results.correlationPanel.normalizationMethod}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Completeness:</strong> {data.results.correlationAnalysis.dataQuality?.completeness}
+                  <strong>Log Types:</strong> {data.results.correlationPanel.logTypes?.join(', ')}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Correlation Quality:</strong> {data.results.correlationAnalysis.correlationQuality}
+                  <strong>Correlation Quality:</strong> {data.results.correlationPanel.correlationQuality}
                 </Typography>
               </Paper>
             </Grid>
@@ -148,24 +166,24 @@ export const MultiWellCorrelationComponent: React.FC<MultiWellCorrelationProps> 
         </Grid>
 
         {/* Reservoir Zones */}
-        {data.results?.reservoirZones && (
+        {data.results?.reservoirZones && Array.isArray(data.results.reservoirZones) && (
           <Accordion sx={{ mb: 2 }}>
             <AccordionSummary expandIcon={<ExpandMoreIcon />}>
               <Typography variant="h6" sx={{ color: theme.palette.primary.main }}>
-                ⛽ Reservoir Zones ({data.results.reservoirZones.totalZones} Total)
+                ⛽ Reservoir Zones ({data.results.reservoirZones.length} Total)
               </Typography>
             </AccordionSummary>
             <AccordionDetails>
               <Grid container spacing={2}>
-                {data.results.reservoirZones.correlatedZones?.map((zone, index) => (
+                {data.results.reservoirZones.map((zone, index) => (
                   <Grid item xs={12} md={4} key={index}>
                     <Paper 
                       elevation={1} 
                       sx={{ 
                         p: 2, 
                         backgroundColor: theme.palette.mode === 'dark' ? '#2a2a2a' : '#f9f9f9',
-                        border: `2px solid ${zone.developmentPriority === 'Primary Target' ? theme.palette.success.main : 
-                               zone.developmentPriority === 'Secondary Target' ? theme.palette.warning.main : 
+                        border: `2px solid ${zone.developmentPotential === 'High' ? theme.palette.success.main : 
+                               zone.developmentPotential === 'Moderate' ? theme.palette.warning.main : 
                                theme.palette.info.main}`
                       }}
                     >
@@ -173,21 +191,69 @@ export const MultiWellCorrelationComponent: React.FC<MultiWellCorrelationProps> 
                         {zone.name}
                       </Typography>
                       <Typography variant="body2" gutterBottom>
-                        <strong>Priority:</strong> {zone.developmentPriority}
-                      </Typography>
-                      <Typography variant="body2" gutterBottom>
-                        <strong>Depth:</strong> {zone.averageDepth}
+                        <strong>Potential:</strong> {zone.developmentPotential}
                       </Typography>
                       <Typography variant="body2" gutterBottom>
                         <strong>Thickness:</strong> {zone.averageThickness}
                       </Typography>
+                      <Typography variant="body2" gutterBottom>
+                        <strong>Net/Gross:</strong> {zone.netToGross}
+                      </Typography>
                       <Typography variant="body2">
-                        <strong>Quality:</strong> {zone.reservoirQuality}
+                        <strong>Quality:</strong> {zone.quality}
                       </Typography>
                     </Paper>
                   </Grid>
                 ))}
               </Grid>
+            </AccordionDetails>
+          </Accordion>
+        )}
+
+        {/* Statistical Analysis */}
+        {data.results?.statisticalAnalysis && (
+          <Accordion sx={{ mb: 2 }}>
+            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+              <Typography variant="h6" sx={{ color: theme.palette.primary.main }}>
+                📊 Statistical Analysis
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails>
+              {data.results.statisticalAnalysis.qualityMetrics && (
+                <Paper elevation={1} sx={{ p: 2, mb: 2, backgroundColor: theme.palette.mode === 'dark' ? '#2a2a2a' : '#f9f9f9' }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    Quality Metrics:
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Overall Correlation:</strong> {data.results.statisticalAnalysis.qualityMetrics.overallCorrelation}
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Confidence Level:</strong> {data.results.statisticalAnalysis.qualityMetrics.confidenceLevel}
+                  </Typography>
+                  <Typography variant="body2" gutterBottom>
+                    <strong>Geological Consistency:</strong> {data.results.statisticalAnalysis.qualityMetrics.geologicalConsistency}
+                  </Typography>
+                </Paper>
+              )}
+              {data.results.statisticalAnalysis.correlationCoefficients && (
+                <Paper elevation={1} sx={{ p: 2, backgroundColor: theme.palette.mode === 'dark' ? '#2a2a2a' : '#f9f9f9' }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                    Correlation Coefficients:
+                  </Typography>
+                  <Grid container spacing={1}>
+                    {Object.entries(data.results.statisticalAnalysis.correlationCoefficients).map(([well, coefficient]) => (
+                      <Grid item xs={6} md={3} key={well}>
+                        <Chip
+                          label={`${well}: ${coefficient}`}
+                          size="small"
+                          variant="filled"
+                          sx={{ width: '100%' }}
+                        />
+                      </Grid>
+                    ))}
+                  </Grid>
+                </Paper>
+              )}
             </AccordionDetails>
           </Accordion>
         )}
@@ -202,10 +268,13 @@ export const MultiWellCorrelationComponent: React.FC<MultiWellCorrelationProps> 
             </AccordionSummary>
             <AccordionDetails>
               <Typography variant="body2" gutterBottom>
-                <strong>Recommended Well Spacing:</strong> {data.developmentStrategy.recommendedWellSpacing}
+                <strong>Correlated Intervals:</strong> {data.developmentStrategy.correlatedIntervals}
               </Typography>
               <Typography variant="body2" gutterBottom>
-                <strong>Correlation Confidence:</strong> {data.developmentStrategy.correlationConfidence}
+                <strong>Completion Strategy:</strong> {data.developmentStrategy.completionStrategy}
+              </Typography>
+              <Typography variant="body2" gutterBottom>
+                <strong>Economic Viability:</strong> {data.developmentStrategy.economicViability}
               </Typography>
               <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold', mt: 2 }}>
                 Primary Targets:
