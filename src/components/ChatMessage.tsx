@@ -29,6 +29,7 @@ import InteractiveAgentSummaryComponent from './messageComponents/InteractiveAge
 import ProfessionalResponseComponent from './messageComponents/ProfessionalResponseComponent';
 import { ComprehensiveShaleAnalysisComponent } from './messageComponents/ComprehensiveShaleAnalysisComponent';
 import { ComprehensivePorosityAnalysisComponent } from './messageComponents/ComprehensivePorosityAnalysisComponent';
+import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerComponent';
 import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorrelationComponent';
 
@@ -132,13 +133,81 @@ const ChatMessage = (params: {
                             />;
                         }
                         
-                        // Check for multi-well correlation - wrap in AiMessageComponent
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_multi_well_correlation') {
+                        // Check for multi-well correlation - wrap in AiMessageComponent (handles both naming conventions)
+                        if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                            (parsedArtifact.messageContentType === 'comprehensive_multi_well_correlation' || 
+                             parsedArtifact.messageContentType === 'multi_well_correlation')) {
                             console.log('🎉 ChatMessage: Rendering MultiWellCorrelationComponent from parsed artifact with AI wrapper!');
                             return <AiMessageComponent 
                                 message={message} 
                                 theme={theme} 
                                 enhancedComponent={<MultiWellCorrelationComponent data={parsedArtifact} />}
+                            />;
+                        }
+                        
+                        // Check for comprehensive well data discovery - wrap in AiMessageComponent
+                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_well_data_discovery') {
+                            console.log('🎉 ChatMessage: Rendering ComprehensiveWellDataDiscoveryComponent from parsed artifact with AI wrapper!');
+                            return <AiMessageComponent 
+                                message={message} 
+                                theme={theme} 
+                                enhancedComponent={<ComprehensiveWellDataDiscoveryComponent data={parsedArtifact} />}
+                            />;
+                        }
+                        
+                        // Check for well data discovery - wrap in AiMessageComponent
+                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'well_data_discovery') {
+                            console.log('🎉 ChatMessage: Rendering Well Data Discovery (using InteractiveAgentSummaryComponent) from parsed artifact with AI wrapper!');
+                            return <AiMessageComponent 
+                                message={message} 
+                                theme={theme} 
+                                enhancedComponent={<InteractiveAgentSummaryComponent 
+                                    content={{text: JSON.stringify(parsedArtifact)}} 
+                                    theme={theme} 
+                                    chatSessionId={(message as any).chatSessionId || ''} 
+                                />}
+                            />;
+                        }
+                        
+                        // Check for plot data (histogram, statistical charts) - wrap in AiMessageComponent
+                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'plotData') {
+                            console.log('🎉 ChatMessage: Rendering Plot Data (using PlotDataToolComponent) from parsed artifact with AI wrapper!');
+                            // Create a mock message content structure compatible with PlotDataToolComponent
+                            const mockContent = { text: JSON.stringify(parsedArtifact) } as any;
+                            return <AiMessageComponent 
+                                message={message} 
+                                theme={theme} 
+                                enhancedComponent={<PlotDataToolComponent 
+                                    content={mockContent} 
+                                    theme={theme} 
+                                    chatSessionId={(message as any).chatSessionId || ''} 
+                                />}
+                            />;
+                        }
+                        
+                        // Check for statistical chart (legacy support) - wrap in AiMessageComponent
+                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'statisticalChart') {
+                            console.log('🎉 ChatMessage: Rendering Statistical Chart (using PlotDataToolComponent) from parsed artifact with AI wrapper!');
+                            // Create a mock message content structure compatible with PlotDataToolComponent
+                            const mockContent = { text: JSON.stringify(parsedArtifact) } as any;
+                            return <AiMessageComponent 
+                                message={message} 
+                                theme={theme} 
+                                enhancedComponent={<PlotDataToolComponent 
+                                    content={mockContent} 
+                                    theme={theme} 
+                                    chatSessionId={(message as any).chatSessionId || ''} 
+                                />}
+                            />;
+                        }
+                        
+                        // Check for depth plot - wrap in AiMessageComponent
+                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'depthPlot') {
+                            console.log('🎉 ChatMessage: Rendering Depth Plot (using Log Plot Viewer) from parsed artifact with AI wrapper!');
+                            return <AiMessageComponent 
+                                message={message} 
+                                theme={theme} 
+                                enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
                             />;
                         }
                         

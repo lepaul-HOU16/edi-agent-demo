@@ -28,7 +28,7 @@ import { FileSystemProvider } from "@/contexts/FileSystemContext";
 
 import './app.scss';
 import { type Schema } from "@/../amplify/data/resource";
-import { generateClient } from 'aws-amplify/api';
+import { generateClient } from 'aws-amplify/data';
 import { sendMessage } from '@/../utils/amplifyUtils';
 import { memoryManager } from '@/utils/memoryUtils';
 const inter = Inter({

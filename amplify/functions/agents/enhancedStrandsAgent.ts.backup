@@ -155,14 +155,6 @@ const ProfessionalResponseBuilder = MockProfessionalResponseBuilder;
 /**
  * Enhanced Strands Agent with comprehensive petrophysical expertise
  */
-
-// CRITICAL FIX: Static imports for Lambda compatibility
-import { 
-  listWellsTool, 
-  getWellInfoTool, 
-  petrophysicsTools 
-} from '../tools/petrophysicsTools';
-
 export class EnhancedStrandsAgent {
   private modelId: string;
   private s3Client: S3Client;
@@ -368,29 +360,20 @@ export class EnhancedStrandsAgent {
   }
 
   /**
-   * FIXED: Intent detection specifically tuned for all 5 preloaded prompts
+   * Completely refactored intent detection with simplified, maintainable logic
    */
   private detectUserIntent(message: string): any {
     const query = message.toLowerCase().trim();
     const wellName = this.extractWellName(message);
     
-    console.log('🔍 PRELOADED PROMPT INTENT DETECTION:', { 
-      queryPreview: query.substring(0, 100) + '...', 
-      wellName,
-      fullQueryLength: query.length 
-    });
+    console.log('🔍 Intent Detection:', { query: query.substring(0, 50) + '...', wellName });
 
-    // Define intents in order of precedence - EXACT MATCHES for preloaded prompts first
+    // Define intents in order of precedence (most specific first)
     const intents = [
-      // PRELOADED PROMPT #1: Well Data Discovery (24 Wells) - EXACT MATCH
+      // High-specificity workflow intents - FIXED: Better patterns for comprehensive analysis
       {
         type: 'well_data_discovery',
         test: () => this.matchesAny(query, [
-          'analyze.*complete.*dataset.*24.*production.*wells.*well-001.*through.*well-024',
-          'comprehensive.*summary.*showing.*available.*log.*curves.*gr.*rhob.*nphi.*dtc.*cali.*resistivity',
-          'spatial distribution.*depth ranges.*data quality assessment.*interactive visualizations',
-          'field overview.*well statistics',
-          // Legacy patterns for backwards compatibility
           'analyze.*complete.*dataset.*production wells',
           'comprehensive.*summary.*log curves',
           'spatial distribution.*depth ranges.*data quality',
@@ -400,21 +383,17 @@ export class EnhancedStrandsAgent {
           'explore well data',
           'spatial distribution.*wells',
           'comprehensive analysis of all.*wells',
+          'generate.*comprehensive.*summary.*showing.*available.*log.*curves',
           'well-001.*through.*well-024',
           'analyze.*24.*production.*wells'
         ]),
         requiresWell: false
       },
       
-      // PRELOADED PROMPT #2: Multi-Well Correlation Analysis - EXACT MATCH
+      // CRITICAL FIX: Multi-well correlation must come before porosity analysis to prevent conflicts
       {
         type: 'multi_well_correlation',
         test: () => this.matchesAny(query, [
-          'create.*comprehensive.*multi.?well.*correlation.*analysis.*wells.*well-001.*well-002.*well-003.*well-004.*well-005',
-          'generate.*normalized.*log.*correlations.*showing.*gamma ray.*resistivity.*porosity.*data',
-          'geological.*correlation.*lines.*reservoir.*zone.*identification.*statistical.*analysis',
-          'interactive.*visualization.*components.*expandable.*technical.*documentation',
-          // Legacy patterns for backwards compatibility
           'multi.?well.*correlation',
           'correlation.*analysis',
           'correlation panel',
@@ -431,73 +410,6 @@ export class EnhancedStrandsAgent {
         requiresWell: false
       },
       
-      // PRELOADED PROMPT #3: Comprehensive Shale Analysis - EXACT MATCH
-      {
-        type: 'shale_analysis_workflow',
-        test: () => this.matchesAny(query, [
-          'perform.*comprehensive.*shale.*analysis.*well-001.*using.*gamma ray.*data',
-          'calculate.*shale.*volume.*using.*larionov.*method.*identify.*clean.*sand.*intervals',
-          'generate.*interactive.*depth.*plots.*statistical.*summaries.*uncertainty.*analysis',
-          'reservoir.*quality.*assessment.*expandable.*technical.*details',
-          // Legacy patterns for backwards compatibility
-          'larionov.*shale',
-          'comprehensive.*shale.*analysis',
-          'gamma ray.*shale.*analysis',
-          'shale.*analysis.*workflow',
-          'shale.*volume.*analysis.*workflow',
-          'larionov.*method',
-          'clean.*sand.*intervals'
-        ]),
-        requiresWell: false
-      },
-      
-      // PRELOADED PROMPT #4: Integrated Porosity Analysis - EXACT MATCH  
-      {
-        type: 'porosity_analysis_workflow', 
-        test: () => this.matchesAny(query, [
-          'perform.*integrated.*porosity.*analysis.*well-001.*well-002.*well-003.*using.*rhob.*density.*nphi.*neutron.*data',
-          'generate.*density.?neutron.*crossplots.*calculate.*porosity.*identify.*lithology',
-          'create.*reservoir.*quality.*indices.*interactive.*visualizations.*professional.*documentation',
-          // More specific patterns for multi-well integrated analysis
-          'integrated.*porosity.*analysis.*well-001.*well-002.*well-003',
-          'density.?neutron.*crossplots.*calculate.*porosity.*identify.*lithology',
-          'reservoir.*quality.*indices.*interactive.*visualizations',
-          'rhob.*density.*nphi.*neutron.*data.*generate.*density.?neutron.*crossplots',
-          'multi.*well.*porosity.*crossplot.*lithology'
-        ]) && !this.matchesAny(query, [
-          'correlation.*analysis',
-          'multi.?well.*correlation', 
-          'geological.*correlation',
-          'enhanced.*professional.*methodology',
-          'spe.*api.*standards',
-          'uncertainty.*assessment.*complete.*technical.*documentation'
-        ]),
-        requiresWell: false
-      },
-      
-      // PRELOADED PROMPT #5: Professional Porosity Calculation - EXACT MATCH
-      {
-        type: 'calculate_porosity',
-        test: () => this.matchesAny(query, [
-          'calculate.*porosity.*well-001.*using.*enhanced.*professional.*methodology',
-          'density.*porosity.*neutron.*porosity.*effective.*porosity.*calculations',
-          'statistical.*analysis.*uncertainty.*assessment.*complete.*technical.*documentation',
-          'spe.*api.*standards',
-          'enhanced.*professional.*methodology.*include.*density.*porosity.*neutron.*porosity',
-          'uncertainty.*assessment.*complete.*technical.*documentation.*following.*spe.*api.*standards',
-          'professional.*methodology.*statistical.*analysis.*uncertainty',
-          'spe.*api.*standards.*professional.*calculation'
-        ]) && !this.matchesAny(query, [
-          'integrated.*porosity.*analysis.*well-001.*well-002.*well-003',
-          'density.?neutron.*crossplots.*identify.*lithology',
-          'reservoir.*quality.*indices',
-          'multi.*well.*porosity',
-          'crossplot.*lithology'
-        ]),
-        requiresWell: false
-      },
-      
-      // Lower priority intents for other cases
       {
         type: 'gamma_ray_visualization', 
         test: () => query.includes('gamma ray') && this.matchesAny(query, [
@@ -505,10 +417,36 @@ export class EnhancedStrandsAgent {
           'plot.*gamma ray',
           'depth coverage',
           'visualize.*gamma ray'
-        ]) && !this.matchesAny(query, [
+        ]),
+        requiresWell: false
+      },
+      
+      {
+        type: 'shale_analysis_workflow',
+        test: () => this.matchesAny(query, [
+          'larionov.*shale',
           'comprehensive.*shale.*analysis',
-          'shale.*volume.*using.*larionov',
-          'multi.?well.*correlation'
+          'gamma ray.*shale.*analysis',
+          'shale.*analysis.*workflow',
+          'shale.*volume.*analysis.*workflow'
+        ]),
+        requiresWell: false
+      },
+      
+      // FIXED: More specific porosity patterns that won't conflict with multi-well correlation
+      {
+        type: 'porosity_analysis_workflow', 
+        test: () => this.matchesAny(query, [
+          'density.*neutron.*crossplot',
+          'integrated.*porosity.*analysis.*workflow',
+          'extract.*density.*neutron.*log.*data',
+          'porosity.*analysis.*workflow',
+          'crossplot.*identify.*lithology',
+          'highlight.*high.?porosity.*zones'
+        ]) && !this.matchesAny(query, [
+          'correlation.*analysis',
+          'multi.?well.*correlation',
+          'geological.*correlation'
         ]),
         requiresWell: false
       },
@@ -1008,7 +946,8 @@ Available methods: larionov_tertiary, larionov_pre_tertiary, clavier, linear`
     console.log('🔍 === COMPREHENSIVE WELL DATA DISCOVERY START ===');
     console.log('📝 User Request:', message);
     
-    // CRITICAL FIX: Use real S3 data instead of fallbacks
+    // This is the comprehensive analysis workflow that should execute the full request
+    // First, get all wells to understand the complete dataset
     const wellsResult = await this.callMCPTool('list_wells', {});
     if (!wellsResult.success) {
       console.log('❌ Failed to get wells list:', wellsResult);
@@ -1019,108 +958,50 @@ Available methods: larionov_tertiary, larionov_pre_tertiary, clavier, linear`
     const wellNames = wellsResult.wells || [];
     console.log('📊 Dataset Overview:', { wellCount, firstFewWells: wellNames.slice(0, 5) });
     
-    if (wellCount === 0 || wellNames.length === 0) {
-      console.log('❌ No wells found in S3, cannot proceed with discovery');
-      return {
-        success: false,
-        message: 'No wells found in S3 storage. Please check S3 bucket configuration and well data availability.',
-        artifacts: []
-      };
-    }
-    
-    // ENHANCED ANALYSIS: Get real log curve data from S3
+    // COMPREHENSIVE ANALYSIS: Analyze log curves, spatial distribution, depth ranges, data quality
+    const analysisPromises = [];
     const maxWellsToAnalyze = Math.min(wellNames.length, 24); // Focus on first 24 wells as requested
-    console.log('🔬 Starting comprehensive analysis of', maxWellsToAnalyze, 'wells using REAL S3 data...');
     
-    // Analyze MORE wells to get comprehensive log curve inventory (not just 5)
-    const sampleWells = wellNames.slice(0, Math.min(12, wellNames.length)); // Analyze 12 wells for better coverage
+    console.log('🔬 Starting comprehensive analysis of', maxWellsToAnalyze, 'wells...');
+    
+    // Analyze sample of wells to get comprehensive information
+    const sampleWells = wellNames.slice(0, Math.min(5, wellNames.length)); // Analyze first 5 in detail
     const wellAnalysisResults = [];
-    
-    console.log('🔍 ANALYZING WELLS FOR REAL LOG CURVES:', sampleWells);
     
     for (const wellName of sampleWells) {
       try {
-        console.log('🔍 Getting real well info for:', wellName);
+        console.log('🔍 Analyzing well:', wellName);
         const wellInfo = await this.callMCPTool('get_well_info', { wellName });
-        if (wellInfo.success && wellInfo.availableCurves && wellInfo.availableCurves.length > 0) {
+        if (wellInfo.success) {
           wellAnalysisResults.push({
             wellName,
-            curves: wellInfo.availableCurves,
+            curves: wellInfo.availableCurves || [],
             depthRange: wellInfo.depthRange || 'Unknown',
-            dataQuality: 'Good',
-            curveCount: wellInfo.availableCurves.length,
-            realS3Data: true // Flag to indicate this is real data
+            dataQuality: 'Good', // Could be enhanced with actual quality assessment
+            ...wellInfo
           });
-          console.log(`✅ Real S3 data for ${wellName}: ${wellInfo.availableCurves.length} curves found`);
-          console.log(`📋 Curves: ${wellInfo.availableCurves.join(', ')}`);
-        } else {
-          console.log(`⚠️ No curves found for ${wellName}, skipping...`);
         }
+        console.log('✅ Well analysis complete for:', wellName);
       } catch (error) {
         console.error('❌ Error analyzing well:', wellName, error);
       }
     }
     
-    if (wellAnalysisResults.length === 0) {
-      console.log('❌ No valid well data found, returning error');
-      return {
-        success: false,
-        message: 'No valid well log data found in S3. Please check LAS file format and S3 access permissions.',
-        artifacts: []
-      };
-    }
-    
-    // CRITICAL FIX: Ensure we have real log curves - if none found, fallback but don't fail silently
-    const allLogCurves = new Set<string>();
-    const logCurveCoverage: Record<string, number> = {};
-    
-    console.log('📊 PROCESSING REAL LOG CURVES FROM S3...');
+    // COMPREHENSIVE LOG CURVE ANALYSIS
+    const allLogCurves = new Set();
+    const logCurveCoverage = {};
     wellAnalysisResults.forEach(well => {
-      console.log(`🔍 Processing ${well.wellName}: ${well.curves.length} curves`);
-      console.log(`📋 Curves for ${well.wellName}:`, well.curves);
-      well.curves.forEach((curve: string) => {
+      well.curves.forEach(curve => {
         allLogCurves.add(curve);
-        logCurveCoverage[curve] = (logCurveCoverage[curve] || 0) + 1;
+        logCurveCoverage[curve] = ((logCurveCoverage[curve] as number) || 0) + 1;
       });
     });
     
-    const logCurveArray = Array.from(allLogCurves).sort(); // Sort for consistent display
-    console.log('📊 REAL LOG CURVE ANALYSIS COMPLETE:', { 
+    const logCurveArray = Array.from(allLogCurves);
+    console.log('📊 Log Curve Analysis:', { 
       totalCurveTypes: logCurveArray.length, 
-      coverage: Object.keys(logCurveCoverage).length,
-      actualCurves: logCurveArray
+      coverage: Object.keys(logCurveCoverage).length 
     });
-    
-    // CRITICAL: If we didn't get real curves from S3, use what we know exists
-    const finalLogCurveArray = Array.from(allLogCurves).sort();
-    if (finalLogCurveArray.length === 0) {
-      console.log('❌ CRITICAL: No curves found from S3 analysis - using known real curves');
-      // Use the curves we confirmed exist from S3 test
-      const knownRealCurves = ['DEPT', 'CALI', 'DTC', 'GR', 'DEEPRESISTIVITY', 'SHALLOWRESISTIVITY', 'NPHI', 'RHOB', 'LITHOLOGY', 'VWCL', 'ENVI', 'FAULT'];
-      knownRealCurves.forEach(curve => {
-        allLogCurves.add(curve);
-        logCurveCoverage[curve] = wellCount; // Assume available in all wells
-      });
-      console.log('🔧 FALLBACK: Using known real curves from S3 test');
-    }
-    
-    // FINAL: Get the actual array to use in artifact
-    const finalLogCurves = Array.from(allLogCurves).sort();
-    console.log('🎯 FINAL LOG CURVES FOR ARTIFACT:', finalLogCurves);
-    console.log('📊 FINAL CURVE COVERAGE:', logCurveCoverage);
-    
-    // DOUBLE-CHECK: Ensure we have real curves, not just generics
-    if (finalLogCurves.includes('DEPT') || finalLogCurves.includes('DEEPRESISTIVITY')) {
-      console.log('✅ CONFIRMED: Real S3 curves will be used in artifact');
-    } else {
-      console.log('⚠️ WARNING: Still no real S3 curves - forcing them');
-      ['DEPT', 'DEEPRESISTIVITY', 'SHALLOWRESISTIVITY', 'LITHOLOGY', 'VWCL', 'ENVI', 'FAULT'].forEach(curve => {
-        if (!finalLogCurves.includes(curve)) {
-          allLogCurves.add(curve);
-          logCurveCoverage[curve] = wellCount;
-        }
-      });
-    }
     
     // SPATIAL DISTRIBUTION ANALYSIS
     const spatialAnalysis = {
@@ -1642,16 +1523,6 @@ Next Steps:
   private async handlePorosityAnalysisWorkflow(message: string, wellName: string | null): Promise<any> {
     console.log('🧮 === COMPREHENSIVE POROSITY ANALYSIS WORKFLOW START ===');
     
-    // CRITICAL FIX: Check for multiple wells first (prompt #4)
-    const multipleWells = this.extractWellNames(message);
-    const isMultiWellRequest = multipleWells && multipleWells.length > 1;
-    
-    console.log('🔍 Multi-well detection:', {
-      multipleWells,
-      isMultiWellRequest,
-      singleWellName: wellName
-    });
-    
     // Detect if this is a comprehensive analysis request
     const isComprehensiveRequest = this.isComprehensivePorosityRequest(message);
     console.log('🎯 Is Comprehensive Request:', isComprehensiveRequest);
@@ -1659,40 +1530,18 @@ Next Steps:
     if (isComprehensiveRequest) {
       console.log('🔄 Executing comprehensive porosity analysis with artifacts...');
       
-      // CRITICAL FIX: Use multi-well parameters when multiple wells are detected
-      let parameters;
-      
-      if (isMultiWellRequest) {
-        console.log('🎯 MULTI-WELL INTEGRATED POROSITY ANALYSIS (Prompt #4)');
-        parameters = {
-          analysisType: 'multi_well',
-          wellNames: multipleWells,
-          includeVisualization: true,
-          generateCrossplot: true,
-          identifyReservoirIntervals: true
-        };
-      } else if (wellName) {
-        console.log('🎯 SINGLE-WELL COMPREHENSIVE ANALYSIS');
-        parameters = {
-          analysisType: 'single_well',
-          wellName: wellName,
-          includeVisualization: true,
-          generateCrossplot: true,
-          identifyReservoirIntervals: true
-        };
-      } else {
-        console.log('🎯 FIELD-WIDE ANALYSIS (no specific wells)');
-        parameters = {
-          analysisType: 'field_overview',
-          includeVisualization: true,
-          generateCrossplot: true,
-          identifyReservoirIntervals: true
-        };
-      }
+      // For comprehensive requests, call the comprehensive porosity analysis tool
+      const parameters = {
+        analysisType: wellName ? 'single_well' : 'multi_well',
+        ...(wellName && { wellName }),
+        includeVisualization: true,
+        generateCrossplot: true,
+        identifyReservoirIntervals: true
+      };
       
       console.log('📋 Calling comprehensive_porosity_analysis with parameters:', parameters);
       
-      // Call comprehensive porosity analysis tool
+      // Call comprehensive porosity analysis tool (create if doesn't exist, or adapt existing tool)
       const result = await this.callComprehensivePorosityAnalysis(parameters);
       
       if (result.success) {
@@ -1779,49 +1628,32 @@ Or specify a different well from the list above.`,
 
   /**
    * Detect if the message is requesting comprehensive porosity analysis with visualizations
-   * FIXED: Better distinguish between integrated analysis (prompt 4) vs professional calculation (prompt 5)
    */
   private isComprehensivePorosityRequest(message: string): boolean {
     const query = message.toLowerCase();
     
-    console.log('🔍 Checking comprehensive porosity patterns for:', query.substring(0, 100) + '...');
-    
-    // CRITICAL: Exclude prompt 5 patterns first (professional single-well calculation)
-    const professionalCalculationPatterns = [
-      /enhanced.*professional.*methodology/,
-      /spe.*api.*standards/,
-      /uncertainty.*assessment.*complete.*technical.*documentation/,
-      /statistical.*analysis.*uncertainty.*assessment/,
-      /professional.*methodology.*statistical.*analysis/
-    ];
-    
-    for (const pattern of professionalCalculationPatterns) {
-      if (pattern.test(query)) {
-        console.log(`❌ Professional calculation pattern detected: ${pattern.source} - NOT comprehensive`);
-        return false; // This is prompt 5, not comprehensive analysis
-      }
-    }
-    
-    // Patterns that indicate comprehensive integrated analysis (prompt 4)
+    // More flexible patterns that match the user's actual request
     const comprehensivePatterns = [
-      /integrated.*porosity.*analysis/,
-      /well-001.*well-002.*well-003/, // Multi-well analysis
-      /density.?neutron.*crossplots.*calculate.*porosity.*identify.*lithology/,
-      /reservoir.*quality.*indices.*interactive.*visualizations/,
-      /rhob.*density.*nphi.*neutron.*data/,
       /extract.*density.*neutron.*log.*data/,
       /create.*density.?neutron.*crossplot/,
+      /generate.*depth.*plots/,
+      /identify.*best.*reservoir.*intervals/,
       /crossplot.*identify.*lithology/,
       /highlight.*high.?porosity.*zones/,
-      /multi.*well.*porosity/
+      /porosity.*variations/,
+      /density.?neutron.*crossplot/,
+      /lithology.*highlight/,
+      /reservoir.*intervals/
     ];
     
-    // Check if multiple comprehensive patterns match
+    console.log('🔍 Checking comprehensive porosity patterns for:', query.substring(0, 100) + '...');
+    
+    // Check if multiple patterns match
     let matches = 0;
     for (const pattern of comprehensivePatterns) {
       if (pattern.test(query)) {
         matches++;
-        console.log(`✅ Comprehensive pattern matched: ${pattern.source}`);
+        console.log(`✅ Pattern matched: ${pattern.source}`);
       }
     }
     
@@ -2006,36 +1838,82 @@ Or specify a different well from the list above.`,
    * Get all available tools with better error handling
    */
   private async getAvailableTools(): Promise<any[]> {
-    console.log('🔧 FIXED: Using static tool registry instead of dynamic imports');
-    
     const allTools: any[] = [];
     
-    // FIXED: Use static imports instead of dynamic imports
+    // Try to import petrophysicsTools
     try {
-      console.log('📦 FIXED: Using static petrophysicsTools import');
+      console.log('📦 Attempting to import petrophysicsTools...');
+      const petrophysicsModule = await import('../tools/petrophysicsTools');
+      const petrophysicsTools = petrophysicsModule.petrophysicsTools || [];
       allTools.push(...petrophysicsTools);
-      console.log('✅ FIXED: Added petrophysicsTools:', petrophysicsTools.length, 'tools');
+      console.log('✅ Imported petrophysicsTools:', petrophysicsTools.length, 'tools');
     } catch (error) {
-      console.error('❌ FIXED: Error with static petrophysicsTools:', error);
+      console.error('❌ Could not import petrophysicsTools:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('🔍 Import error stack:', error instanceof Error ? error.stack : 'No stack trace');
     }
     
-    // Add individual tools directly
+    // Try to import enhancedPetrophysicsTools
     try {
-      if (listWellsTool) {
-        allTools.push(listWellsTool);
-        console.log('✅ FIXED: Added listWellsTool');
-      }
-      if (getWellInfoTool) {
-        allTools.push(getWellInfoTool);
-        console.log('✅ FIXED: Added getWellInfoTool');
-      }
+      console.log('📦 Attempting to import enhancedPetrophysicsTools...');
+      const enhancedModule = await import('../tools/enhancedPetrophysicsTools');
+      const enhancedPetrophysicsTools = enhancedModule.enhancedPetrophysicsTools || [];
+      allTools.push(...enhancedPetrophysicsTools);
+      console.log('✅ Imported enhancedPetrophysicsTools:', enhancedPetrophysicsTools.length, 'tools');
     } catch (error) {
-      console.error('❌ FIXED: Error adding individual tools:', error);
+      console.error('❌ Could not import enhancedPetrophysicsTools:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('🔍 Import error stack:', error instanceof Error ? error.stack : 'No stack trace');
     }
     
-    console.log('📊 FIXED: Total tools loaded:', allTools.length);
-    console.log('🔧 FIXED: Available tool names:', allTools.map(t => t.name || 'unnamed'));
+    // FIXED: Import comprehensiveShaleAnalysisTool directly
+    try {
+      console.log('📦 Attempting to import comprehensiveShaleAnalysisTool...');
+      const shaleModule = await import('../tools/comprehensiveShaleAnalysisTool');
+      const comprehensiveTool = shaleModule.comprehensiveShaleAnalysisTool;
+      if (comprehensiveTool) {
+        allTools.push(comprehensiveTool);
+        console.log('✅ Imported comprehensiveShaleAnalysisTool:', comprehensiveTool.name);
+      } else {
+        console.log('⚠️ comprehensiveShaleAnalysisTool not found in module');
+      }
+    } catch (error) {
+      console.error('❌ Could not import comprehensiveShaleAnalysisTool:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('🔍 Import error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    }
     
+    // NEW: Import comprehensivePorosityAnalysisTool directly
+    try {
+      console.log('📦 Attempting to import comprehensivePorosityAnalysisTool...');
+      const porosityModule = await import('../tools/comprehensivePorosityAnalysisTool');
+      const comprehensivePorosityTool = porosityModule.comprehensivePorosityAnalysisTool;
+      if (comprehensivePorosityTool) {
+        allTools.push(comprehensivePorosityTool);
+        console.log('✅ Imported comprehensivePorosityAnalysisTool:', comprehensivePorosityTool.name);
+      } else {
+        console.log('⚠️ comprehensivePorosityAnalysisTool not found in module');
+      }
+    } catch (error) {
+      console.error('❌ Could not import comprehensivePorosityAnalysisTool:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('🔍 Import error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    }
+    
+    // NEW: Import comprehensiveMultiWellCorrelationTool directly
+    try {
+      console.log('📦 Attempting to import comprehensiveMultiWellCorrelationTool...');
+      const correlationModule = await import('../tools/comprehensiveMultiWellCorrelationTool');
+      const comprehensiveCorrelationTool = correlationModule.comprehensiveMultiWellCorrelationTool;
+      if (comprehensiveCorrelationTool) {
+        allTools.push(comprehensiveCorrelationTool);
+        console.log('✅ Imported comprehensiveMultiWellCorrelationTool:', comprehensiveCorrelationTool.name);
+      } else {
+        console.log('⚠️ comprehensiveMultiWellCorrelationTool not found in module');
+      }
+    } catch (error) {
+      console.error('❌ Could not import comprehensiveMultiWellCorrelationTool:', error instanceof Error ? error.message : 'Unknown error');
+      console.error('🔍 Import error stack:', error instanceof Error ? error.stack : 'No stack trace');
+    }
+    
+    console.log('📊 Total tools loaded:', allTools.length);
+    console.log('🔧 Available tool names:', allTools.map(t => t.name || 'unnamed'));
     return allTools;
   }
 
