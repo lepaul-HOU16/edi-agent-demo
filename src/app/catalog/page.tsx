@@ -125,29 +125,11 @@ function CatalogPageBase() {
   // Reference to MapComponent
   const mapComponentRef = React.useRef<any>(null);
 
-  // Polygon event handlers for MapComponent
+  // Simplified polygon event handlers - removing complex debugging that may be causing issues
   const handlePolygonCreate = useCallback((polygon: PolygonFilter) => {
     setPolygons(prev => [...prev, polygon]);
     setActivePolygon(polygon);
-    
     console.log('Polygon created:', polygon);
-    
-    // Add notification message to chat
-    const polygonMessage: Message = {
-      id: uuidv4() as any,
-      role: "ai" as any,
-      content: {
-        text: `**🗺️ Polygon Created**\n\nArea selection polygon has been drawn covering **${polygon.area?.toFixed(2)} km²**.\n\nYou can now filter wells within this area by saying "*wells in the polygon*" or "*filter by polygon area*".`
-      } as any,
-      responseComplete: true as any,
-      createdAt: new Date().toISOString() as any,
-      chatSessionId: '' as any,
-      owner: '' as any
-    };
-    
-    setTimeout(() => {
-      setMessages(prevMessages => [...prevMessages, polygonMessage]);
-    }, 0);
   }, []);
 
   const handlePolygonDelete = useCallback((deletedIds: string[]) => {
@@ -165,13 +147,63 @@ function CatalogPageBase() {
 
   // Function to apply polygon filtering to wells
   const applyPolygonFilter = (wells: any, polygon: PolygonFilter): any => {
+    console.log('🗺️ STARTING POLYGON FILTER ANALYSIS');
+    console.log('🗺️ Input wells count:', wells?.features?.length || 0);
+    console.log('🗺️ Polygon geometry:', JSON.stringify(polygon.geometry, null, 2));
+    console.log('🗺️ Polygon area:', polygon.area, 'km²');
+    
     if (!wells || !wells.features) {
+      console.warn('⚠️ applyPolygonFilter: Invalid wells data structure');
       return wells;
     }
     
-    const filteredFeatures = wells.features.filter((well: any) => {
-      return booleanPointInPolygon(well.geometry, polygon.geometry);
+    // Log first few wells for coordinate analysis
+    if (wells.features.length > 0) {
+      console.log('🗺️ Sample well coordinates:');
+      wells.features.slice(0, 5).forEach((well: any, i: number) => {
+        console.log(`  ${i + 1}. ${well.properties?.name || 'Unknown'}: [${well.geometry?.coordinates?.[0]}, ${well.geometry?.coordinates?.[1]}] (lng,lat)`);
+      });
+    }
+    
+    const filteredFeatures = wells.features.filter((well: any, index: number) => {
+      // Safety check for well structure
+      if (!well || !well.geometry || !well.geometry.coordinates) {
+        console.warn('⚠️ applyPolygonFilter: Skipping well with invalid geometry');
+        return false;
+      }
+      
+      try {
+        const isInside = booleanPointInPolygon(well.geometry, polygon.geometry);
+        
+        // Log details for first few wells
+        if (index < 5) {
+          console.log(`🗺️ Well ${index + 1} (${well.properties?.name || 'Unknown'}):`, {
+            coordinates: well.geometry.coordinates,
+            geometry: well.geometry,
+            isInside: isInside
+          });
+        }
+        
+        return isInside;
+      } catch (error) {
+        console.warn('⚠️ applyPolygonFilter: Error checking point in polygon:', error);
+        console.warn('  - Well geometry:', well.geometry);
+        console.warn('  - Polygon geometry:', polygon.geometry);
+        return false;
+      }
     });
+    
+    console.log('🗺️ POLYGON FILTER RESULTS:');
+    console.log('  - Original wells:', wells.features.length);
+    console.log('  - Wells inside polygon:', filteredFeatures.length);
+    console.log('  - Filtered percentage:', Math.round((filteredFeatures.length / wells.features.length) * 100) + '%');
+    
+    if (filteredFeatures.length > 0) {
+      console.log('🗺️ Wells that passed filter:');
+      filteredFeatures.slice(0, 3).forEach((well: any, i: number) => {
+        console.log(`  ✅ ${i + 1}. ${well.properties?.name || 'Unknown'}: [${well.geometry.coordinates[0]}, ${well.geometry.coordinates[1]}]`);
+      });
+    }
     
     return {
       ...wells,
@@ -190,11 +222,53 @@ function CatalogPageBase() {
     };
   };
 
-  // Function to detect if query is contextual (filter) vs new search
+  // Function to detect if query is contextual (filter) vs new search - SIMPLIFIED TO RESTORE WORKING FUNCTIONALITY
   const analyzeQuery = useCallback((query: string): ContextualQuery => {
     const lowerQuery = query.toLowerCase().trim();
     
-    // Contextual filter patterns
+    console.log('🎯 SIMPLIFIED POLYGON DETECTION:', {
+      query: lowerQuery,
+      hasActivePolygon: !!activePolygon,
+      hasContext: !!currentContext,
+      activePolygonId: activePolygon?.id
+    });
+    
+    // Check for polygon filters ONLY if we have existing context and active polygon
+    const polygonFilterPatterns = [
+      /(?:wells?|data|points?)\s*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i,
+      /(?:filter|show)\s*(?:by|using)\s*(?:polygon|area|selection)/i,
+      /(?:polygon|area)\s*(?:filter|selection)/i
+    ];
+    
+    const isPolygonQuery = polygonFilterPatterns.some(pattern => pattern.test(lowerQuery));
+    
+    // SIMPLE LOGIC: Only handle polygon filtering if we have BOTH context AND polygon
+    if (isPolygonQuery && activePolygon && currentContext && currentContext.data && currentContext.data.features?.length > 0) {
+      console.log('🎯 SIMPLE POLYGON FILTER DETECTED (existing context)');
+      return {
+        isContextual: true,
+        operation: 'filter',
+        filterType: 'polygon' as any,
+        filterValue: activePolygon.id,
+        polygonId: activePolygon.id,
+        originalQuery: query
+      };
+    }
+    
+    // CAUTIOUS NEW FEATURE: Handle polygon queries without context (search + filter)
+    if (isPolygonQuery && activePolygon && (!currentContext || !currentContext.data || !currentContext.data.features?.length)) {
+      console.log('🎯 POLYGON SEARCH + FILTER DETECTED (no existing context)');
+      return {
+        isContextual: true,
+        operation: 'filter',
+        filterType: 'polygon' as any,
+        filterValue: 'auto_search_and_filter', // Special flag for this new feature
+        polygonId: activePolygon.id,
+        originalQuery: query
+      };
+    }
+    
+    // Rest of the normal logic only if not a polygon query
     const filterPatterns = [
       // Depth filters
       /(?:depth|deep|deeper)\s*(?:greater|more|above|over|\>)\s*(?:than\s*)?(\d+)/i,
@@ -214,12 +288,7 @@ function CatalogPageBase() {
       
       // Generic contextual indicators
       /(?:from these|of those|in current|these wells|current wells|existing wells)/i,
-      /(?:filter|show only|narrow down|refine)/i,
-      
-      // Polygon filters
-      /(?:wells?|data|points?)\s*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i,
-      /(?:filter|show)\s*(?:by|using)\s*(?:polygon|area|selection)/i,
-      /(?:polygon|area)\s*(?:filter|selection)/i
+      /(?:filter|show only|narrow down|refine)/i
     ];
 
     // Check if we have current context and if query matches filter patterns
@@ -297,7 +366,7 @@ function CatalogPageBase() {
         filterValue = locationMatch[1].toLowerCase();
       }
       
-      // Polygon filters
+      // Polygon filters - check this FIRST before other filters
       const polygonFilterPatterns = [
         /(?:wells?|data|points?)\s*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i,
         /(?:filter|show)\s*(?:by|using)\s*(?:polygon|area|selection)/i,
@@ -306,8 +375,18 @@ function CatalogPageBase() {
       
       const isPolygonFilter = polygonFilterPatterns.some(pattern => pattern.test(lowerQuery));
       if (isPolygonFilter && activePolygon) {
+        console.log('🎯 Detected polygon filter with active polygon');
         filterType = 'polygon' as any;
         filterValue = activePolygon.id;
+        
+        return {
+          isContextual: true,
+          operation: 'filter',
+          filterType,
+          filterValue,
+          polygonId: activePolygon.id,
+          originalQuery: query
+        };
       }
 
       return {
@@ -326,7 +405,7 @@ function CatalogPageBase() {
       operation: 'new',
       originalQuery: query
     };
-  }, [currentContext, activePolygon]);
+  }, [currentContext, activePolygon, polygons]);
 
   // Function to apply filters to current context data
   const applyContextualFilter = (contextData: any, filterType: string, filterValue: any): any => {
@@ -336,9 +415,9 @@ function CatalogPageBase() {
     console.log('  Input data source:', contextData?.metadata?.source);
     console.log('  Input feature count:', contextData?.features?.length || 0);
     console.log('  Sample input wells:', contextData?.features?.slice(0, 3)?.map((f: any) => ({
-      name: f.properties?.name,
-      depth: f.properties?.depth,
-      operator: f.properties?.operator || f.properties?.dataSource
+      name: f?.properties?.name || 'Unknown',
+      depth: f?.properties?.depth || 'Unknown',
+      operator: f?.properties?.operator || f?.properties?.dataSource || 'Unknown'
     })) || []);
     
     if (!contextData || !contextData.features) {
@@ -354,7 +433,19 @@ function CatalogPageBase() {
         const beforeDepthFilter = filteredFeatures.length;
         
         filteredFeatures = filteredFeatures.filter(feature => {
-          const depthStr = feature.properties?.depth || '0';
+          // Safety check for feature properties
+          if (!feature || !feature.properties) {
+            console.warn('  ⚠️ Skipping feature with null/undefined properties');
+            return false;
+          }
+          
+          // Safety check for filterValue
+          if (!filterValue || !filterValue.operator || typeof filterValue.value !== 'number') {
+            console.warn('  ⚠️ Invalid depth filter value:', filterValue);
+            return true; // Return all features if filter is invalid
+          }
+          
+          const depthStr = feature.properties.depth || '0';
           const depth = parseInt(depthStr.replace(/[^\d]/g, ''));
           
           const passes = filterValue.operator === '>' 
@@ -364,7 +455,7 @@ function CatalogPageBase() {
               : true;
               
           if (passes) {
-            console.log(`  ✅ ${feature.properties?.name}: ${depthStr} → ${depth} (passes ${filterValue.operator} ${filterValue.value})`);
+            console.log(`  ✅ ${feature.properties.name || 'Unknown'}: ${depthStr} → ${depth} (passes ${filterValue.operator} ${filterValue.value})`);
           }
           
           return passes;
@@ -376,22 +467,40 @@ function CatalogPageBase() {
       case 'operator':
         const targetOperator = filterValue.toLowerCase();
         filteredFeatures = filteredFeatures.filter(feature => {
-          const operator = (feature.properties?.operator || '').toLowerCase();
+          // Safety check for feature properties
+          if (!feature || !feature.properties) {
+            console.warn('  ⚠️ Skipping feature with null/undefined properties in operator filter');
+            return false;
+          }
+          
+          const operator = (feature.properties.operator || '').toLowerCase();
           return operator.includes(targetOperator) || targetOperator.includes(operator);
         });
         break;
         
       case 'type':
         filteredFeatures = filteredFeatures.filter(feature => {
-          const type = feature.properties?.type || '';
+          // Safety check for feature properties
+          if (!feature || !feature.properties) {
+            console.warn('  ⚠️ Skipping feature with null/undefined properties in type filter');
+            return false;
+          }
+          
+          const type = feature.properties.type || '';
           return type.toLowerCase() === filterValue.toLowerCase();
         });
         break;
         
       case 'location':
         filteredFeatures = filteredFeatures.filter(feature => {
-          const location = (feature.properties?.location || '').toLowerCase();
-          const region = (feature.properties?.region || '').toLowerCase();
+          // Safety check for feature properties
+          if (!feature || !feature.properties) {
+            console.warn('  ⚠️ Skipping feature with null/undefined properties in location filter');
+            return false;
+          }
+          
+          const location = (feature.properties.location || '').toLowerCase();
+          const region = (feature.properties.region || '').toLowerCase();
           return location.includes(filterValue) || region.includes(filterValue);
         });
         break;
@@ -501,21 +610,58 @@ function CatalogPageBase() {
       
       let geoJsonData = null;
       
-      if (queryAnalysis.isContextual && queryAnalysis.operation === 'filter' && currentContext) {
-        // Handle contextual filtering - FRONTEND ONLY (no backend call)
-        console.log('🎯 PROCESSING CONTEXTUAL FILTER (frontend-only)');
-        console.log('🎯 FILTERING DATASET:', {
-          originalQuery: currentContext.originalQuery,
-          dataSource: currentContext.data?.metadata?.source,
-          recordCount: currentContext.recordCount,
-          sampleWells: currentContext.data?.features?.slice(0, 3)?.map((f: any) => ({
-            name: f.properties?.name,
-            depth: f.properties?.depth,
-            operator: f.properties?.operator || f.properties?.dataSource
-          })) || []
-        });
+      // NEW FEATURE: Handle polygon search + filter (cautiously added)
+      if (queryAnalysis.isContextual && queryAnalysis.operation === 'filter' && 
+          queryAnalysis.filterType === 'polygon' && queryAnalysis.filterValue === 'auto_search_and_filter') {
         
-        console.log('🎯 APPLYING FILTER:', queryAnalysis.filterType, '=', queryAnalysis.filterValue);
+        console.log('🎯 PROCESSING NEW FEATURE: AUTO SEARCH + POLYGON FILTER');
+        console.log('🎯 This is the new feature that should NOT break existing functionality');
+        
+        // First, search for all wells
+        let searchResponse;
+        try {
+          console.log('🔍 NEW FEATURE: Calling backend for all wells...');
+          
+          searchResponse = await amplifyClient.queries.catalogSearch({
+            prompt: 'all wells in south china sea'
+          });
+          
+          console.log('🔍 NEW FEATURE: Backend response received');
+        } catch (functionError) {
+          console.error('❌ NEW FEATURE: Backend call failed:', functionError);
+          throw new Error(`Search function failed: ${functionError instanceof Error ? functionError.message : String(functionError)}`);
+        }
+
+        // Parse and apply polygon filter
+        if (searchResponse.data) {
+          try {
+            const allWellsData = typeof searchResponse.data === 'string' 
+              ? JSON.parse(searchResponse.data) 
+              : searchResponse.data;
+              
+            console.log('✅ NEW FEATURE: Parsed search data, applying polygon filter...');
+            
+            if (activePolygon) {
+              geoJsonData = applyPolygonFilter(allWellsData, activePolygon);
+              const polygonFilterName = `polygon: ${activePolygon.id}`;
+              saveContext(geoJsonData, prompt, [polygonFilterName]);
+            } else {
+              console.warn('⚠️ NEW FEATURE: No active polygon found');
+              geoJsonData = allWellsData;
+              saveContext(geoJsonData, prompt);
+            }
+            
+          } catch (parseError) {
+            console.error('❌ NEW FEATURE: Parse error:', parseError);
+            throw new Error('Invalid response format from search service');
+          }
+        }
+        
+      } else if (queryAnalysis.isContextual && queryAnalysis.operation === 'filter' && currentContext) {
+        // Handle ALL existing contextual filtering (including working polygon filter)
+        console.log('🎯 PROCESSING EXISTING CONTEXTUAL FILTER');
+        console.log('🎯 Filter type:', queryAnalysis.filterType);
+        console.log('🎯 Filter value:', queryAnalysis.filterValue);
         
         geoJsonData = applyContextualFilter(
           currentContext.data,
@@ -526,20 +672,27 @@ function CatalogPageBase() {
         // Update context with applied filter
         const newFilters = [...currentContext.appliedFilters, `${queryAnalysis.filterType}: ${JSON.stringify(queryAnalysis.filterValue)}`];
         saveContext(geoJsonData, currentContext.originalQuery, newFilters);
+      }
+      
+      // **COMMON TABLE AND MAP UPDATE LOGIC FOR ALL FILTERING OPERATIONS**
+      if (geoJsonData && queryAnalysis.isContextual && queryAnalysis.operation === 'filter') {
+        console.log('🎯 UPDATING TABLE AND MAP FOR FILTERED RESULTS');
         
         // **UPDATE MAIN TABLE DATA WITH FILTERED RESULTS**
-        const filteredTableData = geoJsonData.features.map((feature, index) => ({
-          id: `well-${index}`,
-          name: feature.properties.name || 'Unknown Well',
-          type: feature.properties.type || 'Unknown', 
-          location: feature.properties.location || 'Unknown',
-          depth: feature.properties.depth || 'Unknown',
-          operator: feature.properties.operator || 'Unknown'
-        }));
+        const filteredTableData = geoJsonData.features
+          .filter((feature: any) => feature && feature.properties) // Safety filter
+          .map((feature: any, index: number) => ({
+            id: `well-${index}`,
+            name: feature.properties?.name || 'Unknown Well',
+            type: feature.properties?.type || 'Unknown', 
+            location: feature.properties?.location || 'Unknown',
+            depth: feature.properties?.depth || 'Unknown',
+            operator: feature.properties?.operator || 'Unknown'
+          }));
         setCurrentTableData(filteredTableData);
         console.log('✅ Updated main table with', filteredTableData.length, 'filtered wells');
         
-        // **KEY CHANGE: Update map immediately with filtered data**
+        // **UPDATE MAP WITH FILTERED DATA**
         console.log('Updating map with filtered data:', geoJsonData.features.length, 'wells');
         if (mapComponentRef.current && geoJsonData) {
           try {
@@ -547,16 +700,22 @@ function CatalogPageBase() {
             
             // Auto-zoom map to fit filtered wells
             if (geoJsonData.features && geoJsonData.features.length > 0) {
-              const bounds = {
-                minLon: Math.min(...geoJsonData.features.map(f => f.geometry.coordinates[0])),
-                maxLon: Math.max(...geoJsonData.features.map(f => f.geometry.coordinates[0])),
-                minLat: Math.min(...geoJsonData.features.map(f => f.geometry.coordinates[1])),
-                maxLat: Math.max(...geoJsonData.features.map(f => f.geometry.coordinates[1]))
-              };
+              const validCoordinates = geoJsonData.features
+                .filter(f => f && f.geometry && f.geometry.coordinates && Array.isArray(f.geometry.coordinates))
+                .map(f => f.geometry.coordinates);
               
-              // Fit map to filtered bounds with padding
-              if (mapComponentRef.current.fitBounds) {
-                mapComponentRef.current.fitBounds(bounds);
+              if (validCoordinates.length > 0) {
+                const bounds = {
+                  minLon: Math.min(...validCoordinates.map(coords => coords[0])),
+                  maxLon: Math.max(...validCoordinates.map(coords => coords[0])),
+                  minLat: Math.min(...validCoordinates.map(coords => coords[1])),
+                  maxLat: Math.max(...validCoordinates.map(coords => coords[1]))
+                };
+              
+                // Fit map to filtered bounds with padding
+                if (mapComponentRef.current.fitBounds) {
+                  mapComponentRef.current.fitBounds(bounds);
+                }
               }
             }
             
@@ -662,14 +821,21 @@ function CatalogPageBase() {
         saveContext(geoJsonData, prompt);
         
         // **UPDATE MAIN TABLE DATA WITH NEW SEARCH RESULTS**
-        const newTableData = geoJsonData.features.map((feature, index) => ({
-          id: `well-${index}`,
-          name: feature.properties.name || 'Unknown Well',
-          type: feature.properties.type || 'Unknown', 
-          location: feature.properties.location || 'Unknown',
-          depth: feature.properties.depth || 'Unknown',
-          operator: feature.properties.operator || 'Unknown'
-        }));
+        const newTableData = geoJsonData.features
+          .filter((feature: any) => feature && feature.properties) // Safety filter
+          .map((feature: any, index: number) => ({
+            id: `well-${index}`,
+            name: feature.properties?.name || 'Unknown Well',
+            type: feature.properties?.type || 'Unknown', 
+            location: feature.properties?.location || 'Unknown',
+            depth: feature.properties?.depth || 'Unknown',
+            operator: feature.properties?.operator || 'Unknown'
+          }));
+        
+        console.log('🔍 Filtered table data validation:');
+        console.log('  - Original features:', geoJsonData.features?.length || 0);
+        console.log('  - Valid features after filtering:', newTableData.length);
+        console.log('  - Sample data:', newTableData.slice(0, 2));
         setCurrentTableData(newTableData);
         console.log('✅ Updated main table with', newTableData.length, 'new search results');
         console.log('✅ Sample table data:', newTableData.slice(0, 3));
@@ -688,16 +854,22 @@ function CatalogPageBase() {
             
             // Auto-zoom map to fit all results with padding
             if (geoJsonData.features && geoJsonData.features.length > 0) {
-              const bounds = {
-                minLon: Math.min(...geoJsonData.features.map(f => f.geometry.coordinates[0])),
-                maxLon: Math.max(...geoJsonData.features.map(f => f.geometry.coordinates[0])),
-                minLat: Math.min(...geoJsonData.features.map(f => f.geometry.coordinates[1])),
-                maxLat: Math.max(...geoJsonData.features.map(f => f.geometry.coordinates[1]))
-              };
+              const validCoordinates = geoJsonData.features
+                .filter(f => f && f.geometry && f.geometry.coordinates && Array.isArray(f.geometry.coordinates))
+                .map(f => f.geometry.coordinates);
               
-              // Fit map to results with padding
-              if (mapComponentRef.current.fitBounds) {
-                mapComponentRef.current.fitBounds(bounds);
+              if (validCoordinates.length > 0) {
+                const bounds = {
+                  minLon: Math.min(...validCoordinates.map(coords => coords[0])),
+                  maxLon: Math.max(...validCoordinates.map(coords => coords[0])),
+                  minLat: Math.min(...validCoordinates.map(coords => coords[1])),
+                  maxLat: Math.max(...validCoordinates.map(coords => coords[1]))
+                };
+              
+                // Fit map to results with padding
+                if (mapComponentRef.current.fitBounds) {
+                  mapComponentRef.current.fitBounds(bounds);
+                }
               }
             }
             
@@ -751,19 +923,21 @@ function CatalogPageBase() {
       };
 
       // Generate well cards data that matches the map data
-      const wellCardsData = geoJsonData.features.map((feature, index) => ({
-        id: index + 1,
-        name: feature.properties.name || 'Unknown Well',
-        type: feature.properties.type || 'Unknown',
-        location: feature.properties.location || 'Unknown',
-        depth: feature.properties.depth || 'Unknown',
-        operator: feature.properties.operator || 'Unknown',
-        latitude: feature.properties.latitude || feature.geometry.coordinates[1]?.toFixed(6) || 'N/A',
-        longitude: feature.properties.longitude || feature.geometry.coordinates[0]?.toFixed(6) || 'N/A',
-        region: feature.properties.region || 'South China Sea',
-        dataSource: feature.properties.dataSource || 'OSDU Platform',
-        logoUrl: getOperatorLogo(feature.properties.operator || 'Unknown')
-      }));
+      const wellCardsData = geoJsonData.features
+        .filter((feature: any) => feature && feature.properties && feature.geometry) // Safety filter
+        .map((feature: any, index: number) => ({
+          id: index + 1,
+          name: feature.properties?.name || 'Unknown Well',
+          type: feature.properties?.type || 'Unknown',
+          location: feature.properties?.location || 'Unknown',
+          depth: feature.properties?.depth || 'Unknown',
+          operator: feature.properties?.operator || 'Unknown',
+          latitude: feature.properties?.latitude || feature.geometry?.coordinates?.[1]?.toFixed(6) || 'N/A',
+          longitude: feature.properties?.longitude || feature.geometry?.coordinates?.[0]?.toFixed(6) || 'N/A',
+          region: feature.properties?.region || 'South China Sea',
+          dataSource: feature.properties?.dataSource || 'OSDU Platform',
+          logoUrl: getOperatorLogo(feature.properties?.operator || 'Unknown')
+        }));
       
       // Create Cloudscape Table data
       const tableItems = wellCardsData.map((well, index) => ({
@@ -891,7 +1065,7 @@ ${wellCardsData.map(well => {
     } finally {
       setIsLoadingMapData(false);
     }
-  }, [amplifyClient, currentContext, saveContext, clearContext]);
+  }, [amplifyClient, currentContext, saveContext, clearContext, analyzeQuery, activePolygon, polygons, applyPolygonFilter]);
 
   // Function to fetch initial map data
   const fetchMapData = useCallback(async () => {
@@ -1060,7 +1234,90 @@ ${wellCardsData.map(well => {
           mapComponentRef,
           mapRefAvailable: !!mapComponentRef.current,
           hasCurrentContext: !!currentContext,
-          contextRecordCount: currentContext?.recordCount || 0
+          contextRecordCount: currentContext?.recordCount || 0,
+          activePolygon: activePolygon,
+          polygons: polygons
+        };
+      };
+      
+      // Add comprehensive polygon testing function with proper state access
+      (window as any).testPolygonFiltering = (testQuery = 'wells in the polygon') => {
+        console.log('🧪 TESTING POLYGON FILTERING STEP BY STEP');
+        console.log('🧪 Test query:', testQuery);
+        
+        // Get current state values
+        const currentActivePolygon = activePolygon;
+        const currentPolygons = polygons;
+        const currentContextState = currentContext;
+        
+        // Step 1: Check polygon state
+        console.log('🧪 STEP 1: Polygon State Check');
+        console.log('  - Active polygon exists:', !!currentActivePolygon);
+        console.log('  - Active polygon ID:', currentActivePolygon?.id);
+        console.log('  - Active polygon area:', currentActivePolygon?.area);
+        console.log('  - All polygons count:', currentPolygons.length);
+        
+        if (currentPolygons.length > 0) {
+          console.log('  - All polygons:', currentPolygons.map(p => ({ id: p.id, area: p.area })));
+        }
+        
+        // Step 2: Test query analysis
+        console.log('🧪 STEP 2: Query Analysis Test');
+        const lowerQuery = testQuery.toLowerCase().trim();
+        const polygonPatterns = [
+          /(?:wells?|data|points?)\s*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i,
+          /(?:filter|show)\s*(?:by|using)\s*(?:polygon|area|selection)/i,
+          /(?:polygon|area)\s*(?:filter|selection)/i,
+          /(?:all|show)\s*wells?\s*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i
+        ];
+        
+        const patternResults = polygonPatterns.map((pattern, i) => ({
+          patternIndex: i,
+          matches: pattern.test(lowerQuery)
+        }));
+        
+        console.log('  - Query patterns test results:', patternResults);
+        console.log('  - Any pattern matches:', patternResults.some(p => p.matches));
+        
+        // Step 3: Test context state
+        console.log('🧪 STEP 3: Context State Check');
+        console.log('  - Current context exists:', !!currentContextState);
+        console.log('  - Context record count:', currentContextState?.recordCount || 0);
+        console.log('  - Context query:', currentContextState?.originalQuery || 'none');
+        
+        // Step 4: Simulate query analysis
+        console.log('🧪 STEP 4: Simulating analyzeQuery function');
+        try {
+          const result = analyzeQuery(testQuery);
+          console.log('  - Analysis result:', result);
+        } catch (error) {
+          console.error('  - Error in analyzeQuery:', error);
+        }
+        
+        // Step 5: Test spatial filtering if we have data
+        if (currentContextState?.data?.features && currentActivePolygon) {
+          console.log('🧪 STEP 5: Testing Spatial Filtering');
+          try {
+            const testResult = applyPolygonFilter(currentContextState.data, currentActivePolygon);
+            console.log('  - Spatial filter test result:', {
+              originalCount: currentContextState.data.features.length,
+              filteredCount: testResult.features.length,
+              percentage: Math.round((testResult.features.length / currentContextState.data.features.length) * 100) + '%'
+            });
+          } catch (error) {
+            console.error('  - Error in spatial filtering:', error);
+          }
+        } else {
+          console.log('🧪 STEP 5: Cannot test spatial filtering');
+          console.log('  - Has context data:', !!currentContextState?.data?.features);
+          console.log('  - Has active polygon:', !!currentActivePolygon);
+        }
+        
+        return {
+          activePolygon: !!currentActivePolygon,
+          hasContext: !!currentContextState,
+          patternMatches: patternResults.some(p => p.matches),
+          polygonCount: currentPolygons.length
         };
       };
       
@@ -1284,14 +1541,14 @@ ${wellCardsData.map(well => {
                 </Tooltip>
               </div>
 
-              {/* Main Data Table - Updates with filtered results */}
-              {currentTableData.length > 0 && (
+              {/* Main Data Table - Only shows after search results are available */}
+              {/* {currentTableData.length > 0 && currentContext && (
                 <div style={{ marginTop: '20px', marginBottom: '20px', padding: '0 16px' }}>
                   <Container
                     header={
                       <Header
                         variant="h2"
-                        description={`Showing ${currentTableData.length} wells`}
+                        description={`Showing ${currentTableData.length} wells from search results`}
                       >
                         Well Data Results
                       </Header>
@@ -1349,7 +1606,7 @@ ${wellCardsData.map(well => {
                     />
                   </Container>
                 </div>
-              )}
+              )} */}
 
               <CatalogChatBoxCloudscape
                 onInputChange={setUserInput}
