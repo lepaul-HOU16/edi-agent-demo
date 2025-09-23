@@ -47,10 +47,16 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
   const WELLS_SOURCE_ID = 'wells';
   const WELLS_LAYER_ID = 'wells-layer';
 
-  // Polygon event handlers
+  // Polygon event handlers with debugging
   const handlePolygonCreate = useCallback((e: any) => {
+    console.log('🗺️ MAP COMPONENT: Polygon create event triggered');
+    console.log('🗺️ Event data:', e);
+    
     const polygonData = e.features[0];
     const polygonId = `polygon-${Date.now()}`;
+    
+    console.log('🗺️ Creating polygon with ID:', polygonId);
+    console.log('🗺️ Polygon geometry:', polygonData.geometry);
     
     const newPolygon: PolygonFilter = {
       id: polygonId,
@@ -60,7 +66,20 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
       area: area(polygonData.geometry) / 1000000 // Convert to km²
     };
     
+    console.log('🗺️ Calling onPolygonCreate with:', newPolygon);
     onPolygonCreate(newPolygon);
+    
+    // Check if wells are still on map after polygon creation
+    setTimeout(() => {
+      if (mapRef.current) {
+        const wellsSource = mapRef.current.getSource(WELLS_SOURCE_ID);
+        console.log('🗺️ Wells source after polygon creation:', !!wellsSource);
+        if (wellsSource) {
+          const data = (wellsSource as any)._data;
+          console.log('🗺️ Wells data after polygon creation:', data?.features?.length || 0, 'features');
+        }
+      }
+    }, 100);
   }, [onPolygonCreate]);
 
   const handlePolygonDeleteEvent = useCallback((e: any) => {
@@ -262,27 +281,27 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
           trash: true
         },
         styles: [
-          // Polygon fill
+          // Polygon fill - MAXIMUM VISIBILITY FOR COMPLETED POLYGONS
           {
             "id": "gl-draw-polygon-fill-inactive",
             "type": "fill",
             "filter": ["all", ["==", "active", "false"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
             "paint": {
-              "fill-color": "#3bb2d0",
-              "fill-opacity": 0.2
+              "fill-color": "#ff6600", // Bright orange
+              "fill-opacity": 0.4 // Much more visible
             }
           },
-          // Polygon fill when active
+          // Polygon fill when active/drawing
           {
             "id": "gl-draw-polygon-fill-active",
             "type": "fill",
             "filter": ["all", ["==", "active", "true"], ["==", "$type", "Polygon"], ["!=", "mode", "static"]],
             "paint": {
-              "fill-color": "#fbb03b",
-              "fill-opacity": 0.3
+              "fill-color": "#ff6600", // Same bright orange
+              "fill-opacity": 0.5 // Very visible when drawing
             }
           },
-          // Polygon outline
+          // Polygon outline - MAXIMUM VISIBILITY FOR COMPLETED POLYGONS
           {
             "id": "gl-draw-polygon-stroke-inactive",
             "type": "line",
@@ -292,8 +311,9 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
               "line-join": "round"
             },
             "paint": {
-              "line-color": "#3bb2d0",
-              "line-width": 2
+              "line-color": "#ff6600", // Bright orange
+              "line-width": 4, // Thick for maximum visibility
+              "line-opacity": 1 // Fully opaque
             }
           },
           // Polygon outline when active
@@ -306,8 +326,9 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
               "line-join": "round"
             },
             "paint": {
-              "line-color": "#fbb03b",
-              "line-width": 2
+              "line-color": "#ff6600",
+              "line-width": 4,
+              "line-opacity": 1
             }
           }
         ]
