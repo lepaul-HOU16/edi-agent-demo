@@ -222,29 +222,30 @@ function CatalogPageBase() {
     };
   };
 
-  // Function to detect if query is contextual (filter) vs new search - SIMPLIFIED TO RESTORE WORKING FUNCTIONALITY
+  // Function to detect if query is contextual (filter) vs new search
   const analyzeQuery = useCallback((query: string): ContextualQuery => {
     const lowerQuery = query.toLowerCase().trim();
     
-    console.log('🎯 SIMPLIFIED POLYGON DETECTION:', {
+    console.log('🎯 QUERY ANALYSIS:', {
       query: lowerQuery,
       hasActivePolygon: !!activePolygon,
       hasContext: !!currentContext,
       activePolygonId: activePolygon?.id
     });
     
-    // Check for polygon filters ONLY if we have existing context and active polygon
+    // Check for polygon queries
     const polygonFilterPatterns = [
       /(?:wells?|data|points?)\s*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i,
       /(?:filter|show)\s*(?:by|using)\s*(?:polygon|area|selection)/i,
-      /(?:polygon|area)\s*(?:filter|selection)/i
+      /(?:polygon|area)\s*(?:filter|selection)/i,
+      /(?:find|search|show).*wells?.*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i
     ];
     
     const isPolygonQuery = polygonFilterPatterns.some(pattern => pattern.test(lowerQuery));
     
-    // SIMPLE LOGIC: Only handle polygon filtering if we have BOTH context AND polygon
+    // EXISTING FUNCTIONALITY: Polygon filter on existing context
     if (isPolygonQuery && activePolygon && currentContext && currentContext.data && currentContext.data.features?.length > 0) {
-      console.log('🎯 SIMPLE POLYGON FILTER DETECTED (existing context)');
+      console.log('🎯 POLYGON FILTER ON EXISTING CONTEXT');
       return {
         isContextual: true,
         operation: 'filter',
@@ -255,14 +256,14 @@ function CatalogPageBase() {
       };
     }
     
-    // CAUTIOUS NEW FEATURE: Handle polygon queries without context (search + filter)
+    // NEW FUNCTIONALITY: Polygon-first search (no existing context)
     if (isPolygonQuery && activePolygon && (!currentContext || !currentContext.data || !currentContext.data.features?.length)) {
-      console.log('🎯 POLYGON SEARCH + FILTER DETECTED (no existing context)');
+      console.log('🎯 POLYGON-FIRST SEARCH DETECTED');
       return {
-        isContextual: true,
-        operation: 'filter',
+        isContextual: false, // Treat as new search, not filter
+        operation: 'new',
         filterType: 'polygon' as any,
-        filterValue: 'auto_search_and_filter', // Special flag for this new feature
+        filterValue: 'polygon_first_search', // Clear flag for new feature
         polygonId: activePolygon.id,
         originalQuery: query
       };
@@ -595,11 +596,20 @@ function CatalogPageBase() {
     setError(null);
     
     try {
-      console.log('Processing search for prompt:', prompt);
+      console.log('🚀 PROCESSING SEARCH FOR PROMPT:', prompt);
+      console.log('🚀 POLYGON STATE DEBUG:', {
+        activePolygon: activePolygon ? {
+          id: activePolygon.id,
+          area: activePolygon.area,
+          name: activePolygon.name
+        } : null,
+        polygonsCount: polygons.length,
+        allPolygonIds: polygons.map(p => p.id)
+      });
       
       // Analyze query to determine if contextual or new search
       const queryAnalysis = analyzeQuery(prompt);
-      console.log('🔍 QUERY ANALYSIS:', queryAnalysis);
+      console.log('🔍 DETAILED QUERY ANALYSIS:', queryAnalysis);
       console.log('🔍 CURRENT CONTEXT STATE:', {
         hasContext: !!currentContext,
         contextQuery: currentContext?.originalQuery || 'none',
@@ -610,49 +620,55 @@ function CatalogPageBase() {
       
       let geoJsonData = null;
       
-      // NEW FEATURE: Handle polygon search + filter (cautiously added)
-      if (queryAnalysis.isContextual && queryAnalysis.operation === 'filter' && 
-          queryAnalysis.filterType === 'polygon' && queryAnalysis.filterValue === 'auto_search_and_filter') {
+      // Handle NEW FUNCTIONALITY: Polygon-first search (check this FIRST)
+      if (queryAnalysis.filterType === 'polygon' && queryAnalysis.filterValue === 'polygon_first_search' && activePolygon) {
         
-        console.log('🎯 PROCESSING NEW FEATURE: AUTO SEARCH + POLYGON FILTER');
-        console.log('🎯 This is the new feature that should NOT break existing functionality');
+        console.log('🎯 PROCESSING POLYGON-FIRST SEARCH');
+        console.log('🎯 Query analysis:', queryAnalysis);
+        console.log('🎯 Active polygon:', activePolygon?.id);
         
-        // First, search for all wells
+        // Call backend with enhanced query that includes user wells for polygon searches
         let searchResponse;
         try {
-          console.log('🔍 NEW FEATURE: Calling backend for all wells...');
+          // For polygon searches, we want to include all wells (including user wells)
+          const enhancedQuery = prompt.toLowerCase().includes('my wells') 
+            ? prompt // Keep original if specifically asking for "my wells"
+            : 'all wells in south china sea'; // Get comprehensive dataset for polygon filtering
+            
+          console.log('🔍 POLYGON-FIRST: Calling backend with enhanced query:', enhancedQuery);
+          console.log('🔍 POLYGON-FIRST: Original user query:', prompt);
           
           searchResponse = await amplifyClient.queries.catalogSearch({
-            prompt: 'all wells in south china sea'
+            prompt: enhancedQuery
           });
           
-          console.log('🔍 NEW FEATURE: Backend response received');
+          console.log('🔍 POLYGON-FIRST: Backend response received');
         } catch (functionError) {
-          console.error('❌ NEW FEATURE: Backend call failed:', functionError);
+          console.error('❌ POLYGON-FIRST: Backend call failed:', functionError);
           throw new Error(`Search function failed: ${functionError instanceof Error ? functionError.message : String(functionError)}`);
         }
 
         // Parse and apply polygon filter
         if (searchResponse.data) {
           try {
-            const allWellsData = typeof searchResponse.data === 'string' 
+            const searchData = typeof searchResponse.data === 'string' 
               ? JSON.parse(searchResponse.data) 
               : searchResponse.data;
               
-            console.log('✅ NEW FEATURE: Parsed search data, applying polygon filter...');
+            console.log('✅ POLYGON-FIRST: Parsed search data, applying polygon filter...');
             
             if (activePolygon) {
-              geoJsonData = applyPolygonFilter(allWellsData, activePolygon);
-              const polygonFilterName = `polygon: ${activePolygon.id}`;
+              geoJsonData = applyPolygonFilter(searchData, activePolygon);
+              const polygonFilterName = `polygon: ${activePolygon.name || activePolygon.id}`;
               saveContext(geoJsonData, prompt, [polygonFilterName]);
             } else {
-              console.warn('⚠️ NEW FEATURE: No active polygon found');
-              geoJsonData = allWellsData;
+              console.warn('⚠️ POLYGON-FIRST: No active polygon found');
+              geoJsonData = searchData;
               saveContext(geoJsonData, prompt);
             }
             
           } catch (parseError) {
-            console.error('❌ NEW FEATURE: Parse error:', parseError);
+            console.error('❌ POLYGON-FIRST: Parse error:', parseError);
             throw new Error('Invalid response format from search service');
           }
         }
@@ -674,8 +690,11 @@ function CatalogPageBase() {
         saveContext(geoJsonData, currentContext.originalQuery, newFilters);
       }
       
-      // **COMMON TABLE AND MAP UPDATE LOGIC FOR ALL FILTERING OPERATIONS**
-      if (geoJsonData && queryAnalysis.isContextual && queryAnalysis.operation === 'filter') {
+      // **COMMON TABLE AND MAP UPDATE LOGIC FOR ALL FILTERING OPERATIONS AND POLYGON-FIRST SEARCH**
+      if (geoJsonData && (
+          (queryAnalysis.isContextual && queryAnalysis.operation === 'filter') ||
+          (queryAnalysis.filterType === 'polygon' && queryAnalysis.filterValue === 'polygon_first_search')
+        )) {
         console.log('🎯 UPDATING TABLE AND MAP FOR FILTERED RESULTS');
         
         // **UPDATE MAIN TABLE DATA WITH FILTERED RESULTS**
@@ -725,8 +744,10 @@ function CatalogPageBase() {
           }
         }
         
-      } else {
-        // Handle contextual queries without context or new searches
+      } else if (!geoJsonData) {
+        // Handle remaining cases only if no data has been processed yet
+        
+        // Handle contextual queries without context
         if (queryAnalysis.isContextual && !currentContext) {
           console.log('⚠️ Contextual filter attempted without current data');
           
@@ -922,6 +943,13 @@ function CatalogPageBase() {
         return logoMap[operator] || 'https://via.placeholder.com/80x40/666666/ffffff?text=Oil%26Gas';
       };
 
+      // Skip message generation if no data was processed (safety check)
+      if (!geoJsonData) {
+        console.warn('⚠️ No geoJsonData available for message generation');
+        setIsLoadingMapData(false);
+        return null;
+      }
+
       // Generate well cards data that matches the map data
       const wellCardsData = geoJsonData.features
         .filter((feature: any) => feature && feature.properties && feature.geometry) // Safety filter
@@ -979,7 +1007,22 @@ ${wellCardsData.map(well => {
 
       // Create contextual information
       let contextualInfo = '';
-      if (queryAnalysis.isContextual && currentContext) {
+      
+      // Handle polygon-first search case (NEW FUNCTIONALITY)
+      if (queryAnalysis.filterType === 'polygon' && queryAnalysis.filterValue === 'polygon_first_search' && activePolygon && geoJsonData.metadata?.polygonFilter) {
+        const originalCount = geoJsonData.metadata?.originalCount || 0;
+        const filteredCount = geoJsonData.features.length;
+        
+        contextualInfo = `\n**🗺️ Polygon-First Search Applied:**\n` +
+          `• **Search Query:** "${prompt}"\n` +
+          `• **Polygon Area:** ${activePolygon.area?.toFixed(2)} km² (${activePolygon.name || activePolygon.id})\n` +
+          `• **Search & Filter:** Found wells in South China Sea, then spatially filtered\n` +
+          `• **Total Found:** ${originalCount} wells in region\n` +
+          `• **Within Polygon:** ${filteredCount} wells (${originalCount > 0 ? Math.round((filteredCount/originalCount)*100) : 0}% of regional wells)\n` +
+          `• **Well Density:** ${(filteredCount / (activePolygon.area || 1)).toFixed(2)} wells/km²\n\n` +
+          `💡 *You can now apply additional filters like "depth greater than 4000m" or "operated by Shell" to these polygon-filtered results.*\n\n`;
+          
+      } else if (queryAnalysis.isContextual && currentContext) {
         const originalCount = currentContext.data?.metadata?.originalCount || currentContext.data?.features?.length || 0;
         const filteredCount = geoJsonData.features.length;
         
@@ -1318,6 +1361,55 @@ ${wellCardsData.map(well => {
           hasContext: !!currentContextState,
           patternMatches: patternResults.some(p => p.matches),
           polygonCount: currentPolygons.length
+        };
+      };
+      
+      // Add live debugging function that shows current state when you try "wells in polygon"
+      (window as any).debugPolygonSearch = () => {
+        console.log('🔍 LIVE DEBUG: Current State for Polygon Search');
+        console.log('================================================');
+        console.log('Active Polygon State:', {
+          exists: !!activePolygon,
+          id: activePolygon?.id || 'none',
+          area: activePolygon?.area || 'none',
+          name: activePolygon?.name || 'none',
+          geometry: activePolygon?.geometry ? 'exists' : 'none'
+        });
+        
+        console.log('Context State:', {
+          exists: !!currentContext,
+          recordCount: currentContext?.recordCount || 0,
+          query: currentContext?.originalQuery || 'none'
+        });
+        
+        console.log('Polygons Array:', {
+          count: polygons.length,
+          ids: polygons.map(p => p.id)
+        });
+        
+        // Test the actual analyzeQuery function with current state
+        const testQuery = 'wells in polygon';
+        console.log('\nTesting analyzeQuery with current state:');
+        try {
+          const result = analyzeQuery(testQuery);
+          console.log('Query analysis result:', result);
+          
+          // Check if it would trigger polygon-first search
+          const shouldTrigger = (
+            result.filterType === 'polygon' && 
+            result.filterValue === 'polygon_first_search' && 
+            activePolygon
+          );
+          
+          console.log('Should trigger polygon-first search:', shouldTrigger);
+        } catch (error) {
+          console.error('Error in analyzeQuery:', error);
+        }
+        
+        return {
+          activePolygon: activePolygon,
+          currentContext: currentContext,
+          polygons: polygons
         };
       };
       
