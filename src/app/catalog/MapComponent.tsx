@@ -26,6 +26,7 @@ interface MapComponentProps {
 
 export interface MapComponentRef {
   updateMapData: (geoJsonData: any) => void;
+  fitBounds: (bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number }) => void;
 }
 
 const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
@@ -203,10 +204,36 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     }
   }, []);
 
-  // Expose updateMapData function to parent
+  // Fit bounds function
+  const fitBounds = useCallback((bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number }) => {
+    if (!mapRef.current) {
+      console.error('Map not available for fitBounds');
+      return;
+    }
+
+    try {
+      const mapBounds = new maplibregl.LngLatBounds(
+        [bounds.minLon, bounds.minLat],
+        [bounds.maxLon, bounds.maxLat]
+      );
+      
+      mapRef.current.fitBounds(mapBounds, { 
+        padding: 100,
+        maxZoom: 10,
+        duration: 1000
+      });
+      
+      console.log('✅ Successfully fitted bounds:', bounds);
+    } catch (error) {
+      console.error('❌ Error fitting bounds:', error);
+    }
+  }, []);
+
+  // Expose functions to parent
   useImperativeHandle(ref, () => ({
-    updateMapData
-  }), [updateMapData]);
+    updateMapData,
+    fitBounds
+  }), [updateMapData, fitBounds]);
 
   useEffect(() => {
     const mapContainer = document.getElementById("map");
