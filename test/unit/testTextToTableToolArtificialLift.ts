@@ -17,7 +17,7 @@ describe('Text to Table Tool Artificial Lift Test', function () {
 
     const outputs = loadOutputs();
     process.env.STORAGE_BUCKET_NAME = outputs?.storage?.bucket_name;
-    process.env.TEXT_TO_TABLE_MODEL_ID = 'anthropic.claude-3-haiku-20240307-v1:0';
+    process.env.TEXT_TO_TABLE_MODEL_ID = 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
     // process.env.TEXT_TO_TABLE_MODEL_ID = 'amazon.nova-pro-v1:0';
   });
 

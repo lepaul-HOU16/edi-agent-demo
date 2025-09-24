@@ -275,6 +275,10 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   background-color: rgba(0, 0, 0, 0.5);
 }
 
+.convo .messages-container > div > div {
+  padding: 0 !important;
+}
+
 /* Ensure proper container heights */
 .panel {
   height: calc(100vh - 200px);

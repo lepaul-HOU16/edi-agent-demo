@@ -1,9 +1,9 @@
 {
   "auth": {
-    "user_pool_id": "us-east-1_7aeC1l56x",
+    "user_pool_id": "us-east-1_Rg3oKTmf6",
     "aws_region": "us-east-1",
-    "user_pool_client_id": "5p8hcp7qoeb7m2no9djr5ve7i3",
-    "identity_pool_id": "us-east-1:d4c42aee-54a5-435f-a2dd-804eb0531c4f",
+    "user_pool_client_id": "rcrkrnhdk2rd42s8as71recva",
+    "identity_pool_id": "us-east-1:c186c6ca-33f4-446f-a0cc-8b327f5bbfe8",
     "mfa_methods": [],
     "standard_required_attributes": [
       "email"
@@ -26,7 +26,7 @@
     "unauthenticated_identities_enabled": true
   },
   "data": {
-    "url": "https://t3au436ghne3zholf2bcpxwvda.appsync-api.us-east-1.amazonaws.com/graphql",
+    "url": "https://doqkjfftczdazcaeyrt6kdcrvu.appsync-api.us-east-1.amazonaws.com/graphql",
     "aws_region": "us-east-1",
     "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
     "authorization_types": [
@@ -366,6 +366,14 @@
               "isRequired": false,
               "attributes": []
             },
+            "artifacts": {
+              "name": "artifacts",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
             "owner": {
               "name": "owner",
               "isArray": false,
@@ -648,18 +656,6 @@
             }
           }
         },
-        "EventInvocationResponse": {
-          "name": "EventInvocationResponse",
-          "fields": {
-            "success": {
-              "name": "success",
-              "isArray": false,
-              "type": "Boolean",
-              "isRequired": true,
-              "attributes": []
-            }
-          }
-        },
         "ProjectFinancial": {
           "name": "ProjectFinancial",
           "fields": {
@@ -737,40 +733,61 @@
               "attributes": []
             }
           }
+        },
+        "InvokeLightweightAgentReturnType": {
+          "name": "InvokeLightweightAgentReturnType",
+          "fields": {
+            "success": {
+              "name": "success",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "artifacts": {
+              "name": "artifacts",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            }
+          }
         }
       },
       "queries": {
-        "invokeReActAgent": {
-          "name": "invokeReActAgent",
+        "getCatalogMapData": {
+          "name": "getCatalogMapData",
           "isArray": false,
-          "type": {
-            "nonModel": "EventInvocationResponse"
-          },
+          "type": "String",
           "isRequired": false,
           "arguments": {
-            "chatSessionId": {
-              "name": "chatSessionId",
+            "type": {
+              "name": "type",
               "isArray": false,
-              "type": "ID",
+              "type": "String",
               "isRequired": true
-            },
-            "foundationModelId": {
-              "name": "foundationModelId",
+            }
+          }
+        },
+        "catalogSearch": {
+          "name": "catalogSearch",
+          "isArray": false,
+          "type": "String",
+          "isRequired": false,
+          "arguments": {
+            "prompt": {
+              "name": "prompt",
               "isArray": false,
               "type": "String",
-              "isRequired": false
-            },
-            "respondToAgent": {
-              "name": "respondToAgent",
-              "isArray": false,
-              "type": "Boolean",
-              "isRequired": false
-            },
-            "userId": {
-              "name": "userId",
-              "isArray": false,
-              "type": "String",
-              "isRequired": false
+              "isRequired": true
             }
           }
         }
@@ -803,6 +820,40 @@
               "isRequired": true
             }
           }
+        },
+        "invokeLightweightAgent": {
+          "name": "invokeLightweightAgent",
+          "isArray": false,
+          "type": {
+            "nonModel": "InvokeLightweightAgentReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "chatSessionId": {
+              "name": "chatSessionId",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "foundationModelId": {
+              "name": "foundationModelId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "userId": {
+              "name": "userId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            }
+          }
         }
       },
       "subscriptions": {
@@ -827,11 +878,11 @@
   },
   "storage": {
     "aws_region": "us-east-1",
-    "bucket_name": "amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m",
+    "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-1kur1xycq1xq",
     "buckets": [
       {
         "name": "workshopStorage",
-        "bucket_name": "amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m",
+        "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-1kur1xycq1xq",
         "aws_region": "us-east-1",
         "paths": {
           "chatSessionArtifacts/*": {
@@ -862,14 +913,5 @@
       }
     ]
   },
-  "version": "1.4",
-  "custom": {
-    "rootStackName": "amplify-d1eeg2gu6ddc3z-main-branch-a4492cc634",
-    "athenaWorkgroupName": "pyspark-workgroup-634",
-    "reactAgentLambdaArn": "arn:aws:lambda:us-east-1:484907533441:function:amplify-d1eeg2gu6ddc3z-ma-reActAgentlambdaF08375C4-qoeFMkzpSZq8",
-    "mcpRestApiUrl": "https://bsh3xxigmh.execute-api.us-east-1.amazonaws.com/prod/mcp",
-    "apiKeyArn": "arn:aws:apigateway:us-east-1::/apikeys/4v2mgu0t3a",
-    "mcpAgentInvokerUrl": "https://4ui7hmbxcnyeot63jb2qlrblua0ytpnn.lambda-url.us-east-1.on.aws/",
-    "mcpFunctionUrl": "https://kdgabkujgtnem7yprnhue6suai0qlstl.lambda-url.us-east-1.on.aws/"
-  }
+  "version": "1.4"
 }

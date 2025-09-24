@@ -17,8 +17,8 @@ from urllib.parse import urlparse
 # EDI
 edi_username = "edi-user"
 edi_password = "Asd!1edi"
-edi_client_id="7se4hblptk74h59ghbb694ovj4"
-edi_client_secret="k7iq7mnm4k0rp5hmve7ceb8dajkj9vulavetg90epn7an5sekfi"
+edi_client_id=os.environ.get("EDI_CLIENT_ID", "")
+edi_client_secret=os.environ.get("EDI_CLIENT_SECRET", "")
 edi_partition = "osdu"
 edi_platform_url = "https://osdu.vavourak.people.aws.dev"
 edi_search_url = edi_platform_url + '/api/search/v2/query/'

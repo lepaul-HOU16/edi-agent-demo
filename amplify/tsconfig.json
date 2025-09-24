@@ -29,6 +29,13 @@
     "../scripts",
     "../docs",
     "../test",
-    "../utils"
+    "../utils",
+    "functions/reActAgent/**/*",
+    "functions/mcpAgentInvoker/**/*", 
+    "functions/mcpAwsTools/**/*",
+    "functions/tools/**/*",
+    "functions/core/toolRegistry.ts",
+    "functions/agents/lightweightAgent.ts",
+    "functions/agents/strandsAgent.ts"
   ]
 }

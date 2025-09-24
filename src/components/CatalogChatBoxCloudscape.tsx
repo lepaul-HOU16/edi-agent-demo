@@ -287,32 +287,40 @@ const CatalogChatBoxCloudscape = (params: {
           <ButtonDropdown
             items={[
               {
-                text: 'Show me wells with GR, DTC and RHOB logs',
+                text: 'Show me all wells in South China Sea',
                 id: '1'
               },
               {
-                text: 'Find WELL-008',
+                text: 'wells with depth greater than 4000m',
                 id: '2'
               },
               {
-                text: 'Which wells have logs below 3000 meters',
+                text: 'show only production wells',
                 id: '3'
+              },
+              {
+                text: 'operated by Shell',
+                id: '4'
               }
             ]}
             onItemClick={({ detail }) => {
               // Find the clicked item and populate the text box with its text
               const clickedItem = [
                 {
-                  text: 'Show me wells with GR, DTC and RHOB logs',
+                  text: 'Show me all wells in South China Sea',
                   id: '1'
                 },
                 {
-                  text: 'Find WELL-008',
+                  text: 'wells with depth greater than 4000m',
                   id: '2'
                 },
                 {
-                  text: 'Which wells have logs below 3000 meters',
+                  text: 'show only production wells',
                   id: '3'
+                },
+                {
+                  text: 'operated by Shell',
+                  id: '4'
                 }
               ].find(item => item.id === detail.id);
               

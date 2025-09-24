@@ -14,7 +14,7 @@ const zodStringDate = z.string()
 //     Schema["ChatMessage"]["createType"]
 // )
 export type Message = Omit<Schema["ChatMessage"]["createType"], "role"> & {
-    role?: "human" | "ai" | "tool" | "ai-stream" | null | undefined;
+    role?: "human" | "ai" | "tool" | "ai-stream" | "professional-response" | null | undefined;
   };
 
 

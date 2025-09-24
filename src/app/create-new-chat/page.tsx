@@ -13,8 +13,8 @@ export default function CreateNewChatPage() {
   useEffect(() => {
     const createNewChat = async () => {
       try {
-        // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-        amplifyClient.queries.invokeReActAgent({ chatSessionId: "initilize" });
+        // Invoke the lightweight agent for initialization (replaced deprecated reActAgent)
+        amplifyClient.mutations.invokeLightweightAgent({ chatSessionId: "initialize", message: "initialize" });
 
         const newChatSession = await amplifyClient.models.ChatSession.create({});
         

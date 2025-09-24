@@ -4,6 +4,7 @@ import React from 'react';
 
 import { Message } from '@/../utils/types';
 import { useFileSystem } from '@/contexts/FileSystemContext';
+import { retrieveArtifacts } from '@/../utils/s3ArtifactStorage';
 
 // Import all the message components
 import AiMessageComponent from './messageComponents/AiMessageComponent';
@@ -26,6 +27,228 @@ import CreateProjectToolComponent from './messageComponents/CreateProjectToolCom
 import CustomWorkshopComponent from './messageComponents/CustomWorkshopComponent'
 import { PlotDataToolComponent } from '../components/PlotDataToolComponent';
 import InteractiveAgentSummaryComponent from './messageComponents/InteractiveAgentSummaryComponent';
+import ProfessionalResponseComponent from './messageComponents/ProfessionalResponseComponent';
+import { ComprehensiveShaleAnalysisComponent } from './messageComponents/ComprehensiveShaleAnalysisComponent';
+import { ComprehensivePorosityAnalysisComponent } from './messageComponents/ComprehensivePorosityAnalysisComponent';
+import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
+import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerComponent';
+import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorrelationComponent';
+
+// Enhanced artifact processor component with S3 support
+const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
+    rawArtifacts: any[];
+    message: Message;
+    theme: any;
+}) => {
+    const [artifacts, setArtifacts] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const processArtifacts = async () => {
+            try {
+                console.log('🔄 EnhancedArtifactProcessor: Processing artifacts...');
+                
+                // Check if any artifacts are S3 references
+                const hasS3References = rawArtifacts.some(artifact => 
+                    artifact && artifact.type === 's3_reference'
+                );
+                
+                if (hasS3References) {
+                    console.log('📥 EnhancedArtifactProcessor: S3 references detected, retrieving...');
+                    const retrievedArtifacts = await retrieveArtifacts(rawArtifacts);
+                    setArtifacts(retrievedArtifacts);
+                } else {
+                    console.log('📝 EnhancedArtifactProcessor: No S3 references, using artifacts directly');
+                    setArtifacts(rawArtifacts);
+                }
+                
+                setLoading(false);
+            } catch (err) {
+                console.error('❌ EnhancedArtifactProcessor: Error processing artifacts:', err);
+                setError(err instanceof Error ? err.message : 'Failed to load artifacts');
+                setLoading(false);
+                // Fallback: use raw artifacts
+                setArtifacts(rawArtifacts);
+            }
+        };
+
+        processArtifacts();
+    }, [rawArtifacts]);
+
+    // Show loading state for S3 artifacts
+    if (loading) {
+        return <AiMessageComponent 
+            message={message} 
+            theme={theme} 
+            enhancedComponent={
+                <div style={{ padding: '16px', textAlign: 'center' }}>
+                    <div>🔄 Loading visualization data...</div>
+                    <div style={{ fontSize: '0.8em', color: 'gray', marginTop: '8px' }}>
+                        Retrieving large dataset from storage
+                    </div>
+                </div>
+            }
+        />;
+    }
+
+    // Show error state with fallback
+    if (error) {
+        return <AiMessageComponent 
+            message={message} 
+            theme={theme} 
+            enhancedComponent={
+                <div style={{ padding: '16px', color: 'orange' }}>
+                    <div>⚠️ Error loading visualization data</div>
+                    <div style={{ fontSize: '0.8em', marginTop: '8px' }}>{error}</div>
+                    <div style={{ fontSize: '0.8em', marginTop: '8px' }}>
+                        Using fallback data if available
+                    </div>
+                </div>
+            }
+        />;
+    }
+
+    // Process retrieved artifacts
+    for (const artifact of artifacts) {
+        if (artifact) {
+            let parsedArtifact = artifact;
+            
+            // Parse artifact if it's a JSON string
+            if (typeof artifact === 'string') {
+                try {
+                    parsedArtifact = JSON.parse(artifact);
+                    console.log('✅ EnhancedArtifactProcessor: Successfully parsed JSON string artifact');
+                } catch (e) {
+                    console.error('❌ EnhancedArtifactProcessor: Failed to parse artifact JSON:', e);
+                    continue;
+                }
+            }
+            
+            console.log('🔍 EnhancedArtifactProcessor: Parsed artifact keys:', Object.keys(parsedArtifact || {}));
+            console.log('🔍 EnhancedArtifactProcessor: Checking artifact type:', parsedArtifact.messageContentType || parsedArtifact.type);
+            
+            // Check for comprehensive shale analysis
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_shale_analysis') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering ComprehensiveShaleAnalysisComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<ComprehensiveShaleAnalysisComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for comprehensive porosity analysis
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_porosity_analysis') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering ComprehensivePorosityAnalysisComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<ComprehensivePorosityAnalysisComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for multi-well correlation
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'comprehensive_multi_well_correlation' || 
+                 parsedArtifact.messageContentType === 'multi_well_correlation')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering MultiWellCorrelationComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<MultiWellCorrelationComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for comprehensive well data discovery
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_well_data_discovery') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering ComprehensiveWellDataDiscoveryComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<ComprehensiveWellDataDiscoveryComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for well data discovery
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'well_data_discovery') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering Well Data Discovery from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<InteractiveAgentSummaryComponent 
+                        content={{text: JSON.stringify(parsedArtifact)}} 
+                        theme={theme} 
+                        chatSessionId={(message as any).chatSessionId || ''} 
+                    />}
+                />;
+            }
+            
+            // Check for plot data
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'plotData') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering Plot Data from S3 artifact!');
+                const mockContent = { text: JSON.stringify(parsedArtifact) } as any;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<PlotDataToolComponent 
+                        content={mockContent} 
+                        theme={theme} 
+                        chatSessionId={(message as any).chatSessionId || ''} 
+                    />}
+                />;
+            }
+            
+            // Check for statistical chart
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'statisticalChart') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering Statistical Chart from S3 artifact!');
+                const mockContent = { text: JSON.stringify(parsedArtifact) } as any;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<PlotDataToolComponent 
+                        content={mockContent} 
+                        theme={theme} 
+                        chatSessionId={(message as any).chatSessionId || ''} 
+                    />}
+                />;
+            }
+            
+            // Check for depth plot
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'depthPlot') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering Depth Plot from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for log plot viewer
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.type === 'logPlotViewer') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering LogPlotViewerComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for log_plot_viewer (alternative naming)
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'log_plot_viewer') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering LogPlotViewerComponent from S3 artifact (log_plot_viewer)!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
+                />;
+            }
+        }
+    }
+    
+    console.log('⚠️ EnhancedArtifactProcessor: Artifacts found but no matching component, using regular AI message');
+    return <AiMessageComponent message={message} theme={theme} />;
+};
 
 const ChatMessage = (params: {
     message: Message,
@@ -65,7 +288,6 @@ const ChatMessage = (params: {
         }
     }, [message, refreshFiles]);
 
-
     switch (message.role) {
         case 'human':
             return <HumanMessageComponent
@@ -74,17 +296,61 @@ const ChatMessage = (params: {
                 onRegenerateMessage={onRegenerateMessage}
             />;
         case 'ai':
-            // Check if message contains analysis data that should use interactive visualization
-            const messageText = (message as any).content?.text || '';
-            const hasAnalysisData = messageText.includes('Analysis') || 
-                                  messageText.includes('Method') || 
-                                  messageText.includes('Statistical') ||
-                                  messageText.includes('Mean:') ||
-                                  messageText.includes('Median:') ||
-                                  messageText.includes('Standard Deviation:') ||
-                                  messageText.includes('Methodology');
+            // CRITICAL FIX: Check for artifacts first before other processing
+            console.log('🔍 ChatMessage: Processing AI message with artifacts check');
+            console.log('🔍 ChatMessage: Message artifacts:', (message as any).artifacts);
+            console.log('🔍 ChatMessage: Artifacts type:', typeof (message as any).artifacts);
+            console.log('🔍 ChatMessage: Artifacts is array:', Array.isArray((message as any).artifacts));
+            console.log('🔍 ChatMessage: Artifacts count:', (message as any).artifacts?.length || 0);
             
-            if (hasAnalysisData && messageText.length > 200) {
+            // Check for artifacts in AI message and wrap in enhanced AiMessageComponent
+            if ((message as any).artifacts && Array.isArray((message as any).artifacts) && (message as any).artifacts.length > 0) {
+                console.log('🎯 ChatMessage: Found artifacts in AI message!');
+                const rawArtifacts = (message as any).artifacts;
+                console.log('🔍 ChatMessage: First artifact raw:', rawArtifacts[0]);
+                console.log('🔍 ChatMessage: First artifact type:', typeof rawArtifacts[0]);
+                
+                // NEW: Enhanced artifact processing with S3 support
+                return <EnhancedArtifactProcessor 
+                    rawArtifacts={rawArtifacts}
+                    message={message}
+                    theme={theme}
+                />;
+            } else {
+                console.log('⚠️ ChatMessage: No artifacts found in AI message');
+            }
+
+            // Check if message contains professional response JSON
+            const messageText = (message as any).content?.text || '';
+            
+            // Try to detect professional response JSON
+            let professionalResponse = null;
+            try {
+                if (messageText.trim().startsWith('{') && messageText.trim().endsWith('}')) {
+                    const parsed = JSON.parse(messageText);
+                    if (parsed.responseType === 'professional' && parsed.calculationType) {
+                        professionalResponse = parsed;
+                    }
+                }
+            } catch (e) {
+                // Not JSON, continue with regular processing
+            }
+
+            // Route professional responses to specialized components
+            if (professionalResponse) {
+                return <ProfessionalResponseComponent 
+                    content={message.content} 
+                    theme={theme}
+                    chatSessionId={(message as any).chatSessionId || ''}
+                />;
+            }
+            
+            // Check if message contains actual statistical data that should use interactive visualization
+            const hasStatisticalData = messageText.includes('Mean:') &&
+                                     messageText.includes('Median:') &&
+                                     messageText.includes('Standard Deviation:');
+            
+            if (hasStatisticalData && messageText.length > 200) {
                 return <InteractiveAgentSummaryComponent 
                     content={message.content} 
                     theme={theme} 
@@ -93,6 +359,13 @@ const ChatMessage = (params: {
             } else {
                 return <AiMessageComponent message={message} theme={theme} />;
             }
+        case 'professional-response':
+            // Handle professional response messages with rich formatting
+            return <ProfessionalResponseComponent 
+                content={message.content} 
+                theme={theme}
+                chatSessionId={(message as any).chatSessionId || ''}
+            />;
         case 'ai-stream':
             return <ThinkingMessageComponent message={message} theme={theme} />
         case 'tool':
@@ -157,4 +430,4 @@ const ChatMessage = (params: {
     }
 }
 
-export default ChatMessage
+export default ChatMessage;
