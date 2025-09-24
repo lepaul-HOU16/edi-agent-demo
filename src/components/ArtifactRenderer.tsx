@@ -1,5 +1,6 @@
 import React from 'react';
 import { LogPlotViewer } from './logVisualization/LogPlotViewer';
+import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 
 interface Artifact {
   type: string;
@@ -20,7 +21,10 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
   return (
     <div style={{ marginTop: '16px' }}>
       {artifacts.map((artifact, index) => {
-        switch (artifact.type) {
+        // Check both 'type' and 'messageContentType' for backwards compatibility
+        const artifactType = artifact.type || artifact.messageContentType;
+        
+        switch (artifactType) {
           case 'logPlotViewer':
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
@@ -30,6 +34,14 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
                 />
               </div>
             );
+            
+          case 'comprehensive_well_data_discovery':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <ComprehensiveWellDataDiscoveryComponent data={artifact} />
+              </div>
+            );
+            
           default:
             return null;
         }
