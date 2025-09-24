@@ -1,20 +1,21 @@
 #!/bin/bash
-echo "🚀 Deploying log curve inventory fix..."
 
-# Navigate to project root
-cd "$(dirname "$0")"
+echo "🚀 === DEPLOYING LOG CURVE VISUALIZATION FIX ==="
+echo "⏰ Timestamp: $(date)"
 
-# Install dependencies
-echo "📦 Installing dependencies..."
-cd amplify/functions/agents
-npm install @aws-sdk/client-s3@^3.400.0 zod@^3.22.0
-
-# Go back to root
-cd ../../..
-
-# Deploy to AWS
-echo "🌐 Deploying to AWS..."
-npx amplify push --yes
+# Deploy backend changes to sandbox
+echo "📋 Step 1: Deploying to sandbox environment..."
+npx ampx sandbox --identifier agent-fix-lp --once
 
 echo "✅ Deployment complete!"
-echo "💡 Test by opening a new chat session and checking log curves tab"
+
+echo "📋 Step 2: Testing log curve visualization intent..."
+# Test the specific request format that should trigger log curve visualization
+echo "💡 Use these exact phrases to get log curves:"
+echo "   - 'show log curves for WELL-001'"
+echo "   - 'display log curves for WELL-001'" 
+echo "   - 'plot log curves for WELL-001'"
+echo "   - 'get curve data for WELL-001'"
+
+echo "🎯 === DEPLOYMENT COMPLETE ==="
+echo "Next: Try 'show log curves for WELL-001' in the chat interface"

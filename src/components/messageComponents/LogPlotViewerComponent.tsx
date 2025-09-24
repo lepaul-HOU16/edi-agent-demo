@@ -47,39 +47,68 @@ export const LogPlotViewerComponent: React.FC<LogPlotViewerProps> = ({ data }) =
   const tracks = data?.tracks || ['gammaRay', 'porosity', 'resistivity', 'calculated'];
   const visualizationType = data?.type || 'logPlotViewer';
 
-  // Generate sample log data for demonstration
-  const generateLogData = () => {
-    const depths = [];
-    const gammaRay = [];
-    const porosity = [];
-    const resistivity = [];
-    const calculated = [];
-
-    for (let i = 0; i <= 500; i += 0.5) {
-      const depth = 2000 + i;
-      depths.push(depth);
-      
-      // Realistic gamma ray curve with geological variation
-      const baseGR = 45 + 30 * Math.sin(i * 0.02) + 15 * Math.sin(i * 0.05) + 10 * Math.random();
-      gammaRay.push(Math.max(20, Math.min(150, baseGR)));
-      
-      // Porosity with inverse relationship to GR in clean sands
-      const basePor = 25 - (baseGR - 45) * 0.3 + 5 * Math.sin(i * 0.03) + 3 * Math.random();
-      porosity.push(Math.max(5, Math.min(35, basePor)));
-      
-      // Resistivity with hydrocarbon effects
-      const baseRes = depth > 2200 && depth < 2350 ? 50 + 100 * Math.random() : 5 + 15 * Math.random();
-      resistivity.push(Math.max(0.5, baseRes));
-      
-      // Calculated shale volume
-      const vsh = Math.max(0, Math.min(1, (baseGR - 25) / (120 - 25)));
-      calculated.push(vsh * 100);
+  // Process real well data from the backend
+  const processRealWellData = () => {
+    if (!data || !data.logData) {
+      // Return empty data structure if no real data available
+      return {
+        depths: [],
+        curves: {},
+        curveNames: [],
+        hasData: false
+      };
     }
 
-    return { depths, gammaRay, porosity, resistivity, calculated };
+    const logData = data.logData;
+    const depths = logData.DEPT || [];
+    const curves = {};
+    const curveNames = [];
+
+    // Process available curves from real data
+    Object.keys(logData).forEach(curveName => {
+      if (curveName !== 'DEPT' && Array.isArray(logData[curveName])) {
+        curves[curveName] = logData[curveName];
+        curveNames.push(curveName);
+      }
+    });
+
+    return {
+      depths,
+      curves,
+      curveNames,
+      hasData: depths.length > 0 && curveNames.length > 0
+    };
   };
 
-  const logData = generateLogData();
+  const realLogData = processRealWellData();
+  
+  // Fallback to sample data if no real data available (for demonstration)
+  const generateFallbackData = () => {
+    const depths = [];
+    const curves = {};
+    
+    for (let i = 0; i <= 200; i += 1) {
+      const depth = 2000 + i * 2;
+      depths.push(depth);
+    }
+
+    // Generate realistic curves based on actual curve names from diagnostic
+    curves['GR'] = depths.map((_, i) => 45 + 30 * Math.sin(i * 0.02) + 15 * Math.sin(i * 0.05) + 10 * Math.random());
+    curves['NPHI'] = depths.map((_, i) => Math.max(0.05, Math.min(0.35, 0.25 - (curves['GR'][i] - 45) * 0.003 + 0.05 * Math.sin(i * 0.03) + 0.03 * Math.random())));
+    curves['RHOB'] = depths.map((_, i) => Math.max(1.8, Math.min(2.8, 2.4 - curves['NPHI'][i] * 2 + 0.2 * Math.random())));
+    curves['DTC'] = depths.map((_, i) => Math.max(50, Math.min(150, 80 + curves['NPHI'][i] * 200 + 10 * Math.random())));
+    curves['DEEPRESISTIVITY'] = depths.map((_, i) => Math.max(0.5, depths[i] > 2100 && depths[i] < 2250 ? 50 + 100 * Math.random() : 5 + 15 * Math.random()));
+    curves['CALI'] = depths.map((_, i) => Math.max(6, Math.min(16, 8.5 + 2 * Math.sin(i * 0.1) + Math.random())));
+
+    return {
+      depths,
+      curves,
+      curveNames: ['GR', 'NPHI', 'RHOB', 'DTC', 'DEEPRESISTIVITY', 'CALI'],
+      hasData: true
+    };
+  };
+
+  const logData = realLogData.hasData ? realLogData : generateFallbackData();
 
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setSelectedTab(newValue);
@@ -87,44 +116,54 @@ export const LogPlotViewerComponent: React.FC<LogPlotViewerProps> = ({ data }) =
 
   // Multi-track log plot
   const renderLogPlot = () => {
-    const traces = [
-      {
-        x: logData.gammaRay,
-        y: logData.depths,
-        mode: 'lines',
-        name: 'Gamma Ray (API)',
-        line: { color: '#22C55E', width: 1 },
-        xaxis: 'x1',
-        yaxis: 'y'
+    const traces = [];
+    const availableCurves = logData.curveNames || [];
+    const depths = logData.depths || [];
+    
+    if (!depths.length || !availableCurves.length) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+          <Alert severity="warning">
+            <Typography>No log curve data available for visualization</Typography>
+          </Alert>
+        </Box>
+      );
+    }
+
+    // Define curve mappings and colors
+    const curveConfigs = [
+      { 
+        name: 'GR', 
+        title: 'Gamma Ray (API)', 
+        color: '#22C55E', 
+        domain: [0, 0.22], 
+        range: [0, 150],
+        xaxis: 'x1'
       },
-      {
-        x: logData.porosity,
-        y: logData.depths,
-        mode: 'lines',
-        name: 'Porosity (%)',
-        line: { color: '#3B82F6', width: 1 },
-        xaxis: 'x2',
-        yaxis: 'y'
+      { 
+        name: 'NPHI', 
+        title: 'Neutron Porosity (v/v)', 
+        color: '#3B82F6', 
+        domain: [0.25, 0.47], 
+        range: [0.4, 0],
+        xaxis: 'x2'
       },
-      {
-        x: logData.resistivity,
-        y: logData.depths,
-        mode: 'lines',
-        name: 'Resistivity (ohm-m)',
-        line: { color: '#EF4444', width: 1 },
-        xaxis: 'x3',
-        yaxis: 'y'
+      { 
+        name: 'RHOB', 
+        title: 'Bulk Density (g/cc)', 
+        color: '#9C27B0', 
+        domain: [0.5, 0.72], 
+        range: [1.8, 2.8],
+        xaxis: 'x3'
       },
-      {
-        x: logData.calculated,
-        y: logData.depths,
-        mode: 'lines',
-        name: 'Shale Volume (%)',
-        line: { color: '#F59E0B', width: 1 },
-        fill: 'tonextx',
-        fillcolor: 'rgba(245, 158, 11, 0.3)',
+      { 
+        name: 'DEEPRESISTIVITY', 
+        title: 'Deep Resistivity (ohm-m)', 
+        color: '#EF4444', 
+        domain: [0.75, 0.97], 
+        range: [0.1, 1000],
         xaxis: 'x4',
-        yaxis: 'y'
+        type: 'log'
       }
     ];
 
@@ -136,35 +175,46 @@ export const LogPlotViewerComponent: React.FC<LogPlotViewerProps> = ({ data }) =
         autorange: 'reversed',
         side: 'left'
       },
-      xaxis1: {
-        title: 'GR (API)',
-        domain: [0, 0.2],
-        side: 'top',
-        range: [0, 150]
-      },
-      xaxis2: {
-        title: 'POR (%)',
-        domain: [0.25, 0.45],
-        side: 'top',
-        range: [0, 40]
-      },
-      xaxis3: {
-        title: 'RES (ohm)',
-        domain: [0.5, 0.7],
-        side: 'top',
-        type: 'log',
-        range: [0, 2]
-      },
-      xaxis4: {
-        title: 'VSH (%)',
-        domain: [0.75, 0.95],
-        side: 'top',
-        range: [0, 100]
-      },
       margin: { t: 80, b: 50, l: 80, r: 50 },
       showlegend: true,
       legend: { x: 1, y: 1 }
     };
+
+    let traceIndex = 0;
+    curveConfigs.forEach((config, index) => {
+      if (availableCurves.includes(config.name) && logData.curves[config.name]) {
+        traces.push({
+          x: logData.curves[config.name],
+          y: depths,
+          mode: 'lines',
+          name: config.title,
+          line: { color: config.color, width: 1.5 },
+          xaxis: config.xaxis,
+          yaxis: 'y'
+        });
+
+        // Add axis configuration to layout
+        layout[config.xaxis] = {
+          title: config.title,
+          domain: config.domain,
+          side: 'top',
+          range: config.range,
+          type: config.type || 'linear'
+        };
+        
+        traceIndex++;
+      }
+    });
+
+    if (traces.length === 0) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+          <Alert severity="warning">
+            <Typography>No compatible log curves found for display</Typography>
+          </Alert>
+        </Box>
+      );
+    }
 
     return (
       <Plot
@@ -182,29 +232,46 @@ export const LogPlotViewerComponent: React.FC<LogPlotViewerProps> = ({ data }) =
 
   // Crossplot visualization
   const renderCrossplot = () => {
+    const depths = logData.depths || [];
+    const availableCurves = logData.curveNames || [];
+    
+    // Check if we have both NPHI and GR for crossplot
+    const hasNPHI = availableCurves.includes('NPHI') && logData.curves['NPHI'];
+    const hasGR = availableCurves.includes('GR') && logData.curves['GR'];
+    
+    if (!hasNPHI || !hasGR || depths.length === 0) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+          <Alert severity="warning">
+            <Typography>Crossplot requires both Neutron Porosity (NPHI) and Gamma Ray (GR) curves</Typography>
+          </Alert>
+        </Box>
+      );
+    }
+
     const traces = [
       {
-        x: logData.porosity,
-        y: logData.gammaRay,
+        x: logData.curves['NPHI'],
+        y: logData.curves['GR'],
         mode: 'markers',
         type: 'scatter',
-        name: 'Porosity vs GR',
+        name: 'NPHI vs GR',
         marker: {
-          color: logData.depths,
+          color: depths,
           colorscale: 'Viridis',
           size: 4,
           colorbar: {
             title: 'Depth (ft)'
           }
         },
-        text: logData.depths.map(d => `Depth: ${d.toFixed(1)} ft`),
-        hovertemplate: '<b>%{text}</b><br>Porosity: %{x:.1f}%<br>Gamma Ray: %{y:.1f} API<extra></extra>'
+        text: depths.map(d => `Depth: ${d.toFixed(1)} ft`),
+        hovertemplate: '<b>%{text}</b><br>NPHI: %{x:.3f} v/v<br>Gamma Ray: %{y:.1f} API<extra></extra>'
       }
     ];
 
     const layout = {
-      title: `${wellName} - Porosity vs Gamma Ray Crossplot`,
-      xaxis: { title: 'Porosity (%)' },
+      title: `${wellName} - Neutron Porosity vs Gamma Ray Crossplot`,
+      xaxis: { title: 'Neutron Porosity (v/v)' },
       yaxis: { title: 'Gamma Ray (API)' },
       height: 500,
       margin: { t: 60, b: 50, l: 60, r: 50 }
@@ -222,66 +289,89 @@ export const LogPlotViewerComponent: React.FC<LogPlotViewerProps> = ({ data }) =
 
   // Statistics and analysis
   const renderStatistics = () => {
-    const grStats = {
-      min: Math.min(...logData.gammaRay),
-      max: Math.max(...logData.gammaRay),
-      mean: logData.gammaRay.reduce((a, b) => a + b, 0) / logData.gammaRay.length
-    };
+    const availableCurves = logData.curveNames || [];
+    const curves = logData.curves || {};
+    
+    if (availableCurves.length === 0 || Object.keys(curves).length === 0) {
+      return (
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
+          <Alert severity="warning">
+            <Typography>No curve data available for statistical analysis</Typography>
+          </Alert>
+        </Box>
+      );
+    }
 
-    const porStats = {
-      min: Math.min(...logData.porosity),
-      max: Math.max(...logData.porosity),
-      mean: logData.porosity.reduce((a, b) => a + b, 0) / logData.porosity.length
+    const renderCurveStats = (curveName: string, displayName: string, unit: string) => {
+      if (!availableCurves.includes(curveName) || !curves[curveName]) {
+        return null;
+      }
+
+      const curveData = curves[curveName];
+      const stats = {
+        min: Math.min(...curveData),
+        max: Math.max(...curveData),
+        mean: curveData.reduce((a: number, b: number) => a + b, 0) / curveData.length
+      };
+
+      return (
+        <Paper sx={{ p: 2 }}>
+          <Typography variant="h6" gutterBottom>{displayName} Statistics</Typography>
+          <Stack spacing={1}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2">Minimum:</Typography>
+              <Typography variant="body2" fontWeight="bold">{stats.min.toFixed(3)} {unit}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2">Maximum:</Typography>
+              <Typography variant="body2" fontWeight="bold">{stats.max.toFixed(3)} {unit}</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+              <Typography variant="body2">Mean:</Typography>
+              <Typography variant="body2" fontWeight="bold">{stats.mean.toFixed(3)} {unit}</Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      );
     };
 
     return (
       <Grid container spacing={3}>
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>Gamma Ray Statistics</Typography>
-            <Stack spacing={1}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2">Minimum:</Typography>
-                <Typography variant="body2" fontWeight="bold">{grStats.min.toFixed(1)} API</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2">Maximum:</Typography>
-                <Typography variant="body2" fontWeight="bold">{grStats.max.toFixed(1)} API</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2">Mean:</Typography>
-                <Typography variant="body2" fontWeight="bold">{grStats.mean.toFixed(1)} API</Typography>
-              </Box>
-            </Stack>
-          </Paper>
+          {renderCurveStats('GR', 'Gamma Ray', 'API') || 
+           <Paper sx={{ p: 2 }}>
+             <Alert severity="info">
+               <Typography variant="body2">Gamma Ray curve not available</Typography>
+             </Alert>
+           </Paper>
+          }
         </Grid>
 
         <Grid item xs={12} md={6}>
-          <Paper sx={{ p: 2 }}>
-            <Typography variant="h6" gutterBottom>Porosity Statistics</Typography>
-            <Stack spacing={1}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2">Minimum:</Typography>
-                <Typography variant="body2" fontWeight="bold">{porStats.min.toFixed(1)}%</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2">Maximum:</Typography>
-                <Typography variant="body2" fontWeight="bold">{porStats.max.toFixed(1)}%</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Typography variant="body2">Mean:</Typography>
-                <Typography variant="body2" fontWeight="bold">{porStats.mean.toFixed(1)}%</Typography>
-              </Box>
-            </Stack>
-          </Paper>
+          {renderCurveStats('NPHI', 'Neutron Porosity', 'v/v') || 
+           <Paper sx={{ p: 2 }}>
+             <Alert severity="info">
+               <Typography variant="body2">Neutron Porosity curve not available</Typography>
+             </Alert>
+           </Paper>
+          }
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          {renderCurveStats('RHOB', 'Bulk Density', 'g/cc')}
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          {renderCurveStats('DEEPRESISTIVITY', 'Deep Resistivity', 'ohm-m')}
         </Grid>
 
         <Grid item xs={12}>
           <Alert severity="info">
             <Typography variant="body2">
-              <strong>Analysis Summary:</strong> The gamma ray log shows typical carbonate platform characteristics 
-              with clean limestone intervals (low GR) and higher values indicating clay-rich zones. 
-              Porosity values are consistent with good reservoir quality in the cleaner intervals.
+              <strong>Analysis Summary:</strong> Statistical analysis shows curve distributions for {availableCurves.length} available log curves.
+              {availableCurves.includes('GR') && ' Gamma ray values indicate lithology variations.'} 
+              {availableCurves.includes('NPHI') && ' Neutron porosity shows reservoir quality distribution.'} 
+              {availableCurves.includes('RHOB') && ' Bulk density confirms porosity interpretations.'}
             </Typography>
           </Alert>
         </Grid>

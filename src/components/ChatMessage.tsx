@@ -4,6 +4,7 @@ import React from 'react';
 
 import { Message } from '@/../utils/types';
 import { useFileSystem } from '@/contexts/FileSystemContext';
+import { retrieveArtifacts } from '@/../utils/s3ArtifactStorage';
 
 // Import all the message components
 import AiMessageComponent from './messageComponents/AiMessageComponent';
@@ -32,6 +33,222 @@ import { ComprehensivePorosityAnalysisComponent } from './messageComponents/Comp
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerComponent';
 import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorrelationComponent';
+
+// Enhanced artifact processor component with S3 support
+const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
+    rawArtifacts: any[];
+    message: Message;
+    theme: any;
+}) => {
+    const [artifacts, setArtifacts] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        const processArtifacts = async () => {
+            try {
+                console.log('🔄 EnhancedArtifactProcessor: Processing artifacts...');
+                
+                // Check if any artifacts are S3 references
+                const hasS3References = rawArtifacts.some(artifact => 
+                    artifact && artifact.type === 's3_reference'
+                );
+                
+                if (hasS3References) {
+                    console.log('📥 EnhancedArtifactProcessor: S3 references detected, retrieving...');
+                    const retrievedArtifacts = await retrieveArtifacts(rawArtifacts);
+                    setArtifacts(retrievedArtifacts);
+                } else {
+                    console.log('📝 EnhancedArtifactProcessor: No S3 references, using artifacts directly');
+                    setArtifacts(rawArtifacts);
+                }
+                
+                setLoading(false);
+            } catch (err) {
+                console.error('❌ EnhancedArtifactProcessor: Error processing artifacts:', err);
+                setError(err instanceof Error ? err.message : 'Failed to load artifacts');
+                setLoading(false);
+                // Fallback: use raw artifacts
+                setArtifacts(rawArtifacts);
+            }
+        };
+
+        processArtifacts();
+    }, [rawArtifacts]);
+
+    // Show loading state for S3 artifacts
+    if (loading) {
+        return <AiMessageComponent 
+            message={message} 
+            theme={theme} 
+            enhancedComponent={
+                <div style={{ padding: '16px', textAlign: 'center' }}>
+                    <div>🔄 Loading visualization data...</div>
+                    <div style={{ fontSize: '0.8em', color: 'gray', marginTop: '8px' }}>
+                        Retrieving large dataset from storage
+                    </div>
+                </div>
+            }
+        />;
+    }
+
+    // Show error state with fallback
+    if (error) {
+        return <AiMessageComponent 
+            message={message} 
+            theme={theme} 
+            enhancedComponent={
+                <div style={{ padding: '16px', color: 'orange' }}>
+                    <div>⚠️ Error loading visualization data</div>
+                    <div style={{ fontSize: '0.8em', marginTop: '8px' }}>{error}</div>
+                    <div style={{ fontSize: '0.8em', marginTop: '8px' }}>
+                        Using fallback data if available
+                    </div>
+                </div>
+            }
+        />;
+    }
+
+    // Process retrieved artifacts
+    for (const artifact of artifacts) {
+        if (artifact) {
+            let parsedArtifact = artifact;
+            
+            // Parse artifact if it's a JSON string
+            if (typeof artifact === 'string') {
+                try {
+                    parsedArtifact = JSON.parse(artifact);
+                    console.log('✅ EnhancedArtifactProcessor: Successfully parsed JSON string artifact');
+                } catch (e) {
+                    console.error('❌ EnhancedArtifactProcessor: Failed to parse artifact JSON:', e);
+                    continue;
+                }
+            }
+            
+            console.log('🔍 EnhancedArtifactProcessor: Parsed artifact keys:', Object.keys(parsedArtifact || {}));
+            console.log('🔍 EnhancedArtifactProcessor: Checking artifact type:', parsedArtifact.messageContentType || parsedArtifact.type);
+            
+            // Check for comprehensive shale analysis
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_shale_analysis') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering ComprehensiveShaleAnalysisComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<ComprehensiveShaleAnalysisComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for comprehensive porosity analysis
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_porosity_analysis') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering ComprehensivePorosityAnalysisComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<ComprehensivePorosityAnalysisComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for multi-well correlation
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'comprehensive_multi_well_correlation' || 
+                 parsedArtifact.messageContentType === 'multi_well_correlation')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering MultiWellCorrelationComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<MultiWellCorrelationComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for comprehensive well data discovery
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_well_data_discovery') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering ComprehensiveWellDataDiscoveryComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<ComprehensiveWellDataDiscoveryComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for well data discovery
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'well_data_discovery') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering Well Data Discovery from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<InteractiveAgentSummaryComponent 
+                        content={{text: JSON.stringify(parsedArtifact)}} 
+                        theme={theme} 
+                        chatSessionId={(message as any).chatSessionId || ''} 
+                    />}
+                />;
+            }
+            
+            // Check for plot data
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'plotData') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering Plot Data from S3 artifact!');
+                const mockContent = { text: JSON.stringify(parsedArtifact) } as any;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<PlotDataToolComponent 
+                        content={mockContent} 
+                        theme={theme} 
+                        chatSessionId={(message as any).chatSessionId || ''} 
+                    />}
+                />;
+            }
+            
+            // Check for statistical chart
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'statisticalChart') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering Statistical Chart from S3 artifact!');
+                const mockContent = { text: JSON.stringify(parsedArtifact) } as any;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<PlotDataToolComponent 
+                        content={mockContent} 
+                        theme={theme} 
+                        chatSessionId={(message as any).chatSessionId || ''} 
+                    />}
+                />;
+            }
+            
+            // Check for depth plot
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'depthPlot') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering Depth Plot from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for log plot viewer
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.type === 'logPlotViewer') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering LogPlotViewerComponent from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for log_plot_viewer (alternative naming)
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'log_plot_viewer') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering LogPlotViewerComponent from S3 artifact (log_plot_viewer)!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
+                />;
+            }
+        }
+    }
+    
+    console.log('⚠️ EnhancedArtifactProcessor: Artifacts found but no matching component, using regular AI message');
+    return <AiMessageComponent message={message} theme={theme} />;
+};
 
 const ChatMessage = (params: {
     message: Message,
@@ -71,7 +288,6 @@ const ChatMessage = (params: {
         }
     }, [message, refreshFiles]);
 
-
     switch (message.role) {
         case 'human':
             return <HumanMessageComponent
@@ -90,140 +306,16 @@ const ChatMessage = (params: {
             // Check for artifacts in AI message and wrap in enhanced AiMessageComponent
             if ((message as any).artifacts && Array.isArray((message as any).artifacts) && (message as any).artifacts.length > 0) {
                 console.log('🎯 ChatMessage: Found artifacts in AI message!');
-                const artifacts = (message as any).artifacts;
-                console.log('🔍 ChatMessage: First artifact raw:', artifacts[0]);
-                console.log('🔍 ChatMessage: First artifact type:', typeof artifacts[0]);
+                const rawArtifacts = (message as any).artifacts;
+                console.log('🔍 ChatMessage: First artifact raw:', rawArtifacts[0]);
+                console.log('🔍 ChatMessage: First artifact type:', typeof rawArtifacts[0]);
                 
-                // Check if any artifact is a comprehensive shale analysis
-                for (const artifact of artifacts) {
-                    if (artifact) {
-                        let parsedArtifact = artifact;
-                        
-                        // CRITICAL FIX: Parse artifact if it's a JSON string
-                        if (typeof artifact === 'string') {
-                            try {
-                                parsedArtifact = JSON.parse(artifact);
-                                console.log('✅ ChatMessage: Successfully parsed JSON string artifact');
-                            } catch (e) {
-                                console.error('❌ ChatMessage: Failed to parse artifact JSON:', e);
-                                continue;
-                            }
-                        }
-                        
-                        console.log('🔍 ChatMessage: Parsed artifact keys:', Object.keys(parsedArtifact || {}));
-                        console.log('🔍 ChatMessage: Checking artifact type:', parsedArtifact.messageContentType || parsedArtifact.type);
-                        
-                        // Check for comprehensive shale analysis - wrap in AiMessageComponent
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_shale_analysis') {
-                            console.log('🎉 ChatMessage: Rendering ComprehensiveShaleAnalysisComponent from parsed artifact with AI wrapper!');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<ComprehensiveShaleAnalysisComponent data={parsedArtifact} />}
-                            />;
-                        }
-                        
-                        // Check for comprehensive porosity analysis - wrap in AiMessageComponent
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_porosity_analysis') {
-                            console.log('🎉 ChatMessage: Rendering ComprehensivePorosityAnalysisComponent from parsed artifact with AI wrapper!');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<ComprehensivePorosityAnalysisComponent data={parsedArtifact} />}
-                            />;
-                        }
-                        
-                        // Check for multi-well correlation - wrap in AiMessageComponent (handles both naming conventions)
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && 
-                            (parsedArtifact.messageContentType === 'comprehensive_multi_well_correlation' || 
-                             parsedArtifact.messageContentType === 'multi_well_correlation')) {
-                            console.log('🎉 ChatMessage: Rendering MultiWellCorrelationComponent from parsed artifact with AI wrapper!');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<MultiWellCorrelationComponent data={parsedArtifact} />}
-                            />;
-                        }
-                        
-                        // Check for comprehensive well data discovery - wrap in AiMessageComponent
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_well_data_discovery') {
-                            console.log('🎉 ChatMessage: Rendering ComprehensiveWellDataDiscoveryComponent from parsed artifact with AI wrapper!');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<ComprehensiveWellDataDiscoveryComponent data={parsedArtifact} />}
-                            />;
-                        }
-                        
-                        // Check for well data discovery - wrap in AiMessageComponent
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'well_data_discovery') {
-                            console.log('🎉 ChatMessage: Rendering Well Data Discovery (using InteractiveAgentSummaryComponent) from parsed artifact with AI wrapper!');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<InteractiveAgentSummaryComponent 
-                                    content={{text: JSON.stringify(parsedArtifact)}} 
-                                    theme={theme} 
-                                    chatSessionId={(message as any).chatSessionId || ''} 
-                                />}
-                            />;
-                        }
-                        
-                        // Check for plot data (histogram, statistical charts) - wrap in AiMessageComponent
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'plotData') {
-                            console.log('🎉 ChatMessage: Rendering Plot Data (using PlotDataToolComponent) from parsed artifact with AI wrapper!');
-                            // Create a mock message content structure compatible with PlotDataToolComponent
-                            const mockContent = { text: JSON.stringify(parsedArtifact) } as any;
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<PlotDataToolComponent 
-                                    content={mockContent} 
-                                    theme={theme} 
-                                    chatSessionId={(message as any).chatSessionId || ''} 
-                                />}
-                            />;
-                        }
-                        
-                        // Check for statistical chart (legacy support) - wrap in AiMessageComponent
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'statisticalChart') {
-                            console.log('🎉 ChatMessage: Rendering Statistical Chart (using PlotDataToolComponent) from parsed artifact with AI wrapper!');
-                            // Create a mock message content structure compatible with PlotDataToolComponent
-                            const mockContent = { text: JSON.stringify(parsedArtifact) } as any;
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<PlotDataToolComponent 
-                                    content={mockContent} 
-                                    theme={theme} 
-                                    chatSessionId={(message as any).chatSessionId || ''} 
-                                />}
-                            />;
-                        }
-                        
-                        // Check for depth plot - wrap in AiMessageComponent
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'depthPlot') {
-                            console.log('🎉 ChatMessage: Rendering Depth Plot (using Log Plot Viewer) from parsed artifact with AI wrapper!');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
-                            />;
-                        }
-                        
-                        // Check for log plot viewer - wrap in AiMessageComponent
-                        if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.type === 'logPlotViewer') {
-                            console.log('🎉 ChatMessage: Rendering LogPlotViewerComponent from parsed artifact with AI wrapper!');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
-                            />;
-                        }
-                    }
-                }
-                
-                console.log('⚠️ ChatMessage: Artifacts found but no matching component, continuing with regular AI message');
+                // NEW: Enhanced artifact processing with S3 support
+                return <EnhancedArtifactProcessor 
+                    rawArtifacts={rawArtifacts}
+                    message={message}
+                    theme={theme}
+                />;
             } else {
                 console.log('⚠️ ChatMessage: No artifacts found in AI message');
             }
@@ -330,253 +422,6 @@ const ChatMessage = (params: {
                     />;
                 case 'permeabilityCalculator':
                     return <CustomWorkshopComponent content={message.content} theme={theme} />;
-                case 'comprehensive_shale_analysis':
-                    // FIXED: Enhanced parsing for comprehensive shale analysis with artifact extraction
-                    try {
-                        const messageContent = (message as any).content?.text || '{}';
-                        console.log('🔍 Frontend: Parsing comprehensive_shale_analysis message:', {
-                            contentLength: messageContent.length,
-                            contentPreview: messageContent.substring(0, 200)
-                        });
-                        
-                        let analysisData = null;
-                        
-                        // Try to parse as direct JSON first
-                        try {
-                            const parsed = JSON.parse(messageContent);
-                            console.log('🔍 Frontend: Parsed structure:', {
-                                hasSuccess: !!parsed.success,
-                                hasArtifacts: Array.isArray(parsed.artifacts),
-                                artifactsLength: parsed.artifacts?.length || 0,
-                                hasMessage: !!parsed.message
-                            });
-                            
-                            // Check for artifacts first
-                            if (parsed.artifacts && Array.isArray(parsed.artifacts) && parsed.artifacts.length > 0) {
-                                const artifact = parsed.artifacts[0];
-                                if (typeof artifact === 'string') {
-                                    analysisData = JSON.parse(artifact);
-                                } else if (artifact && typeof artifact === 'object') {
-                                    analysisData = artifact;
-                                }
-                                console.log('✅ Frontend: Found artifact data:', !!analysisData?.messageContentType);
-                            }
-                            
-                            // Fallback to result field
-                            if (!analysisData && parsed.result && typeof parsed.result === 'object') {
-                                analysisData = parsed.result;
-                                console.log('✅ Frontend: Using result field as fallback');
-                            }
-                            
-                            // Check if it's already the analysis data directly
-                            if (!analysisData && parsed.messageContentType === 'comprehensive_shale_analysis') {
-                                analysisData = parsed;
-                                console.log('✅ Frontend: Using direct parsed data');
-                            }
-                        } catch (parseError) {
-                            console.log('⚠️ Frontend: JSON parse failed, trying fallback');
-                        }
-                        
-                        // Validate the analysis data and wrap in AiMessageComponent for consistency
-                        if (analysisData && analysisData.messageContentType === 'comprehensive_shale_analysis') {
-                            console.log('🎯 Frontend: Rendering ComprehensiveShaleAnalysisComponent with AI wrapper');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<ComprehensiveShaleAnalysisComponent data={analysisData} />}
-                            />;
-                        } else {
-                            console.log('❌ Frontend: No valid analysis data found, using default component');
-                            console.log('🔍 Available data:', {
-                                hasAnalysisData: !!analysisData,
-                                messageContentType: analysisData?.messageContentType,
-                                analysisDataKeys: analysisData ? Object.keys(analysisData) : []
-                            });
-                        }
-                    } catch (e) {
-                        console.error('❌ Frontend: Error parsing comprehensive shale analysis:', e);
-                    }
-                    return <DefaultToolMessageComponent message={message} />;
-                case 'comprehensive_porosity_analysis':
-                    // Enhanced parsing for comprehensive porosity analysis with artifact extraction
-                    try {
-                        const messageContent = (message as any).content?.text || '{}';
-                        console.log('🔍 Frontend: Parsing comprehensive_porosity_analysis message:', {
-                            contentLength: messageContent.length,
-                            contentPreview: messageContent.substring(0, 200)
-                        });
-                        
-                        let analysisData = null;
-                        
-                        // Try to parse as direct JSON first
-                        try {
-                            const parsed = JSON.parse(messageContent);
-                            console.log('🔍 Frontend: Parsed porosity structure:', {
-                                hasSuccess: !!parsed.success,
-                                hasArtifacts: Array.isArray(parsed.artifacts),
-                                artifactsLength: parsed.artifacts?.length || 0,
-                                hasMessage: !!parsed.message
-                            });
-                            
-                            // Check for artifacts first
-                            if (parsed.artifacts && Array.isArray(parsed.artifacts) && parsed.artifacts.length > 0) {
-                                const artifact = parsed.artifacts[0];
-                                if (typeof artifact === 'string') {
-                                    analysisData = JSON.parse(artifact);
-                                } else if (artifact && typeof artifact === 'object') {
-                                    analysisData = artifact;
-                                }
-                                console.log('✅ Frontend: Found porosity artifact data:', !!analysisData?.messageContentType);
-                            }
-                            
-                            // Fallback to result field
-                            if (!analysisData && parsed.result && typeof parsed.result === 'object') {
-                                analysisData = parsed.result;
-                                console.log('✅ Frontend: Using porosity result field as fallback');
-                            }
-                            
-                            // Check if it's already the analysis data directly
-                            if (!analysisData && parsed.messageContentType === 'comprehensive_porosity_analysis') {
-                                analysisData = parsed;
-                                console.log('✅ Frontend: Using direct porosity parsed data');
-                            }
-                        } catch (parseError) {
-                            console.log('⚠️ Frontend: Porosity JSON parse failed, trying fallback');
-                        }
-                        
-                        // Validate the analysis data and wrap in AiMessageComponent for consistency
-                        if (analysisData && analysisData.messageContentType === 'comprehensive_porosity_analysis') {
-                            console.log('🎯 Frontend: Rendering ComprehensivePorosityAnalysisComponent with AI wrapper');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<ComprehensivePorosityAnalysisComponent data={analysisData} />}
-                            />;
-                        } else {
-                            console.log('❌ Frontend: No valid porosity analysis data found, using default component');
-                            console.log('🔍 Available porosity data:', {
-                                hasAnalysisData: !!analysisData,
-                                messageContentType: analysisData?.messageContentType,
-                                analysisDataKeys: analysisData ? Object.keys(analysisData) : []
-                            });
-                        }
-                    } catch (e) {
-                        console.error('❌ Frontend: Error parsing comprehensive porosity analysis:', e);
-                    }
-                    return <DefaultToolMessageComponent message={message} />;
-                case 'calculate_porosity':
-                    // Enhanced porosity calculation - check for comprehensive analysis delegation
-                    try {
-                        const messageContent = (message as any).content?.text || '{}';
-                        console.log(`🔍 Frontend: Parsing ${toolName} message:`, {
-                            contentLength: messageContent.length,
-                            contentPreview: messageContent.substring(0, 200)
-                        });
-                        
-                        let analysisData = null;
-                        let professionalData = null;
-                        
-                        try {
-                            const parsed = JSON.parse(messageContent);
-                            
-                            // Check for comprehensive porosity analysis response (delegated from calculate_porosity)
-                            if (parsed.artifacts && Array.isArray(parsed.artifacts) && parsed.artifacts.length > 0) {
-                                const artifact = parsed.artifacts[0];
-                                if (typeof artifact === 'string') {
-                                    analysisData = JSON.parse(artifact);
-                                } else if (artifact && typeof artifact === 'object') {
-                                    analysisData = artifact;
-                                }
-                                console.log('✅ Frontend: Found artifact data in porosity calculation:', !!analysisData?.messageContentType);
-                            }
-                            
-                            // Fallback to result field
-                            if (!analysisData && parsed.result && typeof parsed.result === 'object') {
-                                analysisData = parsed.result;
-                                console.log('✅ Frontend: Using porosity result field as fallback');
-                            }
-                            
-                            // Check if it's already the analysis data directly
-                            if (!analysisData && parsed.messageContentType === 'comprehensive_porosity_analysis') {
-                                analysisData = parsed;
-                                console.log('✅ Frontend: Using direct porosity parsed data');
-                            }
-                            
-                            // Check if it's a professional response format
-                            if (!analysisData && parsed.responseType === 'professional' && parsed.calculationType) {
-                                professionalData = parsed;
-                                console.log(`✅ Frontend: Found professional response for ${toolName}`);
-                            }
-                        } catch (parseError) {
-                            console.log(`⚠️ Frontend: ${toolName} JSON parse failed`);
-                        }
-                        
-                        // Route to ComprehensivePorosityAnalysisComponent if comprehensive analysis data found
-                        if (analysisData && analysisData.messageContentType === 'comprehensive_porosity_analysis') {
-                            console.log('🎯 Frontend: Rendering ComprehensivePorosityAnalysisComponent from calculate_porosity with AI wrapper');
-                            return <AiMessageComponent 
-                                message={message} 
-                                theme={theme} 
-                                enhancedComponent={<ComprehensivePorosityAnalysisComponent data={analysisData} />}
-                            />;
-                        }
-                        
-                        // Route to ProfessionalResponseComponent if professional format
-                        if (professionalData) {
-                            console.log(`🎯 Frontend: Rendering ProfessionalResponseComponent for ${toolName}`);
-                            return <ProfessionalResponseComponent 
-                                content={message.content} 
-                                theme={theme}
-                                chatSessionId={(message as any).chatSessionId || ''}
-                            />;
-                        }
-                        
-                        console.log(`❌ Frontend: No valid response format found for ${toolName}, using default`);
-                    } catch (e) {
-                        console.error(`❌ Frontend: Error parsing ${toolName}:`, e);
-                    }
-                    return <DefaultToolMessageComponent message={message} />;
-                case 'calculate_shale_volume':
-                case 'calculate_saturation':
-                case 'assess_data_quality':
-                case 'perform_uncertainty_analysis':
-                    // Enhanced petrophysical tools - route to ProfessionalResponseComponent
-                    try {
-                        const messageContent = (message as any).content?.text || '{}';
-                        console.log(`🔍 Frontend: Parsing ${toolName} message:`, {
-                            contentLength: messageContent.length,
-                            contentPreview: messageContent.substring(0, 200)
-                        });
-                        
-                        let professionalData = null;
-                        
-                        try {
-                            const parsed = JSON.parse(messageContent);
-                            
-                            // Check if it's a professional response format
-                            if (parsed.responseType === 'professional' && parsed.calculationType) {
-                                professionalData = parsed;
-                                console.log(`✅ Frontend: Found professional response for ${toolName}`);
-                            }
-                        } catch (parseError) {
-                            console.log(`⚠️ Frontend: ${toolName} JSON parse failed`);
-                        }
-                        
-                        // Route to ProfessionalResponseComponent if valid format
-                        if (professionalData) {
-                            console.log(`🎯 Frontend: Rendering ProfessionalResponseComponent for ${toolName}`);
-                            return <ProfessionalResponseComponent 
-                                content={message.content} 
-                                theme={theme}
-                                chatSessionId={(message as any).chatSessionId || ''}
-                            />;
-                        } else {
-                            console.log(`❌ Frontend: No valid professional response format found for ${toolName}, using default`);
-                        }
-                    } catch (e) {
-                        console.error(`❌ Frontend: Error parsing ${toolName}:`, e);
-                    }
-                    return <DefaultToolMessageComponent message={message} />;
                 default:
                     return <DefaultToolMessageComponent message={message} />;
             }
@@ -585,4 +430,4 @@ const ChatMessage = (params: {
     }
 }
 
-export default ChatMessage
+export default ChatMessage;
