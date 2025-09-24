@@ -335,6 +335,16 @@ export class EnhancedStrandsAgent {
             handlerResult = await this.handleGammaRayVisualization(message, intent.wellName);
             return this.logFinalResponse(handlerResult, 'Gamma Ray Visualization');
 
+          case 'natural_language_query':
+            console.log('🗣️ Executing: Natural Language Query Handler');
+            handlerResult = await this.handleNaturalLanguageQuery(message, intent.query);
+            return this.logFinalResponse(handlerResult, 'Natural Language Query');
+
+          case 'cross_well_analytics':
+            console.log('📊 Executing: Cross-Well Analytics Handler');
+            handlerResult = await this.handleCrossWellAnalytics(message, intent.analyticsType);
+            return this.logFinalResponse(handlerResult, 'Cross-Well Analytics');
+
           default:
             console.log('❓ Executing: Basic Query Handler (fallback)');
             handlerResult = await this.processBasicQuery(message);
@@ -373,28 +383,65 @@ export class EnhancedStrandsAgent {
   }
 
   /**
-   * FIXED: Intent detection specifically tuned for all 5 preloaded prompts
+   * ENHANCED: Flexible intent detection with natural language understanding
    */
   private detectUserIntent(message: string): any {
     const query = message.toLowerCase().trim();
     const wellName = this.extractWellName(message);
     
-    console.log('🔍 PRELOADED PROMPT INTENT DETECTION:', { 
+    console.log('🔍 ENHANCED INTENT DETECTION:', { 
       queryPreview: query.substring(0, 100) + '...', 
       wellName,
       fullQueryLength: query.length 
     });
 
-    // Define intents in order of precedence - EXACT MATCHES for preloaded prompts first
+    // PRIORITY 1: Natural language questions that should be handled directly
+    if (this.isNaturalLanguageQuery(query)) {
+      console.log('🎯 Natural language query detected');
+      return {
+        type: 'natural_language_query',
+        score: 10,
+        wellName,
+        method: null,
+        query: message
+      };
+    }
+
+    // PRIORITY 2: Cross-well analytics questions
+    if (this.isCrossWellAnalyticsQuery(query)) {
+      const analyticsType = this.extractAnalyticsType(query);
+      console.log('🎯 Cross-well analytics query detected:', analyticsType);
+      return {
+        type: 'cross_well_analytics',
+        score: 10,
+        wellName,
+        method: null,
+        analyticsType
+      };
+    }
+
+    // PRIORITY 3: Exact matches for preloaded prompts (preserved for compatibility)
     const intents = [
       // PRELOADED PROMPT #1: Well Data Discovery (24 Wells) - EXACT MATCH
       {
         type: 'well_data_discovery',
         test: () => this.matchesAny(query, [
+          // FIXED: More specific and accurate patterns for the exact prompt
+          'analyze.*complete.*dataset.*24.*production.*wells.*from.*well-001.*through.*well-024',
           'analyze.*complete.*dataset.*24.*production.*wells.*well-001.*through.*well-024',
           'comprehensive.*summary.*showing.*available.*log.*curves.*gr.*rhob.*nphi.*dtc.*cali.*resistivity',
+          'spatial distribution.*depth ranges.*data quality assessment.*create.*interactive visualizations',
           'spatial distribution.*depth ranges.*data quality assessment.*interactive visualizations',
+          'create.*interactive.*visualizations.*showing.*field.*overview.*well.*statistics',
           'field overview.*well statistics',
+          // More flexible patterns to catch variations
+          'analyze.*complete.*dataset.*production.*wells.*from.*well-001',
+          'analyze.*complete.*dataset.*24.*production.*wells',
+          'comprehensive.*summary.*showing.*available.*log.*curves',
+          'generate.*comprehensive.*summary.*showing.*available.*log.*curves',
+          'spatial distribution.*depth ranges.*data quality assessment',
+          'interactive visualizations.*field overview',
+          'create.*interactive.*visualizations.*field.*overview',
           // Legacy patterns for backwards compatibility
           'analyze.*complete.*dataset.*production wells',
           'comprehensive.*summary.*log curves',
@@ -406,7 +453,7 @@ export class EnhancedStrandsAgent {
           'spatial distribution.*wells',
           'comprehensive analysis of all.*wells',
           'well-001.*through.*well-024',
-          'analyze.*24.*production.*wells'
+          'from.*well-001.*through.*well-024'
         ]),
         requiresWell: false
       },
@@ -634,6 +681,102 @@ export class EnhancedStrandsAgent {
       const regex = new RegExp(pattern, 'i');
       return regex.test(query);
     });
+  }
+
+  /**
+   * Check if the query is a natural language question that should be handled directly
+   */
+  private isNaturalLanguageQuery(query: string): boolean {
+    const naturalLanguagePatterns = [
+      // Question words
+      /^(what|how|which|where|when|why)\s+/,
+      // Broad analytical questions
+      /average.*porosity.*all.*wells?/,
+      /what.*porosity.*wells?/,
+      /how.*many.*wells?/,
+      /what.*wells?.*best/,
+      /which.*wells?.*highest/,
+      /what.*data.*available/,
+      /show.*me.*summary/,
+      /give.*me.*overview/,
+      /tell.*me.*about/,
+      /what.*can.*you.*do/,
+      /help/,
+      /hello/,
+      /hi$/,
+      // General conversational patterns
+      /^(can|could)\s+you/,
+      /what.*is.*the.*average/,
+      /which.*wells?.*are.*best/
+    ];
+    
+    return naturalLanguagePatterns.some(pattern => pattern.test(query));
+  }
+
+  /**
+   * Check if the query is asking for cross-well analytics
+   */
+  private isCrossWellAnalyticsQuery(query: string): boolean {
+    const crossWellPatterns = [
+      /average.*porosity.*all.*wells?/,
+      /average.*shale.*all.*wells?/,
+      /best.*wells?.*by.*porosity/,
+      /best.*wells?.*by.*quality/,
+      /which.*wells?.*are.*best/,
+      /rank.*wells?.*by/,
+      /compare.*wells?/,
+      // FIXED: Make field overview patterns more specific to not conflict with comprehensive analysis
+      /^field.*overview$/,  // Only exact "field overview" 
+      /^field.*summary$/,   // Only exact "field summary"
+      /^all.*wells?.*summary$/,  // Only exact "all wells summary"
+      // Add specific cross-well question patterns that don't conflict
+      /what.*is.*the.*average.*porosity/,
+      /what.*are.*the.*best.*wells/,
+      /which.*wells.*should.*i.*develop/,
+      /give.*me.*field.*statistics/
+    ];
+    
+    // CRITICAL FIX: Exclude comprehensive analysis patterns that should go to well_data_discovery
+    const excludePatterns = [
+      /analyze.*complete.*dataset/,
+      /comprehensive.*summary.*showing/,
+      /interactive.*visualizations.*showing.*field.*overview/,
+      /create.*interactive.*visualizations/,
+      /spatial distribution.*depth ranges.*data quality/
+    ];
+    
+    // If any exclude patterns match, this is NOT a cross-well analytics query
+    if (excludePatterns.some(pattern => pattern.test(query))) {
+      return false;
+    }
+    
+    return crossWellPatterns.some(pattern => pattern.test(query));
+  }
+
+  /**
+   * Extract the type of cross-well analytics requested
+   */
+  private extractAnalyticsType(query: string): string {
+    if (query.includes('average') && query.includes('porosity')) {
+      return 'average_porosity';
+    }
+    if (query.includes('average') && query.includes('shale')) {
+      return 'average_shale_volume';
+    }
+    if (query.includes('best') && query.includes('porosity')) {
+      return 'best_wells_by_porosity';
+    }
+    if (query.includes('best') && query.includes('quality')) {
+      return 'best_wells_by_quality';
+    }
+    if (query.includes('field') && (query.includes('overview') || query.includes('summary'))) {
+      return 'field_overview';
+    }
+    if (query.includes('data') && query.includes('available')) {
+      return 'data_availability';
+    }
+    
+    return 'field_overview'; // default
   }
 
   /**
@@ -905,6 +1048,62 @@ Available methods: larionov_tertiary, larionov_pre_tertiary, clavier, linear`
 
     // For completion analysis, we'll run formation evaluation which includes completion targets
     return await this.executeFormationEvaluationWorkflow(message);
+  }
+
+  /**
+   * Handle natural language queries with conversational responses
+   */
+  private async handleNaturalLanguageQuery(message: string, query: string): Promise<any> {
+    console.log('🗣️ === NATURAL LANGUAGE QUERY HANDLER START ===');
+    console.log('📝 Original Query:', query);
+    
+    // Use the natural language query tool
+    const result = await this.callMCPTool('natural_language_query', { 
+      query: message,
+      context: 'conversational_query' 
+    });
+    
+    if (result.success) {
+      console.log('✅ Natural Language Query Success');
+      const response = {
+        success: true,
+        message: result.message
+      };
+      console.log('🗣️ === NATURAL LANGUAGE QUERY HANDLER END (SUCCESS) ===');
+      return response;
+    }
+    
+    console.log('❌ Natural Language Query Failed:', result);
+    console.log('🗣️ === NATURAL LANGUAGE QUERY HANDLER END (FAILED) ===');
+    return result;
+  }
+
+  /**
+   * Handle cross-well analytics queries
+   */
+  private async handleCrossWellAnalytics(message: string, analyticsType: string): Promise<any> {
+    console.log('📊 === CROSS-WELL ANALYTICS HANDLER START ===');
+    console.log('🎯 Analytics Type:', analyticsType);
+    
+    // Use the cross-well analytics tool
+    const result = await this.callMCPTool('cross_well_analytics', { 
+      analysisType: analyticsType,
+      limit: 10
+    });
+    
+    if (result.success) {
+      console.log('✅ Cross-Well Analytics Success');
+      const response = {
+        success: true,
+        message: result.message
+      };
+      console.log('📊 === CROSS-WELL ANALYTICS HANDLER END (SUCCESS) ===');
+      return response;
+    }
+    
+    console.log('❌ Cross-Well Analytics Failed:', result);
+    console.log('📊 === CROSS-WELL ANALYTICS HANDLER END (FAILED) ===');
+    return result;
   }
 
   private async handleComprehensiveShaleAnalysisWorkflow(message: string): Promise<any> {
@@ -2992,18 +3191,104 @@ What would you like to analyze?`
   }
 
   /**
-   * Format well list response for user display
+   * Format well list response for user display - CONDENSED VERSION
    */
   private formatWellListResponse(result: any): string {
     if (!result.wells || result.wells.length === 0) {
       return 'No wells found in the system.';
     }
 
-    return `I found ${result.count} wells in the system:
+    const totalCount = result.count;
+    const wells = result.wells;
+    
+    // For small numbers of wells (≤10), show all wells
+    if (totalCount <= 10) {
+      return `I found ${totalCount} wells in the system:
 
-${result.wells.map((well: string, index: number) => `${index + 1}. ${well}`).join('\n')}
+${wells.map((well: string, index: number) => `${index + 1}. ${well}`).join('\n')}
 
 You can ask me to analyze any of these wells or get more information about them.`;
+    }
+    
+    // For larger numbers, show a condensed summary
+    const firstFew = wells.slice(0, 5);
+    const lastFew = wells.slice(-3);
+    
+    // Detect well naming patterns for better summary
+    const wellPattern = this.detectWellNamingPattern(wells);
+    
+    let summaryText = `Found ${totalCount} wells in the system:\n\n`;
+    
+    if (wellPattern.isSequential) {
+      // Sequential wells (WELL-001, WELL-002, etc.)
+      summaryText += `**Well Range:** ${wellPattern.pattern}\n`;
+      summaryText += `**First wells:** ${firstFew.join(', ')}\n`;
+      summaryText += `**Last wells:** ${lastFew.join(', ')}\n`;
+      summaryText += `**Total:** ${totalCount} wells\n\n`;
+    } else {
+      // Non-sequential wells  
+      summaryText += `**Sample wells (first 5):**\n${firstFew.map((well, i) => `${i + 1}. ${well}`).join('\n')}\n\n`;
+      summaryText += `**Last 3 wells:**\n${lastFew.map(well => `• ${well}`).join('\n')}\n\n`;
+      summaryText += `... and ${totalCount - 8} more wells\n\n`;
+    }
+    
+    summaryText += `**Quick Actions:**\n`;
+    summaryText += `• Analyze first well: "analyze ${firstFew[0]}"\n`;
+    summaryText += `• Get well info: "well info ${firstFew[0]}"\n`;
+    summaryText += `• Field overview: "comprehensive well data discovery"\n`;
+    summaryText += `• Multi-well analysis: "multi-well correlation"\n\n`;
+    
+    summaryText += `*For specific wells, just mention the well name in your request.*`;
+    
+    return summaryText;
+  }
+
+  /**
+   * Detect well naming patterns to provide better summaries
+   */
+  private detectWellNamingPattern(wells: string[]): { isSequential: boolean; pattern: string } {
+    if (wells.length < 2) {
+      return { isSequential: false, pattern: 'Single well' };
+    }
+    
+    // Check for sequential WELL-XXX pattern
+    const wellNumberPattern = /WELL-(\d+)$/i;
+    const wellNumbers = wells
+      .map(well => {
+        const match = well.match(wellNumberPattern);
+        return match ? parseInt(match[1]) : null;
+      })
+      .filter(num => num !== null) as number[];
+    
+    if (wellNumbers.length >= wells.length * 0.8) { // 80% of wells follow pattern
+      const sortedNumbers = [...wellNumbers].sort((a, b) => a - b);
+      const minWell = sortedNumbers[0];
+      const maxWell = sortedNumbers[sortedNumbers.length - 1];
+      
+      // Check if mostly sequential
+      const expectedCount = maxWell - minWell + 1;
+      const actualCount = wellNumbers.length;
+      
+      if (actualCount >= expectedCount * 0.9) { // 90% sequential
+        return {
+          isSequential: true,
+          pattern: `WELL-${minWell.toString().padStart(3, '0')} through WELL-${maxWell.toString().padStart(3, '0')}`
+        };
+      }
+    }
+    
+    // Check for other common patterns
+    const prefixes = wells.map(well => well.split(/[-_]/)[0]).filter(Boolean);
+    const uniquePrefixes = [...new Set(prefixes)];
+    
+    if (uniquePrefixes.length === 1 && uniquePrefixes[0]) {
+      return {
+        isSequential: false,
+        pattern: `${uniquePrefixes[0]}-XXX series (${wells.length} wells)`
+      };
+    }
+    
+    return { isSequential: false, pattern: 'Mixed naming pattern' };
   }
 
   /**
