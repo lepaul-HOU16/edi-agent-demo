@@ -1,37 +1,32 @@
 import { type ClientSchema, a, defineData, defineFunction } from '@aws-amplify/backend';
 
-export const reActAgentFunction = defineFunction({
-  name: 'reActAgent',
-  entry: '../functions/reActAgent/handler.ts',
-  timeoutSeconds: 900,
+export const lightweightAgentFunction = defineFunction({
+  name: 'lightweightAgent',
+  entry: '../functions/lightweightAgent/handler.ts',
+  timeoutSeconds: 300,
+  memoryMB: 1024,
+  resourceGroupName: 'data',
   environment: {
-    // AGENT_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0'
-    AGENT_MODEL_ID: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
-    // AGENT_MODEL_ID: 'us.anthropic.claude-3-7-sonnet-20250219-v1:0',
-    // AGENT_MODEL_ID: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
-
-    // MODEL_ID: 'us.anthropic.claude-3-sonnet-20240229-v1:0',
-    // MODEL_ID: 'us.amazon.nova-pro-v1:0'
-    // TEXT_TO_TABLE_MODEL_ID: 'us.amazon.nova-pro-v1:0'
-    // TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
-    // TEXT_TO_TABLE_MODEL_ID: 'amazon.nova-lite-v1:0',
-    TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-haiku-20240307-v1:0',
-    TEXT_TO_TABLE_CONCURRENCY: '10',
-
-    ORIGIN_BASE_PATH: process.env.ORIGIN_BASE_PATH || ''
+    AGENT_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+    TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+    TEXT_TO_TABLE_CONCURRENCY: '5',
+    ORIGIN_BASE_PATH: process.env.ORIGIN_BASE_PATH || '',
+    S3_BUCKET: 'amplify-digitalassistant--workshopstoragebucketd9b-1kur1xycq1xq',
+    AMPLIFY_BRANCH: process.env.AMPLIFY_BRANCH || 'main',
+    AMPLIFY_APP_ID: process.env.AMPLIFY_APP_ID || 'unknown'
   }
 });
 
-// export const mcpAgentInvoker = defineFunction({
-//   name: 'mcpAgentInvoker',
-//   entry: '../functions/mcpAgentInvoker/handler.ts',
-//   timeoutSeconds: 900,
-// });
+// ReActAgent has been deprecated and replaced with EnhancedStrandsAgent via lightweightAgent
+// MCP functionality is now handled locally within EnhancedStrandsAgent
 
 export const catalogMapDataFunction = defineFunction({
   name: 'catalogMapData',
   entry: '../functions/catalogMapData/index.ts',
   timeoutSeconds: 60,
+  environment: {
+    STORAGE_BUCKET_NAME: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
+  }
 });
 
 export const catalogSearchFunction = defineFunction({
@@ -42,6 +37,7 @@ export const catalogSearchFunction = defineFunction({
     OSDU_BASE_URL: 'https://community.opensubsurface.org',
     OSDU_API_VERSION: 'v2',
     OSDU_PARTITION_ID: 'opendes',
+    STORAGE_BUCKET_NAME: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
     // Add OSDU_ACCESS_TOKEN as environment variable when available
   }
 });
@@ -97,6 +93,7 @@ export const schema = a.schema({
       role: a.enum(["human", "ai", "tool"]),
       responseComplete: a.boolean(),
       chatSessionIdUnderscoreFieldName: a.string(), //This is so that when invoking multiple agents, an agent can query it's own messages
+      artifacts: a.json().array(), // Add artifacts field
 
       //auto-generated fields
       owner: a.string(),
@@ -143,16 +140,23 @@ export const schema = a.schema({
     .handler(a.handler.custom({ entry: './receiveMessageStreamChunk.js' }))
     .authorization(allow => [allow.authenticated()]),
 
-  invokeReActAgent: a.query()
-    .arguments({ 
-      chatSessionId: a.id().required(), 
-      foundationModelId: a.string(), // Optionally, chose the foundation model to use for the agent
-      respondToAgent: a.boolean(), //When an agent is invoked by another agent, the agent will create a tool response message with it's output
-      userId: a.string(), //When invoking the agent programatically, specify which user should be the owner of the message
-      // origin: a.string(), //When invoking the agent programatically, specify the host origin for serving files
+  invokeLightweightAgent: a.mutation()
+    .arguments({
+      chatSessionId: a.id().required(),
+      message: a.string().required(),
+      foundationModelId: a.string(),
+      userId: a.string(),
     })
-    .handler(a.handler.function(reActAgentFunction).async())
+    .returns(a.customType({
+      success: a.boolean().required(),
+      message: a.string().required(),
+      artifacts: a.json().array()
+    }))
+    .handler(a.handler.function(lightweightAgentFunction))
     .authorization((allow) => [allow.authenticated()]),
+
+  // invokeReActAgent has been deprecated - use invokeLightweightAgent instead
+  // which now uses EnhancedStrandsAgent with local MCP tools
 
   getCatalogMapData: a.query()
     .arguments({
@@ -171,7 +175,7 @@ export const schema = a.schema({
     .authorization((allow) => [allow.authenticated()]),
 })
   .authorization((allow) => [
-    allow.resource(reActAgentFunction)
+    allow.resource(lightweightAgentFunction).to(["query", "mutate"])
   ]);
 
 export type Schema = ClientSchema<typeof schema>;

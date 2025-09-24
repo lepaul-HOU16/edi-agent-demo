@@ -28,11 +28,9 @@ import { FileSystemProvider } from "@/contexts/FileSystemContext";
 
 import './app.scss';
 import { type Schema } from "@/../amplify/data/resource";
-import { generateClient } from 'aws-amplify/api';
+import { generateClient } from 'aws-amplify/data';
 import { sendMessage } from '@/../utils/amplifyUtils';
 import { memoryManager } from '@/utils/memoryUtils';
-
-const amplifyClient = generateClient<Schema>();
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
@@ -47,13 +45,27 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
   const router = useRouter();
 
-  const handleCreateNewChat = async () => {
+  // Initialize Amplify client after component mounts
+  useEffect(() => {
     try {
-      // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      await amplifyClient.queries.invokeReActAgent({ chatSessionId: "initialize" });
+      const client = generateClient<Schema>();
+      setAmplifyClient(client);
+    } catch (error) {
+      console.error('Failed to generate Amplify client:', error);
+    }
+  }, []);
 
+  const handleCreateNewChat = async () => {
+    if (!amplifyClient) {
+      console.error("Amplify client not initialized");
+      alert("System not ready. Please try again in a moment.");
+      return;
+    }
+
+    try {
       const newChatSession = await amplifyClient.models.ChatSession.create({});
       if (newChatSession.data?.id) {
         router.push(`/chat/${newChatSession.data.id}`);
@@ -67,10 +79,13 @@ export default function RootLayout({
   };
 
   const handleCreatePetrophysicsChat = async () => {
-    try {
-      // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      await amplifyClient.queries.invokeReActAgent({ chatSessionId: "initialize" });
+    if (!amplifyClient) {
+      console.error("Amplify client not initialized");
+      alert("System not ready. Please try again in a moment.");
+      return;
+    }
 
+    try {
       const newChatSession = await amplifyClient.models.ChatSession.create({});
       
       if (newChatSession.data && newChatSession.data.id) {

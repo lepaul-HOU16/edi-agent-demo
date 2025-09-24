@@ -14,8 +14,8 @@ from osdu_search_tool import osdu_search_tool
 
 username = "edi-user"
 password = "Asd!1edi"
-client_id="7se4hblptk74h59ghbb694ovj4"
-client_secret="k7iq7mnm4k0rp5hmve7ceb8dajkj9vulavetg90epn7an5sekfi"
+client_id=os.environ.get("EDI_CLIENT_ID", "")
+client_secret=os.environ.get("EDI_CLIENT_SECRET", "")
 edi_partition = "osdu"
 edi_platform_url = "https://osdu.vavourak.people.aws.dev"
 edi_search_url = edi_platform_url + '/api/search/v2/query/'

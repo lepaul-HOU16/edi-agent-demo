@@ -140,3 +140,21 @@ export const invokeReActAgent = /* GraphQL */ `query InvokeReActAgent(
   APITypes.InvokeReActAgentQueryVariables,
   APITypes.InvokeReActAgentQuery
 >;
+
+export const invokeLightweightAgent = /* GraphQL */ `mutation InvokeLightweightAgent(
+  $chatSessionId: ID!
+  $message: String!
+  $foundationModelId: String
+  $userId: String
+) {
+  invokeLightweightAgent(
+    chatSessionId: $chatSessionId
+    message: $message
+    foundationModelId: $foundationModelId
+    userId: $userId
+  ) {
+    success
+    message
+    artifacts
+  }
+}`;

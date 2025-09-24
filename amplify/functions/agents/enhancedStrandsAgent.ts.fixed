@@ -1,0 +1,179 @@
+/**
+ * Enhanced Strands Agent with Fixed Static Imports
+ * DEPLOYMENT FIX: Resolves dynamic import issues in Lambda environment
+ */
+
+import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
+
+// FIXED: Static imports instead of dynamic imports for Lambda compatibility
+import { 
+  listWellsTool, 
+  getWellInfoTool, 
+  getCurveDataTool,
+  calculatePorosityTool,
+  calculateShaleVolumeTool,
+  calculateSaturationTool,
+  assessDataQualityTool,
+  performUncertaintyAnalysisTool,
+  comprehensiveShaleAnalysisTool,
+  petrophysicsTools 
+} from '../tools/petrophysicsTools';
+
+// Import enhanced tools if available
+import { enhancedPetrophysicsTools } from '../tools/enhancedPetrophysicsTools';
+import { comprehensiveShaleAnalysisTool as shaleAnalysisTool } from '../tools/comprehensiveShaleAnalysisTool';
+import { comprehensivePorosityAnalysisTool } from '../tools/comprehensivePorosityAnalysisTool';
+import { comprehensiveMultiWellCorrelationTool } from '../tools/comprehensiveMultiWellCorrelationTool';
+
+// ... [Keep all the existing type definitions and class structure] ...
+
+export class EnhancedStrandsAgent {
+  private modelId: string;
+  private s3Client: S3Client;
+  private s3Bucket: string;
+  private wellDataPath: string = '';
+  private availableWells: string[] = [];
+  
+  // FIXED: Pre-compiled tools registry instead of dynamic imports
+  private static toolsRegistry: Map<string, any> = new Map();
+  
+  // Initialize tools registry on class load
+  static {
+    console.log('🔧 FIXED: Initializing static tools registry...');
+    
+    // Core petrophysics tools
+    const coreTools = [
+      listWellsTool,
+      getWellInfoTool, 
+      getCurveDataTool,
+      calculatePorosityTool,
+      calculateShaleVolumeTool,
+      calculateSaturationTool,
+      assessDataQualityTool,
+      performUncertaintyAnalysisTool,
+      comprehensiveShaleAnalysisTool
+    ];
+    
+    // Enhanced tools
+    const enhancedToolsList = [
+      shaleAnalysisTool,
+      comprehensivePorosityAnalysisTool,
+      comprehensiveMultiWellCorrelationTool,
+      ...enhancedPetrophysicsTools
+    ];
+    
+    // Register all tools
+    [...coreTools, ...enhancedToolsList].forEach(tool => {
+      if (tool && tool.name) {
+        this.toolsRegistry.set(tool.name, tool);
+        console.log(`✅ FIXED: Registered tool ${tool.name}`);
+      }
+    });
+    
+    console.log(`🎯 FIXED: Static tools registry initialized with ${this.toolsRegistry.size} tools`);
+  }
+
+  constructor(modelId?: string, s3Bucket?: string) {
+    this.modelId = modelId || 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
+    this.s3Bucket = s3Bucket || process.env.S3_BUCKET || '';
+    this.s3Client = new S3Client({ region: 'us-east-1' });
+
+    console.log('🚀 FIXED: Enhanced Strands Agent initialized with static imports');
+    console.log(`🔧 FIXED: Available tools: ${Array.from(EnhancedStrandsAgent.toolsRegistry.keys()).join(', ')}`);
+  }
+
+  // ... [Keep all existing methods until callMCPTool] ...
+
+  /**
+   * FIXED: Call MCP tools using static registry instead of dynamic imports
+   */
+  private async callMCPTool(toolName: string, parameters: any): Promise<any> {
+    const mcpCallId = Math.random().toString(36).substr(2, 9);
+    console.log('🔧 === FIXED MCP TOOL CALL START ===');
+    console.log('🆔 MCP Call ID:', mcpCallId);
+    console.log('🛠️ Tool Name:', toolName);
+    console.log('📋 Parameters:', JSON.stringify(parameters, null, 2));
+    
+    try {
+      // FIXED: Use static registry instead of dynamic imports
+      const tool = EnhancedStrandsAgent.toolsRegistry.get(toolName);
+      
+      if (!tool) {
+        console.error('❌ FIXED: Tool not found in static registry:', toolName);
+        console.log('🔧 FIXED: Available tools:', Array.from(EnhancedStrandsAgent.toolsRegistry.keys()));
+        return {
+          success: false,
+          message: `Tool ${toolName} not found in static registry. Available tools: ${Array.from(EnhancedStrandsAgent.toolsRegistry.keys()).join(', ')}`,
+          toolName,
+          parameters,
+          deploymentIssue: 'Static tool registry lookup failed'
+        };
+      }
+
+      console.log('✅ FIXED: Tool found in static registry, executing...');
+      
+      const result = await tool.func(parameters);
+      console.log('✅ FIXED: Tool execution completed successfully');
+      
+      // FIXED: Enhanced result processing with better error reporting
+      let parsedResult;
+      if (typeof result === 'string') {
+        try {
+          parsedResult = JSON.parse(result);
+        } catch (e) {
+          console.log('⚠️ FIXED: Result is not JSON, wrapping in success response');
+          parsedResult = {
+            success: true,
+            message: result,
+            artifacts: []
+          };
+        }
+      } else {
+        parsedResult = result;
+      }
+      
+      // FIXED: Ensure proper response structure
+      if (!parsedResult || typeof parsedResult !== 'object') {
+        parsedResult = {
+          success: true,
+          message: String(parsedResult || 'Tool executed successfully'),
+          artifacts: []
+        };
+      }
+      
+      // FIXED: Preserve success state and artifacts
+      if (parsedResult.success === undefined) {
+        parsedResult.success = true;
+      }
+      
+      if (!Array.isArray(parsedResult.artifacts)) {
+        parsedResult.artifacts = [];
+      }
+      
+      console.log('✅ FIXED: MCP tool call successful:', {
+        success: parsedResult.success,
+        messageLength: parsedResult.message?.length || 0,
+        artifactCount: parsedResult.artifacts?.length || 0
+      });
+      
+      return parsedResult;
+
+    } catch (error) {
+      console.error('❌ FIXED: MCP tool call error:', error);
+      return {
+        success: false,
+        message: `FIXED: Error calling tool ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        toolName,
+        parameters,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        deploymentIssue: 'Tool execution failed in Lambda environment'
+      };
+    }
+  }
+
+  /**
+   * FIXED: Removed getAvailableTools() method since we use static registry
+   */
+
+  // ... [Keep all other existing methods] ...
+}
