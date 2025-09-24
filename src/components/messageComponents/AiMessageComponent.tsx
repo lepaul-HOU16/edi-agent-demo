@@ -22,6 +22,16 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme,
   // Track expanded state for all tool calls
   const [expandedToolCalls, setExpandedToolCalls] = useState<Record<string, boolean>>({});
 
+  // ARTIFACT DEBUGGING: Log artifacts to console
+  console.log('🎨 AiMessageComponent DEBUG:', {
+    hasMessage: !!message,
+    messageKeys: message ? Object.keys(message) : [],
+    hasArtifacts: !!(message as any).artifacts,
+    artifactCount: (message as any).artifacts?.length || 0,
+    artifacts: (message as any).artifacts,
+    messageContent: (message as any).content?.text?.substring(0, 100) + '...'
+  });
+
   return (
     <div style={{
       display: 'flex',
