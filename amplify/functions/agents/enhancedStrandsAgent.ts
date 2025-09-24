@@ -325,6 +325,11 @@ export class EnhancedStrandsAgent {
             handlerResult = await this.handlePorosityAnalysisWorkflow(message, intent.wellName);
             return this.logFinalResponse(handlerResult, 'Porosity Analysis');
 
+          case 'log_curve_visualization':
+            console.log('📊 Executing: Log Curve Visualization Handler');
+            handlerResult = await this.handleLogCurveVisualization(message, intent.wellName);
+            return this.logFinalResponse(handlerResult, 'Log Curve Visualization');
+
           case 'gamma_ray_visualization':
             console.log('📊 Executing: Gamma Ray Visualization Handler');
             handlerResult = await this.handleGammaRayVisualization(message, intent.wellName);
@@ -497,6 +502,22 @@ export class EnhancedStrandsAgent {
         requiresWell: false
       },
       
+      // Log curve visualization intents - CRITICAL ADDITION
+      {
+        type: 'log_curve_visualization',
+        test: () => this.matchesAny(query, [
+          'show.*log.*curves',
+          'display.*log.*curves',
+          'plot.*log.*curves',
+          'visualize.*log.*curves',
+          'log.*curve.*plot',
+          'log.*plot.*viewer',
+          'curve.*data.*for',
+          'get.*curve.*data'
+        ]),
+        requiresWell: false
+      },
+
       // Lower priority intents for other cases
       {
         type: 'gamma_ray_visualization', 
@@ -1636,6 +1657,99 @@ Next Steps:
 - Formation evaluation: "formation evaluation for ${wellName || wells?.[0] || 'WELL-001'}"
 - Shale analysis: "calculate shale volume using gamma ray"
 - Multi-well correlation: "create correlation panel"`;
+    }
+  }
+
+  /**
+   * Handle log curve visualization requests
+   * Calls the enhanced get_curve_data tool to retrieve real S3 data
+   */
+  private async handleLogCurveVisualization(message: string, wellName: string | null): Promise<any> {
+    console.log('📊 === LOG CURVE VISUALIZATION HANDLER START ===');
+    console.log('📝 Message:', message);
+    console.log('🏷️ Well Name:', wellName);
+    
+    try {
+      // Get available wells first
+      const wellsResult = await this.callMCPTool('list_wells', {});
+      if (!wellsResult.success) {
+        console.log('❌ Failed to get wells list:', wellsResult);
+        return {
+          success: false,
+          message: 'Unable to access well data for log curve visualization.'
+        };
+      }
+      
+      const availableWells = wellsResult.wells || [];
+      console.log('📋 Available wells from MCP:', availableWells);
+      
+      // Determine target well
+      let targetWell = wellName;
+      if (!targetWell && availableWells.length > 0) {
+        targetWell = availableWells[0]; // Default to first available well
+        console.log('🎯 No well specified, using first available:', targetWell);
+      }
+      
+      if (!targetWell) {
+        console.log('❌ No wells available for visualization');
+        return {
+          success: false,
+          message: 'No wells available for log curve visualization. Please ensure well data is loaded in S3.'
+        };
+      }
+      
+      // Validate target well exists
+      if (!availableWells.includes(targetWell)) {
+        console.log('❌ Target well not found in available wells:', targetWell);
+        return {
+          success: false,
+          message: `Well ${targetWell} not found. Available wells: ${availableWells.join(', ')}`
+        };
+      }
+      
+      console.log('🔄 Calling get_curve_data tool for well:', targetWell);
+      
+      // Call the enhanced getCurveDataTool that retrieves real S3 data
+      const result = await this.callMCPTool('get_curve_data', { 
+        wellName: targetWell
+      });
+      
+      if (result.success) {
+        console.log('✅ Log Curve Data Retrieved Successfully');
+        console.log('📊 Curve data result:', {
+          success: result.success,
+          hasArtifacts: Array.isArray(result.artifacts),
+          artifactCount: result.artifacts?.length || 0,
+          availableCurves: result.availableCurves,
+          dataPoints: result.dataPoints
+        });
+        
+        const response = {
+          success: true,
+          message: result.message || `Log curves retrieved successfully for ${targetWell} with ${result.dataPoints || 0} data points`,
+          artifacts: result.artifacts || []
+        };
+        
+        console.log('📊 === LOG CURVE VISUALIZATION HANDLER END (SUCCESS) ===');
+        return response;
+        
+      } else {
+        console.log('❌ Failed to retrieve curve data:', result);
+        console.log('📊 === LOG CURVE VISUALIZATION HANDLER END (FAILED) ===');
+        return {
+          success: false,
+          message: result.message || `Failed to retrieve log curve data for ${targetWell}`,
+          artifacts: []
+        };
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in log curve visualization handler:', error);
+      console.log('📊 === LOG CURVE VISUALIZATION HANDLER END (ERROR) ===');
+      return {
+        success: false,
+        message: `Error generating log curve visualization: ${error instanceof Error ? error.message : 'Unknown error'}`
+      };
     }
   }
 

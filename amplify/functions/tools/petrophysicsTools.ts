@@ -173,14 +173,14 @@ export const getWellInfoTool: MCPTool = {
 };
 
 /**
- * Simplified tool for basic curve data retrieval
+ * Enhanced tool for full curve data retrieval and visualization
  */
 export const getCurveDataTool: MCPTool = {
   name: "get_curve_data",
-  description: "Get basic curve data from well files",
+  description: "Get full curve data from well files for visualization",
   inputSchema: z.object({
     wellName: z.string().describe("Name of the well"),
-    curves: z.array(z.string()).describe("Array of curve names to retrieve")
+    curves: z.array(z.string()).optional().describe("Array of curve names to retrieve (optional - will return all available)")
   }),
   func: async ({ wellName, curves }) => {
     try {
@@ -195,11 +195,121 @@ export const getCurveDataTool: MCPTool = {
         throw new Error('No data received from S3');
       }
 
+      const content = await response.Body.transformToString();
+      
+      // Parse LAS file for curve data
+      const lines = content.split('\n');
+      let section = '';
+      const curveNames: string[] = [];
+      const curveData: { [key: string]: number[] } = {};
+      const wellInfo: { [key: string]: string } = {};
+      let dataStartIndex = -1;
+
+      // First pass: identify sections and curve names
+      for (let i = 0; i < lines.length; i++) {
+        const trimmedLine = lines[i].trim();
+
+        if (trimmedLine.startsWith('~')) {
+          section = trimmedLine.substring(1).split(/\s+/)[0].toUpperCase();
+          continue;
+        }
+
+        if (section === 'WELL' && trimmedLine.includes('.') && trimmedLine.includes(':')) {
+          const parts = trimmedLine.split(':', 2);
+          if (parts.length === 2) {
+            const key = parts[0].split('.')[0].trim();
+            const value = parts[1].trim();
+            wellInfo[key] = value;
+          }
+        }
+
+        if (section === 'CURVE' && trimmedLine.length > 0 && !trimmedLine.startsWith('#')) {
+          let curveName = '';
+          
+          if (trimmedLine.includes(':')) {
+            const beforeColon = trimmedLine.split(':')[0].trim();
+            const dotMatch = beforeColon.match(/^([A-Z_][A-Z0-9_]*)\./i);
+            if (dotMatch) {
+              curveName = dotMatch[1];
+            } else {
+              const spaceMatch = beforeColon.match(/^([A-Z_][A-Z0-9_]*)/i);
+              if (spaceMatch) {
+                curveName = spaceMatch[1];
+              }
+            }
+          } else if (trimmedLine.match(/^[A-Z_][A-Z0-9_]*/i)) {
+            const directMatch = trimmedLine.match(/^([A-Z_][A-Z0-9_]*)/i);
+            if (directMatch) {
+              curveName = directMatch[1];
+            }
+          }
+          
+          if (curveName && curveName.length > 0 && !curveNames.includes(curveName)) {
+            curveNames.push(curveName);
+            curveData[curveName] = [];
+          }
+        }
+
+        if (section === 'ASCII' && dataStartIndex === -1) {
+          dataStartIndex = i + 1;
+          break;
+        }
+      }
+
+      // Second pass: parse actual data
+      if (dataStartIndex > 0 && curveNames.length > 0) {
+        for (let i = dataStartIndex; i < lines.length; i++) {
+          const line = lines[i].trim();
+          if (line.length === 0 || line.startsWith('#')) continue;
+
+          const values = line.split(/\s+/);
+          if (values.length >= curveNames.length) {
+            for (let j = 0; j < curveNames.length; j++) {
+              const value = parseFloat(values[j]);
+              if (!isNaN(value) && value !== -999.25 && value !== -9999) { // Common null values in LAS files
+                curveData[curveNames[j]].push(value);
+              }
+            }
+          }
+        }
+      }
+
+    // Filter requested curves if specified, but ALWAYS include DEPT
+    const finalCurveData: { [key: string]: number[] } = {};
+    const requestedCurves = curves && curves.length > 0 ? curves : curveNames;
+    
+    // Always include DEPT curve first if available
+    if (curveData['DEPT'] && curveData['DEPT'].length > 0) {
+      finalCurveData['DEPT'] = curveData['DEPT'];
+    }
+    
+    // Add requested curves
+    for (const curveName of requestedCurves) {
+      if (curveData[curveName] && curveData[curveName].length > 0 && curveName !== 'DEPT') {
+        finalCurveData[curveName] = curveData[curveName];
+      }
+    }
+
+      // Create visualization-ready response
+      const visualizationData = {
+        messageContentType: 'log_plot_viewer',
+        type: 'logPlotViewer',
+        wellName: wellName,
+        logData: finalCurveData,
+        wellInfo: wellInfo,
+        availableCurves: Object.keys(finalCurveData),
+        dataPoints: finalCurveData[curveNames[0]]?.length || 0,
+        tracks: Object.keys(finalCurveData).slice(0, 4) // Limit to first 4 curves for display
+      };
+
       return JSON.stringify({
         success: true,
         wellName,
-        message: `Data retrieval for ${curves.join(', ')} - functionality temporarily simplified`,
-        requestedCurves: curves
+        message: `Successfully retrieved ${Object.keys(finalCurveData).length} curves with ${visualizationData.dataPoints} data points`,
+        artifacts: [visualizationData],
+        result: visualizationData,
+        availableCurves: Object.keys(finalCurveData),
+        dataPoints: visualizationData.dataPoints
       });
 
     } catch (error) {
