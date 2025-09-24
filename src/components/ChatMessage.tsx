@@ -243,6 +243,39 @@ const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
                     enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
                 />;
             }
+            
+            // CRITICAL FIX: Check for interactive educational components
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'interactive_educational') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering InteractiveEducationalComponent!');
+                // Import the component dynamically to avoid circular dependencies
+                const InteractiveEducationalComponent = React.lazy(() => import('./messageComponents/InteractiveEducationalComponent'));
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={
+                        <React.Suspense fallback={<div>Loading interactive educational content...</div>}>
+                            <InteractiveEducationalComponent data={parsedArtifact} />
+                        </React.Suspense>
+                    }
+                />;
+            }
+            
+            // NEW: Check for universal response components (concept definitions, general knowledge, etc.)
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                ['concept_definition', 'general_knowledge', 'quick_answer', 'error_response', 'guidance_response'].includes(parsedArtifact.messageContentType)) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering UniversalResponseComponent for type:', parsedArtifact.messageContentType);
+                // Import the component dynamically to avoid circular dependencies
+                const UniversalResponseComponent = React.lazy(() => import('./messageComponents/UniversalResponseComponent'));
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={
+                        <React.Suspense fallback={<div>Loading professional response...</div>}>
+                            <UniversalResponseComponent data={parsedArtifact} />
+                        </React.Suspense>
+                    }
+                />;
+            }
         }
     }
     
