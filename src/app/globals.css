@@ -333,3 +333,85 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 .input-bkgd > *:not([class*="awsui-prompt-input"]) {
   align-self: center !important; /* Center-align Typography and ButtonDropdown */
 }
+
+/* CRITICAL FIX: Force educational AI messages to remain visible during typing */
+.educational-ai-message {
+  visibility: visible !important;
+  display: block !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 1 !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+  will-change: auto !important;
+}
+
+/* Prevent any child elements from being hidden */
+.educational-ai-message * {
+  visibility: visible !important;
+  opacity: 1 !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Prevent the parent container from hiding educational messages */
+.educational-ai-message-container {
+  contain: none !important;
+  isolation: auto !important;
+  will-change: auto !important;
+}
+
+/* Force specific targeting for ReactMarkdown content in educational messages */
+.educational-ai-message .markdown-content,
+.educational-ai-message [class*="markdown"],
+.educational-ai-message div,
+.educational-ai-message p,
+.educational-ai-message span {
+  visibility: visible !important;
+  display: block !important;
+  opacity: 1 !important;
+}
+
+/* NUCLEAR OPTION: Stable Educational Message Component Protection */
+.stable-educational-message {
+  visibility: visible !important;
+  display: flex !important;
+  opacity: 1 !important;
+  position: relative !important;
+  z-index: 10 !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+  will-change: auto !important;
+  contain: none !important;
+  isolation: auto !important;
+}
+
+.stable-educational-message * {
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: inherit !important;
+  transform: none !important;
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Force ReactMarkdown elements in stable messages */
+.stable-educational-message [class*="markdown"] *,
+.stable-educational-message p,
+.stable-educational-message div,
+.stable-educational-message span,
+.stable-educational-message strong,
+.stable-educational-message em,
+.stable-educational-message h1,
+.stable-educational-message h2,
+.stable-educational-message h3,
+.stable-educational-message h4,
+.stable-educational-message h5,
+.stable-educational-message h6 {
+  visibility: visible !important;
+  display: block !important;
+  opacity: 1 !important;
+}

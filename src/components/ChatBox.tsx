@@ -62,6 +62,23 @@ const ChatBox = (params: {
   // const [showChainOfThought, setShowChainOfThought] = useState(false);
   // const [selectedAgent, setSelectedAgent] = useState<('reActAgent' | 'planAndExecuteAgent' | 'projectGenerationAgent')>("reActAgent");
 
+  // Unified message filter function to ensure consistency
+  const shouldDisplayMessage = useCallback((message: Message) => {
+    switch (message.role) {
+      case 'ai':
+        // CRITICAL FIX: Always show AI messages that have content, regardless of responseComplete status
+        // This prevents educational responses from disappearing during typing state changes
+        return message.responseComplete || 
+               (message.content && (message.content as any).text && (message.content as any).text.trim().length > 0)
+      case 'ai-stream':
+        return true
+      case 'tool':
+        return ['renderAssetTool', 'userInputTool', 'createProject'].includes((message as any).toolName!);
+      default:
+        return true;
+    }
+  }, []);
+
   //Subscribe to the chat messages
   useEffect(() => {
     if (!amplifyClient) return;
@@ -163,60 +180,109 @@ const ChatBox = (params: {
     }
   }, [messages.length]);
 
-  // Handle typing state changes from input - simplified, no immediate scroll impact
+  // Handle typing state changes from input - COMPLETELY DISABLED FOR TESTING
   const handleTypingStateChange = useCallback((typing: boolean) => {
-    console.log(`ChatBox: User typing state changed to: ${typing}`);
-    setIsUserTyping(typing);
-  }, []);
-
-  // Simplified auto-scroll functionality - memoized to prevent recreation
-  const autoScrollToBottom = useCallback(() => {
-    if (messagesContainerRef.current && autoScroll) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-    }
+    console.log(`ChatBox: IGNORING typing state change to prevent interference: ${typing}`);
+    // COMPLETELY DISABLE typing state to prevent ANY interference
+    // setIsUserTyping(typing);
+    
+    // Also disable auto-scroll changes
+    // if (typing && autoScroll) {
+    //   console.log('ChatBox: Disabling auto-scroll while typing');
+    //   setAutoScroll(false);
+    // }
   }, [autoScroll]);
 
-  // Stable message monitoring - remove unstable dependencies to prevent pop-in/out
-  useEffect(() => {
-    const displayedMessages = [
+  // Simplified auto-scroll functionality - no dependency on typing state
+  const autoScrollToBottom = useCallback(() => {
+    if (messagesContainerRef.current && autoScroll && !isUserTyping) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
+  }, [autoScroll, isUserTyping]);
+
+  // Memoized displayed messages with comprehensive educational message debugging
+  const displayedMessages = React.useMemo(() => {
+    console.log('ChatBox: Calculating displayed messages', {
+      messagesLength: messages?.length || 0,
+      hasStreamChunk: !!streamChunkMessage
+    });
+    
+    const allMessages = [
       ...(messages ? messages : []),
       ...(streamChunkMessage ? [streamChunkMessage] : [])
-    ].filter((message) => {
-      switch (message.role) {
-        case 'ai':
-          return message.responseComplete
-        case 'ai-stream':
-          return true
-        case 'tool':
-          return ['renderAssetTool', 'userInputTool', 'createProject'].includes((message as any).toolName!);
-        default:
-          return true;
-      }
+    ];
+    
+    // CRITICAL DEBUG: Track educational messages specifically
+    const educationalMessages = allMessages.filter(msg => 
+      (msg as any).role === 'ai' && 
+      !(msg as any).artifacts && 
+      (msg as any).content?.text &&
+      !(msg as any).toolCalls
+    );
+    
+    console.log('🎓 EDUCATIONAL MESSAGE DEBUG:', {
+      totalMessages: allMessages.length,
+      educationalCount: educationalMessages.length,
+      educationalMessages: educationalMessages.map((msg: any) => ({
+        id: msg.id,
+        responseComplete: msg.responseComplete,
+        contentPreview: msg.content?.text?.substring(0, 50) + '...',
+        createdAt: msg.createdAt
+      }))
     });
+    
+    const filteredMessages = allMessages.filter(shouldDisplayMessage);
+    
+    const filteredEducationalCount = filteredMessages.filter(msg => 
+      (msg as any).role === 'ai' && 
+      !(msg as any).artifacts && 
+      (msg as any).content?.text &&
+      !(msg as any).toolCalls
+    ).length;
+    
+    console.log('🔍 FILTER RESULT DEBUG:', {
+      beforeFilter: allMessages.length,
+      afterFilter: filteredMessages.length,
+      educationalBeforeFilter: educationalMessages.length,
+      educationalAfterFilter: filteredEducationalCount,
+      droppedEducational: educationalMessages.length - filteredEducationalCount
+    });
+    
+    return filteredMessages;
+  }, [messages, streamChunkMessage, shouldDisplayMessage]);
+  
+  // Stable message monitoring - prevent re-renders during typing
+  useEffect(() => {
+    // Skip processing if user is actively typing to prevent visual artifacts
+    if (isUserTyping) {
+      console.log('ChatBox: Skipping message processing - user is typing');
+      return;
+    }
 
     const newMessageCount = displayedMessages.length;
     
-    // Only scroll when message count actually increases and auto-scroll is enabled
-    if (newMessageCount > messageCount) {
+    // Only scroll when message count actually increases and user is not typing
+    if (newMessageCount > messageCount && !isUserTyping) {
+      console.log('ChatBox: Message count increased from', messageCount, 'to', newMessageCount);
       setMessageCount(newMessageCount);
+      
+      // Re-enable auto-scroll for new messages
+      if (!autoScroll) {
+        setAutoScroll(true);
+      }
       
       if (autoScroll && messagesContainerRef.current) {
         messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
-      
-      // Re-enable auto-scroll when new content arrives
-      if (!autoScroll) {
-        setAutoScroll(true);
-      }
     }
-  }, [messages, streamChunkMessage, messageCount, autoScroll]);
+  }, [displayedMessages, messageCount, autoScroll, isUserTyping]);
 
-  // Minimal streaming auto-scroll - direct scroll without function dependency
+  // Streaming auto-scroll - only when not typing
   useEffect(() => {
-    if (streamChunkMessage && autoScroll && messagesContainerRef.current) {
+    if (streamChunkMessage && autoScroll && !isUserTyping && messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
-  }, [streamChunkMessage, autoScroll]);
+  }, [streamChunkMessage, autoScroll, isUserTyping]);
 
   //Subscribe to the response stream chunks for the garden
   useEffect(() => {
@@ -447,30 +513,25 @@ const ChatBox = (params: {
         )}
 
         <List>
-          {[
-            // ...messages,
-            ...(messages ? messages : []),
-            ...(streamChunkMessage ? [streamChunkMessage] : [])
-          ]
-            .filter((message) => {
-              // if (showChainOfThought) return true
-              switch (message.role) {
-                case 'ai':
-                  return message.responseComplete
-                case 'tool':
-                  return ['renderAssetTool', 'userInputTool', 'createProject'].includes((message as any).toolName!);
-                default:
-                  return true;
-              }
-            })
-            .map((message) => (
-              <ListItem key={(message as any).id}>
+          {displayedMessages.map((message, index) => {
+            // NUCLEAR OPTION: Use index-based keys instead of message IDs to prevent React reconciliation issues
+            const stableKey = `message-${index}-${(message as any).role}-${((message as any).content?.text || '').substring(0, 20).replace(/\W/g, '')}`;
+            console.log(`🔑 Rendering message with stable key: ${stableKey}`);
+            
+            return (
+              <ListItem key={stableKey} style={{ 
+                // Force visibility at the DOM level for educational messages
+                visibility: (message as any).role === 'ai' && !(message as any).artifacts && (message as any).content?.text ? 'visible' : undefined,
+                display: (message as any).role === 'ai' && !(message as any).artifacts && (message as any).content?.text ? 'flex' : undefined,
+                opacity: (message as any).role === 'ai' && !(message as any).artifacts && (message as any).content?.text ? 1 : undefined
+              }}>
                 <ChatMessage
                   message={message}
                   onRegenerateMessage={(message as any).role === 'human' ? handleRegenerateMessage : undefined}
                 />
               </ListItem>
-            ))}
+            );
+          })}
           <div ref={messagesEndRef} />
         </List>
 
@@ -503,10 +564,11 @@ const ChatBox = (params: {
           </Typography>
           <ButtonDropdown
             items={[
-              {
-                text: 'Investigate the borehole washout - Why would this lead to elevated GR?',
-                id: '1'
-              }
+            {
+              text: 'Petrophysics Agent - Well data analysis & formation evaluation',
+              id: 'petroAgent',
+              // iconName: 'analytics'
+            },
             ]}
           ></ButtonDropdown>
         </div>

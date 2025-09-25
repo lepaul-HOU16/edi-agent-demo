@@ -1436,38 +1436,11 @@ Want to see this applied? Try: **"calculate porosity for WELL-001"**`
       };
     }
     
-    // CRITICAL: Skip MCP tool for educational queries to avoid generic responses
-    // Instead, provide direct educational support without MCP fallback
-    console.log('🎓 Providing direct educational response without MCP fallback');
+    // CRITICAL: Always generate structured artifacts for educational responses
+    console.log('🎓 Providing direct educational response with artifact structure');
     return {
       success: true,
-      message: `I'd be happy to explain petrophysical concepts and methodologies!
-
-## 🎓 **What I Can Explain**
-
-**Fundamental Concepts:**
-- "what is porosity" - Rock void space and storage capacity
-- "what is permeability" - Fluid flow capability  
-- "what is water saturation" - Fluid content analysis
-- "explain archie equation" - Water saturation calculation methodology
-
-**Method Comparisons:**
-- "compare porosity methods" - Density vs neutron analysis
-- "difference between larionov and linear" - Shale volume methods
-- "when to use archie equation" - Application guidelines
-
-**Calculation Workflows:**
-- "explain individual well analysis" - Complete workflow breakdown
-- "how do you interpret logs" - Professional interpretation techniques
-- "formation evaluation process" - Step-by-step methodology
-
-**Available Analysis:**
-I can also perform actual calculations and analysis with your well data:
-- Calculate porosity, shale volume, water saturation
-- Generate interactive visualizations and charts
-- Provide professional documentation and uncertainty analysis
-
-What specific concept or methodology would you like me to explain?`,
+      message: `Professional educational guidance generated`,
       artifacts: [{
         messageContentType: 'concept_definition',
         title: 'Educational Support Available',
@@ -1476,17 +1449,30 @@ What specific concept or methodology would you like me to explain?`,
         definition: 'I can provide detailed explanations about petrophysical concepts, calculation methodologies, and industry best practices.',
         keyPoints: [
           'Comprehensive concept definitions with formulas',
-          'Method comparisons and selection guidelines',
+          'Method comparisons and selection guidelines', 
           'Step-by-step workflow explanations',
           'Professional interpretation techniques',
           'Industry standards and best practices'
         ],
+        examples: [
+          '"what is porosity" - Rock void space and storage capacity',
+          '"what is permeability" - Fluid flow capability',
+          '"what is water saturation" - Fluid content analysis',
+          '"explain archie equation" - Water saturation calculation methodology'
+        ],
+        applications: [
+          'Fundamental concept explanations',
+          'Method comparison and selection',
+          'Workflow process guidance',
+          'Professional interpretation training'
+        ],
         nextSteps: [
           'explain archie equation',
-          'what is porosity',
+          'what is porosity', 
           'compare porosity methods',
           'explain individual well analysis'
-        ]
+        ],
+        relatedConcepts: ['Porosity', 'Permeability', 'Water Saturation', 'Shale Volume', 'Formation Evaluation']
       }]
     };
     
