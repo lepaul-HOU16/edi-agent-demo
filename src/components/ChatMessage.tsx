@@ -33,6 +33,8 @@ import { ComprehensivePorosityAnalysisComponent } from './messageComponents/Comp
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerComponent';
 import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorrelationComponent';
+import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
+import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
 
 // Enhanced artifact processor component with S3 support
 const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
@@ -244,36 +246,26 @@ const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
                 />;
             }
             
-            // CRITICAL FIX: Check for interactive educational components
+            // FIXED: Check for interactive educational components
             if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'interactive_educational') {
                 console.log('🎉 EnhancedArtifactProcessor: Rendering InteractiveEducationalComponent!');
-                // Import the component dynamically to avoid circular dependencies
-                const InteractiveEducationalComponent = React.lazy(() => import('./messageComponents/InteractiveEducationalComponent'));
+                // CRITICAL FIX: Use direct import instead of React.lazy to prevent typing interference
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={
-                        <React.Suspense fallback={<div>Loading interactive educational content...</div>}>
-                            <InteractiveEducationalComponent data={parsedArtifact} />
-                        </React.Suspense>
-                    }
+                    enhancedComponent={<InteractiveEducationalComponent data={parsedArtifact} />}
                 />;
             }
             
-            // NEW: Check for universal response components (concept definitions, general knowledge, etc.)
+            // FIXED: Check for universal response components (concept definitions, general knowledge, etc.)
             if (parsedArtifact && typeof parsedArtifact === 'object' && 
                 ['concept_definition', 'general_knowledge', 'quick_answer', 'error_response', 'guidance_response'].includes(parsedArtifact.messageContentType)) {
                 console.log('🎉 EnhancedArtifactProcessor: Rendering UniversalResponseComponent for type:', parsedArtifact.messageContentType);
-                // Import the component dynamically to avoid circular dependencies
-                const UniversalResponseComponent = React.lazy(() => import('./messageComponents/UniversalResponseComponent'));
+                // CRITICAL FIX: Use direct import instead of React.lazy to prevent typing interference
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={
-                        <React.Suspense fallback={<div>Loading professional response...</div>}>
-                            <UniversalResponseComponent data={parsedArtifact} />
-                        </React.Suspense>
-                    }
+                    enhancedComponent={<UniversalResponseComponent data={parsedArtifact} />}
                 />;
             }
         }

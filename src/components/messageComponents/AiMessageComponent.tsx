@@ -11,6 +11,7 @@ import { stringify } from 'yaml';
 import { Message } from '@/../utils/types';
 import CopyButton from './CopyButton';
 import ArtifactRenderer from '../ArtifactRenderer';
+import StableEducationalMessage from '../StableEducationalMessage';
 
 interface AiMessageComponentProps {
   message: Message;
@@ -32,12 +33,40 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme,
     messageContent: (message as any).content?.text?.substring(0, 100) + '...'
   });
 
+  // Detect if this is an educational response (simple AI message without enhanced component)
+  const isEducationalMessage = !enhancedComponent && 
+                              !(message as any).artifacts && 
+                              (message as any).content?.text &&
+                              !(message as any).toolCalls;
+
+  console.log('🎯 AiMessageComponent: Educational message detection:', {
+    isEducationalMessage,
+    hasEnhancedComponent: !!enhancedComponent,
+    hasArtifacts: !!(message as any).artifacts,
+    hasToolCalls: !!(message as any).toolCalls,
+    messageLength: (message as any).content?.text?.length || 0
+  });
+
+  // CRITICAL FIX: Use isolated component for educational messages
+  if (isEducationalMessage) {
+    console.log('🔒 AiMessageComponent: Using StableEducationalMessage for educational response');
+    return <StableEducationalMessage message={message} theme={theme} />;
+  }
+
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      width: '100%'
-    }}>
+    <div 
+      style={{
+        display: 'flex',
+        flexDirection: 'column',
+        width: '100%',
+        // Add stability measures to prevent scroll interference
+        position: 'relative',
+        minHeight: 'auto',
+        // Prevent layout shifts by ensuring consistent container behavior
+        contain: 'layout style',
+        willChange: 'auto' // Optimize for rendering stability
+      }}
+    >
       <div style={{ 
         display: 'flex', 
         alignItems: 'flex-start', 

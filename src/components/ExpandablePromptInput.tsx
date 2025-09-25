@@ -26,36 +26,54 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Simplified typing detection - only through onChange
+  // Enhanced input change handler with immediate typing state clearing on empty
   const handleInputChange = useCallback((newValue: string) => {
     // Update the input value immediately - no interference
     onChange(newValue);
     
     // Handle typing state if needed
     if (onTypingStateChange) {
-      if (!isTyping && newValue.length > 0) {
-        setIsTyping(true);
-        onTypingStateChange(true);
-      }
-      
-      // Clear existing timeout
+      // Clear existing timeout to prevent race conditions
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
       
-      // Set timeout for typing end only if there's content
-      if (newValue.length > 0) {
+      if (newValue.length === 0) {
+        // Immediately clear typing state when input is empty (on submit/clear)
+        setIsTyping(false);
+        onTypingStateChange(false);
+      } else {
+        // Set typing state if not already typing
+        if (!isTyping) {
+          setIsTyping(true);
+          onTypingStateChange(true);
+        }
+        
+        // Set shorter timeout for faster typing end detection
         typingTimeoutRef.current = setTimeout(() => {
           setIsTyping(false);
           onTypingStateChange(false);
-        }, 1500); // Longer timeout to prevent premature typing end
-      } else {
-        // If input is empty, immediately set typing to false
-        setIsTyping(false);
-        onTypingStateChange(false);
+        }, 800); // Reduced from 1500ms to 800ms for faster reset
       }
     }
   }, [onChange, onTypingStateChange, isTyping]);
+  
+  // Handle action (submit) - immediately clear typing state
+  const handleAction = useCallback(() => {
+    // Clear typing state immediately on submit
+    if (onTypingStateChange && isTyping) {
+      setIsTyping(false);
+      onTypingStateChange(false);
+    }
+    
+    // Clear timeout to prevent delayed state changes
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+    
+    // Call the original onAction
+    onAction();
+  }, [onAction, onTypingStateChange, isTyping]);
 
   // Cleanup on unmount
   React.useEffect(() => {
@@ -103,7 +121,7 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
     }}>
       <PromptInput
         onChange={({ detail }) => handleInputChange(detail.value)}
-        onAction={onAction}
+        onAction={handleAction}
         value={value}
         actionButtonAriaLabel={actionButtonAriaLabel}
         actionButtonIconName="send"
