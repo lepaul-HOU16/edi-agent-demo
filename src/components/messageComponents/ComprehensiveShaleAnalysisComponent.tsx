@@ -338,12 +338,12 @@ function ExecutiveSummaryCard({ data }: { data: any }) {
           <Typography variant="h5" fontWeight="bold" color="primary">
             {data.executiveSummary?.title || 'Comprehensive Shale Analysis'}
           </Typography>
-          <Chip 
+        </Stack>
+        <Chip 
             label={data.executiveSummary?.overallAssessment || 'Analysis Complete'}
             color={getAssessmentColor(data.executiveSummary?.overallAssessment)}
             variant="filled"
           />
-        </Stack>
 
         <Grid container spacing={3}>
           <Grid item xs={12} md={8}>
