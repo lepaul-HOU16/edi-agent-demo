@@ -33,6 +33,8 @@ import { ComprehensivePorosityAnalysisComponent } from './messageComponents/Comp
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerComponent';
 import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorrelationComponent';
+import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
+import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
 
 // Enhanced artifact processor component with S3 support
 const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
@@ -241,6 +243,29 @@ const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
                     message={message} 
                     theme={theme} 
                     enhancedComponent={<LogPlotViewerComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // FIXED: Check for interactive educational components
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'interactive_educational') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering InteractiveEducationalComponent!');
+                // CRITICAL FIX: Use direct import instead of React.lazy to prevent typing interference
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<InteractiveEducationalComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // FIXED: Check for universal response components (concept definitions, general knowledge, etc.)
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                ['concept_definition', 'general_knowledge', 'quick_answer', 'error_response', 'guidance_response'].includes(parsedArtifact.messageContentType)) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering UniversalResponseComponent for type:', parsedArtifact.messageContentType);
+                // CRITICAL FIX: Use direct import instead of React.lazy to prevent typing interference
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<UniversalResponseComponent data={parsedArtifact} />}
                 />;
             }
         }

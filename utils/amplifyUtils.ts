@@ -351,7 +351,9 @@ export const sendMessage = async (props: {
           chatSessionId: props.chatSessionId as any,
           responseComplete: true as any,
           // Use processed artifacts (may include S3 references for large artifacts)
-          artifacts: processedArtifacts.length > 0 ? processedArtifacts : undefined
+          artifacts: processedArtifacts.length > 0 ? processedArtifacts : undefined,
+          // CRITICAL FIX: Add timestamp to ensure message ordering and prevent race conditions
+          createdAt: new Date().toISOString() as any
         } as any;
         
         // Enhanced debugging with improved artifact handling
