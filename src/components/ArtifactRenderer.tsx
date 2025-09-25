@@ -1,6 +1,8 @@
 import React from 'react';
 import { LogPlotViewer } from './logVisualization/LogPlotViewer';
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
+import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
+import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
 
 interface Artifact {
   type: string;
@@ -39,6 +41,25 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
                 <ComprehensiveWellDataDiscoveryComponent data={artifact} />
+              </div>
+            );
+
+          case 'interactive_educational':
+          case 'educational_overview':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <InteractiveEducationalComponent data={artifact as any} />
+              </div>
+            );
+
+          case 'concept_definition':
+          case 'general_knowledge':
+          case 'quick_answer':
+          case 'error_response':
+          case 'guidance_response':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <UniversalResponseComponent data={artifact as any} />
               </div>
             );
             

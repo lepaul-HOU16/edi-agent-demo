@@ -47,6 +47,14 @@ function Page({
     const router = useRouter();
     const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
     
+    // Memoized message handlers to prevent parent re-renders from interfering with message state
+    const stableSetMessages = React.useCallback((newMessages: Message[] | ((prevMessages: Message[]) => Message[])) => {
+        console.log('Parent: Setting messages', typeof newMessages === 'function' ? 'function' : newMessages.length);
+        setMessages(newMessages);
+    }, []);
+    
+    const stableMessages = React.useMemo(() => messages, [messages]);
+    
     // Chain of thought auto-scroll state
     const [chainOfThoughtAutoScroll, setChainOfThoughtAutoScroll] = useState<boolean>(true);
     const [chainOfThoughtMessageCount, setChainOfThoughtMessageCount] = useState<number>(0);
@@ -585,8 +593,8 @@ function Page({
                                 showChainOfThought={showChainOfThought}
                                 onInputChange={setUserInput}
                                 userInput={userInput}
-                                messages={messages}
-                                setMessages={setMessages}
+                                messages={stableMessages}
+                                setMessages={stableSetMessages}
                             />
 
                         </div>
