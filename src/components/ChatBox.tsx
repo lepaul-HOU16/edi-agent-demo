@@ -55,10 +55,10 @@ const ChatBox = (params: {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   
-  // Enhanced auto-scroll state
+  // Simplified auto-scroll state
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
   const [messageCount, setMessageCount] = useState<number>(0);
-  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isUserTyping, setIsUserTyping] = useState<boolean>(false);
   // const [showChainOfThought, setShowChainOfThought] = useState(false);
   // const [selectedAgent, setSelectedAgent] = useState<('reActAgent' | 'planAndExecuteAgent' | 'projectGenerationAgent')>("reActAgent");
 
@@ -79,16 +79,13 @@ const ChatBox = (params: {
           const recentMessages = items.slice(-messagesPerPage);
           const sortedMessages = combineAndSortMessages(prevMessages, recentMessages)
           if (sortedMessages[sortedMessages.length - 1] && sortedMessages[sortedMessages.length - 1].responseComplete) {
-            // Defer state updates to prevent rendering issues
-            setTimeout(() => {
-              setIsLoading(false)
-              setStreamChunkMessage(undefined)
-              setResponseStreamChunks([])
-            }, 0)
+            // Remove setTimeout to prevent rendering race conditions
+            setIsLoading(false)
+            setStreamChunkMessage(undefined)
+            setResponseStreamChunks([])
           }
-          setTimeout(() => {
-            setHasMoreMessages(items.length > messagesPerPage);
-          }, 0)
+          // Remove setTimeout to prevent display flickering
+          setHasMoreMessages(items.length > messagesPerPage);
           return sortedMessages
         })
         }
@@ -166,18 +163,20 @@ const ChatBox = (params: {
     }
   }, [messages.length]);
 
-  // Enhanced auto-scroll functionality for chat messages
-  const scrollChatToBottom = useCallback(() => {
-    if (messagesEndRef.current && autoScroll) {
-      console.log('ChatBox: Auto-scrolling to bottom');
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: 'smooth', 
-        block: 'end' 
-      });
+  // Handle typing state changes from input - simplified, no immediate scroll impact
+  const handleTypingStateChange = useCallback((typing: boolean) => {
+    console.log(`ChatBox: User typing state changed to: ${typing}`);
+    setIsUserTyping(typing);
+  }, []);
+
+  // Simplified auto-scroll functionality - memoized to prevent recreation
+  const autoScrollToBottom = useCallback(() => {
+    if (messagesContainerRef.current && autoScroll) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [autoScroll]);
 
-  // Monitor messages for changes to trigger auto-scroll
+  // Stable message monitoring - remove unstable dependencies to prevent pop-in/out
   useEffect(() => {
     const displayedMessages = [
       ...(messages ? messages : []),
@@ -197,56 +196,27 @@ const ChatBox = (params: {
 
     const newMessageCount = displayedMessages.length;
     
-    // If we have new messages and auto-scroll is enabled, scroll to bottom
-    if (newMessageCount > messageCount && autoScroll) {
-      // Clear any existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
+    // Only scroll when message count actually increases and auto-scroll is enabled
+    if (newMessageCount > messageCount) {
+      setMessageCount(newMessageCount);
+      
+      if (autoScroll && messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
       }
       
-      // Scroll after a brief delay to ensure DOM has updated
-      scrollTimeoutRef.current = setTimeout(() => {
-        scrollChatToBottom();
-      }, 100);
-    }
-    
-    // If we have new messages but auto-scroll is disabled, re-enable it for new content
-    if (newMessageCount > messageCount && !autoScroll) {
-      console.log('ChatBox: New content detected, re-enabling auto-scroll');
-      setAutoScroll(true);
-      
-      // Clear any existing timeout
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
+      // Re-enable auto-scroll when new content arrives
+      if (!autoScroll) {
+        setAutoScroll(true);
       }
-      
-      // Scroll after a brief delay to ensure DOM has updated
-      scrollTimeoutRef.current = setTimeout(() => {
-        scrollChatToBottom();
-      }, 100);
     }
-    
-    setMessageCount(newMessageCount);
-  }, [messages, streamChunkMessage, messageCount, autoScroll, scrollChatToBottom]);
+  }, [messages, streamChunkMessage, messageCount, autoScroll]);
 
-  // Auto-scroll during streaming with interrupt respect
+  // Minimal streaming auto-scroll - direct scroll without function dependency
   useEffect(() => {
-    if (streamChunkMessage && autoScroll) {
-      // Scroll during streaming to keep up with long answers
-      if (messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = Number.MAX_SAFE_INTEGER;
-      }
+    if (streamChunkMessage && autoScroll && messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
     }
   }, [streamChunkMessage, autoScroll]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (scrollTimeoutRef.current) {
-        clearTimeout(scrollTimeoutRef.current);
-      }
-    };
-  }, []);
 
   //Subscribe to the response stream chunks for the garden
   useEffect(() => {
@@ -507,7 +477,12 @@ const ChatBox = (params: {
       </Box>
 
       <div className='controls'>
-        <div className='input-bkgd'>
+        <div 
+          className='input-bkgd'
+          style={{
+            backdropFilter: 'blur(8px)' // Only add the blur effect, keep original structure
+          }}
+        >
           <ExpandablePromptInput
             onChange={(value) => params.onInputChange(value)}
             onAction={() => handleSend(params.userInput)}
@@ -516,6 +491,7 @@ const ChatBox = (params: {
             actionButtonIconName="send"
             ariaLabel="Prompt input with action button"
             placeholder="Ask a question"
+            onTypingStateChange={handleTypingStateChange}
           />
           <Typography
             variant="inherit"
@@ -523,7 +499,7 @@ const ChatBox = (params: {
             style={{ lineHeight: '14px', width: '50px', marginRight: '-13px', marginLeft: '10px' }}
             fontSize={11}
           >
-            Example Prompts
+            AI Agent Switcher
           </Typography>
           <ButtonDropdown
             items={[

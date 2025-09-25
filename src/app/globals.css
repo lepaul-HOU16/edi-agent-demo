@@ -290,3 +290,46 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   display: flex;
   flex-direction: column;
 }
+
+/* Input container coordinated growth styles */
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  align-self: flex-end; /* Anchor controls container to bottom for upward growth */
+}
+
+.input-bkgd {
+  display: flex !important;
+  align-items: center !important; /* Center-align content vertically for proper padding */
+  min-height: fit-content !important;
+  flex-direction: row !important;
+  gap: 10px !important;
+  contain: layout !important; /* Isolate layout changes for scroll stability */
+  padding-top: 11px;
+  padding-bottom: 11px;
+}
+
+/* CloudScape PromptInput maintains flex growth with smooth transitions */
+.input-bkgd [class*="awsui-prompt-input"] {
+  flex: 1 !important;
+  align-self: stretch !important; /* Let input take available height */
+  transition: height 0.2s ease-in-out, min-height 0.2s ease-in-out !important;
+}
+
+/* Override CloudScape textarea for bottom-up expansion with smooth transitions */
+.input-bkgd [class*="awsui-prompt-input"] [class*="awsui_input_"] {
+  justify-content: flex-end !important; /* Anchor input growth to bottom */
+  transition: height 0.2s ease-in-out, min-height 0.2s ease-in-out !important;
+}
+
+.input-bkgd [class*="awsui-prompt-input"] textarea {
+  resize: none !important;
+  overflow: hidden !important; /* Prevent internal scrolling */
+  transition: height 0.2s ease-in-out, min-height 0.2s ease-in-out, max-height 0.2s ease-in-out !important;
+}
+
+/* Ensure side elements stay center-aligned */
+.input-bkgd > *:not([class*="awsui-prompt-input"]) {
+  align-self: center !important; /* Center-align Typography and ButtonDropdown */
+}

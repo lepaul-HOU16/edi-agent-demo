@@ -1,5 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Box, Paper, Popper, Fade } from '@mui/material';
+import React, { useState, useRef, useCallback } from 'react';
+import { Box } from '@mui/material';
 import PromptInput from '@cloudscape-design/components/prompt-input';
 
 interface ExpandablePromptInputProps {
@@ -10,6 +10,7 @@ interface ExpandablePromptInputProps {
   actionButtonAriaLabel?: string;
   actionButtonIconName?: string;
   ariaLabel?: string;
+  onTypingStateChange?: (isTyping: boolean) => void;
 }
 
 const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
@@ -19,112 +20,97 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
   placeholder = "Ask a question",
   actionButtonAriaLabel = "Send message",
   actionButtonIconName = "send",
-  ariaLabel = "Prompt input with action button"
+  ariaLabel = "Prompt input with action button",
+  onTypingStateChange
 }) => {
-  const [isOverflowing, setIsOverflowing] = useState(false);
-  const inputRef = useRef<HTMLDivElement>(null);
-  const textMeasureRef = useRef<HTMLDivElement>(null);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  
-  // Calculate if text would overflow based on input width
-  useEffect(() => {
-    const calculateOverflow = () => {
-      if (inputRef.current && textMeasureRef.current) {
-        // Get the width of the input container
-        const inputWidth = inputRef.current.clientWidth;
-        
-        // Set the text in the measuring div and get its width
-        textMeasureRef.current.textContent = value;
-        const textWidth = textMeasureRef.current.scrollWidth;
-        
-        // Determine if text would overflow (with some margin)
-        const wouldOverflow = textWidth > (inputWidth - 60); // 60px for padding and send button
-        setIsOverflowing(wouldOverflow);
+  const [isTyping, setIsTyping] = useState(false);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Simplified typing detection - only through onChange
+  const handleInputChange = useCallback((newValue: string) => {
+    // Update the input value immediately - no interference
+    onChange(newValue);
+    
+    // Handle typing state if needed
+    if (onTypingStateChange) {
+      if (!isTyping && newValue.length > 0) {
+        setIsTyping(true);
+        onTypingStateChange(true);
+      }
+      
+      // Clear existing timeout
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+      
+      // Set timeout for typing end only if there's content
+      if (newValue.length > 0) {
+        typingTimeoutRef.current = setTimeout(() => {
+          setIsTyping(false);
+          onTypingStateChange(false);
+        }, 1500); // Longer timeout to prevent premature typing end
+      } else {
+        // If input is empty, immediately set typing to false
+        setIsTyping(false);
+        onTypingStateChange(false);
+      }
+    }
+  }, [onChange, onTypingStateChange, isTyping]);
+
+  // Cleanup on unmount
+  React.useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
       }
     };
-    
-    calculateOverflow();
-    
-    // Add resize listener to recalculate on window resize
-    window.addEventListener('resize', calculateOverflow);
-    return () => window.removeEventListener('resize', calculateOverflow);
-  }, [value]);
-
-  // Set anchor element for the popper when content would overflow
-  useEffect(() => {
-    if (isOverflowing && inputRef.current) {
-      setAnchorEl(inputRef.current);
-    } else {
-      setAnchorEl(null);
-    }
-  }, [isOverflowing]);
-
-  // Determine if the popper should be open
-  const open = Boolean(anchorEl) && isOverflowing;
+  }, []);
 
   return (
-    <Box sx={{ position: 'relative', width: '100%' }} ref={inputRef}>
-      {/* Hidden div to measure text width */}
-      <div 
-        ref={textMeasureRef}
-        style={{
-          position: 'absolute',
-          visibility: 'hidden',
-          whiteSpace: 'nowrap',
-          fontFamily: 'inherit',
-          fontSize: 'inherit',
-          pointerEvents: 'none'
-        }}
+    <Box sx={{ 
+      position: 'relative',
+      width: '100%',
+      // Remove outer padding to maximize input width
+      boxSizing: 'border-box',
+      '& .awsui-prompt-input': {
+        width: '100%',
+      },
+      '& .awsui-prompt-input__input': {
+        width: '100% !important',
+        minHeight: '40px',
+        padding: '12px 16px !important', // Single, consistent internal padding
+        resize: 'vertical',
+        boxSizing: 'border-box',
+      },
+      '& .awsui-prompt-input__action-button': {
+        alignSelf: 'flex-end',
+        marginBottom: '8px',
+        marginRight: '2px', // Minimal spacing from edge
+      },
+      // Maximize container width - remove unnecessary padding
+      '& .awsui-prompt-input__container': {
+        width: '100%',
+        padding: '4px', // Minimal padding for proper layout
+        boxSizing: 'border-box',
+        gap: '4px', // Smaller gap to maximize input space
+      },
+      '& .awsui-prompt-input__input-wrapper': {
+        width: '100%',
+        flex: '1 1 auto',
+        // Remove marginRight to extend input closer to Example Prompts
+        marginRight: '0px',
+      }
+    }}>
+      <PromptInput
+        onChange={({ detail }) => handleInputChange(detail.value)}
+        onAction={onAction}
+        value={value}
+        actionButtonAriaLabel={actionButtonAriaLabel}
+        actionButtonIconName="send"
+        ariaLabel={ariaLabel}
+        placeholder={placeholder}
+        maxRows={10}
       />
-      {/* Regular input that's always visible */}
-      <div>
-        <PromptInput
-          onChange={({ detail }) => onChange(detail.value)}
-          onAction={onAction}
-          value={value}
-          actionButtonAriaLabel={actionButtonAriaLabel}
-          actionButtonIconName={"send"}
-          ariaLabel={ariaLabel}
-          placeholder={placeholder}
-          maxRows={1}
-        />
-      </div>
-
-      {/* Flyout expanded input */}
-      <Popper
-        open={open}
-        anchorEl={anchorEl}
-        placement="top-start"
-        transition
-        style={{ zIndex: 1500, width: inputRef.current?.offsetWidth }}
-      >
-        {({ TransitionProps }) => (
-          <Fade {...TransitionProps} timeout={350}>
-            <Paper 
-              elevation={8}
-              sx={{ 
-                p: 2, 
-                mt: 1, 
-                mb: -3.5, // -28px (converted to rem, assuming 8px = 1rem)
-                borderRadius: '10px',
-                backgroundColor: '#006ce0',
-                width: '100%'
-              }}
-            >
-              <PromptInput
-                onChange={({ detail }) => onChange(detail.value)}
-                onAction={onAction}
-                value={value}
-                actionButtonAriaLabel={actionButtonAriaLabel}
-                actionButtonIconName={"send"}
-                ariaLabel={ariaLabel}
-                placeholder={placeholder}
-                maxRows={10} // Allow multiple rows in the expanded view
-              />
-            </Paper>
-          </Fade>
-        )}
-      </Popper>
     </Box>
   );
 };
