@@ -353,8 +353,8 @@ function Page({
                                 Accelerate Your Data Analysis
                             </Box>
                             <Box margin={{ bottom: 'm' }}>
-                                Discover automated, AI-powered workflows tailored for geoscientists to
-                                interpret assets and expedite your data-driven analysis in data collections.
+                                Explore pre-built, AI-enhanced workflows designed for geoscientists to
+                                analyze well data and streamline petrophysical interpretations.
                             </Box>
                             <Cards
                                 header=""
@@ -467,8 +467,8 @@ function Page({
                                         type="info"
                                         header="Powered by Agentic AI"
                                     >
-                                        These workflows are continuously learning from your latest data to provide
-                                        more accurate geoscientific recommendations.
+                                        These pre-built workflows leverage AI techniques to provide
+                                        enhanced geoscientific analysis and recommendations.
                                     </Alert>
                                 </div>
                             </Box>
