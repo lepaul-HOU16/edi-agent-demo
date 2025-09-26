@@ -94,6 +94,7 @@ export const schema = a.schema({
       responseComplete: a.boolean(),
       chatSessionIdUnderscoreFieldName: a.string(), //This is so that when invoking multiple agents, an agent can query it's own messages
       artifacts: a.json().array(), // Add artifacts field
+      thoughtSteps: a.json().array(), // Add thought steps field for chain of thought
 
       //auto-generated fields
       owner: a.string(),
@@ -150,7 +151,8 @@ export const schema = a.schema({
     .returns(a.customType({
       success: a.boolean().required(),
       message: a.string().required(),
-      artifacts: a.json().array()
+      artifacts: a.json().array(),
+      thoughtSteps: a.json().array() // CRITICAL FIX: Add thoughtSteps to return type
     }))
     .handler(a.handler.function(lightweightAgentFunction))
     .authorization((allow) => [allow.authenticated()]),

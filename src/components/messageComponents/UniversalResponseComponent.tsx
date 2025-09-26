@@ -144,153 +144,177 @@ const ConceptDefinitionResponse: React.FC<{ data: UniversalResponseData }> = ({ 
 
   return (
     <Box sx={{ width: '100%', p: 2 }}>
-      {/* Professional Header */}
-      <Card sx={{ 
-        background: categoryConfig.gradient,
-        border: `2px solid ${categoryConfig.color}`,
-        borderLeft: `6px solid ${categoryConfig.color}`,
-        mb: 3
+      <div style={{ 
+        display: 'flex',
+        flexDirection: 'column',
+        flex: '1',
+        marginBottom: '0', // Remove bottom margin from first column
+        minWidth: 0
       }}>
-        <CardContent>
-          <Stack direction="row" alignItems="center" spacing={2}>
-            <CategoryIcon sx={{ color: categoryConfig.color, fontSize: 36 }} />
-            <Box>
-              <Typography variant="h4" fontWeight="bold" color="primary">
-                {data.title}
-              </Typography>
-              {data.subtitle && (
-                <Typography variant="subtitle1" color="text.secondary" sx={{ mt: 0.5 }}>
-                  {data.subtitle}
+        <div style={{ 
+          display: 'table', 
+          alignItems: 'flex-start', 
+          gap: '40px',
+          width: '100%',
+          height: '100%',
+          marginBottom: '0' // Remove bottom margin from header
+        }}>
+
+        {/* Professional Header */}
+        <Card sx={{ 
+          display: 'table-cell',
+          background: categoryConfig.gradient,
+          border: `2px solid ${categoryConfig.color}`,
+          borderLeft: `6px solid ${categoryConfig.color}`,
+        }}>
+          <CardContent>
+            <Stack direction="column" alignItems="baseline" spacing={2}>
+              <CategoryIcon sx={{ color: categoryConfig.color, fontSize: 48 }} />
+              <Box>
+                <Typography variant="h4" fontWeight="bold" color="primary">
+                  {data.title}
                 </Typography>
-              )}
-              <Chip 
-                label={categoryConfig.label}
-                size="small"
-                sx={{ 
-                  mt: 1,
-                  backgroundColor: categoryConfig.bgColor,
-                  color: categoryConfig.color,
-                  border: `1px solid ${categoryConfig.color}`
-                }}
-              />
-            </Box>
-          </Stack>
-        </CardContent>
-      </Card>
+                {data.subtitle && (
+                  <Typography variant="subtitle1" color="text.secondary" sx={{ mt: 0.5 }}>
+                    {data.subtitle}
+                  </Typography>
+                )}
+                <Chip 
+                  label={categoryConfig.label}
+                  size="small"
+                  sx={{ 
+                    mt: 1,
+                    backgroundColor: categoryConfig.bgColor,
+                    color: categoryConfig.color,
+                    border: `1px solid ${categoryConfig.color}`
+                  }}
+                />
+              </Box>
+            </Stack>
+          </CardContent>
+        </Card> 
 
-      {/* Content Sections */}
-      <Card variant="outlined">
-        <CardContent sx={{ p: 0 }}>
-          {sections.map((section) => {
-            const SectionIcon = section.icon;
-            const isExpanded = expandedSection === section.id;
+        {/* Content Sections */}
+        <Card variant="outlined" sx={{display: 'table-cell',}}>
+          <CardContent sx={{ p: 0 }}>
+            {sections.map((section) => {
+              const SectionIcon = section.icon;
+              const isExpanded = expandedSection === section.id;
 
-            return (
-              <Accordion 
-                key={section.id}
-                expanded={isExpanded}
-                onChange={() => setExpandedSection(isExpanded ? null : section.id)}
-                sx={{ 
-                  boxShadow: 'none',
-                  '&:not(:last-child)': { borderBottom: 0 },
-                  '&::before': { display: 'none' }
-                }}
-              >
-                <AccordionSummary expandIcon={<ExpandMore />}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <SectionIcon color="primary" />
-                    <Typography variant="h6" fontWeight="semibold">
-                      {section.title}
-                    </Typography>
-                  </Box>
-                </AccordionSummary>
-                
-                <AccordionDetails>
-                  {section.id === 'formula' && typeof section.content === 'string' ? (
-                    <Paper 
-                      sx={{ 
-                        p: 2, 
-                        backgroundColor: '#FFF8E1',
-                        borderLeft: '4px solid #FF9800',
-                        borderRadius: 1
-                      }}
-                    >
-                      <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, color: '#F57C00' }}>
-                        Mathematical Formula
+              return (
+                <Accordion 
+                  key={section.id}
+                  expanded={isExpanded}
+                  onChange={() => setExpandedSection(isExpanded ? null : section.id)}
+                  sx={{ 
+                    boxShadow: 'none',
+                    '&:not(:last-child)': { borderBottom: 0 },
+                    '&::before': { display: 'none' }
+                  }}
+                >
+                  <AccordionSummary expandIcon={<ExpandMore />}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <SectionIcon color="primary" />
+                      <Typography variant="h6" fontWeight="semibold">
+                        {section.title}
                       </Typography>
-                      <Paper
+                    </Box>
+                  </AccordionSummary>
+                  
+                  <AccordionDetails>
+                    {section.id === 'formula' && typeof section.content === 'string' ? (
+                      <Paper 
                         sx={{ 
                           p: 2, 
-                          backgroundColor: '#FFF',
-                          fontFamily: 'monospace',
-                          border: '1px solid #FFB74D',
-                          fontSize: '1.1em'
+                          backgroundColor: '#FFF8E1',
+                          borderLeft: '4px solid #FF9800',
+                          borderRadius: 1
                         }}
                       >
-                        <Typography variant="body1" component="code" sx={{ color: '#E65100' }}>
+                        <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1, color: '#F57C00' }}>
+                          Mathematical Formula
+                        </Typography>
+                        <Paper
+                          sx={{ 
+                            p: 2, 
+                            backgroundColor: '#FFF',
+                            fontFamily: 'monospace',
+                            border: '1px solid #FFB74D',
+                            fontSize: '1.1em'
+                          }}
+                        >
+                          <Typography variant="body1" component="code" sx={{ color: '#E65100' }}>
+                            {section.content}
+                          </Typography>
+                        </Paper>
+                      </Paper>
+                    ) : Array.isArray(section.content) ? (
+                      <Stack spacing={1}>
+                        {section.content.map((item, i) => (
+                          <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                            <FiberManualRecord 
+                              sx={{ 
+                                color: categoryConfig.color, 
+                                fontSize: 8, 
+                                mt: 1
+                              }} 
+                            />
+                            <Typography variant="body1" color="text.primary">
+                              {item}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Paper 
+                        sx={{ 
+                          p: 2.5, 
+                          backgroundColor: '#F5F5F5',
+                          borderRadius: 2,
+                          borderLeft: `4px solid ${categoryConfig.color}`
+                        }}
+                      >
+                        <Typography variant="body1" sx={{ whiteSpace: 'pre-line', lineHeight: 1.6 }}>
                           {section.content}
                         </Typography>
                       </Paper>
-                    </Paper>
-                  ) : Array.isArray(section.content) ? (
-                    <Stack spacing={1}>
-                      {section.content.map((item, i) => (
-                        <Box key={i} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                          <FiberManualRecord 
-                            sx={{ 
-                              color: categoryConfig.color, 
-                              fontSize: 8, 
-                              mt: 1
-                            }} 
-                          />
-                          <Typography variant="body1" color="text.primary">
-                            {item}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Stack>
-                  ) : (
-                    <Paper 
-                      sx={{ 
-                        p: 2.5, 
-                        backgroundColor: '#F5F5F5',
-                        borderRadius: 2,
-                        borderLeft: `4px solid ${categoryConfig.color}`
-                      }}
-                    >
-                      <Typography variant="body1" sx={{ whiteSpace: 'pre-line', lineHeight: 1.6 }}>
-                        {section.content}
-                      </Typography>
-                    </Paper>
-                  )}
-                </AccordionDetails>
-              </Accordion>
-            );
-          })}
-        </CardContent>
-      </Card>
-
-      {/* Additional Action Items */}
-      {data.nextSteps && data.nextSteps.length > 0 && (
-        <Card variant="outlined" sx={{ mt: 2 }}>
-          <CardContent>
-            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <PlayCircle color="primary" />
-              🚀 Next Steps
-            </Typography>
-            <Stack spacing={1}>
-              {data.nextSteps.map((step, i) => (
-                <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <CheckCircle sx={{ color: '#4CAF50', fontSize: 18 }} />
-                  <Typography variant="body2" color="text.primary">
-                    {step}
-                  </Typography>
-                </Box>
-              ))}
-            </Stack>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              );
+            })}
           </CardContent>
         </Card>
-      )}
+
+        {/* Additional Action Items */}
+        {data.nextSteps && data.nextSteps.length > 0 && (
+          <Card variant="outlined" sx={{ mt: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <PlayCircle color="primary" />
+                🚀 Next Steps
+              </Typography>
+              <Stack spacing={1}>
+                {data.nextSteps.map((step, i) => (
+                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <CheckCircle sx={{ color: '#4CAF50', fontSize: 18 }} />
+                    <Typography variant="body2" color="text.primary">
+                      {step}
+                    </Typography>
+                  </Box>
+                ))}
+              </Stack>
+            </CardContent>
+          </Card>
+        )}
+
+        </div>
+      </div>
+
+
+
+
+      
     </Box>
   );
 };
@@ -302,13 +326,15 @@ const GeneralKnowledgeResponse: React.FC<{ data: UniversalResponseData }> = ({ d
 
   return (
     <Box sx={{ width: '100%', p: 2 }}>
-      {/* Professional Header */}
-      <Card sx={{ 
-        background: categoryConfig.gradient,
-        border: `2px solid ${categoryConfig.color}`,
-        borderLeft: `6px solid ${categoryConfig.color}`,
-        mb: 2
-      }}>
+        {/* Professional Header */}
+        <Card sx={{ 
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          background: categoryConfig.gradient,
+          border: `2px solid ${categoryConfig.color}`,
+          borderLeft: `6px solid ${categoryConfig.color}`,
+        }}>
         <CardContent>
           <Stack direction="row" alignItems="center" spacing={2}>
             <CategoryIcon sx={{ color: categoryConfig.color, fontSize: 32 }} />
