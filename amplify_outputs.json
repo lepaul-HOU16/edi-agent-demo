@@ -374,6 +374,14 @@
               "attributes": [],
               "isArrayNullable": true
             },
+            "thoughtSteps": {
+              "name": "thoughtSteps",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
             "owner": {
               "name": "owner",
               "isArray": false,
@@ -753,6 +761,14 @@
             },
             "artifacts": {
               "name": "artifacts",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "thoughtSteps": {
+              "name": "thoughtSteps",
               "isArray": true,
               "type": "AWSJSON",
               "isRequired": false,
