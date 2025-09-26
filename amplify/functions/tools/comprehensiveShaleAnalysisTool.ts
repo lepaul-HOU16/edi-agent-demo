@@ -869,7 +869,10 @@ function generateSingleWellReport(analysis: WellShaleAnalysis, plotData: any): a
       }
     },
     completionStrategy: {
-      primaryRecommendations: analysis.completionRecommendations,
+      primaryTargets: analysis.completionRecommendations,
+      recommendedApproach: analysis.shaleVolumeStats.netToGross > 0.5 
+        ? 'Conventional completion with selective perforation targeting clean sand intervals'
+        : 'Enhanced completion techniques with detailed reservoir characterization',
       targetIntervals: analysis.cleanSandIntervals.slice(0, 3).map(interval => ({
         interval: `${interval.topDepth.toFixed(0)}-${interval.bottomDepth.toFixed(0)}ft`,
         priority: interval === analysis.cleanSandIntervals[0] ? "Primary" : "Secondary",
@@ -910,6 +913,24 @@ function generateCorrelationReport(analyses: WellShaleAnalysis[], correlation: M
         correlation.depositionalEnvironment
       ],
       fieldAssessment: avgNetToGross > 0.6 ? "Excellent Field Potential" : avgNetToGross > 0.4 ? "Good Field Potential" : "Moderate Field Potential"
+    },
+    completionStrategy: {
+      primaryTargets: analyses
+        .filter(a => a.reservoirQuality === 'Excellent' || a.reservoirQuality === 'Good')
+        .sort((a, b) => b.shaleVolumeStats.netToGross - a.shaleVolumeStats.netToGross)
+        .slice(0, 3)
+        .map(a => `${a.wellName}: ${(a.shaleVolumeStats.netToGross * 100).toFixed(0)}% net-to-gross, ${a.cleanSandIntervals.length} clean intervals`),
+      recommendedApproach: avgNetToGross > 0.5 
+        ? 'Field-wide development with conventional completions targeting clean sand intervals'
+        : 'Selective development focusing on highest quality wells with enhanced completion techniques',
+      targetIntervals: analyses
+        .filter(a => a.reservoirQuality === 'Excellent' || a.reservoirQuality === 'Good')
+        .slice(0, 3)
+        .map((a, index) => ({
+          interval: `${a.wellName} - Multiple clean sand intervals`,
+          priority: index === 0 ? 'Primary' : index === 1 ? 'Secondary' : 'Tertiary',
+          rationale: `${a.reservoirQuality} quality well with ${(a.shaleVolumeStats.netToGross * 100).toFixed(0)}% net-to-gross ratio`
+        }))
     },
     results: {
       fieldStatistics: {
@@ -1008,6 +1029,18 @@ function generateFieldReport(fieldSummary: any, analyses: WellShaleAnalysis[], p
         `${developmentPotential} overall development potential`
       ],
       overallAssessment: developmentPotential + " Field Development Potential"
+    },
+    completionStrategy: {
+      primaryTargets: fieldSummary.bestWells.slice(0, 3).map((well: any) => 
+        `${well.wellName}: ${(well.netToGross * 100).toFixed(0)}% net-to-gross, ${well.reservoirQuality} quality`),
+      recommendedApproach: fieldSummary.averageNetToGross > 0.5 
+        ? 'Field-wide development with phased drilling program targeting highest net-to-gross wells'
+        : 'Selective development with enhanced completion techniques focusing on sweet spots',
+      targetIntervals: fieldSummary.bestWells.slice(0, 3).map((well: any, index: number) => ({
+        interval: `${well.wellName} - Field development priority ${index + 1}`,
+        priority: index === 0 ? 'Primary' : index === 1 ? 'Secondary' : 'Tertiary',
+        rationale: `${well.reservoirQuality} quality well with ${(well.netToGross * 100).toFixed(0)}% net-to-gross for ${developmentPotential.toLowerCase()} development potential`
+      }))
     },
     results: {
       fieldStatistics: {

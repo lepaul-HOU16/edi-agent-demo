@@ -168,8 +168,8 @@ const ConceptDefinitionResponse: React.FC<{ data: UniversalResponseData }> = ({ 
           borderLeft: `6px solid ${categoryConfig.color}`,
         }}>
           <CardContent>
-            <Stack direction="row" alignItems="center" spacing={2}>
-              <CategoryIcon sx={{ color: categoryConfig.color, fontSize: 36 }} />
+            <Stack direction="column" alignItems="baseline" spacing={2}>
+              <CategoryIcon sx={{ color: categoryConfig.color, fontSize: 48 }} />
               <Box>
                 <Typography variant="h4" fontWeight="bold" color="primary">
                   {data.title}
