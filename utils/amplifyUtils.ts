@@ -352,9 +352,19 @@ export const sendMessage = async (props: {
           responseComplete: true as any,
           // Use processed artifacts (may include S3 references for large artifacts)
           artifacts: processedArtifacts.length > 0 ? processedArtifacts : undefined,
+          // CRITICAL FIX: Add thought steps from agent response
+          thoughtSteps: (invokeResponse.data as any).thoughtSteps || undefined,
           // CRITICAL FIX: Add timestamp to ensure message ordering and prevent race conditions
           createdAt: new Date().toISOString() as any
         } as any;
+        
+        // Debug thought steps inclusion
+        if ((invokeResponse.data as any).thoughtSteps && (invokeResponse.data as any).thoughtSteps.length > 0) {
+          console.log('🧠 FRONTEND: Including thought steps in AI message:', (invokeResponse.data as any).thoughtSteps.length);
+          console.log('🔍 FRONTEND: First thought step:', (invokeResponse.data as any).thoughtSteps[0]);
+        } else {
+          console.log('⚠️ FRONTEND: No thought steps received from agent');
+        }
         
         // Enhanced debugging with improved artifact handling
         if (processedArtifacts.length > 0) {

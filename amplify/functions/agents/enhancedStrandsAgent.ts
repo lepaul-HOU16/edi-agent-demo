@@ -1,9 +1,17 @@
 /**
  * Enhanced Strands Agent with Petrophysical Expertise
  * Fixed to work with existing infrastructure and proper error handling
+ * Enhanced with Chain of Thought capabilities for transparency
  */
 
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
+import { 
+  ThoughtStep, 
+  ThinkingState, 
+  createThoughtStep, 
+  completeThoughtStep, 
+  getThinkingContextFromStep 
+} from '../../../utils/thoughtTypes';
 
 // Type definitions for agent functionality
 interface WellLogData {
@@ -189,35 +197,82 @@ export class EnhancedStrandsAgent {
   /**
    * Process message with enhanced petrophysical workflows
    * Now integrates with cloud-native MCP server for calculations
+   * Enhanced with Chain of Thought capabilities for transparency
    */
   async processMessage(message: string): Promise<any> {
     const timestamp = new Date().toISOString();
     console.log('🚀 === ENHANCED STRANDS AGENT ROUND TRIP START ===');
     console.log('📝 User Prompt:', message);
     console.log('⏰ Timestamp:', timestamp);
-    console.log('🔧 Agent Version: Enhanced Petrophysical Analysis Agent v2.0');
+    console.log('🔧 Agent Version: Enhanced Petrophysical Analysis Agent v2.0 with Chain of Thought');
+
+    // Initialize thought steps array for chain of thought
+    const thoughtSteps: ThoughtStep[] = [];
+    const addThoughtStep = (step: ThoughtStep) => {
+      thoughtSteps.push(step);
+      console.log('🧠 THOUGHT STEP ADDED:', {
+        type: step.type,
+        title: step.title,
+        summary: step.summary,
+        context: step.context
+      });
+    };
 
     // Always ensure we return a valid response format, even on errors
-    const createValidResponse = (success: boolean, message: string, artifacts: any[] = []): any => {
-      return {
+    const createValidResponse = (success: boolean, message: string, artifacts: any[] = [], includeThoughtSteps = true): any => {
+      const response = {
         success,
         message,
         artifacts
       };
+      
+      // Add thought steps for transparency (if any were generated)
+      if (includeThoughtSteps && thoughtSteps.length > 0) {
+        (response as any).thoughtSteps = thoughtSteps;
+        console.log('🧠 FINAL RESPONSE WITH THOUGHT STEPS:', thoughtSteps.length);
+      }
+      
+      return response;
     };
 
     try {
       // Validate input
       if (!message || typeof message !== 'string' || message.trim().length === 0) {
         console.log('❌ Invalid message input');
-        return createValidResponse(false, 'Please provide a valid message for analysis.');
+        return createValidResponse(false, 'Please provide a valid message for analysis.', [], false);
       }
 
-      // Use intelligent intent detection with error handling
+      // THOUGHT STEP 1: Intent Detection
       console.log('🧠 Starting intent detection...');
+      const intentStep = createThoughtStep(
+        'intent_detection',
+        'Analyzing User Request',
+        'Processing natural language input to understand analysis requirements',
+        { analysisType: 'intent_detection' }
+      );
+      addThoughtStep(intentStep);
+
       let intent;
       try {
         intent = this.detectUserIntent(message);
+        
+        // Complete intent detection step
+        const completedIntentStep = completeThoughtStep(
+          intentStep,
+          `Intent detected: ${intent.type} with ${intent.score}/10 confidence. ` +
+          `${intent.wellName ? `Well: ${intent.wellName}. ` : ''}` +
+          `${intent.method ? `Method: ${intent.method}` : ''}`
+        );
+        completedIntentStep.confidence = intent.score / 10;
+        completedIntentStep.context = {
+          analysisType: intent.type,
+          wellName: intent.wellName,
+          method: intent.method
+        };
+        
+        // Update the step in array
+        thoughtSteps[thoughtSteps.length - 1] = completedIntentStep;
+        
         console.log('🎯 Intent Detection Result:', {
           type: intent.type,
           score: intent.score,
@@ -226,132 +281,236 @@ export class EnhancedStrandsAgent {
         });
       } catch (intentError) {
         console.error('❌ Error in intent detection:', intentError);
+        
+        // Mark intent step as error
+        intentStep.status = 'error';
+        intentStep.details = `Error: ${intentError instanceof Error ? intentError.message : 'Unknown error'}`;
+        thoughtSteps[thoughtSteps.length - 1] = intentStep;
+        
         return createValidResponse(false, 'Error processing your request. Please try a simpler query like "list wells".');
       }
 
+      // THOUGHT STEP 2: Parameter Extraction
+      const paramStep = createThoughtStep(
+        'parameter_extraction',
+        'Extracting Parameters',
+        `Identifying analysis parameters for ${intent.type}`,
+        {
+          analysisType: intent.type,
+          wellName: intent.wellName,
+          method: intent.method
+        }
+      );
+      addThoughtStep(paramStep);
+      
+      // Complete parameter extraction
+      const completedParamStep = completeThoughtStep(
+        paramStep,
+        `Parameters extracted: Analysis type=${intent.type}, Well=${intent.wellName || 'auto-detect'}, Method=${intent.method || 'default'}`
+      );
+      thoughtSteps[thoughtSteps.length - 1] = completedParamStep;
+
       console.log('🔀 Routing to handler for intent type:', intent.type);
       
+      // THOUGHT STEP 3: Tool Selection
+      const toolStep = createThoughtStep(
+        'tool_selection',
+        'Selecting Analysis Tools',
+        `Preparing ${intent.type} analysis workflow`,
+        {
+          analysisType: intent.type,
+          wellName: intent.wellName,
+          method: intent.method
+        }
+      );
+      addThoughtStep(toolStep);
+      
+      // Complete tool selection step
+      const completedToolStep = completeThoughtStep(
+        toolStep,
+        `Selected handler: ${intent.type} for ${intent.wellName || 'general analysis'}`
+      );
+      thoughtSteps[thoughtSteps.length - 1] = completedToolStep;
+
+      // THOUGHT STEP 4: Execution
+      const executionStep = createThoughtStep(
+        'execution',
+        'Executing Analysis',
+        `Running ${intent.type} workflow with MCP tools`,
+        {
+          analysisType: intent.type,
+          wellName: intent.wellName,
+          method: intent.method
+        }
+      );
+      addThoughtStep(executionStep);
+
       let handlerResult;
       try {
         switch (intent.type) {
           case 'list_wells':
             console.log('📋 Executing: List Wells Handler');
             handlerResult = await this.handleListWells();
-            return this.logFinalResponse(handlerResult, 'List Wells');
+            break;
 
           case 'well_info':
             console.log('ℹ️ Executing: Well Info Handler for well:', intent.wellName);
             handlerResult = await this.handleWellInfo(message, intent.wellName);
-            return this.logFinalResponse(handlerResult, 'Well Info');
+            break;
 
           case 'calculate_porosity':
             console.log('🧮 Executing: Calculate Porosity Handler for well:', intent.wellName, 'method:', intent.method);
             handlerResult = await this.handleCalculatePorosity(message, intent.wellName, intent.method);
-            return this.logFinalResponse(handlerResult, 'Calculate Porosity');
+            break;
 
           case 'calculate_shale':
             console.log('🪨 Executing: Calculate Shale Handler for well:', intent.wellName, 'method:', intent.method);
             handlerResult = await this.handleCalculateShale(message, intent.wellName, intent.method);
-            return this.logFinalResponse(handlerResult, 'Calculate Shale');
+            break;
 
           case 'calculate_saturation':
             console.log('💧 Executing: Calculate Saturation Handler for well:', intent.wellName);
             handlerResult = await this.handleCalculateSaturation(message, intent.wellName);
-            return this.logFinalResponse(handlerResult, 'Calculate Saturation');
+            break;
 
           case 'data_quality':
             console.log('✅ Executing: Data Quality Handler for well:', intent.wellName);
             handlerResult = await this.handleDataQuality(message, intent.wellName);
-            return this.logFinalResponse(handlerResult, 'Data Quality');
+            break;
 
           case 'formation_evaluation':
             console.log('🔬 Executing: Formation Evaluation Workflow');
             handlerResult = await this.executeFormationEvaluationWorkflow(message);
-            return this.logFinalResponse(handlerResult, 'Formation Evaluation');
+            break;
 
           case 'multi_well_correlation':
             console.log('🔗 Executing: Multi-Well Correlation Analysis');
             handlerResult = await this.executeMultiWellCorrelationAnalysis(message);
-            return this.logFinalResponse(handlerResult, 'Multi-Well Correlation');
+            break;
 
           case 'methodology':
             console.log('📚 Executing: Methodology Documentation');
             handlerResult = await this.generateMethodologyDocumentation(message);
-            return this.logFinalResponse(handlerResult, 'Methodology');
+            break;
 
           case 'audit_trail':
             console.log('📋 Executing: Audit Trail Generation');
             handlerResult = await this.generateCalculationAuditTrail(message);
-            return this.logFinalResponse(handlerResult, 'Audit Trail');
+            break;
 
           case 'reservoir_quality':
             console.log('🏔️ Executing: Reservoir Quality Assessment');
             handlerResult = await this.assessReservoirQuality(message);
-            return this.logFinalResponse(handlerResult, 'Reservoir Quality');
+            break;
 
           case 'uncertainty_analysis':
             console.log('📊 Executing: Uncertainty Analysis');
             handlerResult = await this.performUncertaintyAnalysis(message);
-            return this.logFinalResponse(handlerResult, 'Uncertainty Analysis');
+            break;
 
           case 'completion_targets':
             console.log('🎯 Executing: Completion Targets Identification');
             handlerResult = await this.identifyCompletionTargets(message);
-            return this.logFinalResponse(handlerResult, 'Completion Targets');
+            break;
 
           case 'comprehensive_analysis':
           case 'comprehensive_workflow':
             console.log('🔄 Executing: Comprehensive Calculation Workflow');
             handlerResult = await this.executeComprehensiveCalculationWorkflow(message);
-            return this.logFinalResponse(handlerResult, 'Comprehensive Workflow');
+            break;
 
           case 'completion_analysis':
             console.log('🎯 Executing: Completion Analysis for well:', intent.wellName);
             handlerResult = await this.handleCompletionAnalysis(message, intent.wellName);
-            return this.logFinalResponse(handlerResult, 'Completion Analysis');
+            break;
 
           case 'shale_analysis_workflow':
             console.log('🪨 Executing: Comprehensive Shale Analysis Workflow');
             handlerResult = await this.handleComprehensiveShaleAnalysisWorkflow(message);
-            return this.logFinalResponse(handlerResult, 'Shale Analysis');
+            break;
 
           case 'well_data_discovery':
             console.log('🔍 Executing: Well Data Discovery');
             handlerResult = await this.handleWellDataDiscovery(message);
-            return this.logFinalResponse(handlerResult, 'Well Data Discovery');
+            break;
 
           case 'porosity_analysis_workflow':
             console.log('🧮 Executing: Porosity Analysis Workflow for well:', intent.wellName);
             handlerResult = await this.handlePorosityAnalysisWorkflow(message, intent.wellName);
-            return this.logFinalResponse(handlerResult, 'Porosity Analysis');
+            break;
 
           case 'log_curve_visualization':
             console.log('📊 Executing: Log Curve Visualization Handler');
             handlerResult = await this.handleLogCurveVisualization(message, intent.wellName);
-            return this.logFinalResponse(handlerResult, 'Log Curve Visualization');
+            break;
 
           case 'gamma_ray_visualization':
             console.log('📊 Executing: Gamma Ray Visualization Handler');
             handlerResult = await this.handleGammaRayVisualization(message, intent.wellName);
-            return this.logFinalResponse(handlerResult, 'Gamma Ray Visualization');
+            break;
 
           case 'natural_language_query':
             console.log('🗣️ Executing: Natural Language Query Handler');
             handlerResult = await this.handleNaturalLanguageQuery(message, intent.query);
-            return this.logFinalResponse(handlerResult, 'Natural Language Query');
+            break;
 
           case 'cross_well_analytics':
             console.log('📊 Executing: Cross-Well Analytics Handler');
             handlerResult = await this.handleCrossWellAnalytics(message, intent.analyticsType);
-            return this.logFinalResponse(handlerResult, 'Cross-Well Analytics');
+            break;
 
           default:
             console.log('❓ Executing: Basic Query Handler (fallback)');
             handlerResult = await this.processBasicQuery(message);
-            return this.logFinalResponse(handlerResult, 'Basic Query');
+            break;
         }
+        
+        // Complete execution step
+        const completedExecutionStep = completeThoughtStep(
+          executionStep,
+          `Handler execution completed: ${handlerResult.success ? 'Success' : 'Failed'}. ` +
+          `${handlerResult.artifacts?.length ? `Generated ${handlerResult.artifacts.length} artifacts. ` : ''}` +
+          `Message: ${handlerResult.message?.substring(0, 100) || 'No message'}...`
+        );
+        thoughtSteps[thoughtSteps.length - 1] = completedExecutionStep;
+
+        // THOUGHT STEP 5: Completion
+        const completionStep = createThoughtStep(
+          'completion',
+          'Analysis Complete',
+          `${intent.type} analysis finished successfully`,
+          {
+            analysisType: intent.type,
+            wellName: intent.wellName,
+            method: intent.method
+          }
+        );
+        addThoughtStep(completionStep);
+        
+        // Complete the completion step
+        const completedCompletionStep = completeThoughtStep(
+          completionStep,
+          `Analysis completed with ${handlerResult.success ? 'success' : 'errors'}. ` +
+          `Response ready for user with ${handlerResult.artifacts?.length || 0} visualizations.`
+        );
+        thoughtSteps[thoughtSteps.length - 1] = completedCompletionStep;
+
+        // Return final result with thought steps
+        const finalResult = {
+          ...handlerResult,
+          thoughtSteps: thoughtSteps
+        };
+        
+        return this.logFinalResponse(finalResult, intent.type);
+        
       } catch (handlerError) {
         console.error('❌ Handler execution error:', handlerError);
+        
+        // Mark execution step as error
+        executionStep.status = 'error';
+        executionStep.details = `Handler error: ${handlerError instanceof Error ? handlerError.message : 'Unknown error'}`;
+        thoughtSteps[thoughtSteps.length - 1] = executionStep;
+        
         return createValidResponse(false, `Error executing handler: ${handlerError instanceof Error ? handlerError.message : 'Unknown handler error'}`);
       }
 

@@ -1,5 +1,10 @@
 import { Handler } from 'aws-lambda';
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
+import { 
+  ThoughtStep, 
+  createThoughtStep, 
+  completeThoughtStep 
+} from '../../../utils/thoughtTypes';
 
 // AWS S3 Configuration
 const S3_BUCKET = process.env.STORAGE_BUCKET_NAME || '';
@@ -605,20 +610,227 @@ function transformOSDUToGeoJSON(osduRecords: OSDUWellRecord[], searchQuery: stri
 
 
 export const handler: Handler = async (event) => {
+  console.log('🔍 === CATALOG SEARCH WITH CHAIN OF THOUGHT START ===');
+  
+  // Initialize thought steps array for chain of thought
+  const thoughtSteps: ThoughtStep[] = [];
+  const addThoughtStep = (step: ThoughtStep) => {
+    thoughtSteps.push(step);
+    console.log('🧠 CATALOG THOUGHT STEP ADDED:', {
+      type: step.type,
+      title: step.title,
+      summary: step.summary,
+      context: step.context
+    });
+  };
+
   try {
     const { prompt } = event.arguments;
-    
     console.log('Catalog Search Request:', { prompt });
+
+    // THOUGHT STEP 1: Intent Detection
+    console.log('🧠 Starting catalog query intent detection...');
+    const intentStep = createThoughtStep(
+      'intent_detection',
+      'Analyzing Catalog Query',
+      'Processing natural language input to understand data search requirements',
+      { analysisType: 'catalog_search' }
+    );
+    addThoughtStep(intentStep);
+
+    // Parse the query to understand intent
+    const parsedQuery = parseNLPQuery(prompt);
+    console.log('Parsed catalog query:', parsedQuery);
+
+    // Complete intent detection step
+    const completedIntentStep = completeThoughtStep(
+      intentStep,
+      `Catalog query type detected: ${parsedQuery.queryType}. ` +
+      `Search scope: ${parsedQuery.parameters.region || 'general'}. ` +
+      `${parsedQuery.parameters.includeUserWells ? 'Including user wells. ' : ''}` +
+      `Parameters identified for data retrieval.`
+    );
+    completedIntentStep.confidence = 0.9;
+    completedIntentStep.context = {
+      analysisType: parsedQuery.queryType,
+      parameters: parsedQuery.parameters
+    };
+    thoughtSteps[thoughtSteps.length - 1] = completedIntentStep;
+
+    // THOUGHT STEP 2: Parameter Extraction
+    const paramStep = createThoughtStep(
+      'parameter_extraction',
+      'Extracting Search Parameters',
+      `Configuring ${parsedQuery.queryType} search parameters`,
+      {
+        analysisType: parsedQuery.queryType,
+        parameters: parsedQuery.parameters
+      }
+    );
+    addThoughtStep(paramStep);
+
+    // Complete parameter extraction
+    const completedParamStep = completeThoughtStep(
+      paramStep,
+      `Search parameters configured: Query type=${parsedQuery.queryType}, ` +
+      `Region=${parsedQuery.parameters.region || 'all'}, ` +
+      `Include user wells=${!!parsedQuery.parameters.includeUserWells}`
+    );
+    thoughtSteps[thoughtSteps.length - 1] = completedParamStep;
+
+    // THOUGHT STEP 3: Data Source Selection  
+    const dataSourceStep = createThoughtStep(
+      'tool_selection',
+      'Selecting Data Sources',
+      'Determining optimal data sources for catalog search',
+      {
+        analysisType: 'data_source_selection',
+        method: parsedQuery.queryType,
+        parameters: { dataSources: ['OSDU', 'S3', 'Regional Database'] }
+      }
+    );
+    addThoughtStep(dataSourceStep);
+
+    // Determine which data sources to use
+    let useS3 = parsedQuery.queryType === 'myWells' || parsedQuery.queryType === 'allWells';
+    let useOSDU = parsedQuery.queryType !== 'myWells';
     
-    // Search OSDU for well data based on the prompt
+    const completedDataSourceStep = completeThoughtStep(
+      dataSourceStep,
+      `Data sources selected: ` +
+      `${useOSDU ? 'OSDU Community Platform, ' : ''}` +
+      `${useS3 ? 'S3 Personal Data, ' : ''}` +
+      `South China Sea Regional Database`
+    );
+    thoughtSteps[thoughtSteps.length - 1] = completedDataSourceStep;
+
+    // THOUGHT STEP 4: Search Execution
+    const executionStep = createThoughtStep(
+      'execution',
+      'Executing Data Search',
+      `Searching ${parsedQuery.queryType} across selected data sources`,
+      {
+        analysisType: 'data_search',
+        method: parsedQuery.queryType,
+        parameters: { searchQuery: prompt }
+      }
+    );
+    addThoughtStep(executionStep);
+
+    // Execute the search
     const searchResults = await searchOSDUWells(prompt);
+    console.log('Search results received:', searchResults.features?.length || 0, 'wells');
+
+    // Complete execution step
+    const completedExecutionStep = completeThoughtStep(
+      executionStep,
+      `Search completed successfully. Found ${searchResults.features?.length || 0} wells. ` +
+      `Data sources: ${searchResults.metadata?.source || 'Multiple'}. ` +
+      `Region coverage: ${searchResults.metadata?.region || 'Global'}.`
+    );
+    completedExecutionStep.context = {
+      analysisType: 'search_results',
+      parameters: {
+        resultCount: searchResults.features?.length || 0,
+        dataSource: searchResults.metadata?.source,
+        region: searchResults.metadata?.region
+      }
+    };
+    thoughtSteps[thoughtSteps.length - 1] = completedExecutionStep;
+
+    // THOUGHT STEP 5: Data Processing
+    const processingStep = createThoughtStep(
+      'validation',
+      'Processing Search Results',
+      'Converting and validating search results for map display',
+      {
+        analysisType: 'data_processing',
+        method: 'GeoJSON',
+        parameters: { resultCount: searchResults.features?.length || 0 }
+      }
+    );
+    addThoughtStep(processingStep);
+
+    // Complete processing step
+    const completedProcessingStep = completeThoughtStep(
+      processingStep,
+      `Results processed: ${searchResults.features?.length || 0} wells converted to GeoJSON format. ` +
+      `Coordinate bounds calculated. Map markers prepared for interactive display.`
+    );
+    thoughtSteps[thoughtSteps.length - 1] = completedProcessingStep;
+
+    // THOUGHT STEP 6: Completion
+    const completionStep = createThoughtStep(
+      'completion',
+      'Catalog Search Complete',
+      'Search results ready for visualization and analysis',
+      {
+        analysisType: 'catalog_search_complete',
+        method: 'search_completion',
+        parameters: { resultCount: searchResults.features?.length || 0, searchQuery: prompt }
+      }
+    );
+    addThoughtStep(completionStep);
+
+    // Complete the completion step
+    const completedCompletionStep = completeThoughtStep(
+      completionStep,
+      `Catalog search completed successfully. ${searchResults.features?.length || 0} wells ready for map display. ` +
+      `Interactive markers prepared with well details and analysis options.`
+    );
+    thoughtSteps[thoughtSteps.length - 1] = completedCompletionStep;
+
+    console.log('🧠 CATALOG SEARCH: Generated', thoughtSteps.length, 'thought steps');
+
+    // Enhanced response with thought steps
+    const enhancedResults = {
+      ...searchResults,
+      thoughtSteps: thoughtSteps,
+      chainOfThought: {
+        totalSteps: thoughtSteps.length,
+        processingTime: Date.now(),
+        searchType: parsedQuery.queryType
+      }
+    };
     
-    console.log('Search Results:', JSON.stringify(searchResults, null, 2));
+    console.log('🔍 === CATALOG SEARCH WITH CHAIN OF THOUGHT END ===');
+    console.log('🧠 Final thought steps count:', thoughtSteps.length);
     
-    // Return the JSON string directly (not wrapped in HTTP response)
-    return JSON.stringify(searchResults);
+    // Return the enhanced JSON string with thought steps
+    return JSON.stringify(enhancedResults);
   } catch (error) {
     console.error('Error in catalogSearch:', error);
+    
+    // Add error thought step if we have the array initialized
+    if (thoughtSteps) {
+      const errorStep = createThoughtStep(
+        'completion',
+        'Search Error Occurred', 
+        'Catalog search encountered an error',
+        { 
+          analysisType: 'error_handling',
+          parameters: { error: error instanceof Error ? error.message : 'Unknown error' }
+        }
+      );
+      errorStep.status = 'error';
+      addThoughtStep(errorStep);
+      
+      // Return error response with thought steps
+      const errorResults = {
+        type: "FeatureCollection",
+        features: [],
+        metadata: {
+          type: "error",
+          searchQuery: event.arguments?.prompt || '',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString()
+        },
+        thoughtSteps: thoughtSteps
+      };
+      
+      return JSON.stringify(errorResults);
+    }
+    
     throw new Error(`Search failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 };

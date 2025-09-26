@@ -6,6 +6,7 @@ import { combineAndSortMessages, sendMessage } from '../../utils/amplifyUtils';
 import { Message } from '../../utils/types';
 
 import ChatMessage from './ChatMessage';
+import ThinkingIndicator from './ThinkingIndicator';
 
 import { defaultPrompts } from '@/constants/defaultPrompts';
 
@@ -14,16 +15,15 @@ import ExpandablePromptInput from './ExpandablePromptInput';
 
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
-
-// DefaultPrompts component removed
+import { getThinkingContextFromStep } from '../../utils/thoughtTypes';
 
 const ChatBox = (params: {
   chatSessionId: string,
   showChainOfThought: boolean,
-  onInputChange: (input: string) => void,  // Add this new prop
-  userInput: string,  // Add this new prop
-  messages?: Message[],  // Make messages optional
-  setMessages?: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void  // Make setMessages optional
+  onInputChange: (input: string) => void,
+  userInput: string,
+  messages?: Message[],
+  setMessages?: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void
 }) => {
   const { chatSessionId, showChainOfThought } = params
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -45,7 +45,6 @@ const ChatBox = (params: {
 
   const [, setResponseStreamChunks] = useState<(Schema["recieveResponseStreamChunk"]["returnType"] | null)[]>([]);
   const [streamChunkMessage, setStreamChunkMessage] = useState<Message>();
-  // const [userInput, setUserInput] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
   const [hasMoreMessages, setHasMoreMessages] = useState<boolean>(true);
@@ -58,16 +57,29 @@ const ChatBox = (params: {
   // Simplified auto-scroll state
   const [autoScroll, setAutoScroll] = useState<boolean>(true);
   const [messageCount, setMessageCount] = useState<number>(0);
-  const [isUserTyping, setIsUserTyping] = useState<boolean>(false);
-  // const [showChainOfThought, setShowChainOfThought] = useState(false);
-  // const [selectedAgent, setSelectedAgent] = useState<('reActAgent' | 'planAndExecuteAgent' | 'projectGenerationAgent')>("reActAgent");
+  
+  // Chain of Thought thinking state management
+  const [thinkingState, setThinkingState] = useState<{
+    isActive: boolean;
+    context: string;
+    step: string;
+    progress?: number;
+    estimatedTime?: string;
+    currentThoughtStep?: any;
+  }>({
+    isActive: false,
+    context: '',
+    step: '',
+    progress: 0
+  });
+
+  // CRITICAL FIX: Add ref for thinking timeout management
+  const thinkingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
 
   // Unified message filter function to ensure consistency
   const shouldDisplayMessage = useCallback((message: Message) => {
     switch (message.role) {
       case 'ai':
-        // CRITICAL FIX: Always show AI messages that have content, regardless of responseComplete status
-        // This prevents educational responses from disappearing during typing state changes
         return message.responseComplete || 
                (message.content && (message.content as any).text && (message.content as any).text.trim().length > 0)
       case 'ai-stream':
@@ -78,6 +90,109 @@ const ChatBox = (params: {
         return true;
     }
   }, []);
+
+  // FINE-TUNED: Enhanced autoscroll with better positioning and slower animation
+  const performAutoScroll = useCallback(() => {
+    if (!autoScroll || !messagesContainerRef.current) return;
+    
+    console.log('🚀 ChatBox: Performing fine-tuned autoscroll');
+    
+    const container = messagesContainerRef.current;
+    
+    // Calculate extra scroll distance to account for input area (increased buffer)
+    const inputBuffer = 200; // Increased buffer to account for input area and padding
+    const targetScrollTop = container.scrollHeight + inputBuffer;
+    
+    // Method 1: Use scrollIntoView with smooth animation on the end ref
+    if (messagesEndRef.current) {
+      try {
+        // Add custom CSS for slower scroll animation
+        const originalScrollBehavior = container.style.scrollBehavior;
+        container.style.scrollBehavior = 'smooth';
+        container.style.scrollPaddingBottom = '180px'; // Add padding to scroll farther
+        
+        messagesEndRef.current.scrollIntoView({ 
+          behavior: 'smooth',
+          block: 'end',
+          inline: 'nearest'
+        });
+        
+        // Reset after scroll
+        setTimeout(() => {
+          if (messagesContainerRef.current) {
+            messagesContainerRef.current.style.scrollBehavior = originalScrollBehavior;
+          }
+        }, 800);
+        
+        console.log('✅ ChatBox: Slow smooth scrollIntoView completed');
+      } catch (error) {
+        console.warn('❌ ChatBox: scrollIntoView failed:', error);
+      }
+    }
+    
+    // Method 2: Enhanced scrollTo with buffer and slower timing
+    setTimeout(() => {
+      try {
+        if (messagesContainerRef.current) {
+          messagesContainerRef.current.scrollTo({
+            top: targetScrollTop,
+            behavior: 'smooth'
+          });
+          console.log('✅ ChatBox: Delayed smooth scrollTo completed with extended buffer');
+        }
+      } catch (error) {
+        console.warn('❌ ChatBox: Delayed scrollTo failed:', error);
+      }
+    }, 100); // Small delay to ensure DOM is fully updated
+    
+    // Log final position after animation completes
+    setTimeout(() => {
+      if (messagesContainerRef.current) {
+        console.log('📏 ChatBox: Final scroll position:', messagesContainerRef.current.scrollTop, '/', messagesContainerRef.current.scrollHeight);
+      }
+    }, 800); // Increased delay for slower animation
+  }, [autoScroll]);
+
+  // Memoized displayed messages
+  const displayedMessages = React.useMemo(() => {
+    console.log('ChatBox: Calculating displayed messages', {
+      messagesLength: messages?.length || 0,
+      hasStreamChunk: !!streamChunkMessage
+    });
+    
+    const allMessages = [
+      ...(messages ? messages : []),
+      ...(streamChunkMessage ? [streamChunkMessage] : [])
+    ];
+    
+    return allMessages.filter(shouldDisplayMessage);
+  }, [messages, streamChunkMessage, shouldDisplayMessage]);
+
+  // CONSOLIDATED: Single useEffect for all autoscroll triggers
+  useEffect(() => {
+    const newMessageCount = displayedMessages.length;
+    
+    // Re-enable auto-scroll for new messages
+    if (newMessageCount > messageCount && !autoScroll) {
+      console.log('🔄 ChatBox: Re-enabling auto-scroll for new messages');
+      setAutoScroll(true);
+    }
+    
+    // Update message count
+    if (newMessageCount !== messageCount) {
+      setMessageCount(newMessageCount);
+    }
+    
+    // Perform autoscroll for any content change
+    if (autoScroll && (newMessageCount > 0 || streamChunkMessage || thinkingState.isActive)) {
+      console.log('🔄 ChatBox: Triggering consolidated autoscroll');
+      
+      // Use requestAnimationFrame to ensure DOM is updated
+      requestAnimationFrame(() => {
+        performAutoScroll();
+      });
+    }
+  }, [displayedMessages, messageCount, streamChunkMessage, thinkingState.isActive, autoScroll, performAutoScroll]);
 
   //Subscribe to the chat messages
   useEffect(() => {
@@ -96,12 +211,10 @@ const ChatBox = (params: {
           const recentMessages = items.slice(-messagesPerPage);
           const sortedMessages = combineAndSortMessages(prevMessages, recentMessages)
           if (sortedMessages[sortedMessages.length - 1] && sortedMessages[sortedMessages.length - 1].responseComplete) {
-            // Remove setTimeout to prevent rendering race conditions
             setIsLoading(false)
             setStreamChunkMessage(undefined)
             setResponseStreamChunks([])
           }
-          // Remove setTimeout to prevent display flickering
           setHasMoreMessages(items.length > messagesPerPage);
           return sortedMessages
         })
@@ -130,7 +243,6 @@ const ChatBox = (params: {
       });
 
       if (result.data) {
-        // Get the next page of messages
         const startIndex = (nextPage - 1) * messagesPerPage;
         const endIndex = startIndex + messagesPerPage;
         const newMessages = result.data.slice(startIndex, endIndex);
@@ -151,16 +263,17 @@ const ChatBox = (params: {
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
-    // For normal layout, handle load more messages at the top
+    
+    // Handle load more messages at the top
     if (container.scrollTop < 100 && hasMoreMessages && !isLoadingMore) {
       loadMoreMessages();
     }
 
-    // For normal layout, check if we're at the bottom
+    // Check if we're at the bottom
     const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 10;
     setIsScrolledToBottom(isAtBottom);
     
-    // Enhanced auto-scroll: detect user interrupt
+    // Detect user interrupt
     if (!isAtBottom && autoScroll) {
       console.log('ChatBox: User scrolled up, disabling auto-scroll');
       setAutoScroll(false);
@@ -169,122 +282,71 @@ const ChatBox = (params: {
 
   const scrollToBottom = useCallback(() => {
     if (messagesContainerRef.current) {
-      console.log('ChatBox: Scrolling to bottom, messages length:', messages.length);
-      // Set scroll to maximum possible value - browser will clamp to actual max
-      messagesContainerRef.current.scrollTop = Number.MAX_SAFE_INTEGER;
+      console.log('🔄 ChatBox: Manual scroll to bottom triggered');
+      
+      // Re-enable auto-scroll when user manually scrolls to bottom
+      if (!autoScroll) {
+        console.log('🔄 ChatBox: Re-enabling auto-scroll via manual button');
+        setAutoScroll(true);
+      }
+      
+      // Use the performAutoScroll function
+      performAutoScroll();
       
       // Update isScrolledToBottom state
       setTimeout(() => {
         setIsScrolledToBottom(true);
       }, 100);
     }
-  }, [messages.length]);
+  }, [performAutoScroll, autoScroll]);
 
   // Handle typing state changes from input - COMPLETELY DISABLED FOR TESTING
   const handleTypingStateChange = useCallback((typing: boolean) => {
     console.log(`ChatBox: IGNORING typing state change to prevent interference: ${typing}`);
-    // COMPLETELY DISABLE typing state to prevent ANY interference
-    // setIsUserTyping(typing);
-    
-    // Also disable auto-scroll changes
-    // if (typing && autoScroll) {
-    //   console.log('ChatBox: Disabling auto-scroll while typing');
-    //   setAutoScroll(false);
-    // }
-  }, [autoScroll]);
+  }, []);
 
-  // Simplified auto-scroll functionality - no dependency on typing state
-  const autoScrollToBottom = useCallback(() => {
-    if (messagesContainerRef.current && autoScroll && !isUserTyping) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-    }
-  }, [autoScroll, isUserTyping]);
-
-  // Memoized displayed messages with comprehensive educational message debugging
-  const displayedMessages = React.useMemo(() => {
-    console.log('ChatBox: Calculating displayed messages', {
-      messagesLength: messages?.length || 0,
-      hasStreamChunk: !!streamChunkMessage
-    });
+  // Enhanced thinking state management with artificial delays and proper reset
+  React.useEffect(() => {
+    console.log('🧠 ChatBox: isLoading state changed:', isLoading, 'thinkingState.isActive:', thinkingState.isActive);
     
-    const allMessages = [
-      ...(messages ? messages : []),
-      ...(streamChunkMessage ? [streamChunkMessage] : [])
-    ];
-    
-    // CRITICAL DEBUG: Track educational messages specifically
-    const educationalMessages = allMessages.filter(msg => 
-      (msg as any).role === 'ai' && 
-      !(msg as any).artifacts && 
-      (msg as any).content?.text &&
-      !(msg as any).toolCalls
-    );
-    
-    console.log('🎓 EDUCATIONAL MESSAGE DEBUG:', {
-      totalMessages: allMessages.length,
-      educationalCount: educationalMessages.length,
-      educationalMessages: educationalMessages.map((msg: any) => ({
-        id: msg.id,
-        responseComplete: msg.responseComplete,
-        contentPreview: msg.content?.text?.substring(0, 50) + '...',
-        createdAt: msg.createdAt
-      }))
-    });
-    
-    const filteredMessages = allMessages.filter(shouldDisplayMessage);
-    
-    const filteredEducationalCount = filteredMessages.filter(msg => 
-      (msg as any).role === 'ai' && 
-      !(msg as any).artifacts && 
-      (msg as any).content?.text &&
-      !(msg as any).toolCalls
-    ).length;
-    
-    console.log('🔍 FILTER RESULT DEBUG:', {
-      beforeFilter: allMessages.length,
-      afterFilter: filteredMessages.length,
-      educationalBeforeFilter: educationalMessages.length,
-      educationalAfterFilter: filteredEducationalCount,
-      droppedEducational: educationalMessages.length - filteredEducationalCount
-    });
-    
-    return filteredMessages;
-  }, [messages, streamChunkMessage, shouldDisplayMessage]);
-  
-  // Stable message monitoring - prevent re-renders during typing
-  useEffect(() => {
-    // Skip processing if user is actively typing to prevent visual artifacts
-    if (isUserTyping) {
-      console.log('ChatBox: Skipping message processing - user is typing');
-      return;
-    }
-
-    const newMessageCount = displayedMessages.length;
-    
-    // Only scroll when message count actually increases and user is not typing
-    if (newMessageCount > messageCount && !isUserTyping) {
-      console.log('ChatBox: Message count increased from', messageCount, 'to', newMessageCount);
-      setMessageCount(newMessageCount);
-      
-      // Re-enable auto-scroll for new messages
-      if (!autoScroll) {
-        setAutoScroll(true);
+    if (isLoading && !thinkingState.isActive) {
+      console.log('🧠 ChatBox: Activating thinking indicator for new message');
+      if (thinkingTimeoutRef.current) {
+        clearTimeout(thinkingTimeoutRef.current);
       }
       
-      if (autoScroll && messagesContainerRef.current) {
-        messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+      setThinkingState({
+        isActive: true,
+        context: 'Analyzing your request...',
+        step: 'Preparing analysis workflow',
+        progress: 0,
+        estimatedTime: '15-30 seconds'
+      });
+    } else if (!isLoading && thinkingState.isActive) {
+      console.log('🧠 ChatBox: Scheduling thinking indicator deactivation with artificial delay...');
+      
+      thinkingTimeoutRef.current = setTimeout(() => {
+        console.log('🧠 ChatBox: Deactivating thinking indicator after artificial delay');
+        setThinkingState({
+          isActive: false,
+          context: '',
+          step: '',
+          progress: 0
+        });
+      }, 2000);
+    }
+  }, [isLoading, thinkingState.isActive]);
+
+  // Cleanup timeout on unmount
+  React.useEffect(() => {
+    return () => {
+      if (thinkingTimeoutRef.current) {
+        clearTimeout(thinkingTimeoutRef.current);
       }
-    }
-  }, [displayedMessages, messageCount, autoScroll, isUserTyping]);
+    };
+  }, []);
 
-  // Streaming auto-scroll - only when not typing
-  useEffect(() => {
-    if (streamChunkMessage && autoScroll && !isUserTyping && messagesContainerRef.current) {
-      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
-    }
-  }, [streamChunkMessage, autoScroll, isUserTyping]);
-
-  //Subscribe to the response stream chunks for the garden
+  //Subscribe to the response stream chunks
   useEffect(() => {
     if (!amplifyClient) return;
 
@@ -293,22 +355,18 @@ const ChatBox = (params: {
       const responseStreamChunkSub = amplifyClient.subscriptions.recieveResponseStreamChunk({ chatSessionId: params.chatSessionId }).subscribe({
         error: (error) => console.error('Error subscribing stream chunks: ', error),
         next: (newChunk) => {
-          // console.log('Received new response stream chunk: ', newChunk)
           setResponseStreamChunks((prevChunks) => {
-            if (newChunk.index === 0) return [newChunk] //If this is the first chunk, reset the preChunk array
+            if (newChunk.index === 0) return [newChunk]
 
-            //Now Insert the new chunk into the correct position in the array
             if (newChunk.index >= 0 && newChunk.index < prevChunks.length) {
               prevChunks[newChunk.index] = newChunk;
             } else {
-              // Extend the list with nulls up to the specified index
               while (prevChunks.length < newChunk.index) {
                 prevChunks.push(null)
               }
               prevChunks.push(newChunk)
             }
 
-            //Only set the chunk message if the inital chunk is defined. This prevents the race condition between the message and the chunk
             if (prevChunks[0] || true) {
               setStreamChunkMessage({
                 id: 'streamChunkMessage' as any,
@@ -328,7 +386,6 @@ const ChatBox = (params: {
       return () => {
         responseStreamChunkSub.unsubscribe();
       };
-
     }
 
     responseStreamChunkSubscriptionHandler()
@@ -341,97 +398,61 @@ const ChatBox = (params: {
       return false;
     }
 
-    // Find the message to regenerate to get its timestamp
     const messageToRegenerate = messages.find(msg => (msg as any).id === messageId);
-
-    console.log(`Regenerating messages created after: ${messageToRegenerate?.createdAt} in chat session: ${params.chatSessionId}`)
-    console.log(`Message to regenerate: `, messageToRegenerate)
 
     if (!messageToRegenerate?.createdAt) {
       console.error('Message to regenerate not found or missing timestamp');
       return false;
     }
 
-    // Set the message text as the current input
     params.onInputChange(messageText);
 
     try {
-      // Get all messages after the selected message's timestamp
       const { data: messagesToDelete } = await amplifyClient.models.ChatMessage.listChatMessageByChatSessionIdAndCreatedAt({
         chatSessionId: params.chatSessionId as any,
         createdAt: { ge: messageToRegenerate.createdAt as any }
       });
 
-      // Delete messages from the API
       if (!messagesToDelete || messagesToDelete.length === 0) {
         console.error('No messages found to delete');
         return false;
       }
 
-      const totalMessages = messagesToDelete.length;
-      let deletedCount = 0;
-
-      try {
-        // Store IDs of messages to be deleted
-        const messageIdsToDelete = new Set(
-          messagesToDelete
-            .filter(msg => msg !== null && msg !== undefined)  // Add null/undefined check
-            .map(msg => msg.id)
-            .filter((id): id is string => id !== undefined)
-        );
-
-        // Create an array of deletion promises
-        const deletionPromises = messagesToDelete
-          .filter(msg => msg !== null && msg !== undefined && msg.id)  // Add null/undefined check
-          .map(async (msgToDelete) => {
-            if (msgToDelete.id) {
-              await amplifyClient.models.ChatMessage.delete({
-                id: msgToDelete.id
-              });
-              deletedCount++;
-              console.log(`Deleted message ${msgToDelete.id} from API (${deletedCount}/${totalMessages})`);
-            }
-          });
-
-        // Wait for all deletions to complete
-        await Promise.all(deletionPromises);
-
-        // Remove messages from UI immediately after successful API deletion
-        setMessages(prevMessages =>
-          prevMessages.filter(msg =>
-            // Keep message if:
-            // 1. It has a valid createdAt timestamp
-            // 2. It was created before the message we're regenerating
-            // 3. Its ID is not in the set of messages to delete
-            msg.createdAt &&
-            messageToRegenerate.createdAt &&
-            msg.createdAt < messageToRegenerate.createdAt // && 
-            // typeof msg.id === 'string' && 
-            // !messageIdsToDelete.has(msg.id)
-          )
-        );
-
-        // Clear streaming message if any
-        setStreamChunkMessage(undefined);
-        setResponseStreamChunks([]);
-
-        // Ensure loading state is reset
-        setIsLoading(false);
-
-        // Scroll to the input box
-        messagesContainerRef.current?.scrollTo({
-          top: messagesContainerRef.current.scrollHeight,
-          behavior: 'smooth'
+      const deletionPromises = messagesToDelete
+        .filter(msg => msg !== null && msg !== undefined && msg.id)
+        .map(async (msgToDelete) => {
+          if (msgToDelete.id) {
+            await amplifyClient.models.ChatMessage.delete({
+              id: msgToDelete.id
+            });
+          }
         });
 
-        return true; // Indicate successful completion
-      } catch (error) {
-        console.error('Error deleting messages:', error);
-        return false;
+      await Promise.all(deletionPromises);
+
+      setMessages(prevMessages =>
+        prevMessages.filter(msg =>
+          msg.createdAt &&
+          messageToRegenerate.createdAt &&
+          msg.createdAt < messageToRegenerate.createdAt
+        )
+      );
+
+      setStreamChunkMessage(undefined);
+      setResponseStreamChunks([]);
+      setIsLoading(false);
+
+      // Scroll after regeneration
+      if (messagesContainerRef.current) {
+        messagesContainerRef.current.scrollTo({
+          top: messagesContainerRef.current.scrollHeight,
+          behavior: 'auto'
+        });
       }
+
+      return true;
     } catch (error) {
       console.error('Error in message regeneration:', error);
-      // Ensure loading state is reset even if there's an error
       setIsLoading(false);
       return false;
     }
@@ -441,8 +462,6 @@ const ChatBox = (params: {
     if (userMessage.trim()) {
       console.log('=== CHATBOX DEBUG: Sending message ===');
       console.log('User message:', userMessage);
-      console.log('Chat session ID:', params.chatSessionId);
-      console.log('Timestamp:', new Date().toISOString());
       
       setIsLoading(true);
 
@@ -454,18 +473,13 @@ const ChatBox = (params: {
         chatSessionId: params.chatSessionId as any
       } as any
 
-      console.log('New message object:', newMessage);
-
       try {
         const result = await sendMessage({
           chatSessionId: params.chatSessionId as any,
           newMessage: newMessage as any
         });
         
-        console.log('=== CHATBOX DEBUG: Send message result ===');
-        console.log('Result:', result);
-        console.log('New message data:', result.newMessageData);
-        console.log('Invoke response:', result.invokeResponse);
+        console.log('=== CHATBOX DEBUG: Send message result ===', result);
         
         if (result.invokeResponse?.data) {
           console.log('Agent response data:', result.invokeResponse.data);
@@ -474,9 +488,7 @@ const ChatBox = (params: {
           console.error('Agent response errors:', result.invokeResponse.errors);
         }
       } catch (error) {
-        console.error('=== CHATBOX DEBUG: Send message error ===');
-        console.error('Error:', error);
-        console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+        console.error('=== CHATBOX DEBUG: Send message error ===', error);
         setIsLoading(false);
       }
 
@@ -514,13 +526,11 @@ const ChatBox = (params: {
 
         <List>
           {displayedMessages.map((message, index) => {
-            // NUCLEAR OPTION: Use index-based keys instead of message IDs to prevent React reconciliation issues
             const stableKey = `message-${index}-${(message as any).role}-${((message as any).content?.text || '').substring(0, 20).replace(/\W/g, '')}`;
             console.log(`🔑 Rendering message with stable key: ${stableKey}`);
             
             return (
               <ListItem key={stableKey} style={{ 
-                // Force visibility at the DOM level for educational messages
                 visibility: (message as any).role === 'ai' && !(message as any).artifacts && (message as any).content?.text ? 'visible' : undefined,
                 display: (message as any).role === 'ai' && !(message as any).artifacts && (message as any).content?.text ? 'flex' : undefined,
                 opacity: (message as any).role === 'ai' && !(message as any).artifacts && (message as any).content?.text ? 1 : undefined
@@ -532,6 +542,37 @@ const ChatBox = (params: {
               </ListItem>
             );
           })}
+          
+          {/* Show thinking indicator when AI is processing */}
+          {thinkingState.isActive && (
+            <ListItem>
+              <div style={{ width: '100%' }}>
+                <ThinkingIndicator
+                  context={thinkingState.context}
+                  step={thinkingState.step}
+                  progress={thinkingState.progress}
+                  estimatedTime={thinkingState.estimatedTime}
+                  currentThoughtStep={thinkingState.currentThoughtStep}
+                  isVisible={thinkingState.isActive}
+                />
+              </div>
+            </ListItem>
+          )}
+          
+          {/* Alternative: Show basic loading indicator when isLoading but no thought steps */}
+          {isLoading && !thinkingState.isActive && (
+            <ListItem>
+              <div style={{ width: '100%' }}>
+                <ThinkingIndicator
+                  context="🧠 Analyzing your request..."
+                  step="Preparing analysis workflow"
+                  progress={0}
+                  isVisible={true}
+                />
+              </div>
+            </ListItem>
+          )}
+          
           <div ref={messagesEndRef} />
         </List>
 
@@ -541,7 +582,7 @@ const ChatBox = (params: {
         <div 
           className='input-bkgd'
           style={{
-            backdropFilter: 'blur(8px)' // Only add the blur effect, keep original structure
+            backdropFilter: 'blur(8px)'
           }}
         >
           <ExpandablePromptInput
@@ -567,7 +608,6 @@ const ChatBox = (params: {
             {
               text: 'Petrophysics Agent - Well data analysis & formation evaluation',
               id: 'petroAgent',
-              // iconName: 'analytics'
             },
             ]}
           ></ButtonDropdown>

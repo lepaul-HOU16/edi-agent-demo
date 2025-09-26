@@ -98,12 +98,12 @@ export const AnalysisResultsVisualization: React.FC<AnalysisResultsProps> = ({
                     <Typography variant="h5" fontWeight="bold" color={theme.palette.primary.main}>
                         Analysis Results
                     </Typography>
-                    <Chip 
-                        label={`${completionPercentage.toFixed(0)}% Complete`}
-                        color={completionPercentage === 100 ? "success" : "warning"}
-                        size="small"
-                    />
                 </Stack>
+                <Chip 
+                    label={`${completionPercentage.toFixed(0)}% Complete`}
+                    color={completionPercentage === 100 ? "success" : "warning"}
+                    size="small"
+                />
                 
                 {completionTime && (
                     <Typography variant="body2" color="text.secondary">

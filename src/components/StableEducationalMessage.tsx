@@ -29,6 +29,8 @@ const StableEducationalMessage: React.FC<StableEducationalMessageProps> = ({ mes
       
       container.style.visibility = 'visible';
       container.style.display = 'flex';
+      container.style.flexDirection = 'row';
+      container.style.gap = '40px';
       container.style.opacity = '1';
       container.style.position = 'relative';
       container.style.zIndex = '1';
@@ -50,6 +52,8 @@ const StableEducationalMessage: React.FC<StableEducationalMessageProps> = ({ mes
       // Re-apply protection after any potential state changes
       container.style.visibility = 'visible';
       container.style.display = 'flex';
+      container.style.flexDirection = 'row';
+      container.style.gap = '40px';
       container.style.opacity = '1';
       
       content.style.visibility = 'visible';
@@ -70,7 +74,8 @@ const StableEducationalMessage: React.FC<StableEducationalMessageProps> = ({ mes
       className="stable-educational-message"
       style={{
         display: 'flex',
-        flexDirection: 'column',
+        flexDirection: 'row',
+        gap: '40px',
         width: '100%',
         position: 'relative',
         minHeight: 'auto',
@@ -80,38 +85,49 @@ const StableEducationalMessage: React.FC<StableEducationalMessageProps> = ({ mes
         willChange: 'auto'
       }}
     >
+      {/* First Column - Main Content */}
       <div style={{ 
-        display: 'flex', 
-        alignItems: 'flex-start', 
-        gap: '8px',
-        width: '100%'
+        display: 'flex',
+        flexDirection: 'column',
+        flex: '1',
+        marginBottom: '0', // Remove bottom margin from first column
+        minWidth: 0
       }}>
-        <SupportAgentIcon 
-          sx={{ 
-            color: theme.palette.primary.main,
-            width: 32, 
-            height: 32,
-            flexShrink: 0
-          }} 
-        />
-        <div
-          ref={contentRef}
-          style={{ 
-            width: '100%',
-            minWidth: 0,
-            visibility: 'visible',
-            display: 'block',
-            opacity: 1
-          }}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {(message as any).content?.text}
-          </ReactMarkdown>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'flex-start', 
+          gap: '8px',
+          width: '100%',
+          marginBottom: '0' // Remove bottom margin from header
+        }}>
+          <SupportAgentIcon 
+            sx={{ 
+              color: theme.palette.primary.main,
+              width: 32, 
+              height: 32,
+              flexShrink: 0
+            }} 
+          />
+          <div
+            ref={contentRef}
+            style={{ 
+              width: '100%',
+              minWidth: 0,
+              visibility: 'visible',
+              display: 'block',
+              opacity: 1
+            }}
+          >
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {(message as any).content?.text}
+            </ReactMarkdown>
+          </div>
         </div>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 0.5 }}>
+          <CopyButton text={(message as any).content?.text || ''} />
+        </Box>
       </div>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mt: 0.5 }}>
-        <CopyButton text={(message as any).content?.text || ''} />
-      </Box>
+    
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import { useTheme } from '@mui/material/styles';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import React from 'react';
 
 import { Message } from '@/../utils/types';
@@ -36,8 +36,8 @@ import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorr
 import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
 import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
 
-// Enhanced artifact processor component with S3 support
-const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
+// Enhanced artifact processor component with S3 support - STABLE VERSION
+const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme }: {
     rawArtifacts: any[];
     message: Message;
     theme: any;
@@ -46,37 +46,41 @@ const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const processArtifacts = async () => {
-            try {
-                console.log('🔄 EnhancedArtifactProcessor: Processing artifacts...');
-                
-                // Check if any artifacts are S3 references
-                const hasS3References = rawArtifacts.some(artifact => 
-                    artifact && artifact.type === 's3_reference'
-                );
-                
-                if (hasS3References) {
-                    console.log('📥 EnhancedArtifactProcessor: S3 references detected, retrieving...');
-                    const retrievedArtifacts = await retrieveArtifacts(rawArtifacts);
-                    setArtifacts(retrievedArtifacts);
-                } else {
-                    console.log('📝 EnhancedArtifactProcessor: No S3 references, using artifacts directly');
-                    setArtifacts(rawArtifacts);
-                }
-                
-                setLoading(false);
-            } catch (err) {
-                console.error('❌ EnhancedArtifactProcessor: Error processing artifacts:', err);
-                setError(err instanceof Error ? err.message : 'Failed to load artifacts');
-                setLoading(false);
-                // Fallback: use raw artifacts
-                setArtifacts(rawArtifacts);
-            }
-        };
+    // Memoize raw artifacts to prevent dependency changes
+    const stableRawArtifacts = useMemo(() => rawArtifacts, [JSON.stringify(rawArtifacts)]);
 
+    // Memoize the process function to prevent useEffect re-runs
+    const processArtifacts = useCallback(async () => {
+        try {
+            console.log('🔄 EnhancedArtifactProcessor: Processing artifacts...');
+            
+            // Check if any artifacts are S3 references
+            const hasS3References = stableRawArtifacts.some(artifact => 
+                artifact && artifact.type === 's3_reference'
+            );
+            
+            if (hasS3References) {
+                console.log('📥 EnhancedArtifactProcessor: S3 references detected, retrieving...');
+                const retrievedArtifacts = await retrieveArtifacts(stableRawArtifacts);
+                setArtifacts(retrievedArtifacts);
+            } else {
+                console.log('📝 EnhancedArtifactProcessor: No S3 references, using artifacts directly');
+                setArtifacts(stableRawArtifacts);
+            }
+            
+            setLoading(false);
+        } catch (err) {
+            console.error('❌ EnhancedArtifactProcessor: Error processing artifacts:', err);
+            setError(err instanceof Error ? err.message : 'Failed to load artifacts');
+            setLoading(false);
+            // Fallback: use raw artifacts
+            setArtifacts(stableRawArtifacts);
+        }
+    }, [stableRawArtifacts]);
+
+    useEffect(() => {
         processArtifacts();
-    }, [rawArtifacts]);
+    }, [processArtifacts]);
 
     // Show loading state for S3 artifacts
     if (loading) {
@@ -273,7 +277,10 @@ const EnhancedArtifactProcessor = ({ rawArtifacts, message, theme }: {
     
     console.log('⚠️ EnhancedArtifactProcessor: Artifacts found but no matching component, using regular AI message');
     return <AiMessageComponent message={message} theme={theme} />;
-};
+}, (prevProps, nextProps) => {
+    // Custom comparison to prevent re-renders when artifacts haven't changed
+    return JSON.stringify(prevProps.rawArtifacts) === JSON.stringify(nextProps.rawArtifacts);
+});
 
 const ChatMessage = (params: {
     message: Message,

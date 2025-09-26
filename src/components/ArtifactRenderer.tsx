@@ -1,13 +1,15 @@
 import React from 'react';
-import { LogPlotViewer } from './logVisualization/LogPlotViewer';
+import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerComponent';
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
 import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
 
 interface Artifact {
   type: string;
+  messageContentType?: string;
   wellName?: string;
   tracks?: string[];
+  logData?: any;
   [key: string]: any;
 }
 
@@ -28,11 +30,19 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
         
         switch (artifactType) {
           case 'logPlotViewer':
+          case 'log_plot_viewer':
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
-                <LogPlotViewer 
-                  wellName={artifact.wellName || 'SANDSTONE_RESERVOIR_001'}
-                  tracks={artifact.tracks || ['gammaRay', 'porosity', 'resistivity', 'calculated']}
+                <LogPlotViewerComponent 
+                  data={{
+                    wellName: artifact.wellName || 'SANDSTONE_RESERVOIR_001',
+                    tracks: artifact.tracks || ['gammaRay', 'porosity', 'resistivity', 'calculated'],
+                    logData: artifact.logData || null,
+                    type: 'logPlotViewer',
+                    availableCurves: artifact.availableCurves || [],
+                    dataPoints: artifact.dataPoints || 0,
+                    title: artifact.title || `Log Analysis - ${artifact.wellName || 'Well'}`
+                  }}
                 />
               </div>
             );

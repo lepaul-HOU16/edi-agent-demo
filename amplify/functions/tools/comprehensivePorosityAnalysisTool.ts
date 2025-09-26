@@ -851,6 +851,31 @@ function createMockPorosityAnalysis(wellNames: string[]): any {
       ],
       overallAssessment: 'Enhanced Professional Methodology Applied - SPE/API Standards Compliant'
     },
+    completionStrategy: {
+      primaryTargets: [
+        '2450-2485 ft: Primary completion target with 18.5% porosity and 35 ft thickness',
+        '2520-2545 ft: Secondary target with 16.2% porosity and excellent reservoir quality',
+        '2580-2600 ft: Tertiary target suitable for extended reach completion'
+      ],
+      recommendedApproach: 'Multi-stage hydraulic fracturing with 8-10 stages targeting high-porosity intervals',
+      targetIntervals: [
+        {
+          interval: '2450-2485 ft',
+          priority: 'Primary',
+          rationale: 'Highest porosity zone (18.5%) with excellent reservoir quality and optimal thickness (35 ft)'
+        },
+        {
+          interval: '2520-2545 ft', 
+          priority: 'Secondary',
+          rationale: 'Good porosity (16.2%) with consistent reservoir properties and moderate thickness (25 ft)'
+        },
+        {
+          interval: '2580-2600 ft',
+          priority: 'Tertiary',
+          rationale: 'Moderate porosity (14.8%) suitable for selective completion and extended reach drilling'
+        }
+      ]
+    },
     results: {
       enhancedPorosityAnalysis: {
         method: 'Enhanced Density-Neutron Analysis (SPE/API Standards)',
@@ -1043,30 +1068,6 @@ function createMockPorosityAnalysis(wellNames: string[]): any {
           'Development strategy recommendations'
         ]
       }
-    },
-    completionStrategy: {
-      enhancedRecommendations: {
-        primaryTarget: {
-          interval: '2450-2485 ft',
-          porosity: '18.5% ± 1.8%',
-          thickness: '35.0 ft',
-          approach: 'Multi-stage hydraulic fracturing with 8-10 stages',
-          expectedEUR: 'High productivity - 150-200 MBoe estimated',
-          riskLevel: 'Low'
-        },
-        secondaryTarget: {
-          interval: '2520-2545 ft',
-          porosity: '16.2% ± 2.1%',
-          thickness: '25.0 ft',
-          approach: 'Selective completion with 5-6 stages',
-          expectedEUR: 'Good productivity - 100-150 MBoe estimated',
-          riskLevel: 'Low to Moderate'
-        }
-      },
-      recommendedApproach: 'Multi-zone completion targeting high-porosity intervals with enhanced fracturing',
-      expectedPerformance: 'High productivity expected based on professional porosity analysis',
-      riskAssessment: 'Low risk - consistent porosity distribution with statistical validation',
-      economicViability: 'Excellent - porosity analysis supports commercial development'
     },
     professionalDocumentation: {
       methodology: {
