@@ -82,11 +82,12 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
       console.log('⚠️ HANDLER: No artifacts in agent response');
     }
 
-    // Return the response with artifacts for visualization
+    // Return the response with artifacts and thought steps for visualization
     const finalResponse = {
       success: response.success,
       message: response.message || 'No response generated',
-      artifacts: response.artifacts || []
+      artifacts: response.artifacts || [],
+      thoughtSteps: response.thoughtSteps || [] // Pass through thought steps from agent
     };
 
     console.log('🏁 HANDLER: Final response structure:', {

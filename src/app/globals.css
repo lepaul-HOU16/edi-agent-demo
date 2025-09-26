@@ -253,9 +253,10 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 }
 
 .convo .messages-container {
-  scroll-behavior: smooth;
+  scroll-behavior: auto; /* Changed from smooth to auto for programmatic control */
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
+  padding-bottom: 60px; /* Add extra scroll space for better user experience */
 }
 
 .convo .messages-container::-webkit-scrollbar {
@@ -282,7 +283,34 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 /* Ensure proper container heights */
 .panel {
   height: calc(100vh - 200px);
-  overflow: hidden;
+  padding-bottom: 40px; /* Add extra scroll space at the end */
+}
+
+/* Chain of Thought animations */
+@keyframes slideDown {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px;
+  }
+}
+
+@keyframes slideUp {
+  0% {
+    opacity: 1;
+    transform: translateY(0);
+    max-height: 200px;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-10px);
+    max-height: 0;
+  }
 }
 
 .convo > div {
@@ -305,7 +333,7 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   min-height: fit-content !important;
   flex-direction: row !important;
   gap: 10px !important;
-  contain: layout !important; /* Isolate layout changes for scroll stability */
+  /* Remove contain: layout to prevent autoscroll interference */
   padding-top: 11px;
   padding-bottom: 11px;
 }
