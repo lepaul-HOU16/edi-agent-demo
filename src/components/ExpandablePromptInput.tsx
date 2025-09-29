@@ -26,52 +26,46 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Enhanced input change handler with immediate typing state clearing on empty
+  // Simple input change handler
   const handleInputChange = useCallback((newValue: string) => {
-    // Update the input value immediately - no interference
     onChange(newValue);
     
-    // Handle typing state if needed
+    // Only handle typing state if callback is provided
     if (onTypingStateChange) {
-      // Clear existing timeout to prevent race conditions
       if (typingTimeoutRef.current) {
         clearTimeout(typingTimeoutRef.current);
       }
       
       if (newValue.length === 0) {
-        // Immediately clear typing state when input is empty (on submit/clear)
-        setIsTyping(false);
-        onTypingStateChange(false);
+        if (isTyping) {
+          setIsTyping(false);
+          onTypingStateChange(false);
+        }
       } else {
-        // Set typing state if not already typing
         if (!isTyping) {
           setIsTyping(true);
           onTypingStateChange(true);
         }
         
-        // Set shorter timeout for faster typing end detection
         typingTimeoutRef.current = setTimeout(() => {
           setIsTyping(false);
           onTypingStateChange(false);
-        }, 800); // Reduced from 1500ms to 800ms for faster reset
+        }, 1200);
       }
     }
   }, [onChange, onTypingStateChange, isTyping]);
   
-  // Handle action (submit) - immediately clear typing state
+  // Handle action (submit)
   const handleAction = useCallback(() => {
-    // Clear typing state immediately on submit
     if (onTypingStateChange && isTyping) {
       setIsTyping(false);
       onTypingStateChange(false);
     }
     
-    // Clear timeout to prevent delayed state changes
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
     
-    // Call the original onAction
     onAction();
   }, [onAction, onTypingStateChange, isTyping]);
 
@@ -88,7 +82,6 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
     <Box sx={{ 
       position: 'relative',
       width: '100%',
-      // Remove outer padding to maximize input width
       boxSizing: 'border-box',
       '& .awsui-prompt-input': {
         width: '100%',
@@ -96,26 +89,24 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
       '& .awsui-prompt-input__input': {
         width: '100% !important',
         minHeight: '40px',
-        padding: '12px 16px !important', // Single, consistent internal padding
+        padding: '12px 16px !important',
         resize: 'vertical',
         boxSizing: 'border-box',
       },
       '& .awsui-prompt-input__action-button': {
         alignSelf: 'flex-end',
         marginBottom: '8px',
-        marginRight: '2px', // Minimal spacing from edge
+        marginRight: '2px',
       },
-      // Maximize container width - remove unnecessary padding
       '& .awsui-prompt-input__container': {
         width: '100%',
-        padding: '4px', // Minimal padding for proper layout
+        padding: '4px',
         boxSizing: 'border-box',
-        gap: '4px', // Smaller gap to maximize input space
+        gap: '4px',
       },
       '& .awsui-prompt-input__input-wrapper': {
         width: '100%',
         flex: '1 1 auto',
-        // Remove marginRight to extend input closer to Example Prompts
         marginRight: '0px',
       }
     }}>

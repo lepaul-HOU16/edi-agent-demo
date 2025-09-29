@@ -1,8 +1,6 @@
-import { tool } from "@langchain/core/tools";
 import { z } from "zod";
 import axiosMod, { AxiosRequestConfig, AxiosStatic, AxiosError } from "axios";
 import * as cheerio from "cheerio";
-import { isNode } from "@langchain/core/utils/env";
 
 const DEFAULT_HEADERS = {
     Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
@@ -92,9 +90,24 @@ const webBrowserToolSchema = z.object({
     url: z.string().url(),
 });
 
-export const webBrowserTool = tool(
-    async ({ url }) => {
+interface WebBrowserResult {
+    content?: string;
+    error?: string;
+    status: number;
+    url: string;
+}
+
+/**
+ * Lightweight web browser tool implementation
+ * Fetches and extracts text content from URLs without LangChain dependencies
+ */
+export class WebBrowserTool {
+    async func(params: { url: string }): Promise<WebBrowserResult> {
         try {
+            // Validate input
+            const validated = webBrowserToolSchema.parse(params);
+            const { url } = validated;
+
             const axiosConfig: AxiosRequestConfig = {
                 withCredentials: true,
                 timeout: 10000,
@@ -110,17 +123,33 @@ export const webBrowserTool = tool(
                 url: url
             };
         } catch (error: unknown) {
-            const axiosError = error as AxiosError;
+            console.error('WebBrowserTool error:', error);
+            
+            if (error instanceof Error) {
+                return {
+                    error: `Failed to fetch URL: ${error.message}`,
+                    status: error.message.includes('http response') ? 
+                        parseInt(error.message.split(' ').pop() || '500') : 500,
+                    url: params.url
+                };
+            }
+            
             return {
-                error: `Failed to fetch URL: ${axiosError.message}`,
-                status: axiosError.response?.status || 500,
-                url: url
+                error: 'Unknown error occurred while fetching URL',
+                status: 500,
+                url: params.url
             };
         }
-    },
-    {
-        name: "webBrowserTool",
-        description: "Fetches and extracts the text content from a given URL, including links in markdown format. Returns the cleaned text content along with status code and URL.",
-        schema: webBrowserToolSchema,
     }
-);
+
+    get name(): string {
+        return "webBrowserTool";
+    }
+
+    get description(): string {
+        return "Fetches and extracts the text content from a given URL, including links in markdown format. Returns the cleaned text content along with status code and URL.";
+    }
+}
+
+// Export singleton instance for easy use
+export const webBrowserTool = new WebBrowserTool();

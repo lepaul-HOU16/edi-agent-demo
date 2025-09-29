@@ -708,7 +708,7 @@ export class EnhancedStrandsAgent {
         requiresWell: false
       },
       
-      // Log curve visualization intents - EXPANDED for composite displays
+      // Log curve visualization intents - EXPANDED for composite displays and quad well logs
       {
         type: 'log_curve_visualization',
         test: () => this.matchesAny(query, [
@@ -720,6 +720,18 @@ export class EnhancedStrandsAgent {
           'log.*plot.*viewer',
           'curve.*data.*for',
           'get.*curve.*data',
+          // FIXED: Add missing patterns for "show me the curves" type queries
+          'show.*me.*the.*curves',
+          'show.*me.*a.*quad.*well.*log',
+          'show.*me.*.*curves.*of.*well',
+          'curves.*of.*well',
+          'curves.*for.*well',
+          'well.*\\d+.*log.*curves',
+          'well.*\\d+.*curves',
+          'log.*curves.*for.*well.*\\d+',
+          'display.*well.*log',
+          'well.*log.*for',
+          'quad.*well.*log',
           // NEW: Composite display patterns
           'create.*composite.*well.*log.*display',
           'composite.*well.*log.*display',
