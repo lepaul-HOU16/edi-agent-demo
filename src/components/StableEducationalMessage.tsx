@@ -105,7 +105,10 @@ const StableEducationalMessage: React.FC<StableEducationalMessageProps> = ({ mes
               color: theme.palette.primary.main,
               width: 32, 
               height: 32,
-              flexShrink: 0
+              minWidth: 32,
+              aspectRatio: '1',
+              flexShrink: 0,
+              display: 'block'
             }} 
           />
           <div

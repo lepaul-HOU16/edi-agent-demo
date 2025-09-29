@@ -804,6 +804,12 @@
               "isArray": false,
               "type": "String",
               "isRequired": true
+            },
+            "existingContext": {
+              "name": "existingContext",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": false
             }
           }
         }

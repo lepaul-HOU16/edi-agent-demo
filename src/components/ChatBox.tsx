@@ -606,8 +606,16 @@ const ChatBox = (params: {
           <ButtonDropdown
             items={[
             {
+              text: 'General AI Assistant - Weather, regulations, general knowledge',
+              id: 'generalAgent',
+            },
+            {
               text: 'Petrophysics Agent - Well data analysis & formation evaluation',
               id: 'petroAgent',
+            },
+            {
+              text: 'Catalog Explorer - Geographic well search & mapping',
+              id: 'catalogAgent',
             },
             ]}
           ></ButtonDropdown>
