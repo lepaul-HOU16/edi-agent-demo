@@ -1,15 +1,18 @@
-import { EnhancedStrandsAgent } from './enhancedStrandsAgent';
+import { AgentRouter } from './agentRouter';
 import { AppSyncResolverEvent } from 'aws-lambda';
 
 type LightweightAgentResponse = {
   success: boolean;
   message: string;
   artifacts: any[];
+  thoughtSteps?: any[];
+  sourceAttribution?: any[];
+  agentUsed?: string;
   debug?: any;
 };
 
 export const handler = async (event: AppSyncResolverEvent<any>, context: any): Promise<LightweightAgentResponse> => {
-  console.log('=== FULL STRANDS AGENT WITH S3 INTEGRATION INVOKED ===');
+  console.log('=== ENHANCED MULTI-AGENT ROUTER INVOKED ===');
   console.log('Event arguments:', JSON.stringify(event.arguments, null, 2));
   console.log('Event identity:', JSON.stringify(event.identity, null, 2));
   
@@ -39,8 +42,9 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
     console.log('Processing message:', event.arguments.message);
     console.log('Foundation Model ID:', event.arguments.foundationModelId);
     
-    const agent = new EnhancedStrandsAgent(event.arguments.foundationModelId, s3Bucket);
-    const response = await agent.processMessage(event.arguments.message);
+    // Initialize the multi-agent router
+    const router = new AgentRouter(event.arguments.foundationModelId, s3Bucket);
+    const response = await router.routeQuery(event.arguments.message);
     console.log('🔍 HANDLER: Agent response received:', {
       success: response.success,
       messageLength: response.message?.length || 0,
@@ -82,37 +86,53 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
       console.log('⚠️ HANDLER: No artifacts in agent response');
     }
 
-    // Return the response with artifacts and thought steps for visualization
+    // Return the enhanced response with all new capabilities
     const finalResponse = {
       success: response.success,
       message: response.message || 'No response generated',
       artifacts: response.artifacts || [],
-      thoughtSteps: response.thoughtSteps || [] // Pass through thought steps from agent
+      thoughtSteps: response.thoughtSteps || [], // Pass through thought steps from agent
+      sourceAttribution: response.sourceAttribution || [], // Pass through source attribution
+      agentUsed: response.agentUsed || 'unknown' // Track which agent was used
     };
 
-    console.log('🏁 HANDLER: Final response structure:', {
+    console.log('🏁 HANDLER: Enhanced multi-agent response structure:', {
       success: finalResponse.success,
       messageLength: finalResponse.message?.length || 0,
       artifactCount: finalResponse.artifacts?.length || 0,
+      thoughtStepCount: finalResponse.thoughtSteps?.length || 0,
+      sourceCount: finalResponse.sourceAttribution?.length || 0,
+      agentUsed: finalResponse.agentUsed,
       finalArtifactsType: typeof finalResponse.artifacts,
       finalArtifactsIsArray: Array.isArray(finalResponse.artifacts)
     });
 
-    // CRITICAL: Test final response serialization
+    // CRITICAL: Test final response serialization with new fields
     try {
       const testSerialization = JSON.stringify(finalResponse);
       const testDeserialization = JSON.parse(testSerialization);
-      console.log('✅ HANDLER: Final response serializes correctly');
-      console.log('🎯 HANDLER: Serialized artifact count:', testDeserialization.artifacts?.length || 0);
+      console.log('✅ HANDLER: Enhanced response serializes correctly');
+      console.log('🎯 HANDLER: Serialized counts:', {
+        artifacts: testDeserialization.artifacts?.length || 0,
+        thoughtSteps: testDeserialization.thoughtSteps?.length || 0,
+        sources: testDeserialization.sourceAttribution?.length || 0
+      });
       
       if (testDeserialization.artifacts && testDeserialization.artifacts.length > 0) {
         console.log('🎉 HANDLER: Artifacts preserved in serialization!');
         console.log('🔍 HANDLER: First serialized artifact keys:', Object.keys(testDeserialization.artifacts[0] || {}));
-      } else {
-        console.log('💥 HANDLER: ARTIFACTS LOST DURING SERIALIZATION!');
       }
+      
+      if (testDeserialization.thoughtSteps && testDeserialization.thoughtSteps.length > 0) {
+        console.log('🧠 HANDLER: Thought steps preserved in serialization!');
+      }
+      
+      if (testDeserialization.sourceAttribution && testDeserialization.sourceAttribution.length > 0) {
+        console.log('📚 HANDLER: Source attribution preserved in serialization!');
+      }
+      
     } catch (finalSerializationError) {
-      console.error('❌ HANDLER: Final response serialization failed:', finalSerializationError);
+      console.error('❌ HANDLER: Enhanced response serialization failed:', finalSerializationError);
     }
 
     return finalResponse;

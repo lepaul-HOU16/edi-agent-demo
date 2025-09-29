@@ -12,7 +12,9 @@ import themes from '../theme';
 import ConfigureAmplify from '@/components/ConfigureAmplify';
 import Providers from '@/components/Providers';
 import ErrorBoundary from '@/components/ErrorBoundary';
-// import TopNavBar from '@/components/TopNavBar';
+
+import { useAuthenticator } from '@aws-amplify/ui-react';
+import { useUserAttributes } from '@/components/UserAttributesProvider';
 
 import IconButton from '@mui/material/IconButton';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
@@ -31,15 +33,13 @@ import { type Schema } from "@/../amplify/data/resource";
 import { generateClient } from 'aws-amplify/data';
 import { sendMessage } from '@/../utils/amplifyUtils';
 import { memoryManager } from '@/utils/memoryUtils';
+
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
-// Remove useRouter from the top-level scope
 
-// Removed export of metadata from client component
-
-export default function RootLayout({
+function RootLayoutContent({
   children,
 }: {
   children: React.ReactNode;
@@ -47,6 +47,10 @@ export default function RootLayout({
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
   const router = useRouter();
+  
+  // AWS Amplify Authentication
+  const { signOut, authStatus } = useAuthenticator(context => [context.user, context.authStatus]);
+  const { userAttributes } = useUserAttributes();
 
   // Initialize Amplify client after component mounts
   useEffect(() => {
@@ -147,168 +151,188 @@ export default function RootLayout({
     }
   };
   
+  // Return ONLY the content without html/body tags
   return (
-    <html lang="en" data-mode={darkMode ? 'dark' : 'light'}>
-      <body
-        className={`${inter.variable} antialiased`}
-      >
+    <ThemeProvider theme={darkMode ? themes.dark : themes.light}>
+      <CssBaseline />
+      <div style={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100vh',
+        overflow: 'hidden'
+      }}>
+        <TopNavigation
+          identity={{
+            href: '/',
+            title: 'Energy Data Insights',
+            logo: {
+              src: 'https://main.doc6ahlxcozk0.amplifyapp.com/_next/static/media/a4e-logo.61cbe3b3.png',
+              alt: 'EDI',
+            },
+          }}
+          utilities={[
+            {
+              type: 'menu-dropdown',
+              text: 'Data Catalog',
+              iconName: 'map',
+              items: [
+                {
+                  id: 'catalog-main',
+                  text: 'View All Data',
+                  href: '/catalog',
+                },
+                {
+                  id: 'dc',
+                  text: 'Data Collections',
+                  items: [
+                    {
+                      id: 'dc1',
+                      text: 'Cuu Long Basin',
+                    },
+                    {
+                      id: 'dc2',
+                      text: 'Nam Con Son Basin',
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              type: 'menu-dropdown',
+              text: 'Workspace',
+              iconName: 'gen-ai',
+              items: [
+                {
+                  id: 'list',
+                  text: 'View All Canvases',
+                  href: '/listChats',
+                },
+                {
+                  id: 'ws',
+                  text: 'Canvases',
+                  items: [
+                    {
+                  id: 'ws1',
+                  text: 'Petrophysical Analysis',
+                  href: '/create-new-chat',
+                    },
+                  ],
+                },
+                {
+                  id: 'ws-new',
+                  text: 'Create New Canvas',
+                  iconName: 'add-plus',
+                  href: '/create-new-chat',
+                },
+              ],
+            },
+            {
+              type: 'menu-dropdown',
+              iconName: 'grid-view',
+              text: 'Tools',
+              ariaLabel: 'Tools',
+              title: 'Tools',
+              items: [
+                {
+                  id: 'team',
+                  text: 'Team Administration',
+                  href: '',
+                },
+                {
+                  id: 'status',
+                  text: 'Platform Configurations',
+                  href: '',
+                },
+              ],
+            },
+            {
+              type: 'button',
+              iconSvg: darkMode ? 
+                <LightModeIcon sx={{ fontSize: '16px', color: 'currentColor' }} /> : 
+                <DarkModeIcon sx={{ fontSize: '16px', color: 'currentColor' }} />,
+              ariaLabel: darkMode ? 'Switch to light mode' : 'Switch to dark mode',
+              title: darkMode ? 'Switch to light mode' : 'Switch to dark mode',
+              onClick: toggleDarkMode,
+            },
+            authStatus === 'authenticated' ? {
+              type: 'menu-dropdown',
+              text: userAttributes?.given_name || userAttributes?.name || 'User',
+              description: userAttributes?.email || 'user@example.com',
+              iconName: 'user-profile',
+              onItemClick: ({ detail }) => {
+                if (detail.id === 'signout') {
+                  signOut();
+                }
+              },
+              items: [
+                {
+                  id: 'support-group',
+                  text: 'Support',
+                  items: [
+                    {
+                      id: 'documentation-support',
+                      text: 'Documentation',
+                      href: '#',
+                      external: true,
+                      externalIconAriaLabel: ' (opens in new tab)',
+                    },
+                    {
+                      id: 'support-support',
+                      text: 'Support',
+                      href: '#',
+                      external: true,
+                      externalIconAriaLabel: ' (opens in new tab)',
+                    },
+                    {
+                      id: 'feedback-support',
+                      text: 'Feedback',
+                      href: '#',
+                      external: true,
+                      externalIconAriaLabel: ' (opens in new tab)',
+                    },
+                  ],
+                },
+                {
+                  id: 'signout',
+                  text: 'Sign out',
+                },
+              ],
+            } : {
+              type: 'button',
+              text: 'Sign in',
+              href: '/auth',
+              variant: 'primary-button',
+              iconName: 'user-profile',
+            },
+          ]}
+        />
+        <div style={{
+          flexGrow: 1,
+          overflow: 'auto'
+        }}>
+          {children}
+        </div>
+      </div>
+    </ThemeProvider>
+  );
+}
+
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  return (
+    <html lang="en">
+      <body className={inter.variable}>
         <AppRouterCacheProvider>
           <ConfigureAmplify />
           <ErrorBoundary>
             <FileSystemProvider>
               <Providers>
-                <ThemeProvider theme={darkMode ? themes.dark : themes.light}>
-                  <CssBaseline />
-                  <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    height: '100vh',
-                    overflow: 'hidden'
-                  }}>
-                  {/* <TopNavBar /> */}
-
-                  <TopNavigation
-                    identity={{
-                      href: '/',
-                      title: 'Energy Data Insights',
-                      logo: {
-                        src: 'https://main.doc6ahlxcozk0.amplifyapp.com/_next/static/media/a4e-logo.61cbe3b3.png',
-                        alt: 'EDI',
-                      },
-                    }}
-                    utilities={[
-                      {
-                        type: 'menu-dropdown',
-                        text: 'Data Catalog',
-                        iconName: 'map',
-                        items: [
-                          {
-                            id: 'catalog-main',
-                            text: 'View All Data',
-                            href: '/catalog',
-                          },
-                          {
-                            id: 'dc',
-                            text: 'Data Collections',
-                            items: [
-                              {
-                                id: 'dc1',
-                                text: 'Cuu Long Basin',
-                              },
-                              {
-                                id: 'dc2',
-                                text: 'Nam Con Son Basin',
-                              },
-                            ],
-                          },
-                        ],
-                      },
-                      {
-                        type: 'menu-dropdown',
-                        text: 'Workspace',
-                        iconName: 'gen-ai',
-                        items: [
-                          {
-                            id: 'list',
-                            text: 'View All Canvases',
-                            href: '/listChats',
-                          },
-                          {
-                            id: 'ws',
-                            text: 'Canvases',
-                            items: [
-                              {
-                            id: 'ws1',
-                            text: 'Petrophysical Analysis',
-                            href: '/create-new-chat',
-                              },
-                            ],
-                          },
-                          {
-                            id: 'ws-new',
-                            text: 'Create New Canvas',
-                            iconName: 'add-plus',
-                            href: '/create-new-chat',
-                          },
-                        ],
-                      },
-                      {
-                        type: 'menu-dropdown',
-                        iconName: 'grid-view',
-                        text: 'Tools',
-                        ariaLabel: 'Tools',
-                        title: 'Tools',
-                        items: [
-                          {
-                            id: 'team',
-                            text: 'Team Administration',
-                            href: '',
-                          },
-                          {
-                            id: 'status',
-                            text: 'Platform Configurations',
-                            href: '',
-                          },
-                        ],
-                      },
-                      {
-                        type: 'button',
-                        iconSvg: darkMode ? 
-                          <LightModeIcon sx={{ fontSize: '16px', color: 'currentColor' }} /> : 
-                          <DarkModeIcon sx={{ fontSize: '16px', color: 'currentColor' }} />,
-                        ariaLabel: darkMode ? 'Switch to light mode' : 'Switch to dark mode',
-                        title: darkMode ? 'Switch to light mode' : 'Switch to dark mode',
-                        onClick: toggleDarkMode,
-                      },
-                      {
-                        type: 'menu-dropdown',
-                        text: 'User Name',
-                        description: 'email@example.com',
-                        iconName: 'user-profile',
-                        items: [
-                          {
-                            id: 'support-group',
-                            text: 'Support',
-                            items: [
-                              {
-                                id: 'documentation-support',
-                                text: 'Documentation',
-                                href: '#',
-                                external: true,
-                                externalIconAriaLabel: ' (opens in new tab)',
-                              },
-                              {
-                                id: 'support-support',
-                                text: 'Support',
-                                href: '#',
-                                external: true,
-                                externalIconAriaLabel: ' (opens in new tab)',
-                              },
-                              {
-                                id: 'feedback-support',
-                                text: 'Feedback',
-                                href: '#',
-                                external: true,
-                                externalIconAriaLabel: ' (opens in new tab)',
-                              },
-                            ],
-                          },
-                          {
-                            id: 'signout',
-                            text: 'Sign out',
-                          },
-                        ],
-                      },
-                    ]}
-                  />
-                    <div style={{
-                      flexGrow: 1,
-                      overflow: 'auto'
-                    }}>
-                      {children}
-                    </div>
-                  </div>
-                </ThemeProvider>
+                <RootLayoutContent>
+                  {children}
+                </RootLayoutContent>
               </Providers>
             </FileSystemProvider>
           </ErrorBoundary>
