@@ -164,9 +164,114 @@ async function fetchUserWells(): Promise<any[]> {
   }
 }
 
+// Function to parse depth criteria from query
+function parseDepthCriteria(lowerQuery: string): any {
+  console.log('🔍 Parsing depth criteria from:', lowerQuery);
+  
+  // Enhanced depth pattern matching
+  const depthPatterns = [
+    /(?:wells?|data)\s*(?:with|having)?\s*depth\s*(?:greater\s*than|>|above)\s*(\d+)\s*(m|meter|ft|feet)?/i,
+    /(?:depth|deeper)\s*(?:greater\s*than|>|above)\s*(\d+)\s*(m|meter|ft|feet)?/i,
+    /(?:wells?|data)\s*(?:deeper\s*than|>)\s*(\d+)\s*(m|meter|ft|feet)?/i,
+    /(?:filter|show|find)\s*(?:wells?|data)?\s*(?:with|having)?\s*depth\s*(?:>|greater\s*than|above)\s*(\d+)/i
+  ];
+  
+  for (const pattern of depthPatterns) {
+    const match = lowerQuery.match(pattern);
+    if (match) {
+      const depthValue = parseInt(match[1]);
+      const unit = match[2] || 'm'; // Default to meters
+      
+      console.log('✅ Depth criteria found:', {
+        minDepth: depthValue,
+        unit: unit,
+        operator: 'greater_than'
+      });
+      
+      return {
+        minDepth: depthValue,
+        unit: unit,
+        operator: 'greater_than',
+        filterType: 'depth_filter'
+      };
+    }
+  }
+  
+  // Check for simple depth mentions
+  const simpleDepthMatch = lowerQuery.match(/(\d+)\s*(m|meter|ft|feet|foot)/);
+  if (simpleDepthMatch || lowerQuery.includes('deep')) {
+    const depth = simpleDepthMatch ? parseInt(simpleDepthMatch[1]) : 3000;
+    console.log('✅ Simple depth criteria found:', { minDepth: depth });
+    return { minDepth: depth, unit: 'm', operator: 'greater_than' };
+  }
+  
+  console.log('❌ No depth criteria found');
+  return null;
+}
+
 // Enhanced NLP query parser for better understanding of user intent
 function parseNLPQuery(searchQuery: string): { queryType: string; parameters: any } {
   const lowerQuery = searchQuery.toLowerCase().trim();
+  
+  // AGGRESSIVE DEBUGGING FOR WEATHER PATTERN
+  console.log('🔍 === PARSING QUERY ===');
+  console.log('📝 Original query:', searchQuery);
+  console.log('🔤 Lowercase query:', lowerQuery);
+  
+  // EMERGENCY FIX: Force weather detection for specific query
+  if (searchQuery.includes('weather') && searchQuery.includes('wells')) {
+    console.log('🚨 EMERGENCY WEATHER DETECTION: Force weather maps for any weather+wells query');
+    return {
+      queryType: 'weatherMaps',
+      parameters: {
+        includeUserWells: true,
+        weatherTypes: ['temperature', 'precipitation'],
+        additionalWeatherTypes: ['wind', 'pressure', 'humidity'],
+        radius: 50,
+        region: 'user_wells_area',
+        coordinates: null
+      }
+    };
+  }
+  
+  // PRIORITY 1: SUPER AGGRESSIVE weather pattern detection
+  const hasWeather = lowerQuery.includes('weather');
+  const hasMap = lowerQuery.includes('map') || lowerQuery.includes('maps');
+  const hasNear = lowerQuery.includes('near');
+  const hasWells = lowerQuery.includes('wells') || lowerQuery.includes('well');
+  const hasShow = lowerQuery.includes('show') || lowerQuery.includes('can you');
+  
+  // Multiple weather detection strategies
+  const weatherPattern1 = lowerQuery.includes('weather map') || lowerQuery.includes('weather maps');
+  const weatherPattern2 = (hasWeather && hasMap);
+  const weatherPattern3 = (hasWeather && hasNear && hasWells);
+  const weatherPattern4 = (hasWeather && hasShow && hasWells);
+  
+  console.log('🎯 Weather pattern analysis:');
+  console.log('  - Pattern 1 (weather map/maps):', weatherPattern1);
+  console.log('  - Pattern 2 (weather + map):', weatherPattern2);
+  console.log('  - Pattern 3 (weather + near + wells):', weatherPattern3);  
+  console.log('  - Pattern 4 (weather + show + wells):', weatherPattern4);
+  
+  const isWeatherQuery = weatherPattern1 || weatherPattern2 || weatherPattern3 || weatherPattern4;
+  console.log('🌤️ FINAL WEATHER DECISION:', isWeatherQuery);
+  
+  if (isWeatherQuery) {
+    console.log('✅ WEATHER MAPS QUERY DETECTED - RETURNING WEATHER TYPE');
+    return {
+      queryType: 'weatherMaps',
+      parameters: {
+        includeUserWells: true,
+        weatherTypes: ['temperature', 'precipitation'], // Top 2 as requested
+        additionalWeatherTypes: ['wind', 'pressure', 'humidity'], // Progressive disclosure
+        radius: 50, // 50km radius as specified
+        region: 'user_wells_area',
+        coordinates: null // Will be calculated from well locations
+      }
+    };
+  }
+  
+  console.log('❌ Weather pattern NOT matched, checking other patterns...');
   
   // Check for "show all wells" or similar queries that should include user wells
   if (lowerQuery.includes('show all wells') || lowerQuery.includes('all wells') || 
@@ -181,8 +286,30 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
     };
   }
   
-  // Check for "my wells" queries
-  if (lowerQuery.includes('my wells') || lowerQuery.includes('show me my wells') || 
+  // Check for polygon queries - HIGH PRIORITY
+  const polygonPatterns = [
+    /(?:wells?|data|points?)\s*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i,
+    /(?:filter|show)\s*(?:by|using)\s*(?:polygon|area|selection)/i,
+    /(?:polygon|area)\s*(?:filter|selection)/i,
+    /(?:find|search|show).*wells?.*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i
+  ];
+  
+  const isPolygonQuery = polygonPatterns.some(pattern => pattern.test(lowerQuery));
+  
+  if (isPolygonQuery) {
+    console.log('🔷 POLYGON QUERY DETECTED:', searchQuery);
+    return {
+      queryType: 'polygonSearch',
+      parameters: {
+        includeUserWells: true,
+        searchType: 'polygon_filter',
+        region: 'polygon_area'
+      }
+    };
+  }
+
+  // Check for "my wells" queries  
+  if (lowerQuery.includes('my wells') || lowerQuery.includes('show me my wells') ||
       lowerQuery.includes('personal wells') || lowerQuery.includes('user wells')) {
     return {
       queryType: 'myWells',
@@ -240,11 +367,10 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
     return { queryType: 'logs', parameters: { logs: foundLogs } };
   }
   
-  // Depth searches
-  const depthMatch = lowerQuery.match(/(\d+)\s*(m|meter|ft|feet|foot)/);
-  if (depthMatch || lowerQuery.includes('deep')) {
-    const depth = depthMatch ? parseInt(depthMatch[1]) : 3000;
-    return { queryType: 'depth', parameters: { minDepth: depth } };
+  // Enhanced depth searches with filtering operators
+  const depthCriteria = parseDepthCriteria(lowerQuery);
+  if (depthCriteria) {
+    return { queryType: 'depth', parameters: depthCriteria };
   }
   
   // Specific well name searches
@@ -257,12 +383,397 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
   return { queryType: 'general', parameters: { text: searchQuery } };
 }
 
+// Function to handle weather maps queries - combines wells with weather overlay
+async function handleWeatherMapsQuery(searchQuery: string, parsedQuery: any): Promise<any> {
+  console.log('🌤️ === WEATHER MAPS HANDLER START ===');
+  console.log('📍 Parameters:', parsedQuery.parameters);
+  
+  try {
+    // Step 1: Get user wells first
+    console.log('🔍 Step 1: Fetching user wells for weather map context');
+    const userWells = await fetchUserWells();
+    
+    if (userWells.length === 0) {
+      console.log('❌ No user wells found, cannot determine weather map area');
+      return {
+        type: "FeatureCollection",
+        metadata: {
+          type: "error",
+          searchQuery: searchQuery,
+          error: "No wells found to determine weather map area. Please ensure well data is available.",
+          queryType: 'weatherMaps'
+        },
+        features: []
+      };
+    }
+    
+    // Step 2: Calculate 50km bounding area around wells
+    console.log('🗺️ Step 2: Calculating 50km bounding area around', userWells.length, 'wells');
+    const wellCoordinates = userWells.map(well => well.geometry.coordinates);
+    const bounds = calculateWeatherBounds(wellCoordinates, parsedQuery.parameters.radius);
+    
+    console.log('📐 Weather map bounds:', bounds);
+    
+    // Step 3: Fetch weather data for the area
+    console.log('🌦️ Step 3: Fetching weather data for region');
+    const weatherData = await fetchWeatherDataForRegion(bounds, parsedQuery.parameters);
+    
+    // Step 4: Create combined GeoJSON with wells and weather
+    console.log('🔗 Step 4: Combining wells with weather overlay data');
+    const combinedFeatures = [
+      ...userWells, // Existing wells
+      ...weatherData.features // Weather overlay features
+    ];
+    
+    const enhancedMetadata = {
+      type: "wells_with_weather",
+      searchQuery: searchQuery,
+      source: "Personal Wells + Weather Data",
+      recordCount: userWells.length,
+      weatherDataPoints: weatherData.features.length,
+      region: 'user_wells_area',
+      queryType: 'weatherMaps',
+      timestamp: new Date().toISOString(),
+      coordinateBounds: bounds,
+      weatherLayers: weatherData.weatherLayers,
+      weatherSettings: {
+        radius: parsedQuery.parameters.radius,
+        primaryWeatherTypes: parsedQuery.parameters.weatherTypes,
+        additionalWeatherTypes: parsedQuery.parameters.additionalWeatherTypes,
+        lastUpdated: weatherData.timestamp
+      }
+    };
+    
+    console.log('✅ Weather maps query completed successfully');
+    console.log('📊 Result summary:', {
+      wells: userWells.length,
+      weatherPoints: weatherData.features.length,
+      totalFeatures: combinedFeatures.length,
+      weatherLayers: Object.keys(weatherData.weatherLayers).length
+    });
+    
+    console.log('🌤️ === WEATHER MAPS HANDLER END (SUCCESS) ===');
+    
+    return {
+      type: "FeatureCollection",
+      metadata: enhancedMetadata,
+      features: combinedFeatures,
+      weatherLayers: weatherData.weatherLayers, // Add weather layer configuration
+      weatherControls: {
+        primaryLayers: parsedQuery.parameters.weatherTypes,
+        additionalLayers: parsedQuery.parameters.additionalWeatherTypes,
+        radius: parsedQuery.parameters.radius
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Error in weather maps handler:', error);
+    console.log('🌤️ === WEATHER MAPS HANDLER END (ERROR) ===');
+    
+    return {
+      type: "FeatureCollection",
+      metadata: {
+        type: "error",
+        searchQuery: searchQuery,
+        error: `Weather map generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        queryType: 'weatherMaps'
+      },
+      features: []
+    };
+  }
+}
+
+// Function to calculate weather bounding area around wells
+function calculateWeatherBounds(wellCoordinates: [number, number][], radiusKm: number): any {
+  console.log('📐 Calculating weather bounds for', wellCoordinates.length, 'wells with', radiusKm, 'km radius');
+  
+  // Find bounding box of all wells
+  const minLon = Math.min(...wellCoordinates.map(coord => coord[0]));
+  const maxLon = Math.max(...wellCoordinates.map(coord => coord[0]));
+  const minLat = Math.min(...wellCoordinates.map(coord => coord[1]));
+  const maxLat = Math.max(...wellCoordinates.map(coord => coord[1]));
+  
+  // Convert radius to degrees (rough approximation: 1 degree ≈ 111 km)
+  const radiusDegrees = radiusKm / 111;
+  
+  const weatherBounds = {
+    minLon: minLon - radiusDegrees,
+    maxLon: maxLon + radiusDegrees, 
+    minLat: minLat - radiusDegrees,
+    maxLat: maxLat + radiusDegrees,
+    centerLon: (minLon + maxLon) / 2,
+    centerLat: (minLat + maxLat) / 2,
+    radiusKm: radiusKm
+  };
+  
+  console.log('✅ Weather bounds calculated:', weatherBounds);
+  return weatherBounds;
+}
+
+// Function to fetch weather data for a specific region
+async function fetchWeatherDataForRegion(bounds: any, parameters: any): Promise<any> {
+  console.log('🌦️ Fetching weather data for bounds:', bounds);
+  console.log('⚙️ Weather parameters:', parameters);
+  
+  try {
+    // For now, generate mock weather data since we don't have a weather API key
+    // In production, this would call OpenWeatherMap, WeatherAPI, or similar service
+    const weatherFeatures = [];
+    const weatherLayers: any = {};
+    
+    // Generate temperature overlay data (primary weather type)
+    if (parameters.weatherTypes.includes('temperature')) {
+      console.log('🌡️ Generating temperature overlay data');
+      const tempData = await generateTemperatureOverlay(bounds);
+      weatherFeatures.push(...tempData.features);
+      weatherLayers.temperature = tempData.layerConfig;
+    }
+    
+    // Generate precipitation overlay data (secondary weather type)  
+    if (parameters.weatherTypes.includes('precipitation')) {
+      console.log('🌧️ Generating precipitation overlay data');
+      const precipData = await generatePrecipitationOverlay(bounds);
+      weatherFeatures.push(...precipData.features);
+      weatherLayers.precipitation = precipData.layerConfig;
+    }
+    
+    // Generate additional weather types for progressive disclosure
+    const additionalLayers: any = {};
+    for (const weatherType of parameters.additionalWeatherTypes || []) {
+      console.log(`🌤️ Generating ${weatherType} overlay data for progressive disclosure`);
+      const additionalData = await generateAdditionalWeatherOverlay(bounds, weatherType);
+      additionalLayers[weatherType] = additionalData.layerConfig;
+    }
+    
+    return {
+      features: weatherFeatures,
+      weatherLayers: {
+        ...weatherLayers,
+        additional: additionalLayers
+      },
+      timestamp: new Date().toISOString(),
+      bounds: bounds
+    };
+    
+  } catch (error) {
+    console.error('❌ Error fetching weather data:', error);
+    return {
+      features: [],
+      weatherLayers: {},
+      timestamp: new Date().toISOString(),
+      error: error instanceof Error ? error.message : 'Unknown weather data error'
+    };
+  }
+}
+
+// Generate temperature overlay data
+async function generateTemperatureOverlay(bounds: any): Promise<any> {
+  const features = [];
+  const gridSize = 0.1; // ~11km grid
+  
+  for (let lon = bounds.minLon; lon <= bounds.maxLon; lon += gridSize) {
+    for (let lat = bounds.minLat; lat <= bounds.maxLat; lat += gridSize) {
+      // Generate realistic temperature data for Southeast Asia
+      const baseTemp = 28; // Typical tropical temperature
+      const variation = (Math.random() - 0.5) * 4; // +/- 2°C variation
+      const temperature = Math.round((baseTemp + variation) * 10) / 10;
+      
+      features.push({
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [lon, lat]
+        },
+        properties: {
+          type: "weather_temperature",
+          temperature: temperature,
+          unit: "°C",
+          layer: "temperature",
+          gridCell: true,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+  }
+  
+  return {
+    features,
+    layerConfig: {
+      type: "temperature",
+      unit: "°C",
+      colorScale: {
+        min: 24,
+        max: 32,
+        colors: ["#313695", "#4575b4", "#74add1", "#abd9e9", "#e0f3f8", "#fee090", "#fdae61", "#f46d43", "#d73027", "#a50026"]
+      },
+      opacity: 0.6,
+      visible: true,
+      displayName: "Temperature"
+    }
+  };
+}
+
+// Generate precipitation overlay data  
+async function generatePrecipitationOverlay(bounds: any): Promise<any> {
+  const features = [];
+  const gridSize = 0.15; // Slightly larger grid for precipitation
+  
+  for (let lon = bounds.minLon; lon <= bounds.maxLon; lon += gridSize) {
+    for (let lat = bounds.minLat; lat <= bounds.maxLat; lat += gridSize) {
+      // Generate realistic precipitation data for tropical region
+      const basePrecip = Math.random() * 10; // 0-10mm baseline
+      const intensity = Math.random() > 0.7 ? Math.random() * 20 : 0; // 30% chance of higher precipitation
+      const precipitation = Math.round((basePrecip + intensity) * 10) / 10;
+      
+      // Only add precipitation points where there's measurable rain
+      if (precipitation > 0.5) {
+        features.push({
+          type: "Feature",
+          geometry: {
+            type: "Point", 
+            coordinates: [lon, lat]
+          },
+          properties: {
+            type: "weather_precipitation",
+            precipitation: precipitation,
+            unit: "mm/h",
+            layer: "precipitation",
+            gridCell: true,
+            timestamp: new Date().toISOString()
+          }
+        });
+      }
+    }
+  }
+  
+  return {
+    features,
+    layerConfig: {
+      type: "precipitation",
+      unit: "mm/h",
+      colorScale: {
+        min: 0,
+        max: 25,
+        colors: ["#ffffff00", "#87ceeb", "#4682b4", "#1e90ff", "#0000ff", "#8b00ff", "#ff1493"]
+      },
+      opacity: 0.7,
+      visible: true,
+      displayName: "Precipitation"
+    }
+  };
+}
+
+// Generate additional weather overlay data for progressive disclosure
+async function generateAdditionalWeatherOverlay(bounds: any, weatherType: string): Promise<any> {
+  const features = [];
+  const gridSize = 0.2;
+  
+  // Define weather type configuration outside the loop
+  let unit: string;
+  let colorScale: any;
+  
+  switch (weatherType) {
+    case 'wind':
+      unit = "m/s";
+      colorScale = {
+        min: 0,
+        max: 20,
+        colors: ["#ffffcc", "#c7e9b4", "#7fcdbb", "#41b6c4", "#2c7fb8", "#253494"]
+      };
+      break;
+      
+    case 'pressure':
+      unit = "hPa";
+      colorScale = {
+        min: 1005,
+        max: 1020,
+        colors: ["#d73027", "#fc8d59", "#fee08b", "#e6f598", "#99d594", "#3288bd"]
+      };
+      break;
+      
+    case 'humidity':
+      unit = "%";
+      colorScale = {
+        min: 50,
+        max: 90,
+        colors: ["#ffffd4", "#fed98e", "#fe9929", "#d95f0e", "#993404"]
+      };
+      break;
+      
+    default:
+      // Return empty data for unknown weather types
+      return {
+        features: [],
+        layerConfig: {
+          type: weatherType,
+          unit: "unknown",
+          colorScale: { min: 0, max: 1, colors: ["#ffffff"] },
+          opacity: 0.5,
+          visible: false,
+          displayName: weatherType.charAt(0).toUpperCase() + weatherType.slice(1)
+        }
+      };
+  }
+  
+  // Generate grid data
+  for (let lon = bounds.minLon; lon <= bounds.maxLon; lon += gridSize) {
+    for (let lat = bounds.minLat; lat <= bounds.maxLat; lat += gridSize) {
+      let value: number;
+      
+      switch (weatherType) {
+        case 'wind':
+          value = Math.round((Math.random() * 15 + 5) * 10) / 10; // 5-20 m/s
+          break;
+        case 'pressure':
+          value = Math.round((1013 + (Math.random() - 0.5) * 10) * 10) / 10; // 1008-1018 hPa
+          break;
+        case 'humidity':
+          value = Math.round((70 + (Math.random() - 0.5) * 30) * 10) / 10; // 55-85%
+          break;
+        default:
+          value = 0;
+      }
+      
+      features.push({
+        type: "Feature",
+        geometry: {
+          type: "Point",
+          coordinates: [lon, lat]
+        },
+        properties: {
+          type: `weather_${weatherType}`,
+          [weatherType]: value,
+          unit: unit,
+          layer: weatherType,
+          gridCell: true,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+  }
+  
+  return {
+    features,
+    layerConfig: {
+      type: weatherType,
+      unit: unit,
+      colorScale: colorScale,
+      opacity: 0.5,
+      visible: false, // Hidden by default for progressive disclosure
+      displayName: weatherType.charAt(0).toUpperCase() + weatherType.slice(1)
+    }
+  };
+}
+
 // Function to search OSDU for well data with enhanced NLP processing
-async function searchOSDUWells(searchQuery: string): Promise<any> {
+async function searchOSDUWells(searchQuery: string, existingContext?: any): Promise<any> {
   console.log('Processing search query:', searchQuery);
   
   const parsedQuery = parseNLPQuery(searchQuery);
   console.log('Parsed query:', parsedQuery);
+  
+  // Create lowerPrompt for context filtering logic
+  const lowerPrompt = (searchQuery || '').toLowerCase();
   
   try {
     // Build search parameters based on parsed query
@@ -273,6 +784,217 @@ async function searchOSDUWells(searchQuery: string): Promise<any> {
     };
     
     // Handle special query types before OSDU search
+    if (parsedQuery.queryType === 'weatherMaps') {
+      console.log('Handling weather maps query - combining wells with weather overlay');
+      return await handleWeatherMapsQuery(searchQuery, parsedQuery);
+    }
+    
+    if (parsedQuery.queryType === 'polygonSearch') {
+      console.log('🔷 Handling "wells in polygon" query - fetching user LAS files from S3 for polygon search');
+      const userWells = await fetchUserWells();
+      
+      return {
+        type: "FeatureCollection",
+        metadata: {
+          type: "wells",
+          searchQuery: searchQuery,
+          source: "Personal LAS Files (Real Coordinates)",
+          recordCount: userWells.length,
+          region: 'offshore-brunei-malaysia',
+          queryType: 'polygonSearch',
+          polygonFilter: {
+            id: 'polygon_ready',
+            message: 'Wells loaded for polygon filtering'
+          },
+          timestamp: new Date().toISOString(),
+          coordinateBounds: userWells.length > 0 ? {
+            minLon: Math.min(...userWells.map(f => f.geometry.coordinates[0])),
+            maxLon: Math.max(...userWells.map(f => f.geometry.coordinates[0])),
+            minLat: Math.min(...userWells.map(f => f.geometry.coordinates[1])),
+            maxLat: Math.max(...userWells.map(f => f.geometry.coordinates[1]))
+          } : null
+        },
+        features: userWells
+      };
+    }
+
+    // Handle depth filtering for user wells or any depth queries
+    if (parsedQuery.queryType === 'depth') {
+      console.log('🔍 Handling depth filtering query - applying depth criteria');
+      console.log('📏 Depth parameters:', parsedQuery.parameters);
+      
+    // Enhanced context-aware filtering detection
+    const hasExistingWells = existingContext?.wells && existingContext.wells.length > 0;
+    const isExplicitFilter = existingContext?.isFilterOperation === true;
+    
+    // Detect if this is likely a filter operation
+    const filterIndicators = [
+      'depth', 'filter', 'greater than', 'deeper', '>',
+      'show wells with', 'wells with', 'having depth',
+      'where depth', 'depth >', 'deeper than'
+    ];
+    const hasFilterKeywords = filterIndicators.some(keyword => lowerPrompt.includes(keyword));
+    
+    const isContextualFilter = hasExistingWells && (isExplicitFilter || hasFilterKeywords);
+      
+      if (isContextualFilter) {
+        console.log('🎯 APPLYING FILTER TO EXISTING CONTEXT');
+        console.log('📊 Existing context wells:', existingContext.wells.length);
+        console.log('🔍 Filter operation type:', isExplicitFilter ? 'explicit' : 'detected from keywords');
+        
+        // Apply appropriate filter to existing context wells
+        let filteredContextWells = [];
+        
+        if (parsedQuery.parameters.minDepth && parsedQuery.parameters.operator === 'greater_than') {
+          const minDepth = parsedQuery.parameters.minDepth;
+          console.log(`🔍 Filtering EXISTING CONTEXT wells with depth > ${minDepth}m`);
+          
+          filteredContextWells = existingContext.wells.filter((well: any) => {
+            const depthStr = well.depth || '0m';
+            const depthMatch = depthStr.match(/(\d+(?:\.\d+)?)/);
+            const depthValue = depthMatch ? parseFloat(depthMatch[1]) : 0;
+            const passesFilter = depthValue > minDepth;
+            
+            console.log(`  - ${well.name}: "${depthStr}" -> ${depthValue}m ${passesFilter ? '✅ PASS' : '❌ FAIL'}`);
+            return passesFilter;
+          });
+          
+          console.log(`✅ Context wells depth filtering: ${filteredContextWells.length}/${existingContext.wells.length} wells match criteria`);
+        } else {
+          // For non-depth filters, return original context (can be extended for other filter types)
+          console.log('⚠️ Non-depth filter detected, returning original context');
+          filteredContextWells = existingContext.wells;
+        }
+        
+        // Convert context wells back to GeoJSON features
+        const contextFeatures = filteredContextWells.map((well: any) => ({
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: well.coordinates || [0, 0]
+          },
+          properties: {
+            name: well.name,
+            type: well.type,
+            depth: well.depth,
+            location: well.location,
+            operator: well.operator,
+            category: well.category || 'contextual',
+            dataSource: 'Context Filter Applied'
+          }
+        }));
+        
+        return {
+          type: "FeatureCollection",
+          metadata: {
+            type: "wells",
+            searchQuery: searchQuery,
+            source: "Filtered from Previous Search Context",
+            recordCount: contextFeatures.length,
+            region: 'context-filtered',
+            queryType: parsedQuery.queryType || 'filter',
+            contextFilter: true,
+            isFilterOperation: true,
+            originalContext: {
+              wells: existingContext.wells.length,
+              queryType: existingContext.queryType,
+              timestamp: existingContext.timestamp
+            },
+            filterCriteria: parsedQuery.parameters,
+            timestamp: new Date().toISOString(),
+            coordinateBounds: contextFeatures.length > 0 ? {
+              minLon: Math.min(...contextFeatures.map(f => f.geometry.coordinates[0])),
+              maxLon: Math.max(...contextFeatures.map(f => f.geometry.coordinates[0])),
+              minLat: Math.min(...contextFeatures.map(f => f.geometry.coordinates[1])),
+              maxLat: Math.max(...contextFeatures.map(f => f.geometry.coordinates[1]))
+            } : null
+          },
+          features: contextFeatures
+        };
+      }
+      
+      // Otherwise, do fresh search with depth filtering (existing logic)
+      console.log('🆕 No existing context or not contextual filter - doing fresh search');
+      
+      // Get user wells first
+      const userWells = await fetchUserWells();
+      
+      // Apply depth filtering to user wells
+      let filteredUserWells = userWells;
+      if (parsedQuery.parameters.minDepth && parsedQuery.parameters.operator === 'greater_than') {
+        const minDepth = parsedQuery.parameters.minDepth;
+        console.log(`🔍 Filtering USER wells with depth > ${minDepth}m`);
+        
+        filteredUserWells = userWells.filter(well => {
+          const depthStr = well.properties.depth || '0m';
+          // Enhanced depth parsing to handle multiple formats
+          const depthMatch = depthStr.match(/(\d+(?:\.\d+)?)/);
+          const depthValue = depthMatch ? parseFloat(depthMatch[1]) : 0;
+          const passesFilter = depthValue > minDepth;
+          
+          console.log(`  - ${well.properties.name}: "${depthStr}" -> ${depthValue}m ${passesFilter ? '✅ PASS' : '❌ FAIL'}`);
+          return passesFilter;
+        });
+        
+        console.log(`✅ User wells depth filtering: ${filteredUserWells.length}/${userWells.length} wells match criteria`);
+      }
+      
+      // Get OSDU wells and apply SAME depth filtering
+      console.log('🔍 Getting OSDU wells for depth filtering...');
+      const osduResults = generateRealisticOSDUData(searchQuery, parsedQuery);
+      
+      // Apply depth filtering to OSDU wells too
+      let filteredOsduWells = osduResults.features;
+      if (parsedQuery.parameters.minDepth && parsedQuery.parameters.operator === 'greater_than') {
+        const minDepth = parsedQuery.parameters.minDepth;
+        console.log(`🔍 Filtering OSDU wells with depth > ${minDepth}m`);
+        
+        filteredOsduWells = osduResults.features.filter(well => {
+          const depthStr = well.properties.depth || '0m';
+          // Enhanced depth parsing to handle multiple formats
+          const depthMatch = depthStr.match(/(\d+(?:\.\d+)?)/);
+          const depthValue = depthMatch ? parseFloat(depthMatch[1]) : 0;
+          const passesFilter = depthValue > minDepth;
+          
+          console.log(`  - ${well.properties.name}: "${depthStr}" -> ${depthValue}m ${passesFilter ? '✅ PASS' : '❌ FAIL'}`);
+          return passesFilter;
+        });
+        
+        console.log(`✅ OSDU wells depth filtering: ${filteredOsduWells.length}/${osduResults.features.length} wells match criteria`);
+      }
+      
+      // Combine filtered user wells with filtered OSDU results
+      const allFilteredFeatures = [
+        ...filteredUserWells,
+        ...filteredOsduWells
+      ];
+      
+      return {
+        type: "FeatureCollection",
+        metadata: {
+          type: "wells",
+          searchQuery: searchQuery,
+          source: "Personal LAS Files + OSDU Community Platform (Depth Filtered)",
+          recordCount: allFilteredFeatures.length,
+          region: 'offshore-brunei-malaysia',
+          queryType: 'depth',
+          depthFilter: {
+            minDepth: parsedQuery.parameters.minDepth,
+            operator: parsedQuery.parameters.operator,
+            unit: parsedQuery.parameters.unit
+          },
+          timestamp: new Date().toISOString(),
+          coordinateBounds: allFilteredFeatures.length > 0 ? {
+            minLon: Math.min(...allFilteredFeatures.map(f => f.geometry.coordinates[0])),
+            maxLon: Math.max(...allFilteredFeatures.map(f => f.geometry.coordinates[0])),
+            minLat: Math.min(...allFilteredFeatures.map(f => f.geometry.coordinates[1])),
+            maxLat: Math.max(...allFilteredFeatures.map(f => f.geometry.coordinates[1]))
+          } : null
+        },
+        features: allFilteredFeatures
+      };
+    }
+
     if (parsedQuery.queryType === 'myWells') {
       console.log('Handling "my wells" query - fetching user LAS files from S3');
       const userWells = await fetchUserWells();
@@ -466,7 +1188,30 @@ function generateRealisticOSDUData(searchQuery: string, parsedQuery?: any): any 
         
       case 'depth':
         const minDepth = parsedQuery.parameters.minDepth;
-        filteredWells = realisticWells.filter(well => well.depth >= minDepth);
+        const operator = parsedQuery.parameters.operator || 'greater_than';
+        console.log(`🔍 OSDU Data: Filtering wells with depth ${operator} ${minDepth}m`);
+        
+        filteredWells = realisticWells.filter(well => {
+          let passesFilter = false;
+          switch (operator) {
+            case 'greater_than':
+              passesFilter = well.depth > minDepth;
+              break;
+            case 'less_than':
+              passesFilter = well.depth < minDepth;
+              break;
+            case 'equal_to':
+              passesFilter = well.depth === minDepth;
+              break;
+            default:
+              passesFilter = well.depth > minDepth; // Default to greater than
+          }
+          
+          console.log(`    - OSDU ${well.name}: ${well.depth}m ${passesFilter ? '✅ PASS' : '❌ FAIL'}`);
+          return passesFilter;
+        });
+        
+        console.log(`✅ OSDU realistic data filtering: ${filteredWells.length}/${realisticWells.length} wells match depth criteria`);
         break;
         
       case 'wellName':
@@ -611,8 +1356,9 @@ function transformOSDUToGeoJSON(osduRecords: OSDUWellRecord[], searchQuery: stri
 
 export const handler: Handler = async (event) => {
   console.log('🔍 === CATALOG SEARCH WITH CHAIN OF THOUGHT START ===');
+  console.log('📝 Raw event:', JSON.stringify(event, null, 2));
   
-  // Initialize thought steps array for chain of thought
+  // Initialize thought steps array for chain of thought at handler level
   const thoughtSteps: ThoughtStep[] = [];
   const addThoughtStep = (step: ThoughtStep) => {
     thoughtSteps.push(step);
@@ -625,8 +1371,101 @@ export const handler: Handler = async (event) => {
   };
 
   try {
-    const { prompt } = event.arguments;
-    console.log('Catalog Search Request:', { prompt });
+    const { prompt, existingContext } = event.arguments;
+    console.log('🔍 === SEARCH CONTEXT ANALYSIS ===');
+    console.log('📝 Received prompt:', prompt);
+    console.log('🔄 Existing context provided:', !!existingContext);
+    console.log('📊 Context wells count:', existingContext?.wells?.length || 0);
+    console.log('🔤 Prompt type:', typeof prompt);
+    console.log('📏 Prompt length:', prompt?.length || 0);
+    
+    // Enhanced depth filtering debug
+    const lowerPrompt = (prompt || '').toLowerCase();
+    console.log('🔤 Lowercase prompt:', lowerPrompt);
+    console.log('🔍 Contains "depth":', lowerPrompt.includes('depth'));
+    console.log('🔍 Contains "greater than":', lowerPrompt.includes('greater than'));
+    console.log('🔍 Contains ">":', lowerPrompt.includes('>'));
+    console.log('🔍 Contains numbers:', /\d+/.test(lowerPrompt));
+    
+    // Context-aware filtering detection - ENHANCED DEBUG
+    const hasExistingWells = existingContext?.wells && existingContext.wells.length > 0;
+    const isDepthFilterQuery = lowerPrompt.includes('depth') || lowerPrompt.includes('deeper') || lowerPrompt.includes('>');
+    const isFilterQuery = lowerPrompt.includes('filter') || lowerPrompt.includes('greater than');
+    const isLikelyFilter = hasExistingWells && (isDepthFilterQuery || isFilterQuery);
+    
+    console.log('🔍 === ENHANCED CONTEXT-AWARE ANALYSIS ===');
+    console.log('   - Raw existing context:', existingContext);
+    console.log('   - Has existing wells:', hasExistingWells);
+    console.log('   - Existing wells count:', existingContext?.wells?.length || 0);
+    console.log('   - Is depth filter query:', isDepthFilterQuery);
+    console.log('   - Is filter query:', isFilterQuery);
+    console.log('   - Looks like filter overall:', isLikelyFilter);
+    console.log('   - Should use context:', isLikelyFilter && hasExistingWells);
+    console.log('   - Previous query type:', existingContext?.queryType || 'none');
+    
+    if (hasExistingWells) {
+      console.log('📋 Context wells preview:', existingContext.wells.slice(0, 3).map((w: any) => w.name));
+    }
+    
+    // 🚨 EMERGENCY WEATHER DETECTION AT HANDLER LEVEL 🚨
+    console.log('🚨 EMERGENCY HANDLER-LEVEL WEATHER CHECK');
+    console.log('🔍 Prompt:', prompt);
+    console.log('🔍 Contains weather:', prompt.includes('weather'));
+    console.log('🔍 Contains wells:', prompt.includes('wells') || prompt.includes('well'));
+    
+    if (prompt.includes('weather') && (prompt.includes('wells') || prompt.includes('well'))) {
+      console.log('🌤️ EMERGENCY OVERRIDE: WEATHER QUERY DETECTED AT HANDLER LEVEL');
+      console.log('🚨 BYPASSING ALL OTHER LOGIC - GOING STRAIGHT TO WEATHER HANDLER');
+      
+      // Force weather maps query directly
+      const emergencyWeatherQuery = {
+        queryType: 'weatherMaps',
+        parameters: {
+          includeUserWells: true,
+          weatherTypes: ['temperature', 'precipitation'],
+          additionalWeatherTypes: ['wind', 'pressure', 'humidity'],
+          radius: 50,
+          region: 'user_wells_area',
+          coordinates: null
+        }
+      };
+      
+      // Call weather handler directly
+      const weatherResult = await handleWeatherMapsQuery(prompt, emergencyWeatherQuery);
+      console.log('🌤️ EMERGENCY WEATHER RESULT:', {
+        type: weatherResult.type,
+        features: weatherResult.features?.length || 0,
+        metadata: weatherResult.metadata
+      });
+      
+      // Add emergency thought steps
+      const emergencyThoughtSteps = [
+        {
+          id: 'emergency-weather-detection',
+          type: 'intent_detection',
+          title: '🚨 Emergency Weather Detection',
+          summary: 'Weather query detected at handler level - bypassing normal processing',
+          status: 'completed',
+          timestamp: Date.now()
+        },
+        {
+          id: 'weather-processing',
+          type: 'execution', 
+          title: '🌤️ Weather Map Generation',
+          summary: `Generated weather maps for ${weatherResult.metadata?.recordCount || 0} wells with weather overlays`,
+          status: 'completed',
+          timestamp: Date.now()
+        }
+      ];
+      
+      const emergencyResponse = {
+        ...weatherResult,
+        thoughtSteps: emergencyThoughtSteps
+      };
+      
+      console.log('🚨 RETURNING EMERGENCY WEATHER RESPONSE');
+      return JSON.stringify(emergencyResponse);
+    }
 
     // THOUGHT STEP 1: Intent Detection
     console.log('🧠 Starting catalog query intent detection...');
@@ -717,8 +1556,8 @@ export const handler: Handler = async (event) => {
     );
     addThoughtStep(executionStep);
 
-    // Execute the search
-    const searchResults = await searchOSDUWells(prompt);
+    // Execute the search with context
+    const searchResults = await searchOSDUWells(prompt, existingContext);
     console.log('Search results received:', searchResults.features?.length || 0, 'wells');
 
     // Complete execution step

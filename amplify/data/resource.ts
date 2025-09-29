@@ -171,6 +171,7 @@ export const schema = a.schema({
   catalogSearch: a.query()
     .arguments({
       prompt: a.string().required(),
+      existingContext: a.json(),
     })
     .returns(a.string())
     .handler(a.handler.function(catalogSearchFunction))

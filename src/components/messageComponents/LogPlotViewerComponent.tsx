@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useTheme } from '@mui/material/styles';
 import { 
   Card, 
@@ -66,6 +66,83 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
   const [showGrid, setShowGrid] = useState(true);
   const [selectedTrackLayout, setSelectedTrackLayout] = useState('professional');
   const [visibleCurves, setVisibleCurves] = useState<Record<string, boolean>>({});
+
+  // Responsive container detection
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerDimensions, setContainerDimensions] = useState({
+    width: 800,
+    height: 600
+  });
+
+  // Layout configurations for different modes
+  const layoutConfigs = {
+    professional: {
+      height: 800,
+      trackWidths: {
+        grSp: 0.18,
+        resistivity: 0.23,
+        porosity: 0.23,
+        density: 0.23
+      },
+      minWidth: 600
+    },
+    compact: {
+      height: 600,
+      trackWidths: {
+        grSp: 0.22,
+        resistivity: 0.26,
+        porosity: 0.26,
+        density: 0.26
+      },
+      minWidth: 400
+    },
+    custom: {
+      height: 700,
+      trackWidths: {
+        grSp: 0.20,
+        resistivity: 0.27,
+        porosity: 0.27,
+        density: 0.26
+      },
+      minWidth: 500
+    }
+  };
+
+  // ResizeObserver to detect container size changes
+  useEffect(() => {
+    if (!containerRef.current) return;
+
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        const config = layoutConfigs[selectedTrackLayout as keyof typeof layoutConfigs];
+        
+        setContainerDimensions({
+          width: Math.max(width, config.minWidth),
+          height: config.height
+        });
+      }
+    });
+
+    resizeObserver.observe(containerRef.current);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, [selectedTrackLayout]);
+
+  // Recalculate dimensions when layout changes
+  useEffect(() => {
+    if (containerRef.current) {
+      const config = layoutConfigs[selectedTrackLayout as keyof typeof layoutConfigs];
+      const rect = containerRef.current.getBoundingClientRect();
+      
+      setContainerDimensions({
+        width: Math.max(rect.width, config.minWidth),
+        height: config.height
+      });
+    }
+  }, [selectedTrackLayout]);
 
   // Extract well information
   const wellName = data?.wellName || 'CARBONATE_PLATFORM_002';
@@ -273,7 +350,7 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
     }));
   };
 
-  // Professional Multi-Track Log Display
+  // Professional Multi-Track Log Display - Now Responsive!
   const renderProfessionalLogDisplay = () => {
     const depths = logData.depths || [];
     const curves = logData.curves || {};
@@ -288,6 +365,25 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
         </Box>
       );
     }
+
+    // Get current layout configuration
+    const config = layoutConfigs[selectedTrackLayout as keyof typeof layoutConfigs];
+    const { width, height } = containerDimensions;
+
+    // Calculate track domains based on container width and layout
+    const totalTracks = 4; // GR/SP, Resistivity, Porosity, Density
+    const trackGap = 0.02;
+    const availableWidth = 1.0;
+    const trackWidth = (availableWidth - (totalTracks - 1) * trackGap) / totalTracks;
+    
+    // Dynamic track positions based on container width
+    let currentPos = 0;
+    const trackDomains = {
+      grSp: [currentPos, currentPos + trackWidth],
+      resistivity: [currentPos += trackWidth + trackGap, currentPos + trackWidth],
+      porosity: [currentPos += trackWidth + trackGap, currentPos + trackWidth],
+      density: [currentPos += trackWidth + trackGap, currentPos + trackWidth]
+    };
 
     const traces = [];
     const shapes = [];
@@ -403,14 +499,24 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
       });
     }
 
+    // Responsive layout configuration
     const layout = {
       title: {
-        text: `${wellName} - Professional Multi-Track Log Display`,
-        font: { size: 16, family: 'Arial, sans-serif' }
+        text: `${wellName} - Professional Multi-Track Log Display (${selectedTrackLayout.toUpperCase()})`,
+        font: { 
+          size: width < 600 ? 14 : 16, 
+          family: 'Arial, sans-serif' 
+        }
       },
-      height: 800,
-      width: 1200,
-      margin: { t: 100, b: 50, l: 100, r: 50 },
+      height: config.height,
+      width: width,
+      autosize: true,
+      margin: { 
+        t: width < 600 ? 80 : 100, 
+        b: 50, 
+        l: width < 600 ? 60 : 100, 
+        r: width < 600 ? 20 : 50 
+      },
       
       // Main depth axis
       yaxis: {
@@ -424,8 +530,8 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
 
       // Track 1: Gamma Ray
       xaxis: {
-        title: 'Gamma Ray<br>API',
-        domain: [0, 0.18],
+        title: width < 600 ? 'GR<br>API' : 'Gamma Ray<br>API',
+        domain: trackDomains.grSp,
         side: 'top',
         range: [0, 150],
         showgrid: showGrid,
@@ -435,8 +541,8 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
 
       // Track 1b: Spontaneous Potential  
       xaxis2: {
-        title: 'Spontaneous Potential<br>mV',
-        domain: [0, 0.18],
+        title: width < 600 ? 'SP<br>mV' : 'Spontaneous Potential<br>mV',
+        domain: trackDomains.grSp,
         side: 'bottom',
         range: [-80, 20],
         overlaying: 'x',
@@ -445,8 +551,8 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
 
       // Track 2: Resistivity
       xaxis3: {
-        title: 'Resistivity, Shallow<br>Resistivity, Medium<br>Resistivity, Deep<br>ohm.m',
-        domain: [0.22, 0.45],
+        title: width < 600 ? 'Resistivity<br>ohm.m' : 'Resistivity, Shallow<br>Resistivity, Medium<br>Resistivity, Deep<br>ohm.m',
+        domain: trackDomains.resistivity,
         side: 'top',
         type: 'log',
         range: [-1, 3], // 0.1 to 1000 ohm-m
@@ -457,8 +563,8 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
 
       // Track 3: Neutron Porosity
       xaxis4: {
-        title: 'Neutron Porosity<br>%',
-        domain: [0.49, 0.72],
+        title: width < 600 ? 'NPHI<br>%' : 'Neutron Porosity<br>%',
+        domain: trackDomains.porosity,
         side: 'top',
         range: [45, -15],
         autorange: 'reversed',
@@ -469,8 +575,8 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
 
       // Track 4: Bulk Density
       xaxis5: {
-        title: 'Bulk Density<br>g/cm³',
-        domain: [0.76, 0.99],
+        title: width < 600 ? 'RHOB<br>g/cm³' : 'Bulk Density<br>g/cm³',
+        domain: trackDomains.density,
         side: 'top',
         range: [1.90, 2.90],
         showgrid: showGrid,
@@ -478,14 +584,14 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
         gridcolor: '#E5E5E5'
       },
 
-      showlegend: true,
-      legend: {
+      showlegend: width > 800,
+      legend: width > 800 ? {
         x: 1.02,
         y: 1,
         bgcolor: 'rgba(255,255,255,0.9)',
         bordercolor: '#E5E5E5',
         borderwidth: 1
-      },
+      } : {},
       
       shapes: shapes,
       
@@ -494,29 +600,31 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
     };
 
     return (
-      <Box>
+      <Box ref={containerRef} sx={{ width: '100%', overflow: 'hidden' }}>
         <Plot
           data={traces}
           layout={layout}
           config={{
-            displayModeBar: true,
+            displayModeBar: width > 600,
             displaylogo: false,
             modeBarButtonsToRemove: ['pan2d', 'lasso2d', 'select2d'],
             toImageButtonOptions: {
               format: 'png',
-              filename: `${wellName}_log_display`,
-              height: 800,
-              width: 1200,
+              filename: `${wellName}_log_display_${selectedTrackLayout}`,
+              height: config.height,
+              width: width,
               scale: 2
-            }
+            },
+            responsive: true
           }}
-          style={{ width: '100%', height: '800px' }}
+          style={{ width: '100%', height: `${config.height}px` }}
+          useResizeHandler={true}
         />
       </Box>
     );
   };
 
-  // Crossplot visualization (existing implementation)
+  // Crossplot visualization - Now Responsive!
   const renderCrossplot = () => {
     const depths = logData.depths || [];
     const availableCurves = logData.curveNames || [];
@@ -534,6 +642,9 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
       );
     }
 
+    const { width } = containerDimensions;
+    const crossplotHeight = Math.min(500, width * 0.6); // Responsive height
+
     const traces = [
       {
         x: logData.curves['NPHI'].map((val: number) => val * 100),
@@ -544,9 +655,10 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
         marker: {
           color: depths,
           colorscale: 'Viridis',
-          size: 4,
+          size: width < 600 ? 3 : 4,
           colorbar: {
-            title: 'Depth (ft)'
+            title: 'Depth (ft)',
+            titlefont: { size: width < 600 ? 10 : 12 }
           }
         },
         text: depths.map(d => `Depth: ${d.toFixed(1)} ft`),
@@ -555,20 +667,46 @@ const LogPlotViewerComponentBase: React.FC<LogPlotViewerProps> = ({ data }) => {
     ];
 
     const layout = {
-      title: `${wellName} - Neutron-Density Crossplot`,
-      xaxis: { title: 'Neutron Porosity (%)' },
-      yaxis: { title: 'Bulk Density (g/cc)', autorange: 'reversed' },
-      height: 500,
-      margin: { t: 60, b: 50, l: 60, r: 50 }
+      title: {
+        text: `${wellName} - Neutron-Density Crossplot`,
+        font: { size: width < 600 ? 14 : 16 }
+      },
+      xaxis: { 
+        title: 'Neutron Porosity (%)',
+        titlefont: { size: width < 600 ? 12 : 14 }
+      },
+      yaxis: { 
+        title: 'Bulk Density (g/cc)', 
+        autorange: 'reversed',
+        titlefont: { size: width < 600 ? 12 : 14 }
+      },
+      height: crossplotHeight,
+      width: width,
+      autosize: true,
+      margin: { 
+        t: width < 600 ? 50 : 60, 
+        b: 50, 
+        l: width < 600 ? 50 : 60, 
+        r: width < 600 ? 40 : 50 
+      },
+      plot_bgcolor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff',
+      paper_bgcolor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff'
     };
 
     return (
-      <Plot
-        data={traces}
-        layout={layout}
-        config={{ displayModeBar: true, displaylogo: false }}
-        style={{ width: '100%', height: '500px' }}
-      />
+      <Box sx={{ width: '100%', overflow: 'hidden' }}>
+        <Plot
+          data={traces}
+          layout={layout}
+          config={{ 
+            displayModeBar: width > 600, 
+            displaylogo: false,
+            responsive: true
+          }}
+          style={{ width: '100%', height: `${crossplotHeight}px` }}
+          useResizeHandler={true}
+        />
+      </Box>
     );
   };
 

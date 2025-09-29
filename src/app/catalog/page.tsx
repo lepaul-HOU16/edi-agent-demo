@@ -8,6 +8,8 @@ import FolderIcon from '@mui/icons-material/Folder';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import CatalogChatBoxCloudscape from "@/components/CatalogChatBoxCloudscape";
 import ChatMessage from '@/components/ChatMessage';
+import GeoscientistDashboard from '@/components/GeoscientistDashboard';
+import GeoscientistDashboardErrorBoundary from '@/components/GeoscientistDashboardErrorBoundary';
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 import { sendMessage } from '../../../utils/amplifyUtils';
@@ -55,6 +57,10 @@ interface PolygonFilter {
 
 function CatalogPageBase() {
   const [selectedId, setSelectedId] = useState("seg-1");
+  
+  // Analysis panel state management
+  const [analysisData, setAnalysisData] = useState<any>(null);
+  const [analysisQueryType, setAnalysisQueryType] = useState<string>('');
   const amplifyClient = React.useMemo(() => generateClient<Schema>(), []);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -77,13 +83,20 @@ function CatalogPageBase() {
     bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number } | null;
     wellData: any;
     hasSearchResults: boolean;
+    weatherLayers?: string[];
   }>({
     center: [106.9, 10.2],
     zoom: 5,
     bounds: null,
     wellData: null,
-    hasSearchResults: false
+    hasSearchResults: false,
+    weatherLayers: []
   });
+  
+  // Weather layer controls state
+  const [availableWeatherLayers, setAvailableWeatherLayers] = useState<string[]>([]);
+  const [activeWeatherLayers, setActiveWeatherLayers] = useState<{ [key: string]: boolean }>({});
+  const [showWeatherControls, setShowWeatherControls] = useState<boolean>(true);
   
   // Chain of thought auto-scroll state
   const [chainOfThoughtAutoScroll, setChainOfThoughtAutoScroll] = useState<boolean>(true);
@@ -132,8 +145,13 @@ function CatalogPageBase() {
     }
   }, [chainOfThoughtAutoScroll]);
 
-  // Monitor messages for chain of thought steps to trigger auto-scroll
+  // Monitor messages for chain of thought steps to trigger auto-scroll - ONLY when on chain of thought panel
   React.useEffect(() => {
+    // Only auto-scroll when on the chain of thought panel (seg-3)
+    if (selectedId !== "seg-3") {
+      return;
+    }
+
     let totalThoughtSteps = 0;
     
     try {
@@ -166,7 +184,8 @@ function CatalogPageBase() {
       totalThoughtSteps = 0;
     }
     
-    if (totalThoughtSteps > chainOfThoughtMessageCount && chainOfThoughtAutoScroll) {
+    // Only auto-scroll when on chain of thought panel AND auto-scroll is enabled
+    if (totalThoughtSteps > chainOfThoughtMessageCount && chainOfThoughtAutoScroll && selectedId === "seg-3") {
       console.log('🔄 Chain of thought: New steps detected, scrolling to bottom');
       
       if (chainOfThoughtScrollTimeoutRef.current) {
@@ -175,24 +194,11 @@ function CatalogPageBase() {
       
       chainOfThoughtScrollTimeoutRef.current = setTimeout(() => {
         scrollChainOfThoughtToBottom();
-      }, 150);
-    }
-    
-    if (totalThoughtSteps > chainOfThoughtMessageCount && !chainOfThoughtAutoScroll) {
-      console.log('🔄 Chain of thought: New content detected, re-enabling auto-scroll');
-      setChainOfThoughtAutoScroll(true);
-      
-      if (chainOfThoughtScrollTimeoutRef.current) {
-        clearTimeout(chainOfThoughtScrollTimeoutRef.current);
-      }
-      
-      chainOfThoughtScrollTimeoutRef.current = setTimeout(() => {
-        scrollChainOfThoughtToBottom();
-      }, 150);
+      }, 300); // Increased delay to reduce aggressiveness
     }
     
     setChainOfThoughtMessageCount(totalThoughtSteps);
-  }, [messages, chainOfThoughtMessageCount, chainOfThoughtAutoScroll, scrollChainOfThoughtToBottom]);
+  }, [messages, chainOfThoughtMessageCount, chainOfThoughtAutoScroll, scrollChainOfThoughtToBottom, selectedId]);
 
   // Cleanup timeout on unmount
   React.useEffect(() => {
@@ -278,17 +284,55 @@ function CatalogPageBase() {
 
   const handleCreateNewChat = async () => {
     try {
-      // Reset messages and chain of thought state
+      console.log('🔄 RESET: Clearing all catalog state...');
+      
+      // Reset all message and chat state
       setMessages([]);
       setChainOfThoughtMessageCount(0);
       setChainOfThoughtAutoScroll(true);
+      
+      // Clear all analysis data and query context
+      setAnalysisData(null);
+      setAnalysisQueryType('');
+      
+      // Reset map state completely
+      setMapState({
+        center: [106.9, 10.2],
+        zoom: 5,
+        bounds: null,
+        wellData: null,
+        hasSearchResults: false,
+        weatherLayers: []
+      });
+      
+      // Clear polygon filters
+      setPolygons([]);
+      setActivePolygon(null);
+      
+      // Reset weather layer states
+      setAvailableWeatherLayers([]);
+      setActiveWeatherLayers({});
+      setShowWeatherControls(true);
+      
+      // Clear map if available
+      if (mapComponentRef.current && mapComponentRef.current.clearMap) {
+        console.log('🗺️ RESET: Clearing map data...');
+        mapComponentRef.current.clearMap();
+      }
+      
+      // Clear any loading states
+      setIsLoadingMapData(false);
+      setError(null);
+      
+      console.log('✅ RESET: All catalog state cleared successfully');
+      
     } catch (error) {
-      console.error("Error resetting chat:", error);
-      alert("Failed to reset chat.");
+      console.error("❌ RESET: Error resetting catalog:", error);
+      alert("Failed to reset catalog. Please refresh the page.");
     }
   }
   
-  // Function to handle catalog search (original functionality restored)
+  // Function to handle catalog search with enhanced context management
   const handleChatSearch = useCallback(async (prompt: string) => {
     setIsLoadingMapData(true);
     setError(null);
@@ -296,9 +340,46 @@ function CatalogPageBase() {
     try {
       console.log('🚀 PROCESSING CATALOG SEARCH:', prompt);
       
-      // Use original catalogSearch functionality
+      // Enhanced context determination for filtering
+      const isFirstQuery = !analysisData || analysisData.length === 0;
+      const lowerPrompt = prompt.toLowerCase().trim();
+      
+      // Detect if this should be a filter operation on existing data
+      const filterKeywords = ['filter', 'depth', 'greater than', '>', 'deeper', 'show wells with', 'wells with'];
+      const isLikelyFilter = !isFirstQuery && filterKeywords.some(keyword => lowerPrompt.includes(keyword));
+      
+      console.log('🔍 Context Analysis:', {
+        isFirstQuery,
+        isLikelyFilter,
+        hasExistingData: !!analysisData,
+        existingWellCount: analysisData?.length || 0,
+        prompt: lowerPrompt
+      });
+      
+      // Prepare context for backend - only if we have data and this looks like a filter
+      let searchContextForBackend = null;
+      if (!isFirstQuery && analysisData && analysisData.length > 0) {
+        searchContextForBackend = {
+          wells: analysisData,
+          queryType: analysisQueryType,
+          timestamp: new Date().toISOString(),
+          isFilterOperation: isLikelyFilter
+        };
+        
+        console.log('📤 Sending context to backend:', {
+          wellCount: searchContextForBackend.wells.length,
+          previousQueryType: searchContextForBackend.queryType,
+          isFilterOperation: isLikelyFilter,
+          contextWells: searchContextForBackend.wells.slice(0, 3).map(w => w.name)
+        });
+      } else {
+        console.log('📤 No context sent - fresh search');
+      }
+      
+      // Use catalogSearch with enhanced context (serialize JSON for GraphQL)
       const searchResponse = await amplifyClient.queries.catalogSearch({
-        prompt: prompt
+        prompt: prompt,
+        existingContext: searchContextForBackend ? JSON.stringify(searchContextForBackend) : null
       });
       
       console.log('🔍 CATALOG SEARCH RESPONSE:', searchResponse);
@@ -312,18 +393,42 @@ function CatalogPageBase() {
         console.log('✅ PARSED CATALOG DATA WITH THOUGHT STEPS:', geoJsonData);
         console.log('🧠 Thought steps received:', geoJsonData.thoughtSteps?.length || 0);
         
-        // Create table data from search results for the chat component
-        const tableItems = geoJsonData.features?.map((feature: any, index: number) => ({
+        // Filter features to only include wells for the table (not weather data)
+        const wellFeatures = geoJsonData.features?.filter((feature: any) => 
+          feature.properties?.type === 'My Wells' || 
+          feature.properties?.category === 'personal' ||
+          (!feature.properties?.type?.startsWith('weather_') && feature.properties?.name)
+        ) || [];
+        
+        const weatherFeatures = geoJsonData.features?.filter((feature: any) => 
+          feature.properties?.type?.startsWith('weather_')
+        ) || [];
+
+        // Create table data from ONLY well features for the chat component
+        const tableItems = wellFeatures.map((feature: any, index: number) => ({
           id: `well-${index}`,
           name: feature.properties?.name || 'Unknown Well',
           type: feature.properties?.type || 'Unknown',
           location: feature.properties?.location || 'Unknown',
           depth: feature.properties?.depth || 'Unknown',
           operator: feature.properties?.operator || 'Unknown'
-        })) || [];
+        }));
 
-        // Create search results message with table data for CatalogChatBoxCloudscape
-        const messageText = `**🔍 Catalog Search Results**\n\nFound **${geoJsonData.features?.length || 0} wells** for query: *"${prompt}"*\n\nResults displayed on the map with interactive markers and detailed table below.\n\n**📊 Well Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n💡 *Click map markers for additional well information.*`;
+        // Create search results message based on backend query type
+        const backendQueryType = geoJsonData.metadata?.queryType;
+        const isWeatherQuery = backendQueryType === 'weatherMaps';
+        const isDepthQuery = backendQueryType === 'depth';
+        let messageText;
+        
+        if (isWeatherQuery) {
+          messageText = `**🌤️ Weather Map Results**\n\nFound **${wellFeatures.length} wells** with **${weatherFeatures.length} weather data points** for query: *"${prompt}"*\n\nWells displayed as red markers, weather shown as temperature and precipitation overlays. Use the weather layer controls to toggle visibility.\n\n**📊 Well Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n🌤️ *Weather overlays: Temperature heatmap and precipitation patterns. Toggle controls in top-right corner of map.*`;
+        } else if (isDepthQuery) {
+          const depthFilter = geoJsonData.metadata?.depthFilter;
+          const filterCriteria = depthFilter ? `depth ${depthFilter.operator.replace('_', ' ')} ${depthFilter.minDepth}${depthFilter.unit}` : 'depth criteria';
+          messageText = `**🔽 Depth Filter Applied**\n\nFiltered to **${wellFeatures.length} wells** matching: *${filterCriteria}* from query: *"${prompt}"*\n\nResults displayed on the map with interactive markers and updated table below.\n\n**📊 Filtered Well Data:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n💡 *Analysis visualizations updated in the Data Analysis & Visualization tab.*`;
+        } else {
+          messageText = `**🔍 Catalog Search Results**\n\nFound **${wellFeatures.length} wells** for query: *"${prompt}"*\n\nResults displayed on the map with interactive markers and detailed table below.\n\n**📊 Well Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n💡 *Click map markers for additional well information.*`;
+        }
         
         const newMessage: Message = {
           id: uuidv4() as any,
@@ -342,6 +447,38 @@ function CatalogPageBase() {
         setTimeout(() => {
           setMessages(prevMessages => [...prevMessages, newMessage]);
         }, 0);
+        
+        // Enhanced analysis data management for proper context continuity
+        if (wellFeatures.length > 0) {
+          const analysisWellData = wellFeatures.map((feature: any, index: number) => ({
+            name: feature.properties?.name || 'Unknown Well',
+            type: feature.properties?.type || 'Unknown',
+            depth: feature.properties?.depth || 'Unknown',
+            location: feature.properties?.location || 'Unknown',
+            operator: feature.properties?.operator || 'Unknown',
+            coordinates: feature.geometry.coordinates as [number, number],
+            category: feature.properties?.category || 'search_result'
+          }));
+          
+          // Always update analysis data with current search results for proper filtering context
+          setAnalysisData(analysisWellData);
+          setAnalysisQueryType(geoJsonData.metadata?.queryType || 'general');
+          
+          console.log('✅ Updated analysis context:', {
+            wellCount: analysisWellData.length,
+            queryType: geoJsonData.metadata?.queryType || 'general',
+            isContextualFilter: geoJsonData.metadata?.contextFilter || false
+          });
+        } else {
+          // Only clear analysis data if this was a fresh search, not a failed filter
+          if (isFirstQuery || !searchContextForBackend) {
+            console.log('🧹 Clearing analysis data - no results on fresh search');
+            setAnalysisData(null);
+            setAnalysisQueryType('');
+          } else {
+            console.log('⚠️ Filter returned no results - keeping existing context');
+          }
+        }
         
         // FIXED: Always save map state from search results, regardless of which panel is active
         if (geoJsonData && geoJsonData.type === 'FeatureCollection') {
@@ -372,14 +509,47 @@ function CatalogPageBase() {
                 activePanel: selectedId
               });
               
-              // ALWAYS save map state regardless of panel
-              setMapState({
-                center: center,
-                zoom: 8,
-                bounds: bounds,
-                wellData: geoJsonData,
-                hasSearchResults: true
-              });
+          // Check if this is weather data and update weather layer state
+          const isWeatherData = geoJsonData.metadata?.queryType === 'weatherMaps';
+          let weatherLayers: string[] = [];
+          
+          if (isWeatherData && geoJsonData.weatherLayers) {
+            weatherLayers = Object.keys(geoJsonData.weatherLayers).filter(key => key !== 'additional');
+            const additionalLayers = geoJsonData.weatherLayers.additional ? Object.keys(geoJsonData.weatherLayers.additional) : [];
+            
+            console.log('🌤️ Weather layers detected:', weatherLayers);
+            console.log('🌤️ Additional weather layers:', additionalLayers);
+            
+            // Set available weather layers
+            setAvailableWeatherLayers([...weatherLayers, ...additionalLayers]);
+            
+            // Set initial active state for primary layers
+            const initialActiveState: { [key: string]: boolean } = {};
+            weatherLayers.forEach(layer => {
+              initialActiveState[layer] = geoJsonData.weatherLayers[layer]?.visible || false;
+            });
+            additionalLayers.forEach(layer => {
+              initialActiveState[layer] = geoJsonData.weatherLayers.additional[layer]?.visible || false;
+            });
+            
+            setActiveWeatherLayers(initialActiveState);
+            setShowWeatherControls(true); // Always show controls for weather queries
+            console.log('🌤️ Initial weather layer states:', initialActiveState);
+          } else {
+            // Reset weather layers for non-weather queries
+            setAvailableWeatherLayers([]);
+            setActiveWeatherLayers({});
+          }
+          
+          // ALWAYS save map state regardless of panel
+          setMapState({
+            center: center,
+            zoom: 8,
+            bounds: bounds,
+            wellData: geoJsonData,
+            hasSearchResults: true,
+            weatherLayers: weatherLayers
+          });
             }
           }
           
@@ -419,7 +589,7 @@ function CatalogPageBase() {
     } finally {
       setIsLoadingMapData(false);
     }
-  }, [amplifyClient, setMessages, mapComponentRef]);
+  }, [amplifyClient, setMessages, mapComponentRef, analysisData, analysisQueryType]);
   
   // NOTE: Chat session subscription removed since catalog uses direct search
   // Chain of thought infrastructure is ready for when catalogSearch backend 
@@ -442,6 +612,25 @@ function CatalogPageBase() {
       p.id === updatedPolygon.id ? updatedPolygon : p
     ));
     console.log('Polygon updated:', updatedPolygon.id);
+  }, []);
+
+  // Weather layer toggle handler
+  const handleWeatherLayerToggle = useCallback((layerType: string, visible: boolean) => {
+    console.log(`🌤️ Toggling weather layer: ${layerType} -> ${visible}`);
+    
+    // Update local state
+    setActiveWeatherLayers(prev => ({
+      ...prev,
+      [layerType]: visible
+    }));
+    
+    // Toggle on map if available
+    if (mapComponentRef.current && mapComponentRef.current.toggleWeatherLayer) {
+      console.log(`🗺️ Calling map toggleWeatherLayer for ${layerType}`);
+      mapComponentRef.current.toggleWeatherLayer(layerType, visible);
+    } else {
+      console.warn('⚠️ Map component or toggleWeatherLayer function not available');
+    }
   }, []);
   
   return (
@@ -473,8 +662,22 @@ function CatalogPageBase() {
               options={[
                 {
                   iconName: "map",
-                  iconAlt: "Segment 1",
+                  iconAlt: "Map View",
                   id: "seg-1"
+                },
+                {
+                  iconSvg: (
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      height="48"
+                      viewBox="0 0 24 24"
+                      width="48"
+                    >
+                      <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z"/>
+                    </svg>
+                  ),
+                  iconAlt: "Data Analysis & Visualization",
+                  id: "seg-2"
                 },
                 {
                   iconSvg: (
@@ -493,8 +696,8 @@ function CatalogPageBase() {
                       </g>
                     </svg>
                   ),
-                  iconAlt: "Segment 2",
-                  id: "seg-2"
+                  iconAlt: "Chain of Thought",
+                  id: "seg-3"
                 }
               ]}
             />
@@ -526,8 +729,60 @@ function CatalogPageBase() {
               />
             </div>
           </div>
+        ) : selectedId === "seg-2" ? (
+          // Data Analysis & Visualization Panel
+          <div className='panel'>
+            <Container
+              footer=""
+              header={
+                <SpaceBetween direction="horizontal" size="m" alignItems="center">
+                  <Box variant="h2">Data Analysis & Visualization</Box>
+                </SpaceBetween>
+              }
+            >
+              <div style={{ 
+                overflowY: 'auto',
+                maxHeight: 'calc(100vh - 300px)',
+                position: 'relative',
+                paddingBottom: '60px'
+              }}>
+                {analysisData ? (
+                  <GeoscientistDashboardErrorBoundary 
+                    fallbackTableData={analysisData}
+                    searchQuery={`Analysis for ${analysisData.length} wells`}
+                  >
+                    <GeoscientistDashboard
+                      wells={analysisData}
+                      queryType={analysisQueryType}
+                      searchQuery={`Analysis for ${analysisData.length} wells`}
+                      weatherData={analysisQueryType === 'weatherMaps' ? {
+                        temperature: { min: 26, max: 31, current: 28.5 },
+                        precipitation: { current: 2.3, forecast: 'Light showers' },
+                        operationalStatus: 'Favorable'
+                      } : undefined}
+                    />
+                  </GeoscientistDashboardErrorBoundary>
+                ) : (
+                  <Container>
+                    <SpaceBetween direction="vertical" size="l" alignItems="center">
+                      <Icon name="settings" size="large" />
+                      <SpaceBetween direction="vertical" size="m" alignItems="center">
+                        <Box variant="h2" textAlign="center">
+                          No analysis data available
+                        </Box>
+                        <Box variant="p" textAlign="center" color="text-body-secondary">
+                          Submit a search query to see detailed reservoir analysis, production intelligence, 
+                          regional context, and operations planning insights.
+                        </Box>
+                      </SpaceBetween>
+                    </SpaceBetween>
+                  </Container>
+                )}
+              </div>
+            </Container>
+          </div>
         ) : (
-          // Chain of Thought here
+          // Chain of Thought Panel (seg-3)
           <div className='panel'>
             <Container
               footer=""
