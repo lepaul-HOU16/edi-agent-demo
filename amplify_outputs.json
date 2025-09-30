@@ -233,6 +233,20 @@
               "attributes": [],
               "isArrayNullable": true
             },
+            "linkedCollectionId": {
+              "name": "linkedCollectionId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "collectionContext": {
+              "name": "collectionContext",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": []
+            },
             "createdAt": {
               "name": "createdAt",
               "isArray": false,
@@ -812,6 +826,26 @@
               "isRequired": false
             }
           }
+        },
+        "collectionQuery": {
+          "name": "collectionQuery",
+          "isArray": false,
+          "type": "String",
+          "isRequired": false,
+          "arguments": {
+            "operation": {
+              "name": "operation",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "collectionId": {
+              "name": "collectionId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            }
+          }
         }
       },
       "mutations": {
@@ -871,6 +905,50 @@
             },
             "userId": {
               "name": "userId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            }
+          }
+        },
+        "collectionManagement": {
+          "name": "collectionManagement",
+          "isArray": false,
+          "type": "String",
+          "isRequired": false,
+          "arguments": {
+            "operation": {
+              "name": "operation",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "name": {
+              "name": "name",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "description": {
+              "name": "description",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "dataSourceType": {
+              "name": "dataSourceType",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "previewMetadata": {
+              "name": "previewMetadata",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": false
+            },
+            "collectionId": {
+              "name": "collectionId",
               "isArray": false,
               "type": "String",
               "isRequired": false

@@ -209,20 +209,34 @@ function parseDepthCriteria(lowerQuery: string): any {
   return null;
 }
 
-// Enhanced NLP query parser for better understanding of user intent
-function parseNLPQuery(searchQuery: string): { queryType: string; parameters: any } {
+// Enhanced NLP query parser with conservative intent detection to prevent hallucinations
+function parseNLPQuery(searchQuery: string): { queryType: string; parameters: any; confidence: number } {
   const lowerQuery = searchQuery.toLowerCase().trim();
   
-  // AGGRESSIVE DEBUGGING FOR WEATHER PATTERN
-  console.log('🔍 === PARSING QUERY ===');
+  console.log('🔍 === CONSERVATIVE PARSING QUERY ===');
   console.log('📝 Original query:', searchQuery);
   console.log('🔤 Lowercase query:', lowerQuery);
   
-  // EMERGENCY FIX: Force weather detection for specific query
-  if (searchQuery.includes('weather') && searchQuery.includes('wells')) {
-    console.log('🚨 EMERGENCY WEATHER DETECTION: Force weather maps for any weather+wells query');
+  // CONSERVATIVE APPROACH: Only respond to queries we can handle with high confidence
+  
+  // High confidence weather detection - must be very explicit
+  const explicitWeatherQueries = [
+    'show me weather maps',
+    'weather maps near wells', 
+    'weather data for wells',
+    'weather overlay on map',
+    'weather information near my wells'
+  ];
+  
+  const hasExplicitWeatherQuery = explicitWeatherQueries.some(pattern => lowerQuery.includes(pattern));
+  const hasWeatherAndWells = lowerQuery.includes('weather') && (lowerQuery.includes('wells') || lowerQuery.includes('well'));
+  const hasWeatherMaps = lowerQuery.includes('weather map') || lowerQuery.includes('weather maps');
+  
+  if (hasExplicitWeatherQuery || hasWeatherMaps || hasWeatherAndWells) {
+    console.log('✅ HIGH CONFIDENCE: Weather query detected');
     return {
       queryType: 'weatherMaps',
+      confidence: 0.9,
       parameters: {
         includeUserWells: true,
         weatherTypes: ['temperature', 'precipitation'],
@@ -260,6 +274,7 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
     console.log('✅ WEATHER MAPS QUERY DETECTED - RETURNING WEATHER TYPE');
     return {
       queryType: 'weatherMaps',
+      confidence: 0.9,
       parameters: {
         includeUserWells: true,
         weatherTypes: ['temperature', 'precipitation'], // Top 2 as requested
@@ -278,6 +293,7 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
       lowerQuery.includes('show me all wells') || lowerQuery.includes('list all wells')) {
     return {
       queryType: 'allWells',
+      confidence: 0.8,
       parameters: {
         includeUserWells: true,
         region: 'all',
@@ -300,6 +316,7 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
     console.log('🔷 POLYGON QUERY DETECTED:', searchQuery);
     return {
       queryType: 'polygonSearch',
+      confidence: 0.8,
       parameters: {
         includeUserWells: true,
         searchType: 'polygon_filter',
@@ -313,6 +330,7 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
       lowerQuery.includes('personal wells') || lowerQuery.includes('user wells')) {
     return {
       queryType: 'myWells',
+      confidence: 0.9,
       parameters: {
         region: 'malaysia',
         coordinates: { minLon: 100.25, maxLon: 104.5, minLat: 1.0, maxLat: 6.5 }
@@ -324,6 +342,7 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
   if (lowerQuery.includes('south china sea') || lowerQuery.includes('scs')) {
     return {
       queryType: 'geographic',
+      confidence: 0.8,
       parameters: {
         region: 'south-china-sea',
         coordinates: { minLon: 99, maxLon: 121, minLat: 3, maxLat: 23 }
@@ -334,6 +353,7 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
   if (lowerQuery.includes('vietnam') || lowerQuery.includes('vietnamese')) {
     return {
       queryType: 'geographic',
+      confidence: 0.8,
       parameters: {
         region: 'vietnam',
         coordinates: { minLon: 102, maxLon: 110, minLat: 8, maxLat: 17 }
@@ -344,6 +364,7 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
   if (lowerQuery.includes('malaysia') || lowerQuery.includes('malaysian')) {
     return {
       queryType: 'geographic',
+      confidence: 0.8,
       parameters: {
         region: 'malaysia',
         coordinates: { minLon: 99, maxLon: 119, minLat: 1, maxLat: 7 }
@@ -353,34 +374,35 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
   
   // Well type searches
   if (lowerQuery.includes('production')) {
-    return { queryType: 'wellType', parameters: { type: 'Production' } };
+    return { queryType: 'wellType', confidence: 0.7, parameters: { type: 'Production' } };
   }
   
   if (lowerQuery.includes('exploration')) {
-    return { queryType: 'wellType', parameters: { type: 'Exploration' } };
+    return { queryType: 'wellType', confidence: 0.7, parameters: { type: 'Exploration' } };
   }
   
   // Log type searches
   const logTypes = ['gr', 'gamma ray', 'dtc', 'density', 'rhob', 'neutron', 'nphi', 'resistivity'];
   const foundLogs = logTypes.filter(log => lowerQuery.includes(log));
   if (foundLogs.length > 0) {
-    return { queryType: 'logs', parameters: { logs: foundLogs } };
+    return { queryType: 'logs', confidence: 0.7, parameters: { logs: foundLogs } };
   }
   
   // Enhanced depth searches with filtering operators
   const depthCriteria = parseDepthCriteria(lowerQuery);
   if (depthCriteria) {
-    return { queryType: 'depth', parameters: depthCriteria };
+    return { queryType: 'depth', confidence: 0.8, parameters: depthCriteria };
   }
   
   // Specific well name searches
   const wellMatch = lowerQuery.match(/well[\s\-]*(\w+)/);
   if (wellMatch) {
-    return { queryType: 'wellName', parameters: { name: wellMatch[1] } };
+    return { queryType: 'wellName', confidence: 0.6, parameters: { name: wellMatch[1] } };
   }
   
-  // Default to general search
-  return { queryType: 'general', parameters: { text: searchQuery } };
+  // Default to general search - LOW CONFIDENCE to prevent hallucinations
+  console.log('⚠️ LOW CONFIDENCE: Defaulting to general search');
+  return { queryType: 'general', confidence: 0.3, parameters: { text: searchQuery } };
 }
 
 // Function to handle weather maps queries - combines wells with weather overlay

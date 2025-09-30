@@ -42,6 +42,17 @@ export const catalogSearchFunction = defineFunction({
   }
 });
 
+// Enterprise Collection Service - Re-enabled for full rollout
+export const collectionServiceFunction = defineFunction({
+  name: 'collectionService',
+  entry: '../functions/collectionService/handler.ts',
+  timeoutSeconds: 60,
+  memoryMB: 512,
+  environment: {
+    STORAGE_BUCKET_NAME: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
+  }
+});
+
 export const schema = a.schema({
   Project: a.model({
     name: a.string(),
@@ -78,6 +89,9 @@ export const schema = a.schema({
     name: a.string(),
     messages: a.hasMany("ChatMessage", "chatSessionId"),
     workSteps: a.ref("WorkStep").array(),
+    // Phase 3: Collection integration
+    linkedCollectionId: a.string(),
+    collectionContext: a.json(), // Cached collection data for performance
   })
     .authorization((allow) => [allow.owner(), allow.authenticated(), allow.guest()]),
 
@@ -175,6 +189,29 @@ export const schema = a.schema({
     })
     .returns(a.string())
     .handler(a.handler.function(catalogSearchFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  // Enterprise Collection Management Operations - Simplified to avoid GraphQL conflicts
+  collectionManagement: a.mutation()
+    .arguments({
+      operation: a.string().required(),
+      name: a.string(),
+      description: a.string(),
+      dataSourceType: a.string(),
+      previewMetadata: a.json(),
+      collectionId: a.string(),
+    })
+    .returns(a.string())
+    .handler(a.handler.function(collectionServiceFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  collectionQuery: a.query()
+    .arguments({
+      operation: a.string().required(),
+      collectionId: a.string(),
+    })
+    .returns(a.string())
+    .handler(a.handler.function(collectionServiceFunction))
     .authorization((allow) => [allow.authenticated()]),
 })
   .authorization((allow) => [
