@@ -554,7 +554,7 @@ function Page({
                             header={
                                 <SpaceBetween direction="horizontal" size="m" alignItems="center">
                                     <Box variant="h2">Chain of Thought - AI Reasoning Process</Box>
-                                    <SpaceBetween direction="horizontal" size="xs">
+                                    {/* <SpaceBetween direction="horizontal" size="xs">
                                         <Button 
                                             variant="inline-icon"
                                             iconName="refresh"
@@ -569,7 +569,7 @@ function Page({
                                         >
                                             Auto-scroll {chainOfThoughtAutoScroll ? 'On' : 'Off'}
                                         </Button>
-                                    </SpaceBetween>
+                                    </SpaceBetween> */}
                                 </SpaceBetween>
                             }
                         >

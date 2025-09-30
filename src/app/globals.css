@@ -190,24 +190,60 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   background-color: unset !important;
 }
 
-/* Dynamic hash-resistant selectors for AWS UI segments */
+/* SEGMENTED CONTROLLER: Remove white oval background but preserve blue active state */
+/* Remove background from the overall container to eliminate white oval */
+[class*="awsui_segmented-control_"],
+[class*="awsui_segment-control_"],
+[class*="awsui_segments_"] {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Remove background from segment parts (the white oval background) */
 [class*="awsui_segment-part_"] {
   background-color: transparent !important;
+  background: transparent !important;
 }
 
-[class*="awsui_segment_"][class*="awsui_selected_"] + [class*="awsui_segment_"],
-[class*="awsui_segment_"][class*="awsui_selected_"] + [class*="awsui_segment_"][class*="awsui_disabled_"] {
+/* Remove background from UNSELECTED segments only - preserve selected state styling */
+[class*="awsui_segment_"]:not([class*="awsui_selected_"]) {
   background-color: transparent !important;
+  background: transparent !important;
 }
 
-/* Legacy specific overrides (keep for backward compatibility) */
+/* Allow selected segments to keep their default blue background by NOT overriding them */
+/* [class*="awsui_segment_"][class*="awsui_selected_"] - NO OVERRIDE to preserve blue */
+
+/* Remove background from container children but not selected segments */
+[class*="awsui_segment-control_"] > *:not([class*="awsui_selected_"]),
+[class*="awsui_segments_"] > *:not([class*="awsui_selected_"]),
+[class*="awsui_segment-part_"] > *:not([class*="awsui_selected_"]) {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Target segment transitions for non-selected segments only */
+[class*="awsui_segment_"]:not([class*="awsui_selected_"]) + [class*="awsui_segment_"]:not([class*="awsui_selected_"]),
+[class*="awsui_segment_"][class*="awsui_selected_"] + [class*="awsui_segment_"]:not([class*="awsui_selected_"]) {
+  background-color: transparent !important;
+  background: transparent !important;
+}
+
+/* Legacy specific overrides (keep for backward compatibility) - modified to preserve selected state */
 .awsui_segment-part_8cbea_rg0r6_326:not(#\9) {
   background-color: transparent !important;
 }
-.awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161:not(#\9), .awsui_segment_8cbea_rg0r6_161.awsui_selected_8cbea_rg0r6_256 + .awsui_segment_8cbea_rg0r6_161.awsui_disabled_8cbea_rg0r6_193:not(#\9) {
-  background-color: transparent;
+.awsui_segment_8cbea_rg0r6_161:not(.awsui_selected_8cbea_rg0r6_256) {
+  background-color: transparent !important;
 }
-/* Removed specific styling for first segment to ensure consistent behavior */
+
+/* Universal overrides for remaining background elements but preserve active states */
+[data-awsui-segmented-control] *:not([class*="awsui_selected_"]),
+[data-awsui-segment]:not([class*="awsui_selected_"]),
+[role="tablist"] [class*="awsui"]:not([class*="awsui_selected_"]) {
+  background-color: transparent !important;
+  background: transparent !important;
+}
 
 /* Card styling for fixed height and button positioning */
 .fixed-height-cards [data-awsui-cards-card] {
@@ -249,14 +285,12 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 /* CRITICAL: Prevent all table horizontal overflow */
 .tables, .tables * {
   max-width: 100% !important;
-  overflow-x: auto !important;
   box-sizing: border-box !important;
 }
 
 /* Specific CloudScape table overflow fix */
 [data-awsui-table] {
   max-width: 100% !important;
-  overflow-x: auto !important;
 }
 
 [data-awsui-table-container] {
@@ -316,7 +350,6 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 .convo div[style*="grid"],
 .convo div[style*="display: grid"] {
   max-width: 100% !important;
-  overflow-x: auto !important;
 }
 
 /* Force CloudScape Tabs content to respect bounds */
@@ -327,7 +360,6 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 
 .convo [class*="awsui-tabs-content"] {
   max-width: 100% !important;
-  overflow-x: auto !important;
 }
 
 /* Improved scrolling behavior for chat containers */
@@ -627,7 +659,6 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 .panel .MuiTableContainer-root,
 .panel .MuiTable-root {
   max-width: 100% !important;
-  overflow-x: auto !important;
   width: 100% !important;
 }
 
@@ -649,7 +680,6 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 /* Constrain any CloudScape components in analysis panel */
 .panel [data-awsui-table] {
   max-width: 100% !important;
-  overflow-x: auto !important;
 }
 
 .panel [data-awsui-table-container] {
@@ -662,7 +692,6 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 .panel div[style*="display: grid"],
 .panel div[style*="flex"] {
   max-width: 100% !important;
-  overflow-x: auto !important;
 }
 
 /* Force CloudScape Containers in analysis panel to respect bounds */

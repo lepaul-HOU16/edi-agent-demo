@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, Badge, BreadcrumbGroup, Cards, Container, ContentLayout, ExpandableSection, Grid, Header, Icon, SpaceBetween, Table, Box, Button, Pagination, SegmentedControl } from '@cloudscape-design/components';
+import { Alert, Badge, BreadcrumbGroup, Cards, Container, ContentLayout, ExpandableSection, Grid, Header, Icon, SpaceBetween, Table, Box, Button, Pagination, SegmentedControl, Modal, FormField, Input, Textarea } from '@cloudscape-design/components';
 import { useTheme, IconButton, Tooltip, List, ListItem, useMediaQuery } from '@mui/material';
 import FileDrawer from '@/components/FileDrawer';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -17,6 +17,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { Message } from '../../../utils/types';
 import { withAuth } from '@/components/WithAuth';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
+import { isCollectionsEnabled, isCollectionCreationEnabled } from '@/services/featureFlags';
 
 // Import MapComponent directly - handle SSR with conditional rendering instead
 import MapComponentBase from './MapComponent';
@@ -97,6 +98,21 @@ function CatalogPageBase() {
   const [availableWeatherLayers, setAvailableWeatherLayers] = useState<string[]>([]);
   const [activeWeatherLayers, setActiveWeatherLayers] = useState<{ [key: string]: boolean }>({});
   const [showWeatherControls, setShowWeatherControls] = useState<boolean>(true);
+  
+  // Collection creation state (Phase 2 feature)
+  const [showCreateCollectionModal, setShowCreateCollectionModal] = useState(false);
+  const [collectionName, setCollectionName] = useState('');
+  const [collectionDescription, setCollectionDescription] = useState('');
+  const [selectedDataItems, setSelectedDataItems] = useState<any[]>([]);
+  const [creatingCollection, setCreatingCollection] = useState(false);
+  
+  // Table selection state for bulk operations in collection modal
+  const [tableSelection, setTableSelection] = useState<any[]>([]);
+  
+  // Feature flag context
+  const userContext = { userId: 'current-user' }; // In production, get from auth
+  const collectionsEnabled = isCollectionsEnabled(userContext);
+  const creationEnabled = isCollectionCreationEnabled(userContext);
   
   // Chain of thought auto-scroll state
   const [chainOfThoughtAutoScroll, setChainOfThoughtAutoScroll] = useState<boolean>(true);
@@ -314,6 +330,13 @@ function CatalogPageBase() {
       setActiveWeatherLayers({});
       setShowWeatherControls(true);
       
+      // Clear collection creation state
+      setShowCreateCollectionModal(false);
+      setCollectionName('');
+      setCollectionDescription('');
+      setSelectedDataItems([]);
+      setCreatingCollection(false);
+      
       // Clear map if available
       if (mapComponentRef.current && mapComponentRef.current.clearMap) {
         console.log('🗺️ RESET: Clearing map data...');
@@ -331,6 +354,140 @@ function CatalogPageBase() {
       alert("Failed to reset catalog. Please refresh the page.");
     }
   }
+
+  // Handler to remove selected items from collection
+  const handleRemoveSelectedFromCollection = useCallback(() => {
+    if (!tableSelection || tableSelection.length === 0) return;
+    
+    console.log('🗑️ Removing selected items from collection:', tableSelection.length);
+    
+    // Remove selected items from the data items list
+    const updatedItems = selectedDataItems.filter(item => 
+      !tableSelection.some(selected => selected.id === item.id)
+    );
+    
+    setSelectedDataItems(updatedItems);
+    setTableSelection([]); // Clear selection
+    
+    console.log('✅ Items removed:', {
+      original: selectedDataItems.length,
+      removed: tableSelection.length,
+      remaining: updatedItems.length
+    });
+  }, [tableSelection, selectedDataItems]);
+
+  // Initialize table selection when modal opens
+  React.useEffect(() => {
+    if (showCreateCollectionModal && selectedDataItems.length > 0) {
+      // Initially select all items (user can uncheck what they don't want)
+      setTableSelection(selectedDataItems);
+      console.log('🔄 Collection modal opened, selecting all items:', selectedDataItems.length);
+    } else if (!showCreateCollectionModal) {
+      // Clear selection when modal closes
+      setTableSelection([]);
+    }
+  }, [showCreateCollectionModal, selectedDataItems]);
+
+  // Collection creation handler (Phase 2 Advanced Feature)
+  const handleCreateCollection = async () => {
+    if (!collectionName.trim() || selectedDataItems.length === 0 || !creationEnabled) return;
+    
+    // Use the final selected items (after any removals)
+    const finalDataItems = tableSelection.length > 0 ? tableSelection : selectedDataItems;
+    
+    try {
+      setCreatingCollection(true);
+      
+      console.log('📊 Creating collection with final selection:', {
+        originalItems: selectedDataItems.length,
+        finalItems: finalDataItems.length,
+        removed: selectedDataItems.length - finalDataItems.length
+      });
+      
+      // Debug: Log the exact input fields
+      console.log('🔍 Debug collection creation inputs:', {
+        name: collectionName.trim(),
+        description: collectionDescription.trim(),
+        dataSourceType: 'Mixed',
+        finalDataItemsLength: finalDataItems.length,
+        finalDataItemsSample: finalDataItems.slice(0, 1)
+      });
+      
+      // Try minimal metadata first to isolate the issue
+      const minimalMetadata = {
+        wellCount: finalDataItems.length,
+        createdFrom: 'catalog_search'
+      };
+      
+      // Test minimal serialization
+      let metadataString;
+      try {
+        metadataString = JSON.stringify(minimalMetadata);
+        console.log('✅ Minimal metadata serialization successful:', metadataString);
+      } catch (serializeError) {
+        console.error('❌ Even minimal serialization failed:', serializeError);
+        // Fallback to simplest possible string
+        metadataString = `{"wellCount":${finalDataItems.length},"createdFrom":"catalog_search"}`;
+      }
+      
+      // Debug: Test all mutation parameters individually
+      const mutationParams = {
+        operation: 'createCollection',
+        name: collectionName.trim(),
+        description: collectionDescription.trim(),
+        dataSourceType: 'Mixed',
+        previewMetadata: metadataString
+      };
+      
+      console.log('🧪 Testing mutation parameters:');
+      console.log('  operation:', typeof mutationParams.operation, mutationParams.operation);
+      console.log('  name:', typeof mutationParams.name, mutationParams.name);
+      console.log('  description:', typeof mutationParams.description, mutationParams.description);
+      console.log('  dataSourceType:', typeof mutationParams.dataSourceType, mutationParams.dataSourceType);
+      console.log('  previewMetadata:', typeof mutationParams.previewMetadata, metadataString.length, 'chars');
+      
+      // Create collection through real backend service
+      console.log('🔄 Calling collectionManagement mutation...');
+      const response = await amplifyClient.mutations.collectionManagement(mutationParams);
+      console.log('✅ Mutation response received:', response);
+      
+      const result = response;
+      
+      if (result.data) {
+        const parsedResult = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
+        
+        if (parsedResult.success) {
+          // Show success message with final count
+          const successMessage: Message = {
+            id: uuidv4() as any,
+            role: "ai" as any,
+            content: {
+              text: `✅ **Collection Created Successfully!**\n\nCreated collection **"${collectionName}"** with ${finalDataItems.length} wells.\n\n📁 **Collection Features:**\n- Preserved exact search context and map state\n- Geographic bounds and analytics configuration saved\n- Available at [Collection Management](/collections)\n\n🚀 **Next Steps:**\n- Create new workspace canvases linked to this collection\n- Restore this exact data context anytime\n- Share collection with team members (coming soon)`
+            } as any,
+            responseComplete: true as any,
+            createdAt: new Date().toISOString() as any,
+            chatSessionId: '' as any,
+            owner: '' as any
+          } as any;
+          
+          setMessages(prevMessages => [...prevMessages, successMessage]);
+          setShowCreateCollectionModal(false);
+          setCollectionName('');
+          setCollectionDescription('');
+          setSelectedDataItems([]);
+          setTableSelection([]);
+        } else {
+          console.error('Collection creation failed:', parsedResult.error);
+          alert('Failed to create collection: ' + parsedResult.error);
+        }
+      }
+    } catch (error) {
+      console.error('Error creating collection:', error);
+      alert('Failed to create collection. Please try again.');
+    } finally {
+      setCreatingCollection(false);
+    }
+  };
   
   // Function to handle catalog search with enhanced context management
   const handleChatSearch = useCallback(async (prompt: string) => {
@@ -344,6 +501,37 @@ function CatalogPageBase() {
       const isFirstQuery = !analysisData || analysisData.length === 0;
       const lowerPrompt = prompt.toLowerCase().trim();
       
+      // Phase 2: Detect collection creation intent (feature-flagged)
+      if (creationEnabled && analysisData && analysisData.length > 0) {
+        const collectionKeywords = ['create', 'new collection', 'collection', 'save', 'with this data', 'make collection', 'create collection'];
+        const isCollectionCreation = collectionKeywords.some(keyword => lowerPrompt.includes(keyword)) && 
+                                     (lowerPrompt.includes('collection') || lowerPrompt.includes('save'));
+        
+        if (isCollectionCreation) {
+          console.log('🗂️ Collection creation intent detected');
+          
+          // Prepare data for collection creation
+          setSelectedDataItems(analysisData);
+          setShowCreateCollectionModal(true);
+          
+          const collectionMessage: Message = {
+            id: uuidv4() as any,
+            role: "ai" as any,
+            content: {
+              text: `📁 **Create Collection**\n\nI'll help you create a collection with your current ${analysisData.length} wells. Please provide a name for your collection in the modal that just opened.\n\n✨ **This collection will preserve:**\n- All ${analysisData.length} well data points\n- Current map view and geographic bounds\n- Search filters and analysis configuration\n- Complete context for future restoration\n\n🎯 **Beta Feature**: Collections are currently available to 25% of users for testing.`
+            } as any,
+            responseComplete: true as any,
+            createdAt: new Date().toISOString() as any,
+            chatSessionId: '' as any,
+            owner: '' as any
+          } as any;
+          
+          setMessages(prevMessages => [...prevMessages, collectionMessage]);
+          setIsLoadingMapData(false);
+          return;
+        }
+      }
+      
       // Detect if this should be a filter operation on existing data
       const filterKeywords = ['filter', 'depth', 'greater than', '>', 'deeper', 'show wells with', 'wells with'];
       const isLikelyFilter = !isFirstQuery && filterKeywords.some(keyword => lowerPrompt.includes(keyword));
@@ -353,7 +541,8 @@ function CatalogPageBase() {
         isLikelyFilter,
         hasExistingData: !!analysisData,
         existingWellCount: analysisData?.length || 0,
-        prompt: lowerPrompt
+        prompt: lowerPrompt,
+        collectionsEnabled: creationEnabled
       });
       
       // Prepare context for backend - only if we have data and this looks like a filter
@@ -427,7 +616,7 @@ function CatalogPageBase() {
           const filterCriteria = depthFilter ? `depth ${depthFilter.operator.replace('_', ' ')} ${depthFilter.minDepth}${depthFilter.unit}` : 'depth criteria';
           messageText = `**🔽 Depth Filter Applied**\n\nFiltered to **${wellFeatures.length} wells** matching: *${filterCriteria}* from query: *"${prompt}"*\n\nResults displayed on the map with interactive markers and updated table below.\n\n**📊 Filtered Well Data:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n💡 *Analysis visualizations updated in the Data Analysis & Visualization tab.*`;
         } else {
-          messageText = `**🔍 Catalog Search Results**\n\nFound **${wellFeatures.length} wells** for query: *"${prompt}"*\n\nResults displayed on the map with interactive markers and detailed table below.\n\n**📊 Well Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n💡 *Click map markers for additional well information.*`;
+          messageText = `**🔍 Catalog Search Results**\n\nFound **${wellFeatures.length} wells** for query: *"${prompt}"*\n\nResults displayed on the map with interactive markers and detailed table below.\n\n**📊 Well Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n💡 *Click map markers for additional well information.*\n\n📁 **New**: [Collection Management (Beta)](/collections) - Organize and save your curated datasets for reuse across analysis sessions.`;
         }
         
         const newMessage: Message = {
@@ -789,7 +978,7 @@ function CatalogPageBase() {
               header={
                 <SpaceBetween direction="horizontal" size="m" alignItems="center">
                   <Box variant="h2">Chain of Thought - AI Reasoning Process</Box>
-                  <SpaceBetween direction="horizontal" size="xs">
+                  {/* <SpaceBetween direction="horizontal" size="xs">
                     <Button 
                       variant="inline-icon"
                       iconName="refresh"
@@ -804,7 +993,7 @@ function CatalogPageBase() {
                     >
                       Auto-scroll {chainOfThoughtAutoScroll ? 'On' : 'Off'}
                     </Button>
-                  </SpaceBetween>
+                  </SpaceBetween> */}
                 </SpaceBetween>
               }
             >
@@ -898,25 +1087,9 @@ function CatalogPageBase() {
                             <Container
                               key={stepId}
                               header={
-                                <SpaceBetween direction="horizontal" size="m" alignItems="center">
-                                  <SpaceBetween direction="horizontal" size="s" alignItems="center">
-                                    <Box variant="h3" fontWeight="bold">
-                                      {stepTitle}
-                                    </Box>
-                                  </SpaceBetween>
-                                  <SpaceBetween direction="horizontal" size="xs">
-                                    {step.confidence && (
-                                      <Badge color="green">
-                                        {Math.round((step.confidence || 0) * 100)}% confidence
-                                      </Badge>
-                                    )}
-                                    {step.duration && (
-                                      <Badge>
-                                        {step.duration}ms
-                                      </Badge>
-                                    )}
-                                  </SpaceBetween>
-                                </SpaceBetween>
+                                <Box variant="h3" fontWeight="bold">
+                                  {stepTitle}
+                                </Box>
                               }
                             >
                               <SpaceBetween direction="vertical" size="m">
@@ -1074,6 +1247,126 @@ function CatalogPageBase() {
           />
         </div>
       </Grid>
+
+      {/* Phase 2: Collection Creation Modal (Feature-Flagged) */}
+      {creationEnabled && (
+        <Modal
+          onDismiss={() => setShowCreateCollectionModal(false)}
+          visible={showCreateCollectionModal}
+          closeAriaLabel="Close modal"
+          header="Create Data Collection from Search Results"
+          footer={
+            <Box float="right">
+              <SpaceBetween direction="horizontal" size="xs">
+                <Button 
+                  variant="link" 
+                  onClick={() => setShowCreateCollectionModal(false)}
+                  disabled={creatingCollection}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="primary"
+                  onClick={handleCreateCollection}
+                  loading={creatingCollection}
+                  disabled={!collectionName.trim()}
+                >
+                  Create Collection
+                </Button>
+              </SpaceBetween>
+            </Box>
+          }
+        >
+          <SpaceBetween direction="vertical" size="l">
+            <Alert
+              statusIconAriaLabel="Info"
+              type="info"
+              header="Beta Feature - Collection Management"
+            >
+              You're creating a collection to preserve your current search results, map state, and analytics configuration for future use.
+            </Alert>
+
+            <FormField
+              label="Collection Name"
+              description="Choose a descriptive name for your data collection"
+            >
+              <Input
+                value={collectionName}
+                onChange={({ detail }) => setCollectionName(detail.value)}
+                placeholder="e.g., Cuu Long Basin Production Wells"
+              />
+            </FormField>
+
+            <FormField
+              label="Description (Optional)"
+              description="Provide additional context about this collection"
+            >
+              <Textarea
+                value={collectionDescription}
+                onChange={({ detail }) => setCollectionDescription(detail.value)}
+                placeholder="Describe the purpose and contents of this collection..."
+                rows={3}
+              />
+            </FormField>
+
+            <Container
+              header={
+                <Header 
+                  variant="h3" 
+                  counter={`(${selectedDataItems.length} wells)`}
+                  actions={
+                    <SpaceBetween direction="horizontal" size="s">
+                      <Button
+                        variant="normal"
+                        iconName="remove"
+                        disabled={!tableSelection || tableSelection.length === 0}
+                        onClick={handleRemoveSelectedFromCollection}
+                      >
+                        Remove Selected ({tableSelection?.length || 0})
+                      </Button>
+                    </SpaceBetween>
+                  }
+                >
+                  Data Preview - Select Wells to Include
+                </Header>
+              }
+            >
+              {selectedDataItems.length > 0 ? (
+                <Table
+                  columnDefinitions={[
+                    { id: "name", header: "Well Name", cell: item => item.name },
+                    { id: "location", header: "Location", cell: item => item.location },
+                    { id: "depth", header: "Depth", cell: item => item.depth },
+                    { id: "operator", header: "Operator", cell: item => item.operator }
+                  ]}
+                  items={selectedDataItems}
+                  loadingText="Loading data"
+                  selectionType="multi"
+                  selectedItems={tableSelection}
+                  onSelectionChange={({ detail }) => setTableSelection(detail.selectedItems)}
+                  header={
+                    <Header
+                      counter={`(${selectedDataItems.length} wells available)`}
+                      description="Uncheck wells you don't want to include in the collection"
+                    >
+                      Wells for Collection
+                    </Header>
+                  }
+                  empty={
+                    <Box textAlign="center" color="inherit">
+                      <Box variant="strong" color="inherit">No data selected</Box>
+                    </Box>
+                  }
+                />
+              ) : (
+                <Box textAlign="center" color="inherit" padding="m">
+                  No data available to create collection
+                </Box>
+              )}
+            </Container>
+          </SpaceBetween>
+        </Modal>
+      )}
     </div>
   );
 }
