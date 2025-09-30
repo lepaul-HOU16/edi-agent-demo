@@ -1,9 +1,9 @@
 {
   "auth": {
-    "user_pool_id": "us-east-1_Rg3oKTmf6",
+    "user_pool_id": "us-east-1_sC6yswGji",
     "aws_region": "us-east-1",
-    "user_pool_client_id": "rcrkrnhdk2rd42s8as71recva",
-    "identity_pool_id": "us-east-1:c186c6ca-33f4-446f-a0cc-8b327f5bbfe8",
+    "user_pool_client_id": "18m99t0u39vi9614ssd8sf8vmb",
+    "identity_pool_id": "us-east-1:9deb181a-83d2-4e1d-bb7a-f4f2d418bbae",
     "mfa_methods": [],
     "standard_required_attributes": [
       "email"
@@ -26,7 +26,7 @@
     "unauthenticated_identities_enabled": true
   },
   "data": {
-    "url": "https://doqkjfftczdazcaeyrt6kdcrvu.appsync-api.us-east-1.amazonaws.com/graphql",
+    "url": "https://olauulryq5bkpbvcnkul6zvn5i.appsync-api.us-east-1.amazonaws.com/graphql",
     "aws_region": "us-east-1",
     "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
     "authorization_types": [
@@ -978,11 +978,11 @@
   },
   "storage": {
     "aws_region": "us-east-1",
-    "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-1kur1xycq1xq",
+    "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy",
     "buckets": [
       {
         "name": "workshopStorage",
-        "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-1kur1xycq1xq",
+        "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy",
         "aws_region": "us-east-1",
         "paths": {
           "chatSessionArtifacts/*": {
