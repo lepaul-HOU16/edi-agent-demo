@@ -320,7 +320,7 @@ const ChatBox = (params: {
         context: 'Analyzing your request...',
         step: 'Preparing analysis workflow',
         progress: 0,
-        estimatedTime: '15-30 seconds'
+        estimatedTime: 'any second now'
       });
     } else if (!isLoading && thinkingState.isActive) {
       console.log('🧠 ChatBox: Scheduling thinking indicator deactivation with artificial delay...');

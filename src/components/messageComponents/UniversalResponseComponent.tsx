@@ -134,12 +134,13 @@ const ConceptDefinitionResponse: React.FC<{ data: UniversalResponseData }> = ({ 
   const CategoryIcon = categoryConfig.icon;
 
   const sections = [
-    { id: 'definition', title: '📖 Definition', content: data.definition, icon: MenuBook },
-    { id: 'key-points', title: '💡 Key Points', content: data.keyPoints, icon: Lightbulb },
-    { id: 'formula', title: '🧮 Formula', content: data.formula, icon: Calculate },
-    { id: 'examples', title: '📝 Examples', content: data.examples, icon: Assignment },
-    { id: 'applications', title: '🎯 Applications', content: data.applications, icon: TrendingUp },
-    { id: 'related', title: '🔗 Related Concepts', content: data.relatedConcepts, icon: School }
+    { id: 'definition', title: 'Definition', content: data.definition, icon: MenuBook },
+    { id: 'key-points', title: 'Key Points', content: data.keyPoints, icon: Lightbulb },
+    { id: 'formula', title: 'Formula', content: data.formula, icon: Calculate },
+    { id: 'examples', title: 'Examples', content: data.examples, icon: Assignment },
+    { id: 'applications', title: 'Applications', content: data.applications, icon: TrendingUp },
+    { id: 'related', title: 'Related Concepts', content: data.relatedConcepts, icon: School },
+    { id: 'next-steps', title: 'Next Steps', content: data.nextSteps, icon: PlayCircle }
   ].filter(section => section.content);
 
   return (
@@ -214,7 +215,7 @@ const ConceptDefinitionResponse: React.FC<{ data: UniversalResponseData }> = ({ 
                 >
                   <AccordionSummary expandIcon={<ExpandMore />}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <SectionIcon color="primary" />
+                      <SectionIcon sx={{ color: categoryConfig.color }} />
                       <Typography variant="h6" fontWeight="semibold">
                         {section.title}
                       </Typography>
@@ -286,27 +287,6 @@ const ConceptDefinitionResponse: React.FC<{ data: UniversalResponseData }> = ({ 
           </CardContent>
         </Card>
 
-        {/* Additional Action Items */}
-        {data.nextSteps && data.nextSteps.length > 0 && (
-          <Card variant="outlined" sx={{ mt: 2 }}>
-            <CardContent>
-              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <PlayCircle color="primary" />
-                🚀 Next Steps
-              </Typography>
-              <Stack spacing={1}>
-                {data.nextSteps.map((step, i) => (
-                  <Box key={i} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <CheckCircle sx={{ color: '#4CAF50', fontSize: 18 }} />
-                    <Typography variant="body2" color="text.primary">
-                      {step}
-                    </Typography>
-                  </Box>
-                ))}
-              </Stack>
-            </CardContent>
-          </Card>
-        )}
 
         </div>
       </div>
@@ -375,8 +355,8 @@ const GeneralKnowledgeResponse: React.FC<{ data: UniversalResponseData }> = ({ d
           {data.keyPoints && data.keyPoints.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Lightbulb color="warning" />
-                💡 Key Points
+                <Lightbulb sx={{ color: categoryConfig.color }} />
+                Key Points
               </Typography>
               <Grid container spacing={1}>
                 {data.keyPoints.map((point, i) => (
@@ -405,8 +385,8 @@ const GeneralKnowledgeResponse: React.FC<{ data: UniversalResponseData }> = ({ d
           {data.formula && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Calculate color="warning" />
-                🧮 Formula
+                <Calculate sx={{ color: categoryConfig.color }} />
+                Formula
               </Typography>
               <Paper
                 sx={{ 
@@ -428,8 +408,8 @@ const GeneralKnowledgeResponse: React.FC<{ data: UniversalResponseData }> = ({ d
           {data.examples && data.examples.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Assignment color="info" />
-                📝 Examples
+                <Assignment sx={{ color: categoryConfig.color }} />
+                Examples
               </Typography>
               <Stack spacing={1}>
                 {data.examples.map((example, i) => (
@@ -454,8 +434,8 @@ const GeneralKnowledgeResponse: React.FC<{ data: UniversalResponseData }> = ({ d
           {data.applications && data.applications.length > 0 && (
             <Box sx={{ mt: 2 }}>
               <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TrendingUp color="success" />
-                🎯 Applications
+                <TrendingUp sx={{ color: categoryConfig.color }} />
+                Applications
               </Typography>
               <List dense>
                 {data.applications.map((app, i) => (
@@ -480,8 +460,8 @@ const GeneralKnowledgeResponse: React.FC<{ data: UniversalResponseData }> = ({ d
         <Card variant="outlined" sx={{ mt: 2 }}>
           <CardContent>
             <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <School color="primary" />
-              🔗 Related Concepts
+              <School sx={{ color: categoryConfig.color }} />
+              Related Concepts
             </Typography>
             <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
               {data.relatedConcepts.map((concept, i) => (
@@ -558,7 +538,7 @@ const QuickAnswerResponse: React.FC<{ data: UniversalResponseData }> = ({ data }
           {data.nextSteps && data.nextSteps.length > 0 && (
             <Box sx={{ mt: 2, pt: 2, borderTop: '1px solid #E0E0E0' }}>
               <Typography variant="subtitle2" fontWeight="bold" sx={{ mb: 1 }}>
-                🚀 Try These:
+                Try These:
               </Typography>
               <Stack spacing={0.5}>
                 {data.nextSteps.map((step, i) => (
@@ -610,7 +590,7 @@ const ErrorResponseComponent: React.FC<{ data: UniversalResponseData }> = ({ dat
           {data.nextSteps && data.nextSteps.length > 0 && (
             <Box>
               <Typography variant="h6" gutterBottom>
-                💡 What you can try:
+                What you can try:
               </Typography>
               {data.nextSteps.map((step, i) => (
                 <Typography 
