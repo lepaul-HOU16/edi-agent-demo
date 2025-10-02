@@ -730,15 +730,23 @@ function CatalogPageBase() {
             setActiveWeatherLayers({});
           }
           
-          // ALWAYS save map state regardless of panel
-          setMapState({
+        // ALWAYS save map state regardless of panel
+        setMapState({
+          center: center,
+          zoom: 8,
+          bounds: bounds,
+          wellData: geoJsonData,
+          hasSearchResults: true,
+          weatherLayers: weatherLayers
+        });
+        
+        // Also update the map component's internal state for persistence
+        if (mapComponentRef.current && mapComponentRef.current.restoreMapState) {
+          mapComponentRef.current.restoreMapState({
             center: center,
-            zoom: 8,
-            bounds: bounds,
-            wellData: geoJsonData,
-            hasSearchResults: true,
-            weatherLayers: weatherLayers
+            zoom: 8
           });
+        }
             }
           }
           

@@ -704,3 +704,179 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
+
+/* Enhanced Map Control Styles - 3D Toggle and Weather Controls */
+
+/* 3D Toggle Button - Enhanced Styling */
+.maplibregl-ctrl-icon.toggle3d-btn {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 5px !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  width: 29px !important;
+  height: 29px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #333 !important;
+}
+
+.maplibregl-ctrl-icon.toggle3d-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.maplibregl-ctrl-icon.toggle3d-btn.active {
+  background-color: rgba(25, 118, 210, 0.2) !important;
+  color: #1976d2 !important;
+}
+
+.maplibregl-ctrl-icon.toggle3d-btn:focus {
+  outline: 2px solid #1976d2 !important;
+  outline-offset: 2px !important;
+}
+
+/* Weather Control Container */
+.weather-control {
+  position: relative !important;
+}
+
+/* Weather Toggle Button - Enhanced Styling */
+.weather-toggle-btn {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 5px !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  width: 29px !important;
+  height: 29px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #333 !important;
+}
+
+.weather-toggle-btn:hover:not(.disabled) {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.weather-toggle-btn.active {
+  background-color: rgba(25, 118, 210, 0.2) !important;
+  color: #1976d2 !important;
+}
+
+.weather-toggle-btn.disabled {
+  cursor: not-allowed !important;
+  opacity: 0.4 !important;
+  color: #999 !important;
+}
+
+.weather-toggle-btn:focus:not(.disabled) {
+  outline: 2px solid #1976d2 !important;
+  outline-offset: 2px !important;
+}
+
+/* Weather Layers Panel - Enhanced Styling */
+.weather-layers-panel {
+  position: absolute !important;
+  top: 0 !important;
+  left: 35px !important;
+  background: white !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) !important;
+  padding: 8px !important;
+  min-width: 180px !important;
+  max-width: 220px !important;
+  z-index: 1000 !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif !important;
+}
+
+/* Weather Layer Items */
+.weather-layer-item {
+  margin-bottom: 4px !important;
+}
+
+.weather-layer-item:last-child {
+  margin-bottom: 0 !important;
+}
+
+/* Weather Layer Labels - Enhanced Interactive Styling */
+.weather-layer-label {
+  display: flex !important;
+  align-items: center !important;
+  cursor: pointer !important;
+  font-size: 14px !important;
+  padding: 6px 8px !important;
+  border-radius: 3px !important;
+  transition: background-color 0.2s ease !important;
+  color: #374151 !important;
+  user-select: none !important;
+}
+
+.weather-layer-label:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.weather-layer-label input[type="checkbox"] {
+  margin-right: 8px !important;
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  cursor: pointer !important;
+}
+
+.weather-layer-label span {
+  user-select: none !important;
+  color: inherit !important;
+  font-weight: 400 !important;
+}
+
+/* Weather Layer Checkbox Styling */
+.weather-layer-label input[type="checkbox"]:checked + span {
+  font-weight: 500 !important;
+  color: #1976d2 !important;
+}
+
+/* Dark Mode Support for Weather Controls */
+@media (prefers-color-scheme: dark) {
+  .weather-layers-panel {
+    background: #2d3748 !important;
+    border-color: #4a5568 !important;
+    color: #e2e8f0 !important;
+  }
+  
+  .weather-layer-label {
+    color: #e2e8f0 !important;
+  }
+  
+  .weather-layer-label:hover {
+    background-color: rgba(255, 255, 255, 0.1) !important;
+  }
+  
+  .weather-layer-label input[type="checkbox"]:checked + span {
+    color: #63b3ed !important;
+  }
+}
+
+/* Focus and Accessibility Improvements */
+.weather-layer-label:focus-within {
+  outline: 2px solid #1976d2 !important;
+  outline-offset: 1px !important;
+}
+
+/* Smooth Animation for Panel Toggle */
+.weather-layers-panel {
+  opacity: 1 !important;
+  transform: translateY(0) !important;
+  transition: opacity 0.2s ease, transform 0.2s ease !important;
+}
+
+.weather-layers-panel[style*="display: none"] {
+  opacity: 0 !important;
+  transform: translateY(-10px) !important;
+  pointer-events: none !important;
+}

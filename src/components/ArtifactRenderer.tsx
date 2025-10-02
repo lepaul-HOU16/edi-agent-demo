@@ -3,6 +3,10 @@ import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerCompone
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
 import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
+import WindFarmTerrainComponent from './messageComponents/WindFarmTerrainComponent';
+import WindFarmLayoutComponent from './messageComponents/WindFarmLayoutComponent';
+import WindFarmSimulationComponent from './messageComponents/WindFarmSimulationComponent';
+import RenewableEnergyGuidanceComponent from './messageComponents/RenewableEnergyGuidanceComponent';
 
 interface Artifact {
   type: string;
@@ -70,6 +74,34 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
                 <UniversalResponseComponent data={artifact as any} />
+              </div>
+            );
+
+          case 'wind_farm_terrain_analysis':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <WindFarmTerrainComponent data={artifact as any} />
+              </div>
+            );
+
+          case 'wind_farm_layout':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <WindFarmLayoutComponent data={artifact as any} />
+              </div>
+            );
+
+          case 'wind_farm_simulation':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <WindFarmSimulationComponent data={artifact as any} />
+              </div>
+            );
+
+          case 'renewable_energy_guidance':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <RenewableEnergyGuidanceComponent data={artifact as any} />
               </div>
             );
             
