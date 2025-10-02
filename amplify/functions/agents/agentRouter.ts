@@ -6,6 +6,7 @@
 
 import { GeneralKnowledgeAgent } from './generalKnowledgeAgent';
 import { EnhancedStrandsAgent } from './enhancedStrandsAgent';
+import { RenewableEnergyAgent } from './renewableEnergyAgent';
 import { 
   ThoughtStep, 
   createThoughtStep, 
@@ -25,10 +26,12 @@ interface RouterResponse {
 export class AgentRouter {
   private generalAgent: GeneralKnowledgeAgent;
   private petrophysicsAgent: EnhancedStrandsAgent;
+  private renewableAgent: RenewableEnergyAgent;
 
   constructor(foundationModelId?: string, s3Bucket?: string) {
     this.generalAgent = new GeneralKnowledgeAgent();
     this.petrophysicsAgent = new EnhancedStrandsAgent(foundationModelId, s3Bucket);
+    this.renewableAgent = new RenewableEnergyAgent(foundationModelId, s3Bucket);
     
     console.log('AgentRouter initialized with multi-agent capabilities');
   }
@@ -36,8 +39,9 @@ export class AgentRouter {
   /**
    * Main routing function - determines which agent should handle the query
    */
-  async routeQuery(message: string): Promise<RouterResponse> {
+  async routeQuery(message: string, conversationHistory?: any[]): Promise<RouterResponse> {
     console.log('🔀 AgentRouter: Routing query:', message.substring(0, 100) + '...');
+    console.log('🔀 AgentRouter: Conversation history provided:', !!conversationHistory, 'messages:', conversationHistory?.length || 0);
     
     try {
       // Determine which agent should handle this query
@@ -62,6 +66,14 @@ export class AgentRouter {
           return {
             ...result,
             agentUsed: 'general_knowledge'
+          };
+
+        case 'renewable':
+          console.log('🌱 Routing to Renewable Energy Agent');
+          result = await this.renewableAgent.processQuery(message);
+          return {
+            ...result,
+            agentUsed: 'renewableEnergyAgent'
           };
 
         case 'catalog':
@@ -98,7 +110,7 @@ export class AgentRouter {
   /**
    * Determine which agent should handle the query
    */
-  private determineAgentType(message: string): 'general' | 'petrophysics' | 'catalog' {
+  private determineAgentType(message: string): 'general' | 'petrophysics' | 'catalog' | 'renewable' {
     const lowerMessage = message.toLowerCase();
     
     // Priority 1: Weather queries (HIGHEST PRIORITY - must come first)
@@ -131,7 +143,32 @@ export class AgentRouter {
       /^(can you|could you|please|help)/
     ];
 
-    // Priority 2: Catalog/geographic patterns
+    // Priority 2: Renewable energy patterns (before catalog/petrophysics to avoid conflicts)
+    const renewablePatterns = [
+      // Wind farm development
+      /wind.*farm|wind.*turbine|turbine.*layout|wind.*energy/,
+      /renewable.*energy|clean.*energy|green.*energy/,
+      
+      // Site analysis and terrain
+      /terrain.*analysis|site.*analysis.*wind|unbuildable.*areas|exclusion.*zones/,
+      /wind.*resource|wind.*speed.*analysis|wind.*data/,
+      
+      // Layout and optimization
+      /turbine.*placement|layout.*optimization|turbine.*spacing/,
+      /wind.*farm.*design|wind.*farm.*layout/,
+      
+      // Performance and simulation
+      /wake.*analysis|wake.*effect|capacity.*factor/,
+      /energy.*production.*wind|annual.*energy.*production|aep/,
+      /wind.*simulation|performance.*simulation/,
+      
+      // Specific renewable terms
+      /offshore.*wind|onshore.*wind|wind.*project/,
+      /megawatt.*wind|mw.*wind|gigawatt.*hour|gwh/,
+      /wind.*farm.*development|renewable.*site.*design/
+    ];
+
+    // Priority 3: Catalog/geographic patterns
     const catalogPatterns = [
       // Geographic searches
       /wells?.*in.*region|wells?.*in.*area|wells?.*offshore/,
@@ -144,20 +181,38 @@ export class AgentRouter {
       /field.*overview.*map|well.*location|geographic.*search/
     ];
 
-    // Priority 3: Petrophysics patterns (most specific, checked last to avoid conflicts)
+    // Priority 4: Petrophysics patterns (most specific, checked last to avoid conflicts)
     const petrophysicsPatterns = [
+      // Comprehensive well analysis (HIGHEST PRIORITY)
+      /analyze.*complete.*dataset.*wells?/,
+      /comprehensive.*summary.*wells?/,
+      /well.*data.*quality.*assessment/,
+      /spatial.*distribution.*wells?/,
+      /field.*overview.*well.*statistics/,
+      
+      // Well naming patterns (both cases)
+      /well-\d+|WELL-\d+|analyze.*well.*\d+|analyze.*WELL.*\d+/,
+      /wells?.*from.*well-\d+|wells?.*from.*WELL-\d+/,
+      /production.*wells?.*\d+/,
+      
+      // Log curve analysis
+      /log.*curves?|well.*logs?|las.*files?/,
+      /(gr|rhob|nphi|dtc|cali).*analysis/,
+      /gamma.*ray|density|neutron|resistivity.*data/,
+      /available.*log.*curves?/,
+      
       // Specific calculations
       /calculate.*(porosity|shale|saturation|permeability)/,
       /formation.*evaluation|petrophysical.*analysis/,
       /(density|neutron|gamma.*ray).*analysis/,
       
-      // Well-specific analysis
-      /well-\d+|analyze.*well.*\d+|formation.*evaluation.*for/,
-      /log.*curve|well.*log|las.*file/,
+      // Multi-well analysis
+      /multi.*well.*correlation|correlation.*panel/,
+      /crossplot|cross.*plot/,
+      /depth.*ranges?.*wells?/,
       
       // Technical petroleum engineering
       /larionov|archie|kozeny.*carman|timur/,
-      /crossplot|correlation.*panel|multi.*well.*correlation/,
       /reservoir.*quality|completion.*target|net.*pay/
     ];
 
@@ -172,8 +227,13 @@ export class AgentRouter {
       return 'general';
     }
 
+    if (renewablePatterns.some(pattern => pattern.test(lowerMessage))) {
+      console.log('🌱 AgentRouter: Renewable energy pattern matched');
+      return 'renewable';
+    }
+
     if (catalogPatterns.some(pattern => pattern.test(lowerMessage))) {
-      console.log('🗺️ AgentRouter: Catalog search pattern matched');
+      console.log('�️ AgentRouter: Catalog search pattern matched');
       return 'catalog';
     }
 
@@ -183,6 +243,10 @@ export class AgentRouter {
     }
 
     // Default routing based on content
+    if (this.containsRenewableTerms(lowerMessage)) {
+      return 'renewable';
+    }
+
     if (this.containsPetrophysicsTerms(lowerMessage)) {
       return 'petrophysics';
     }
@@ -192,7 +256,7 @@ export class AgentRouter {
     }
 
     // Default to general for conversational queries
-    console.log('🌐 AgentRouter: Defaulting to general knowledge agent');
+    console.log('� AgentRouter: Defaulting to general knowledge agent');
     return 'general';
   }
 
@@ -200,8 +264,8 @@ export class AgentRouter {
    * Check if message contains petroleum/petrophysics terms
    */
   private containsPetrophysicsTerms(message: string): boolean {
-    // Don't consider weather queries as petrophysics even if they mention wells
-    if (message.includes('weather')) {
+    // Don't consider weather or renewable queries as petrophysics
+    if (message.includes('weather') || this.containsRenewableTerms(message)) {
       return false;
     }
     
@@ -215,11 +279,23 @@ export class AgentRouter {
   }
 
   /**
+   * Check if message contains renewable energy terms
+   */
+  private containsRenewableTerms(message: string): boolean {
+    const renewableTerms = [
+      'wind', 'turbine', 'renewable', 'clean energy', 'green energy',
+      'wind farm', 'layout', 'wake', 'capacity factor', 'aep'
+    ];
+
+    return renewableTerms.some(term => message.includes(term));
+  }
+
+  /**
    * Check if message contains geographic/location terms
    */
   private containsGeographicTerms(message: string): boolean {
-    // Don't consider weather queries as geographic even if they mention location terms
-    if (message.includes('weather')) {
+    // Don't consider weather or renewable queries as geographic even if they mention location terms
+    if (message.includes('weather') || this.containsRenewableTerms(message)) {
       return false;
     }
     

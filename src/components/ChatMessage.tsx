@@ -35,12 +35,18 @@ import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerCompone
 import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorrelationComponent';
 import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
 import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
+// Renewable energy components
+import WindFarmTerrainComponent from './messageComponents/WindFarmTerrainComponent';
+import WindFarmLayoutComponent from './messageComponents/WindFarmLayoutComponent';
+import WindFarmSimulationComponent from './messageComponents/WindFarmSimulationComponent';
+import RenewableEnergyGuidanceComponent from './messageComponents/RenewableEnergyGuidanceComponent';
 
 // Enhanced artifact processor component with S3 support - STABLE VERSION
-const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme }: {
+const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, onSendMessage }: {
     rawArtifacts: any[];
     message: Message;
     theme: any;
+    onSendMessage?: (message: string) => void;
 }) => {
     const [artifacts, setArtifacts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -272,6 +278,46 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme }: 
                     enhancedComponent={<UniversalResponseComponent data={parsedArtifact} />}
                 />;
             }
+            
+            // NEW: Check for renewable energy wind farm terrain analysis
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_terrain_analysis') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering WindFarmTerrainComponent with onSendMessage!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<WindFarmTerrainComponent data={parsedArtifact} onSendMessage={onSendMessage} />}
+                />;
+            }
+            
+            // NEW: Check for renewable energy wind farm layout
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_layout') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering WindFarmLayoutComponent!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<WindFarmLayoutComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // NEW: Check for renewable energy wind farm simulation
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_simulation') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering WindFarmSimulationComponent!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<WindFarmSimulationComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // NEW: Check for renewable energy guidance
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'renewable_energy_guidance') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering RenewableEnergyGuidanceComponent!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<RenewableEnergyGuidanceComponent data={parsedArtifact} />}
+                />;
+            }
         }
     }
     
@@ -285,6 +331,7 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme }: 
 const ChatMessage = (params: {
     message: Message,
     onRegenerateMessage?: (messageId: string, messageText: string) => Promise<boolean>;
+    onSendMessage?: (message: string) => void;
 }) => {
     const { message, onRegenerateMessage } = params
     const theme = useTheme();
@@ -347,6 +394,7 @@ const ChatMessage = (params: {
                     rawArtifacts={rawArtifacts}
                     message={message}
                     theme={theme}
+                    onSendMessage={params.onSendMessage}
                 />;
             } else {
                 console.log('⚠️ ChatMessage: No artifacts found in AI message');

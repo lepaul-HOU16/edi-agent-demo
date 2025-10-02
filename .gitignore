@@ -183,3 +183,6 @@ dist/
 
 # TernJS port file
 .tern-port
+
+# reference repos for other agents and demos wanting to integrate, should not be included in the git repo
+/agentic-ai-for-renewable-site-design-mainline

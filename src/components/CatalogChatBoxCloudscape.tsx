@@ -360,31 +360,28 @@ const CatalogChatBoxCloudscape = (params: {
             marginRight: '-13px', 
             marginLeft: '10px' 
           }}>
-            Professional Queries
+            Data Sources
           </div>
           <ButtonDropdown
             items={[
               {
-                text: 'can you show me weather maps for the area near my wells',
-                id: '1'
+                text: 'OSDU',
+                id: 'osduData'
               },
               {
-                text: 'show me my wells with reservoir analysis',
-                id: '2'
+                text: 'TGS',
+                id: 'tgsData'
               },
               {
-                text: 'field development recommendations for my wells',
-                id: '3'
+                text: 'Volve',
+                id: 'volveData'
               },
               {
-                text: 'production optimization analysis',
-                id: '4'
+                text: 'S&P',
+                id: 'spData'
               },
-              {
-                text: 'operational weather windows for drilling',
-                id: '5'
-              }
             ]}
+            expandToViewport={true}
             onItemClick={({ detail }) => {
               // Find the clicked item and populate the text box with its text
               const clickedItem = [

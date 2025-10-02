@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useCallback, forwardRef, useImperativeHandle } from 'react';
+import React, { useEffect, useRef, useCallback, forwardRef, useImperativeHandle, useState } from 'react';
 import maplibregl from 'maplibre-gl';
 import MapboxDraw from 'maplibre-gl-draw';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
@@ -29,6 +29,10 @@ export interface MapComponentRef {
   fitBounds: (bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number }) => void;
   toggleWeatherLayer: (layerType: string, visible: boolean) => void;
   getWeatherLayers: () => string[];
+  getMapState: () => { center: [number, number]; zoom: number; pitch: number; bearing: number };
+  restoreMapState: (state: { center: [number, number]; zoom: number; pitch?: number; bearing?: number }) => void;
+  toggle3D: (enabled: boolean) => void;
+  clearMap: () => void;
 }
 
 const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
@@ -39,6 +43,24 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
 }, ref) => {
   const mapRef = useRef<maplibregl.Map | null>(null);
   const drawRef = useRef<MapboxDraw | null>(null);
+  const [is3DEnabled, setIs3DEnabled] = useState<boolean>(false);
+  const is3DRef = useRef<boolean>(false);
+  const toggle3DButtonRef = useRef<HTMLElement | null>(null);
+  const [currentMapState, setCurrentMapState] = useState<{
+    center: [number, number];
+    zoom: number;
+    pitch: number;
+    bearing: number;
+    wellData: any;
+    weatherLayers: string[];
+  }>({
+    center: [106.9, 10.2],
+    zoom: 5,
+    pitch: 0,
+    bearing: 0,
+    wellData: null,
+    weatherLayers: []
+  });
 
   // AWS configuration for Amazon Location Service
   const REGION = process.env.NEXT_PUBLIC_AWS_REGION || "us-east-1";
@@ -418,68 +440,80 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     const allLayers = [...availableLayers, ...additionalLayers];
     
     if (allLayers.length > 0) {
-      // Show weather control
+      // Clear existing content and event listeners
+      weatherControlDiv.innerHTML = '';
       weatherControlDiv.style.display = 'block';
       
-      // Create weather control content
-      const content = `
-        <button class="maplibregl-ctrl-icon weather-toggle-btn" aria-label="Toggle Weather Layers" title="Weather Layers">
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
-            <path d="M6 14a2 2 0 100-4 2 2 0 000 4zM14 10a2 2 0 100-4 2 2 0 000 4z"/>
-            <path fill-rule="evenodd" d="M4 4a1 1 0 011-1h10a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4zm2 1v10h8V5H6z" clip-rule="evenodd"/>
-            <circle cx="10" cy="3" r="1"/>
-            <circle cx="10" cy="17" r="1"/>
-          </svg>
-        </button>
-        <div class="weather-layers-panel" style="display: none;">
-          ${allLayers.map(layerType => {
-            const isVisible = weatherLayers[layerType]?.visible || 
-                            (weatherLayers.additional && weatherLayers.additional[layerType]?.visible);
-            const displayName = layerType.charAt(0).toUpperCase() + layerType.slice(1);
-            
-            return `
-              <div class="weather-layer-item">
-                <label class="weather-layer-label">
-                  <input 
-                    type="checkbox" 
-                    data-layer="${layerType}" 
-                    ${isVisible ? 'checked' : ''}
-                  />
-                  <span>${displayName}</span>
-                </label>
-              </div>
-            `;
-          }).join('')}
-        </div>
+      // Create toggle button
+      const toggleBtn = document.createElement('button');
+      toggleBtn.className = 'maplibregl-ctrl-icon weather-toggle-btn';
+      toggleBtn.setAttribute('aria-label', 'Toggle Weather Layers');
+      toggleBtn.setAttribute('title', 'Weather Layers');
+      toggleBtn.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+          <path d="M6 14a2 2 0 100-4 2 2 0 000 4zM14 10a2 2 0 100-4 2 2 0 000 4z"/>
+          <path fill-rule="evenodd" d="M4 4a1 1 0 011-1h10a1 1 0 011 1v12a1 1 0 01-1 1H5a1 1 0 01-1-1V4zm2 1v10h8V5H6z" clip-rule="evenodd"/>
+          <circle cx="10" cy="3" r="1"/>
+          <circle cx="10" cy="17" r="1"/>
+        </svg>
       `;
       
-      weatherControlDiv.innerHTML = content;
+      // Create panel
+      const panel = document.createElement('div');
+      panel.className = 'weather-layers-panel';
+      panel.style.display = 'none';
       
-      // Add event listeners
-      const toggleBtn = weatherControlDiv.querySelector('.weather-toggle-btn') as HTMLElement;
-      const panel = weatherControlDiv.querySelector('.weather-layers-panel') as HTMLElement;
-      const checkboxes = weatherControlDiv.querySelectorAll('input[type="checkbox"]');
+      // Create layer items
+      allLayers.forEach(layerType => {
+        const isVisible = weatherLayers[layerType]?.visible || 
+                        (weatherLayers.additional && weatherLayers.additional[layerType]?.visible);
+        const displayName = layerType.charAt(0).toUpperCase() + layerType.slice(1);
+        
+        const layerItem = document.createElement('div');
+        layerItem.className = 'weather-layer-item';
+        
+        const label = document.createElement('label');
+        label.className = 'weather-layer-label';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.dataset.layer = layerType;
+        checkbox.checked = isVisible;
+        
+        // Add event listener directly to avoid closure issues
+        checkbox.addEventListener('change', () => {
+          console.log(`🌤️ Weather layer ${layerType} toggle:`, checkbox.checked);
+          toggleWeatherLayer(layerType, checkbox.checked);
+        });
+        
+        const span = document.createElement('span');
+        span.textContent = displayName;
+        
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        layerItem.appendChild(label);
+        panel.appendChild(layerItem);
+      });
       
-      toggleBtn?.addEventListener('click', () => {
+      // Add toggle button event listener
+      toggleBtn.addEventListener('click', () => {
         const isVisible = panel.style.display !== 'none';
         panel.style.display = isVisible ? 'none' : 'block';
         toggleBtn.classList.toggle('active', !isVisible);
+        console.log('🌤️ Weather panel toggled:', !isVisible);
       });
       
-      checkboxes.forEach(checkbox => {
-        checkbox.addEventListener('change', (e) => {
-          const target = e.target as HTMLInputElement;
-          const layerType = target.dataset.layer;
-          if (layerType) {
-            toggleWeatherLayer(layerType, target.checked);
-          }
-        });
-      });
+      // Append elements
+      weatherControlDiv.appendChild(toggleBtn);
+      weatherControlDiv.appendChild(panel);
+      
+      console.log('✅ Weather control UI updated with', allLayers.length, 'layers');
       
     } else {
       // Hide weather control
       weatherControlDiv.style.display = 'none';
       weatherControlDiv.innerHTML = '';
+      console.log('🌤️ Weather control hidden - no layers available');
     }
   }, [toggleWeatherLayer]);
 
@@ -701,13 +735,196 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     }
   }, []);
 
+  // Get current map state
+  const getMapState = useCallback(() => {
+    if (!mapRef.current) return currentMapState;
+    
+    const center = mapRef.current.getCenter();
+    const state = {
+      center: [center.lng, center.lat] as [number, number],
+      zoom: mapRef.current.getZoom(),
+      pitch: mapRef.current.getPitch(),
+      bearing: mapRef.current.getBearing()
+    };
+    
+    // Update internal state to keep it in sync
+    setCurrentMapState(prev => ({
+      ...prev,
+      ...state
+    }));
+    
+    return state;
+  }, [currentMapState]);
+
+  // Restore map state
+  const restoreMapState = useCallback((state: { center: [number, number]; zoom: number; pitch?: number; bearing?: number }) => {
+    if (!mapRef.current) {
+      console.log('📍 Map not available, storing state for later restore');
+      setCurrentMapState(prev => ({
+        ...prev,
+        center: state.center,
+        zoom: state.zoom,
+        pitch: state.pitch || 0,
+        bearing: state.bearing || 0
+      }));
+      return;
+    }
+
+    console.log('🗺️ Restoring map state:', state);
+    
+    try {
+      mapRef.current.jumpTo({
+        center: state.center,
+        zoom: state.zoom,
+        pitch: state.pitch || 0,
+        bearing: state.bearing || 0
+      });
+      
+      // Update 3D state based on pitch
+      const is3D = (state.pitch || 0) > 30;
+      setIs3DEnabled(is3D);
+      is3DRef.current = is3D;
+      
+      // Update button appearance to match restored state
+      const button = toggle3DButtonRef.current;
+      if (button) {
+        button.classList.toggle('active', is3D);
+        button.style.backgroundColor = is3D ? 'rgba(25, 118, 210, 0.2)' : '';
+        button.style.color = is3D ? '#1976d2' : '';
+        button.setAttribute('aria-label', is3D ? 'Switch to 2D' : 'Switch to 3D');
+        button.setAttribute('title', is3D ? 'Switch to 2D View' : 'Switch to 3D View');
+        console.log('🎨 Updated button for restored 3D state:', is3D);
+      }
+      
+      setCurrentMapState(prev => ({
+        ...prev,
+        center: state.center,
+        zoom: state.zoom,
+        pitch: state.pitch || 0,
+        bearing: state.bearing || 0
+      }));
+      
+      console.log('✅ Map state restored successfully');
+    } catch (error) {
+      console.error('❌ Error restoring map state:', error);
+    }
+  }, []);
+
+  // Toggle 3D functionality
+  const toggle3D = useCallback((enabled: boolean) => {
+    if (!mapRef.current) return;
+    
+    console.log('🏔️ Toggling 3D mode:', enabled);
+    
+    try {
+      if (enabled) {
+        // Enable 3D with pitch only (no terrain for now to ensure it works)
+        mapRef.current.easeTo({
+          pitch: 60,
+          bearing: 0,
+          duration: 1000
+        });
+        setIs3DEnabled(true);
+        is3DRef.current = true;
+        console.log('✅ 3D mode enabled');
+      } else {
+        // Disable 3D mode - return to flat view
+        mapRef.current.easeTo({
+          pitch: 0,
+          bearing: 0,
+          duration: 1000
+        });
+        setIs3DEnabled(false);
+        is3DRef.current = false;
+        console.log('✅ 3D mode disabled');
+      }
+
+      // Update current map state with 3D info
+      setCurrentMapState(prev => ({
+        ...prev,
+        pitch: enabled ? 60 : 0,
+        bearing: 0
+      }));
+
+      // Update button appearance immediately
+      const button = toggle3DButtonRef.current;
+      if (button) {
+        button.classList.toggle('active', enabled);
+        button.style.backgroundColor = enabled ? 'rgba(25, 118, 210, 0.2)' : '';
+        button.style.color = enabled ? '#1976d2' : '';
+        button.setAttribute('aria-label', enabled ? 'Switch to 2D' : 'Switch to 3D');
+        button.setAttribute('title', enabled ? 'Switch to 2D View' : 'Switch to 3D View');
+        console.log('🎨 Updated button appearance for 3D:', enabled);
+      }
+    } catch (error) {
+      console.error('❌ Error toggling 3D mode:', error);
+    }
+  }, []);
+
+  // Clear map data
+  const clearMap = useCallback(() => {
+    if (!mapRef.current) return;
+    
+    console.log('🧹 Clearing map data');
+    
+    try {
+      // Remove wells layer and source
+      if (mapRef.current.getLayer(WELLS_LAYER_ID)) {
+        mapRef.current.removeLayer(WELLS_LAYER_ID);
+      }
+      if (mapRef.current.getSource(WELLS_SOURCE_ID)) {
+        mapRef.current.removeSource(WELLS_SOURCE_ID);
+      }
+      
+      // Remove weather layers
+      Object.values(WEATHER_LAYERS).forEach(({ layerId, sourceId }) => {
+        if (mapRef.current!.getLayer(layerId)) {
+          mapRef.current!.removeLayer(layerId);
+        }
+        if (mapRef.current!.getSource(sourceId)) {
+          mapRef.current!.removeSource(sourceId);
+        }
+      });
+      
+      // Clear polygons
+      if (drawRef.current) {
+        drawRef.current.deleteAll();
+      }
+      
+      // Reset to initial state
+      mapRef.current.jumpTo({
+        center: [106.9, 10.2],
+        zoom: 5,
+        pitch: 0,
+        bearing: 0
+      });
+      
+      setCurrentMapState({
+        center: [106.9, 10.2],
+        zoom: 5,
+        pitch: 0,
+        bearing: 0,
+        wellData: null,
+        weatherLayers: []
+      });
+      
+      console.log('✅ Map cleared successfully');
+    } catch (error) {
+      console.error('❌ Error clearing map:', error);
+    }
+  }, []);
+
   // Expose functions to parent
   useImperativeHandle(ref, () => ({
     updateMapData,
     fitBounds,
     toggleWeatherLayer,
-    getWeatherLayers
-  }), [updateMapData, fitBounds, toggleWeatherLayer, getWeatherLayers]);
+    getWeatherLayers,
+    getMapState,
+    restoreMapState,
+    toggle3D,
+    clearMap
+  }), [updateMapData, fitBounds, toggleWeatherLayer, getWeatherLayers, getMapState, restoreMapState, toggle3D, clearMap]);
 
   useEffect(() => {
     const mapContainer = document.getElementById("map");
@@ -727,6 +944,49 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
         unit: 'metric'
       }), 'top-right');
       mapRef.current.addControl(new maplibregl.NavigationControl(), "top-left");
+      
+      // Add fullscreen control
+      mapRef.current.addControl(new maplibregl.FullscreenControl(), 'top-right');
+
+      // Add 3D toggle control with proper state management
+      const toggle3DControl = document.createElement('div');
+      toggle3DControl.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+      toggle3DControl.innerHTML = `
+        <button class="maplibregl-ctrl-icon toggle3d-btn" aria-label="Toggle 3D" title="Toggle 3D View">
+          <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M10 2L3 7v6l7 5 7-5V7l-7-5zM10 4.5L15.5 8 10 11.5 4.5 8 10 4.5zM5 9.5l4.5 3.2v4.8L5 14.3V9.5zm10 0v4.8l-4.5 3.2v-4.8L15 9.5z"/>
+          </svg>
+        </button>
+      `;
+      
+      const toggle3DButton = toggle3DControl.querySelector('.toggle3d-btn') as HTMLElement;
+      toggle3DButtonRef.current = toggle3DButton;
+      
+      // Use a function that gets current state from ref
+      const handle3DToggle = () => {
+        const currentIs3D = is3DRef.current;
+        console.log('🔄 3D Toggle clicked, current state from ref:', currentIs3D);
+        const newIs3D = !currentIs3D;
+        console.log('🔄 Setting 3D to:', newIs3D);
+        
+        toggle3D(newIs3D);
+      };
+      
+      toggle3DButton.addEventListener('click', handle3DToggle);
+      
+      class Toggle3DControl {
+        onAdd(map: maplibregl.Map) {
+          return toggle3DControl;
+        }
+        
+        onRemove() {
+          if (toggle3DControl.parentNode) {
+            toggle3DControl.parentNode.removeChild(toggle3DControl);
+          }
+        }
+      }
+      
+      mapRef.current.addControl(new Toggle3DControl() as any, 'top-right');
       
       // Add weather control (always visible, shows disabled state when no weather layers)
       const weatherControlDiv = document.createElement('div');
@@ -834,6 +1094,34 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
         mapRef.current!.on('draw.create', handlePolygonCreate);
         mapRef.current!.on('draw.delete', handlePolygonDeleteEvent);
         mapRef.current!.on('draw.update', handlePolygonUpdateEvent);
+        
+        // Restore any pending state
+        if (currentMapState.wellData) {
+          console.log('🔄 Restoring pending well data on map load');
+          updateMapData(currentMapState.wellData);
+        }
+        
+        // Restore map view state
+        if (currentMapState.center && (currentMapState.center[0] !== 106.9 || currentMapState.center[1] !== 10.2)) {
+          console.log('🔄 Restoring pending map view state on load');
+          restoreMapState({
+            center: currentMapState.center,
+            zoom: currentMapState.zoom,
+            pitch: currentMapState.pitch,
+            bearing: currentMapState.bearing
+          });
+        }
+      });
+
+      // Track map state changes for persistence
+      mapRef.current.on('moveend', () => {
+        if (mapRef.current) {
+          const state = getMapState();
+          setCurrentMapState(prev => ({
+            ...prev,
+            ...state
+          }));
+        }
       });
       
       // Ensure proper rendering

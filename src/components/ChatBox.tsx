@@ -33,6 +33,7 @@ const ChatBox = (params: {
   const messages = params.messages || localMessages;
   const setMessages = params.setMessages || setLocalMessages;
 
+
   // Initialize Amplify client after component mounts
   useEffect(() => {
     try {
@@ -538,6 +539,7 @@ const ChatBox = (params: {
                 <ChatMessage
                   message={message}
                   onRegenerateMessage={(message as any).role === 'human' ? handleRegenerateMessage : undefined}
+                  onSendMessage={handleSend}
                 />
               </ListItem>
             );
@@ -617,7 +619,12 @@ const ChatBox = (params: {
               text: 'Catalog Explorer - Geographic well search & mapping',
               id: 'catalogAgent',
             },
+            {
+              text: 'Renewable Energy Agent - Wind farm site analysis & optimization',
+              id: 'renewableAgent',
+            },
             ]}
+            expandToViewport={true}
           ></ButtonDropdown>
         </div>
       </div>

@@ -2,7 +2,7 @@ import { type ClientSchema, a, defineData, defineFunction } from '@aws-amplify/b
 
 export const lightweightAgentFunction = defineFunction({
   name: 'lightweightAgent',
-  entry: '../functions/lightweightAgent/handler.ts',
+  entry: '../functions/agents/handler.ts',
   timeoutSeconds: 300,
   memoryMB: 1024,
   resourceGroupName: 'data',

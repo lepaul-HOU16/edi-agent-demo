@@ -1,5 +1,7 @@
 import { AgentRouter } from './agentRouter';
 import { AppSyncResolverEvent } from 'aws-lambda';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, QueryCommand } from '@aws-sdk/lib-dynamodb';
 
 type LightweightAgentResponse = {
   success: boolean;
@@ -10,6 +12,48 @@ type LightweightAgentResponse = {
   agentUsed?: string;
   debug?: any;
 };
+
+// Initialize DynamoDB client
+const dynamoDBClient = new DynamoDBClient({});
+const docClient = DynamoDBDocumentClient.from(dynamoDBClient);
+
+// Function to retrieve conversation history from DynamoDB
+async function getConversationHistory(chatSessionId: string, userId: string): Promise<any[]> {
+  try {
+    const tableName = process.env.AMPLIFY_DATA_CHATMESSAGE_TABLE_NAME || 'ChatMessage';
+    
+    const queryParams = {
+      TableName: tableName,
+      IndexName: 'chatSessionId-createdAt-index',
+      KeyConditionExpression: 'chatSessionId = :chatSessionId',
+      ExpressionAttributeValues: {
+        ':chatSessionId': chatSessionId,
+      },
+      ScanIndexForward: true, // Sort by createdAt ascending (oldest first)
+      Limit: 10 // Limit to last 10 messages for context
+    };
+
+    console.log('📚 Querying conversation history with params:', queryParams);
+    
+    const result = await docClient.send(new QueryCommand(queryParams));
+    const messages = result.Items || [];
+    
+    console.log('📚 Retrieved messages:', messages.length);
+    
+    // Transform messages to a simpler format for agent context
+    const conversationHistory = messages.map(msg => ({
+      role: msg.role,
+      content: msg.content?.text || '',
+      createdAt: msg.createdAt,
+      artifacts: msg.artifacts || []
+    }));
+    
+    return conversationHistory;
+  } catch (error) {
+    console.error('❌ Error retrieving conversation history:', error);
+    throw error;
+  }
+}
 
 export const handler = async (event: AppSyncResolverEvent<any>, context: any): Promise<LightweightAgentResponse> => {
   console.log('=== ENHANCED MULTI-AGENT ROUTER INVOKED ===');
@@ -41,10 +85,23 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
     const s3Bucket = process.env.S3_BUCKET || 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m';
     console.log('Processing message:', event.arguments.message);
     console.log('Foundation Model ID:', event.arguments.foundationModelId);
+    console.log('Chat Session ID:', event.arguments.chatSessionId);
+    
+    // Retrieve conversation history for context
+    let conversationHistory: any[] = [];
+    try {
+      if (event.arguments.chatSessionId) {
+        conversationHistory = await getConversationHistory(event.arguments.chatSessionId, userId);
+        console.log('🧠 HANDLER: Retrieved conversation history:', conversationHistory.length, 'messages');
+      }
+    } catch (historyError) {
+      console.warn('⚠️ HANDLER: Failed to retrieve conversation history:', historyError);
+      // Continue without history rather than failing completely
+    }
     
     // Initialize the multi-agent router
     const router = new AgentRouter(event.arguments.foundationModelId, s3Bucket);
-    const response = await router.routeQuery(event.arguments.message);
+    const response = await router.routeQuery(event.arguments.message, conversationHistory);
     console.log('🔍 HANDLER: Agent response received:', {
       success: response.success,
       messageLength: response.message?.length || 0,

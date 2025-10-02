@@ -447,11 +447,11 @@ function Page({
                                     ],
                                 }}
                                 onSelectionChange={({ detail }) => {
-                                    // Defer both state updates to avoid updating component during render
-                                    setTimeout(() => {
-                                        setSelectedItems(detail?.selectedItems ?? [])
-                                        setUserInput(detail?.selectedItems[0]?.prompt || '')
-                                    }, 0)
+                                    // Use React's proper state update mechanism to avoid render warnings
+                                    React.startTransition(() => {
+                                        setSelectedItems(detail?.selectedItems ?? []);
+                                        setUserInput(detail?.selectedItems[0]?.prompt || '');
+                                    });
                                 }}
                                 selectedItems={selectedItems}
                                 items={[
