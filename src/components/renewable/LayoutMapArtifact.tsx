@@ -21,13 +21,20 @@ interface LayoutArtifactProps {
       lng: number;
       id?: string;
     }>;
-    mapHtml: string;
+    mapHtml?: string;
+    mapUrl?: string;
     geojson?: any;
     layoutType?: string;
     windAngle?: number;
     spacing?: {
       downwind: number;
       crosswind: number;
+    };
+    // Enhanced visualization data
+    visualizations?: {
+      interactive_map?: string;
+      validation_chart?: string;
+      spacing_analysis?: string;
     };
     s3Url?: string;
   };
@@ -105,16 +112,41 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
               overflow: 'hidden',
             }}
           >
-            <iframe
-              srcDoc={data.mapHtml}
-              style={{
-                width: '100%',
-                height: '100%',
-                border: 'none',
-              }}
-              title="Wind Farm Layout Map"
-              sandbox="allow-scripts allow-same-origin"
-            />
+            {data.mapHtml ? (
+              <iframe
+                srcDoc={data.mapHtml}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                }}
+                title="Wind Farm Layout Map"
+                sandbox="allow-scripts allow-same-origin"
+              />
+            ) : (
+              <div
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: '#f9f9f9',
+                  color: '#666',
+                  fontSize: '16px',
+                }}
+              >
+                <div style={{ textAlign: 'center' }}>
+                  <div>📍 Layout Map</div>
+                  <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                    Map data not available
+                  </div>
+                  <div style={{ fontSize: '12px', marginTop: '4px', color: '#999' }}>
+                    Expected: data.mapHtml (Folium HTML)
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </Box>
 
@@ -133,6 +165,49 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
             )}
           </div>
         </Box>
+
+        {/* Layout Analysis Visualizations */}
+        {data.visualizations && Object.keys(data.visualizations).length > 0 && (
+          <Box>
+            <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
+              Layout Analysis
+            </Box>
+            <SpaceBetween direction="horizontal" size="m">
+              {data.visualizations.validation_chart && (
+                <div>
+                  <Box variant="small" margin={{ bottom: 'xs' }}>Layout Validation</Box>
+                  <img 
+                    src={data.visualizations.validation_chart} 
+                    alt="Layout Validation Chart"
+                    style={{ 
+                      maxWidth: '400px', 
+                      height: 'auto', 
+                      border: '1px solid #e9ebed', 
+                      borderRadius: '4px',
+                      backgroundColor: 'white'
+                    }}
+                  />
+                </div>
+              )}
+              {data.visualizations.spacing_analysis && (
+                <div>
+                  <Box variant="small" margin={{ bottom: 'xs' }}>Spacing Analysis</Box>
+                  <img 
+                    src={data.visualizations.spacing_analysis} 
+                    alt="Spacing Analysis Chart"
+                    style={{ 
+                      maxWidth: '400px', 
+                      height: 'auto', 
+                      border: '1px solid #e9ebed', 
+                      borderRadius: '4px',
+                      backgroundColor: 'white'
+                    }}
+                  />
+                </div>
+              )}
+            </SpaceBetween>
+          </Box>
+        )}
 
         {/* Project ID */}
         <Box variant="small" color="text-body-secondary">

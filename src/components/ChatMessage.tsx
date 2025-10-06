@@ -288,7 +288,10 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<TerrainMapArtifact data={parsedArtifact} />}
+                    enhancedComponent={<TerrainMapArtifact 
+                        data={parsedArtifact} 
+                        onFollowUpAction={onSendMessage}
+                    />}
                 />;
             }
             

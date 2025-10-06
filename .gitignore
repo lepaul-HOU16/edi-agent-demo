@@ -185,4 +185,7 @@ dist/
 .tern-port
 
 # reference repos for other agents and demos wanting to integrate, should not be included in the git repo
-/agentic-ai-for-renewable-site-design-mainline
+agentic-ai-for-renewable-site-design-mainline/
+
+# Version files (sometimes created by package managers)
+=*

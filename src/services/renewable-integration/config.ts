@@ -15,20 +15,24 @@ import { RenewableConfig } from './types';
  * - NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT: AgentCore endpoint URL
  * - NEXT_PUBLIC_RENEWABLE_S3_BUCKET: S3 bucket for artifacts
  * - NEXT_PUBLIC_RENEWABLE_REGION: AWS region (default: us-west-2)
+ * 
+ * Note: If NEXT_PUBLIC_RENEWABLE_ENABLED is not explicitly set to 'false',
+ * renewable features are enabled by default to allow Lambda orchestrator usage.
  */
 export function getRenewableConfig(): RenewableConfig {
+  // Enable by default unless explicitly disabled
+  const explicitlyDisabled = process.env.NEXT_PUBLIC_RENEWABLE_ENABLED === 'false';
+  
   const config: RenewableConfig = {
-    enabled: process.env.NEXT_PUBLIC_RENEWABLE_ENABLED === 'true',
+    enabled: !explicitlyDisabled,
     agentCoreEndpoint: process.env.NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT || '',
     s3Bucket: process.env.NEXT_PUBLIC_RENEWABLE_S3_BUCKET || '',
     region: process.env.NEXT_PUBLIC_RENEWABLE_REGION || 'us-west-2'
   };
 
-  // Validate configuration if enabled
-  if (config.enabled) {
-    validateConfig(config);
-  }
-
+  // Don't validate if explicitly disabled
+  // Allow missing endpoint/bucket as Lambda orchestrator can be auto-detected
+  
   return config;
 }
 
@@ -60,9 +64,10 @@ function validateConfig(config: RenewableConfig): void {
 
 /**
  * Check if renewable energy features are enabled
+ * Enabled by default unless explicitly disabled
  */
 export function isRenewableEnabled(): boolean {
-  return process.env.NEXT_PUBLIC_RENEWABLE_ENABLED === 'true';
+  return process.env.NEXT_PUBLIC_RENEWABLE_ENABLED !== 'false';
 }
 
 /**

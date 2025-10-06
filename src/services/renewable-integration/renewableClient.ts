@@ -117,8 +117,24 @@ export class RenewableClient {
     try {
       // Check if we have a valid endpoint
       if (!this.agentCoreEndpoint || this.agentCoreEndpoint.trim() === '') {
-        console.warn('RenewableClient: No AgentCore endpoint configured, using mock response');
-        return this.getMockResponse(request);
+        console.warn('RenewableClient: No endpoint configured');
+        console.log('RenewableClient: Attempting to use Lambda orchestrator');
+        
+        // Try to use the Lambda orchestrator
+        try {
+          return await this.invokeLambdaOrchestrator(request);
+        } catch (lambdaError) {
+          console.error('RenewableClient: Lambda orchestrator failed:', lambdaError);
+          console.warn('RenewableClient: Falling back to mock response');
+          return this.getMockResponse(request);
+        }
+      }
+      
+      // For Lambda function names or ARNs (NEW: Lambda orchestrator)
+      if (this.agentCoreEndpoint.includes('renewableOrchestrator') || 
+          this.agentCoreEndpoint.startsWith('arn:aws:lambda:')) {
+        console.log('RenewableClient: Detected Lambda orchestrator endpoint');
+        return await this.invokeLambdaOrchestrator(request);
       }
       
       // For AgentCore Runtime ARN format: arn:aws:bedrock-agentcore:region:account:agent-runtime/name
@@ -196,9 +212,15 @@ export class RenewableClient {
         return await response.json();
       }
       
-      // Fallback to mock response
-      console.warn('RenewableClient: Unknown endpoint format, using mock response');
-      return this.getMockResponse(request);
+      // Fallback to Lambda orchestrator
+      console.log('RenewableClient: Unknown endpoint format, trying Lambda orchestrator');
+      try {
+        return await this.invokeLambdaOrchestrator(request);
+      } catch (lambdaError) {
+        console.error('RenewableClient: Lambda orchestrator failed:', lambdaError);
+        console.warn('RenewableClient: Falling back to mock response');
+        return this.getMockResponse(request);
+      }
       
     } catch (error) {
       console.error('RenewableClient: Request failed:', error);
@@ -208,9 +230,73 @@ export class RenewableClient {
       }
       
       throw new AgentCoreError(
-        `Failed to invoke AgentCore: ${error instanceof Error ? error.message : 'Unknown error'}`
+        `Failed to invoke renewable service: ${error instanceof Error ? error.message : 'Unknown error'}`
       );
     }
+  }
+
+  /**
+   * Invoke the Lambda orchestrator (NEW Lambda-based approach)
+   * 
+   * @param request - AgentCore request
+   * @returns AgentCore response
+   */
+  private async invokeLambdaOrchestrator(request: AgentCoreRequest): Promise<AgentCoreResponse> {
+    console.log('RenewableClient: Invoking Lambda orchestrator');
+    
+    // Import Lambda client
+    const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
+    
+    const lambdaClient = new LambdaClient({ region: this.region });
+    
+    // Determine function name
+    let functionName = this.agentCoreEndpoint;
+    if (!functionName || functionName.trim() === '') {
+      functionName = process.env.RENEWABLE_ORCHESTRATOR_FUNCTION_NAME || 'renewableOrchestrator';
+    }
+    
+    // If it's an ARN, use it directly; otherwise assume it's a function name
+    if (!functionName.startsWith('arn:')) {
+      // It's a function name, use it as-is
+      console.log('RenewableClient: Using function name:', functionName);
+    }
+    
+    const payload = {
+      query: request.prompt,
+      userId: request.userId || 'anonymous',
+      sessionId: request.sessionId || `session-${Date.now()}`,
+      context: {}
+    };
+    
+    console.log('RenewableClient: Invoking Lambda function:', functionName);
+    
+    const command = new InvokeCommand({
+      FunctionName: functionName,
+      Payload: JSON.stringify(payload),
+    });
+    
+    const response = await lambdaClient.send(command);
+    
+    if (!response.Payload) {
+      throw new Error('No payload in Lambda response');
+    }
+    
+    const result = JSON.parse(new TextDecoder().decode(response.Payload));
+    
+    console.log('RenewableClient: Lambda orchestrator response:', {
+      success: result.success,
+      artifactCount: result.artifacts?.length || 0,
+      thoughtStepCount: result.thoughtSteps?.length || 0,
+    });
+    
+    // Transform Lambda orchestrator response to AgentCore format
+    return {
+      message: result.message,
+      artifacts: result.artifacts || [],
+      thoughtSteps: result.thoughtSteps || [],
+      projectId: result.metadata?.projectId || 'unknown',
+      status: result.success ? 'success' : 'error',
+    };
   }
 
   /**

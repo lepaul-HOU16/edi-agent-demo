@@ -23,9 +23,10 @@ interface Artifact {
 
 interface ArtifactRendererProps {
   artifacts: Artifact[];
+  onFollowUpAction?: (action: string) => void;
 }
 
-const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
+const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts, onFollowUpAction }) => {
   if (!artifacts || artifacts.length === 0) {
     return null;
   }
@@ -84,7 +85,10 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
           case 'wind_farm_terrain_analysis':
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
-                <TerrainMapArtifact data={artifact as any} />
+                <TerrainMapArtifact 
+                  data={artifact as any} 
+                  onFollowUpAction={onFollowUpAction}
+                />
               </div>
             );
 

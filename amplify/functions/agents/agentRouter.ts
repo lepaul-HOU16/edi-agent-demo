@@ -7,7 +7,7 @@
 import { GeneralKnowledgeAgent } from './generalKnowledgeAgent';
 import { EnhancedStrandsAgent } from './enhancedStrandsAgent';
 import { RenewableProxyAgent } from './renewableProxyAgent';
-import { getRenewableConfig } from '../../../src/services/renewable-integration/config';
+import { getRenewableConfig } from '../shared/renewableConfig';
 import { 
   ThoughtStep, 
   createThoughtStep, 
@@ -34,19 +34,28 @@ export class AgentRouter {
     this.generalAgent = new GeneralKnowledgeAgent();
     this.petrophysicsAgent = new EnhancedStrandsAgent(foundationModelId, s3Bucket);
     
-    // Initialize renewable agent if enabled
+    // Initialize renewable agent (always enabled unless explicitly disabled)
     try {
       const renewableConfig = getRenewableConfig();
-      if (renewableConfig.enabled) {
+      // Always initialize unless explicitly disabled
+      if (renewableConfig.enabled !== false) {
         this.renewableAgent = new RenewableProxyAgent();
         this.renewableEnabled = true;
         console.log('✅ AgentRouter: Renewable energy integration enabled');
       } else {
-        console.log('ℹ️ AgentRouter: Renewable energy integration disabled via config');
+        console.log('ℹ️ AgentRouter: Renewable energy integration explicitly disabled');
       }
     } catch (error) {
       console.warn('⚠️ AgentRouter: Failed to initialize renewable agent:', error);
-      this.renewableEnabled = false;
+      // Even if config fails, try to initialize anyway
+      try {
+        this.renewableAgent = new RenewableProxyAgent();
+        this.renewableEnabled = true;
+        console.log('✅ AgentRouter: Renewable energy integration enabled (fallback)');
+      } catch (fallbackError) {
+        console.error('❌ AgentRouter: Could not initialize renewable agent:', fallbackError);
+        this.renewableEnabled = false;
+      }
     }
     
     console.log('AgentRouter initialized with multi-agent capabilities');
