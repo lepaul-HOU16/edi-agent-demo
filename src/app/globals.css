@@ -142,7 +142,8 @@ body {
   color: #16191F;
 }
 
-ul, ol {
+ul,
+ol {
   margin: 1em 0;
   padding-left: 40px;
 }
@@ -176,17 +177,17 @@ table {
 } */
 
 /* Override for AWS UI component background - Dynamic hash-resistant selectors */
-[class*="awsui_layout_"][class*="awsui_is-visual-refresh_"] > [class*="awsui_background_"][class*="awsui_has-default-background_"] {
+[class*="awsui_layout_"][class*="awsui_is-visual-refresh_"]>[class*="awsui_background_"][class*="awsui_has-default-background_"] {
   background-color: transparent !important;
 }
 
 /* Additional backup selectors for AWS UI background components */
-div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
+div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
   background-color: transparent !important;
 }
 
 /* Legacy specific override (keep for backward compatibility) */
-.awsui_layout_5gtk3_lpv1b_145.awsui_is-visual-refresh_5gtk3_lpv1b_204 > .awsui_background_5gtk3_lpv1b_159.awsui_has-default-background_5gtk3_lpv1b_204:not(#\9) {
+.awsui_layout_5gtk3_lpv1b_145.awsui_is-visual-refresh_5gtk3_lpv1b_204>.awsui_background_5gtk3_lpv1b_159.awsui_has-default-background_5gtk3_lpv1b_204:not(#\9) {
   background-color: unset !important;
 }
 
@@ -215,16 +216,16 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 /* [class*="awsui_segment_"][class*="awsui_selected_"] - NO OVERRIDE to preserve blue */
 
 /* Remove background from container children but not selected segments */
-[class*="awsui_segment-control_"] > *:not([class*="awsui_selected_"]),
-[class*="awsui_segments_"] > *:not([class*="awsui_selected_"]),
-[class*="awsui_segment-part_"] > *:not([class*="awsui_selected_"]) {
+[class*="awsui_segment-control_"]>*:not([class*="awsui_selected_"]),
+[class*="awsui_segments_"]>*:not([class*="awsui_selected_"]),
+[class*="awsui_segment-part_"]>*:not([class*="awsui_selected_"]) {
   background-color: transparent !important;
   background: transparent !important;
 }
 
 /* Target segment transitions for non-selected segments only */
-[class*="awsui_segment_"]:not([class*="awsui_selected_"]) + [class*="awsui_segment_"]:not([class*="awsui_selected_"]),
-[class*="awsui_segment_"][class*="awsui_selected_"] + [class*="awsui_segment_"]:not([class*="awsui_selected_"]) {
+[class*="awsui_segment_"]:not([class*="awsui_selected_"])+[class*="awsui_segment_"]:not([class*="awsui_selected_"]),
+[class*="awsui_segment_"][class*="awsui_selected_"]+[class*="awsui_segment_"]:not([class*="awsui_selected_"]) {
   background-color: transparent !important;
   background: transparent !important;
 }
@@ -233,6 +234,7 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 .awsui_segment-part_8cbea_rg0r6_326:not(#\9) {
   background-color: transparent !important;
 }
+
 .awsui_segment_8cbea_rg0r6_161:not(.awsui_selected_8cbea_rg0r6_256) {
   background-color: transparent !important;
 }
@@ -278,12 +280,13 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   -webkit-box-orient: vertical !important;
 }
 
-.tables > div {
+.tables>div {
   padding: 10px 20px 0px 20px;
 }
 
 /* CRITICAL: Prevent all table horizontal overflow */
-.tables, .tables * {
+.tables,
+.tables * {
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
@@ -299,7 +302,8 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 }
 
 /* CRITICAL FIX: Force .convo and all nested elements to respect container bounds */
-.convo, .convo * {
+.convo,
+.convo * {
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
@@ -369,10 +373,12 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 }
 
 .convo .messages-container {
-  scroll-behavior: auto; /* Changed from smooth to auto for programmatic control */
+  scroll-behavior: auto;
+  /* Changed from smooth to auto for programmatic control */
   scrollbar-width: thin;
   scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
-  padding-bottom: 60px; /* Add extra scroll space for better user experience */
+  padding-bottom: 60px;
+  /* Add extra scroll space for better user experience */
 }
 
 .convo .messages-container::-webkit-scrollbar {
@@ -392,14 +398,15 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   background-color: rgba(0, 0, 0, 0.5);
 }
 
-.convo .messages-container > div > div {
+.convo .messages-container>div>div {
   padding: 0 !important;
 }
 
 /* Ensure proper container heights */
 .panel {
   height: calc(100vh - 200px);
-  padding-bottom: 40px; /* Add extra scroll space at the end */
+  padding-bottom: 40px;
+  /* Add extra scroll space at the end */
 }
 
 /* Chain of Thought animations */
@@ -409,6 +416,7 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
     transform: translateY(-10px);
     max-height: 0;
   }
+
   100% {
     opacity: 1;
     transform: translateY(0);
@@ -422,6 +430,7 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
     transform: translateY(0);
     max-height: 200px;
   }
+
   100% {
     opacity: 0;
     transform: translateY(-10px);
@@ -429,23 +438,18 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
   }
 }
 
-.convo > div {
+.convo>div {
   height: 100%;
   display: flex;
   flex-direction: column;
 }
 
-/* Input container coordinated growth styles */
-.controls {
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  align-self: flex-end; /* Anchor controls container to bottom for upward growth */
-}
+/* Input container coordinated growth styles - handled by app.scss */
 
 .input-bkgd {
   display: flex !important;
-  align-items: center !important; /* Center-align content vertically for proper padding */
+  align-items: center !important;
+  /* Center-align content vertically for proper padding */
   min-height: fit-content !important;
   flex-direction: row !important;
   gap: 10px !important;
@@ -457,25 +461,29 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 /* CloudScape PromptInput maintains flex growth with smooth transitions */
 .input-bkgd [class*="awsui-prompt-input"] {
   flex: 1 !important;
-  align-self: stretch !important; /* Let input take available height */
+  align-self: stretch !important;
+  /* Let input take available height */
   transition: height 0.2s ease-in-out, min-height 0.2s ease-in-out !important;
 }
 
 /* Override CloudScape textarea for bottom-up expansion with smooth transitions */
 .input-bkgd [class*="awsui-prompt-input"] [class*="awsui_input_"] {
-  justify-content: flex-end !important; /* Anchor input growth to bottom */
+  justify-content: flex-end !important;
+  /* Anchor input growth to bottom */
   transition: height 0.2s ease-in-out, min-height 0.2s ease-in-out !important;
 }
 
 .input-bkgd [class*="awsui-prompt-input"] textarea {
   resize: none !important;
-  overflow: hidden !important; /* Prevent internal scrolling */
+  overflow: hidden !important;
+  /* Prevent internal scrolling */
   transition: height 0.2s ease-in-out, min-height 0.2s ease-in-out, max-height 0.2s ease-in-out !important;
 }
 
 /* Ensure side elements stay center-aligned */
-.input-bkgd > *:not([class*="awsui-prompt-input"]) {
-  align-self: center !important; /* Center-align Typography and ButtonDropdown */
+.input-bkgd>*:not([class*="awsui-prompt-input"]) {
+  align-self: center !important;
+  /* Center-align Typography and ButtonDropdown */
 }
 
 /* CRITICAL FIX: Force educational AI messages to remain visible during typing */
@@ -644,7 +652,7 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 }
 
 /* Force all content in analysis panel to respect container bounds */
-.panel *, 
+.panel *,
 .panel div,
 .panel table,
 .panel [class*="awsui"],
@@ -836,7 +844,7 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
 }
 
 /* Weather Layer Checkbox Styling */
-.weather-layer-label input[type="checkbox"]:checked + span {
+.weather-layer-label input[type="checkbox"]:checked+span {
   font-weight: 500 !important;
   color: #1976d2 !important;
 }
@@ -848,16 +856,16 @@ div[class*="awsui_layout_"] > div[class*="awsui_background_"] {
     border-color: #4a5568 !important;
     color: #e2e8f0 !important;
   }
-  
+
   .weather-layer-label {
     color: #e2e8f0 !important;
   }
-  
+
   .weather-layer-label:hover {
     background-color: rgba(255, 255, 255, 0.1) !important;
   }
-  
-  .weather-layer-label input[type="checkbox"]:checked + span {
+
+  .weather-layer-label input[type="checkbox"]:checked+span {
     color: #63b3ed !important;
   }
 }
