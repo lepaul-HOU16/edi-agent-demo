@@ -2,22 +2,15 @@
  * Renewable Proxy Agent
  * 
  * This agent acts as a proxy between the EDI Platform frontend and the Python
- * renewable energy backend deployed on AWS Bedrock AgentCore. It handles:
- * - Communication with AgentCore via RenewableClient
- * - Response transformation via ResponseTransformer
+ * renewable energy backend. It handles:
+ * - Direct invocation of renewableOrchestrator Lambda
+ * - Response transformation to EDI artifacts
  * - Thought step mapping
  * - Error handling and user-friendly messages
  */
 
-import { RenewableClient } from '../../../src/services/renewable-integration/renewableClient';
-import { ResponseTransformer } from '../../../src/services/renewable-integration/responseTransformer';
-import { getRenewableConfig } from '../../../src/services/renewable-integration/config';
-import { 
-  AgentCoreResponse,
-  AgentCoreError,
-  AuthenticationError,
-  ConnectionError,
-} from '../../../src/services/renewable-integration/types';
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+import { getRenewableConfig } from '../shared/renewableConfig';
 import { 
   ThoughtStep, 
   createThoughtStep, 
@@ -39,7 +32,8 @@ interface RouterResponse {
  * Bridges EDI Platform with Python renewable energy backend
  */
 export class RenewableProxyAgent {
-  private client: RenewableClient;
+  private lambdaClient: LambdaClient;
+  private orchestratorFunctionName: string;
   private sessionId?: string;
 
   constructor() {
@@ -47,10 +41,11 @@ export class RenewableProxyAgent {
     
     try {
       const config = getRenewableConfig();
-      this.client = new RenewableClient(config);
-      console.log('✅ RenewableProxyAgent: Client initialized successfully');
+      this.lambdaClient = new LambdaClient({ region: config.region });
+      this.orchestratorFunctionName = config.agentCoreEndpoint; // This is the orchestrator function name
+      console.log('✅ RenewableProxyAgent: Initialized with orchestrator:', this.orchestratorFunctionName);
     } catch (error) {
-      console.error('❌ RenewableProxyAgent: Failed to initialize client', error);
+      console.error('❌ RenewableProxyAgent: Failed to initialize', error);
       throw error;
     }
   }
@@ -83,24 +78,45 @@ export class RenewableProxyAgent {
     );
 
     try {
-      // Invoke AgentCore
-      console.log('🌱 RenewableProxyAgent: Invoking AgentCore');
-      const agentCoreResponse = await this.client.invokeAgent(message, this.sessionId);
+      // Invoke Lambda orchestrator directly
+      console.log('🌱 RenewableProxyAgent: Invoking Lambda orchestrator:', this.orchestratorFunctionName);
+      
+      const payload = {
+        query: message,
+        userId: 'user',
+        sessionId: this.sessionId || `session-${Date.now()}`,
+        context: {}
+      };
+      
+      const command = new InvokeCommand({
+        FunctionName: this.orchestratorFunctionName,
+        Payload: JSON.stringify(payload)
+      });
+      
+      const lambdaResponse = await this.lambdaClient.send(command);
+      
+      if (!lambdaResponse.Payload) {
+        throw new Error('No payload in Lambda response');
+      }
+      
+      const orchestratorResponse = JSON.parse(new TextDecoder().decode(lambdaResponse.Payload));
+      
+      console.log('🌱 RenewableProxyAgent: Orchestrator response:', {
+        success: orchestratorResponse.success,
+        artifactCount: orchestratorResponse.artifacts?.length || 0
+      });
 
       // Complete routing step
       completeThoughtStep(routingStep, 'Connected to renewable energy service');
 
-      // Transform response
-      console.log('🌱 RenewableProxyAgent: Transforming response');
-      const artifacts = ResponseTransformer.transformToEDIArtifacts(agentCoreResponse);
-
-      // Map thought steps
-      const thoughtSteps = this.mapThoughtSteps(agentCoreResponse, routingStep);
+      // Transform orchestrator response to EDI format
+      const artifacts = this.transformArtifacts(orchestratorResponse.artifacts || []);
+      const thoughtSteps = this.transformThoughtSteps(orchestratorResponse.thoughtSteps || [], routingStep);
 
       // Build successful response
       const response: RouterResponse = {
-        success: true,
-        message: agentCoreResponse.message,
+        success: orchestratorResponse.success,
+        message: orchestratorResponse.message,
         artifacts: artifacts,
         thoughtSteps: thoughtSteps,
         agentUsed: 'renewable_energy',
@@ -120,86 +136,52 @@ export class RenewableProxyAgent {
   }
 
   /**
-   * Map AgentCore thought steps to EDI Platform format
+   * Transform orchestrator artifacts to EDI format
+   */
+  private transformArtifacts(artifacts: any[]): any[] {
+    return artifacts.map(artifact => {
+      // Orchestrator already returns artifacts in EDI format
+      // Just ensure they have the correct structure
+      return {
+        messageContentType: artifact.type,
+        ...artifact.data,
+        metadata: artifact.metadata
+      };
+    });
+  }
+
+  /**
+   * Transform orchestrator thought steps to EDI Platform format
    * 
-   * @param response - AgentCore response
+   * @param steps - Orchestrator thought steps
    * @param routingStep - Initial routing thought step
    * @returns Array of EDI Platform thought steps
    */
-  private mapThoughtSteps(
-    response: AgentCoreResponse,
+  private transformThoughtSteps(
+    steps: any[],
     routingStep: ThoughtStep
   ): ThoughtStep[] {
     const thoughtSteps: ThoughtStep[] = [routingStep];
 
-    if (!response.thoughtSteps || response.thoughtSteps.length === 0) {
+    if (!steps || steps.length === 0) {
       return thoughtSteps;
     }
 
-    // Map AgentCore thought steps to EDI Platform format
-    for (const agentCoreStep of response.thoughtSteps) {
+    // Transform orchestrator thought steps to EDI format
+    for (const step of steps) {
       const ediStep: ThoughtStep = {
-        id: agentCoreStep.id || `step_${Date.now()}_${Math.random()}`,
-        type: this.mapStepType(agentCoreStep.type),
-        timestamp: agentCoreStep.timestamp || Date.now(),
-        title: agentCoreStep.title || 'Processing',
-        summary: agentCoreStep.summary || '',
-        status: this.mapStepStatus(agentCoreStep.status),
+        id: `step_${Date.now()}_${Math.random()}`,
+        type: 'execution',
+        timestamp: Date.now(),
+        title: step.action || 'Processing',
+        summary: step.reasoning || step.result || '',
+        status: 'complete',
       };
 
       thoughtSteps.push(ediStep);
     }
 
     return thoughtSteps;
-  }
-
-  /**
-   * Map AgentCore step type to EDI Platform type
-   */
-  private mapStepType(type: string): ThoughtStep['type'] {
-    switch (type) {
-      case 'intent':
-      case 'intent_detection':
-        return 'intent_detection';
-      case 'parameter':
-      case 'parameter_extraction':
-        return 'parameter_extraction';
-      case 'tool':
-      case 'tool_selection':
-        return 'tool_selection';
-      case 'execution':
-      case 'running':
-        return 'execution';
-      case 'validation':
-      case 'verify':
-        return 'validation';
-      case 'completion':
-      case 'complete':
-        return 'completion';
-      default:
-        return 'execution';
-    }
-  }
-
-  /**
-   * Map AgentCore step status to EDI Platform status
-   */
-  private mapStepStatus(status: string): ThoughtStep['status'] {
-    switch (status) {
-      case 'in_progress':
-      case 'running':
-      case 'pending':
-        return 'thinking';
-      case 'complete':
-      case 'completed':
-      case 'success':
-        return 'complete';
-      case 'error':
-      case 'failed':
-        return 'error';
-      default:
-        return 'complete';
-    }
   }
 
   /**
@@ -211,20 +193,7 @@ export class RenewableProxyAgent {
    */
   private handleError(error: any, routingStep: ThoughtStep): RouterResponse {
     let errorMessage = 'An unexpected error occurred while processing your renewable energy query.';
-    let errorDetails = '';
-
-    if (error instanceof AuthenticationError) {
-      errorMessage = 'Authentication failed. Please sign in again to access renewable energy features.';
-      errorDetails = 'Your session may have expired or you may not have permission to access this service.';
-    } else if (error instanceof ConnectionError) {
-      errorMessage = 'Unable to connect to the renewable energy service.';
-      errorDetails = 'Please check your internet connection and try again. If the problem persists, the service may be temporarily unavailable.';
-    } else if (error instanceof AgentCoreError) {
-      errorMessage = 'The renewable energy service encountered an error.';
-      errorDetails = error.message || 'Please try again in a few moments.';
-    } else {
-      errorDetails = error.message || 'An unknown error occurred.';
-    }
+    let errorDetails = error.message || 'An unknown error occurred.';
 
     // Mark routing step as error
     routingStep.status = 'error';
@@ -239,7 +208,7 @@ export class RenewableProxyAgent {
     errorStep.status = 'error';
 
     console.error('🌱 RenewableProxyAgent: Returning error response', {
-      errorType: error.constructor.name,
+      errorType: error.constructor?.name || 'Unknown',
       errorMessage,
       errorDetails,
     });
@@ -258,7 +227,7 @@ export class RenewableProxyAgent {
    */
   async testConnection(): Promise<boolean> {
     try {
-      await this.client.invokeAgent('Test connection', 'test-session');
+      await this.processQuery('Test connection');
       return true;
     } catch (error) {
       console.error('🌱 RenewableProxyAgent: Connection test failed', error);

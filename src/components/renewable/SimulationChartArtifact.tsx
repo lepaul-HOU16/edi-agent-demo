@@ -26,6 +26,15 @@ interface SimulationArtifactProps {
       wakeMap?: string;
       performanceChart?: string;
     };
+    // Enhanced visualization data
+    visualizations?: {
+      wake_map?: string;
+      wind_rose?: string;
+      performance_charts?: string[];
+      monthly_production?: string;
+      wake_deficit_heatmap?: string;
+      wake_analysis?: string;
+    };
     performanceByDirection?: Array<{
       direction: number;
       production: number;
@@ -112,11 +121,11 @@ const SimulationChartArtifact: React.FC<SimulationArtifactProps> = ({ data }) =>
           </Box>
         )}
 
-        {/* Wake Map Chart */}
-        {data.chartImages.wakeMap && (
+        {/* Wind Rose Diagram */}
+        {data.visualizations?.wind_rose && (
           <Box>
             <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
-              Wake Analysis Map
+              Wind Resource Analysis
             </Box>
             <div
               style={{
@@ -130,8 +139,8 @@ const SimulationChartArtifact: React.FC<SimulationArtifactProps> = ({ data }) =>
               }}
             >
               <img
-                src={data.chartImages.wakeMap}
-                alt="Wake Analysis Map"
+                src={data.visualizations.wind_rose}
+                alt="Wind Rose Diagram"
                 style={{
                   maxWidth: '100%',
                   height: 'auto',
@@ -141,34 +150,82 @@ const SimulationChartArtifact: React.FC<SimulationArtifactProps> = ({ data }) =>
           </Box>
         )}
 
-        {/* Performance Chart */}
-        {data.chartImages.performanceChart && (
+        {/* Performance Charts Gallery */}
+        {data.visualizations?.performance_charts && data.visualizations.performance_charts.length > 0 && (
           <Box>
             <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
               Performance Analysis
             </Box>
-            <div
-              style={{
-                width: '100%',
-                border: '1px solid #e9ebed',
-                borderRadius: '8px',
-                overflow: 'hidden',
-                backgroundColor: '#fff',
-                padding: '16px',
-                textAlign: 'center',
-              }}
-            >
+            <SpaceBetween size="m">
+              {data.visualizations.performance_charts.map((chartUrl, index) => (
+                <div
+                  key={index}
+                  style={{
+                    width: '100%',
+                    border: '1px solid #e9ebed',
+                    borderRadius: '8px',
+                    overflow: 'hidden',
+                    backgroundColor: '#fff',
+                    padding: '16px',
+                    textAlign: 'center',
+                  }}
+                >
+                  <img
+                    src={chartUrl}
+                    alt={`Performance Analysis Chart ${index + 1}`}
+                    style={{
+                      maxWidth: '100%',
+                      height: 'auto',
+                    }}
+                  />
+                </div>
+              ))}
+            </SpaceBetween>
+          </Box>
+        )}
+
+        {/* Wake Analysis Chart */}
+        <Box>
+          <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
+            Wake Analysis
+          </Box>
+          <div
+            style={{
+              width: '100%',
+              minHeight: '400px',
+              border: '1px solid #e9ebed',
+              borderRadius: '8px',
+              overflow: 'hidden',
+              backgroundColor: '#fff',
+              padding: '16px',
+              textAlign: 'center',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {data.visualizations?.wake_analysis || data.chartImages.wakeMap ? (
               <img
-                src={data.chartImages.performanceChart}
-                alt="Performance Analysis Chart"
+                src={data.visualizations?.wake_analysis || data.chartImages.wakeMap}
+                alt="Wake Analysis Chart"
                 style={{
                   maxWidth: '100%',
                   height: 'auto',
                 }}
               />
-            </div>
-          </Box>
-        )}
+            ) : (
+              <div style={{ color: '#666' }}>
+                <div>📊 Wake Analysis Chart</div>
+                <div style={{ fontSize: '14px', marginTop: '8px' }}>
+                  Chart data not available
+                </div>
+                <div style={{ fontSize: '12px', marginTop: '4px', color: '#999' }}>
+                  Visualization will be generated with enhanced backend
+                </div>
+              </div>
+            )}
+          </div>
+        </Box>
 
         {/* Optimization Recommendations */}
         {data.optimizationRecommendations && data.optimizationRecommendations.length > 0 && (
