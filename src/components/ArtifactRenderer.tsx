@@ -3,10 +3,14 @@ import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerCompone
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
 import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
-import WindFarmTerrainComponent from './messageComponents/WindFarmTerrainComponent';
-import WindFarmLayoutComponent from './messageComponents/WindFarmLayoutComponent';
-import WindFarmSimulationComponent from './messageComponents/WindFarmSimulationComponent';
 import RenewableEnergyGuidanceComponent from './messageComponents/RenewableEnergyGuidanceComponent';
+// New renewable energy artifact components
+import { 
+  TerrainMapArtifact, 
+  LayoutMapArtifact, 
+  SimulationChartArtifact, 
+  ReportArtifact 
+} from './renewable';
 
 interface Artifact {
   type: string;
@@ -80,21 +84,28 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
           case 'wind_farm_terrain_analysis':
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
-                <WindFarmTerrainComponent data={artifact as any} />
+                <TerrainMapArtifact data={artifact as any} />
               </div>
             );
 
           case 'wind_farm_layout':
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
-                <WindFarmLayoutComponent data={artifact as any} />
+                <LayoutMapArtifact data={artifact as any} />
               </div>
             );
 
           case 'wind_farm_simulation':
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
-                <WindFarmSimulationComponent data={artifact as any} />
+                <SimulationChartArtifact data={artifact as any} />
+              </div>
+            );
+
+          case 'wind_farm_report':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <ReportArtifact data={artifact as any} />
               </div>
             );
 

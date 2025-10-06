@@ -13,7 +13,12 @@ export const lightweightAgentFunction = defineFunction({
     ORIGIN_BASE_PATH: process.env.ORIGIN_BASE_PATH || '',
     S3_BUCKET: 'amplify-digitalassistant--workshopstoragebucketd9b-1kur1xycq1xq',
     AMPLIFY_BRANCH: process.env.AMPLIFY_BRANCH || 'main',
-    AMPLIFY_APP_ID: process.env.AMPLIFY_APP_ID || 'unknown'
+    AMPLIFY_APP_ID: process.env.AMPLIFY_APP_ID || 'unknown',
+    // Renewable energy integration configuration
+    NEXT_PUBLIC_RENEWABLE_ENABLED: process.env.NEXT_PUBLIC_RENEWABLE_ENABLED || 'false',
+    NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT: process.env.NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT || '',
+    NEXT_PUBLIC_RENEWABLE_S3_BUCKET: process.env.NEXT_PUBLIC_RENEWABLE_S3_BUCKET || 'renewable-energy-artifacts-484907533441',
+    NEXT_PUBLIC_RENEWABLE_AWS_REGION: process.env.NEXT_PUBLIC_RENEWABLE_AWS_REGION || 'us-west-2'
   }
 });
 
@@ -39,6 +44,18 @@ export const catalogSearchFunction = defineFunction({
     OSDU_PARTITION_ID: 'opendes',
     STORAGE_BUCKET_NAME: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
     // Add OSDU_ACCESS_TOKEN as environment variable when available
+  }
+});
+
+export const renewableToolsFunction = defineFunction({
+  name: 'renewableTools',
+  entry: '../functions/renewableTools/handler.ts',
+  timeoutSeconds: 60,
+  memoryMB: 512,
+  resourceGroupName: 'data',
+  environment: {
+    NREL_API_KEY: process.env.NREL_API_KEY || 'DEMO_KEY',
+    RENEWABLE_AWS_REGION: process.env.AWS_REGION || 'us-east-1',
   }
 });
 

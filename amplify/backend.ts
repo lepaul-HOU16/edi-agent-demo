@@ -1,7 +1,8 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
-import { data, lightweightAgentFunction, catalogMapDataFunction, catalogSearchFunction } from './data/resource';
+import { data, lightweightAgentFunction, catalogMapDataFunction, catalogSearchFunction, renewableToolsFunction } from './data/resource';
 import { storage } from './storage/resource';
+import { renewableAgentCoreProxy } from './functions/renewableAgentCoreProxy/resource';
 import { aws_iam as iam } from 'aws-cdk-lib';
 import { McpServerConstruct } from './custom/mcpServer';
 
@@ -11,7 +12,9 @@ const backend = defineBackend({
   storage,
   lightweightAgentFunction,
   catalogMapDataFunction,
-  catalogSearchFunction
+  catalogSearchFunction,
+  renewableToolsFunction,
+  renewableAgentCoreProxy
 });
 
 backend.stack.tags.setTag('Project', 'workshop-a4e');
@@ -78,3 +81,92 @@ mcpServer.lambdaFunction.addToRolePolicy(
 
 // Add environment variables for S3 bucket access
 mcpServer.lambdaFunction.addEnvironment('S3_BUCKET', backend.storage.resources.bucket.bucketName);
+
+// ============================================
+// Renewable Energy Integration Configuration
+// ============================================
+
+// Note: Renewable energy environment variables are defined in amplify/data/resource.ts
+// in the lightweightAgentFunction definition
+
+// Add Bedrock AgentCore permissions for renewable energy
+backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "bedrock-agentcore:InvokeAgentRuntime",
+      "bedrock-agentcore:InvokeAgent",
+      "bedrock-agentcore:GetAgent",
+    ],
+    resources: [
+      `arn:aws:bedrock-agentcore:*:${backend.stack.account}:runtime/*`,
+      `arn:aws:bedrock-agentcore:*:${backend.stack.account}:agent/*`,
+    ],
+  })
+);
+
+// Add S3 permissions for renewable energy artifacts bucket (if configured)
+if (process.env.NEXT_PUBLIC_RENEWABLE_S3_BUCKET) {
+  backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
+    new iam.PolicyStatement({
+      actions: [
+        "s3:GetObject",
+        "s3:PutObject",
+        "s3:ListBucket",
+      ],
+      resources: [
+        `arn:aws:s3:::${process.env.NEXT_PUBLIC_RENEWABLE_S3_BUCKET}`,
+        `arn:aws:s3:::${process.env.NEXT_PUBLIC_RENEWABLE_S3_BUCKET}/*`,
+      ],
+    })
+  );
+}
+
+// Add SSM parameter access for renewable energy configuration
+backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "ssm:GetParameter",
+      "ssm:GetParameters",
+    ],
+    resources: [
+      `arn:aws:ssm:*:${backend.stack.account}:parameter/wind-farm-assistant/*`,
+    ],
+  })
+);
+
+// ============================================
+// Python Proxy Lambda Configuration
+// ============================================
+
+// Add Bedrock AgentCore permissions for Python proxy
+backend.renewableAgentCoreProxy.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "bedrock-agentcore:InvokeAgentRuntime",
+      "bedrock-agentcore:InvokeAgent",
+      "bedrock-agentcore:GetAgent",
+    ],
+    resources: [
+      `arn:aws:bedrock-agentcore:*:${backend.stack.account}:agent-runtime/*`,
+      `arn:aws:bedrock-agentcore:*:${backend.stack.account}:agent/*`,
+    ],
+  })
+);
+
+// Add Lambda invoke permissions for TypeScript Lambda to call Python proxy
+backend.lightweightAgentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "lambda:InvokeFunction",
+    ],
+    resources: [
+      backend.renewableAgentCoreProxy.resources.lambda.functionArn,
+    ],
+  })
+);
+
+// Add environment variable to TypeScript Lambda with Python proxy function name
+backend.lightweightAgentFunction.addEnvironment(
+  'RENEWABLE_PROXY_FUNCTION_NAME',
+  backend.renewableAgentCoreProxy.resources.lambda.functionName
+);

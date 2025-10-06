@@ -1,6 +1,13 @@
 # Agents for Energy - Agent Template Alpha - Building AI Agents with LangGraph and AWS Amplify
 
-This project shows an example implimenation of hosting a [LangGraph agent](https://www.langchain.com/langgraph) in an AWS Lambda function to process digital operations related energy woakloads. There are a series of [labs](/labs/labs.md) which walk through the process of extending the agent to address a new use case. You'll learn how to persist agent state, create custom tools, build interactive UIs, and deploy agents with AWS Amplify.
+This project shows an example implementation of hosting a [LangGraph agent](https://www.langchain.com/langgraph) in an AWS Lambda function to process digital operations related energy workloads. The platform includes:
+
+- **Petrophysical Analysis**: Professional-grade well log analysis, porosity calculations, and data quality assessment
+- **Renewable Energy Analysis**: Wind farm site assessment, layout design, wake simulation, and reporting
+- **Data Catalog**: Interactive exploration of subsurface data with map visualization
+- **Conversational AI**: 24/7 AI companion for energy data workflows
+
+There are a series of [labs](/labs/labs.md) which walk through the process of extending the agent to address a new use case. You'll learn how to persist agent state, create custom tools, build interactive UIs, and deploy agents with AWS Amplify.
 
 ## Deploy the Project with AWS Amplify
 This option will create a public facing URL which let's users interact with your application.
@@ -87,8 +94,54 @@ node test-mcp-petrophysics-integration.js
 7. Create a new chat session by clicking the "Create" button, and try out (or modify) one of the sample prompts.
 
 
+## Renewable Energy Integration
+
+The platform includes renewable energy analysis capabilities powered by a Python-based multi-agent system deployed on AWS Bedrock AgentCore.
+
+### Features
+
+- **Terrain Analysis**: USGS elevation data analysis, exclusion zone identification, site suitability scoring
+- **Layout Design**: Turbine placement optimization, capacity planning, spacing calculations
+- **Wake Simulation**: PyWake simulation engine, AEP estimation, performance optimization
+- **Executive Reports**: Professional reports with recommendations and complete analysis
+
+### Quick Start
+
+1. **Deploy Renewable Backend**:
+   ```bash
+   cd agentic-ai-for-renewable-site-design-mainline/workshop-assets/
+   ./deploy-to-agentcore.sh
+   ```
+
+2. **Configure EDI Platform**:
+   ```bash
+   # Add to .env.local
+   NEXT_PUBLIC_RENEWABLE_ENABLED=true
+   NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT=<your-endpoint>
+   NEXT_PUBLIC_RENEWABLE_S3_BUCKET=<your-bucket>
+   NEXT_PUBLIC_RENEWABLE_AWS_REGION=us-west-2
+   ```
+
+3. **Try Sample Queries**:
+   ```
+   Analyze terrain for wind farm at 35.067482, -101.395466
+   Create a 30MW wind farm layout at those coordinates
+   Run wake simulation for the layout
+   Generate executive report
+   ```
+
+### Documentation
+
+- [Integration Guide](./docs/RENEWABLE_INTEGRATION.md) - Architecture and features
+- [Deployment Guide](./docs/RENEWABLE_DEPLOYMENT.md) - Step-by-step deployment
+- [Configuration Guide](./docs/RENEWABLE_CONFIGURATION.md) - Environment setup
+- [Sample Queries](./docs/RENEWABLE_SAMPLE_QUERIES.md) - 50+ example queries
+- [Troubleshooting](./docs/RENEWABLE_TROUBLESHOOTING.md) - Common issues and solutions
+- [Testing Guide](./docs/RENEWABLE_INTEGRATION_TESTING_GUIDE.md) - Validation procedures
+
 ## Model Context Protocol
-The tools in this project are also exposed via an MCP server. You can list the tools using a curl command like the one below. Look in the AWS Cloudformation output for the path to the mcp server, and the ARN of the api key. Use the AWS console to find the value of the api key from it's ARN (navagate to https://console.aws.amazon.com/apigateway/main/api-keys and click the copy button by the key called "mcp-tools-key".)
+
+The tools in this project are also exposed via an MCP server. You can list the tools using a curl command like the one below. Look in the AWS Cloudformation output for the path to the mcp server, and the ARN of the api key. Use the AWS console to find the value of the api key from it's ARN (navigate to https://console.aws.amazon.com/apigateway/main/api-keys and click the copy button by the key called "mcp-tools-key".)
 
 ```bash
 curl -X POST \
