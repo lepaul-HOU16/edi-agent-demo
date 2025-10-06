@@ -35,11 +35,14 @@ import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerCompone
 import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorrelationComponent';
 import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
 import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
-// Renewable energy components
-import WindFarmTerrainComponent from './messageComponents/WindFarmTerrainComponent';
-import WindFarmLayoutComponent from './messageComponents/WindFarmLayoutComponent';
-import WindFarmSimulationComponent from './messageComponents/WindFarmSimulationComponent';
 import RenewableEnergyGuidanceComponent from './messageComponents/RenewableEnergyGuidanceComponent';
+// New renewable energy artifact components
+import { 
+  TerrainMapArtifact, 
+  LayoutMapArtifact, 
+  SimulationChartArtifact, 
+  ReportArtifact 
+} from './renewable';
 
 // Enhanced artifact processor component with S3 support - STABLE VERSION
 const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, onSendMessage }: {
@@ -281,31 +284,31 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             
             // NEW: Check for renewable energy wind farm terrain analysis
             if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_terrain_analysis') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering WindFarmTerrainComponent with onSendMessage!');
+                console.log('🎉 EnhancedArtifactProcessor: Rendering TerrainMapArtifact!');
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<WindFarmTerrainComponent data={parsedArtifact} onSendMessage={onSendMessage} />}
+                    enhancedComponent={<TerrainMapArtifact data={parsedArtifact} />}
                 />;
             }
             
             // NEW: Check for renewable energy wind farm layout
             if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_layout') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering WindFarmLayoutComponent!');
+                console.log('🎉 EnhancedArtifactProcessor: Rendering LayoutMapArtifact!');
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<WindFarmLayoutComponent data={parsedArtifact} />}
+                    enhancedComponent={<LayoutMapArtifact data={parsedArtifact} />}
                 />;
             }
             
             // NEW: Check for renewable energy wind farm simulation
             if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_simulation') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering WindFarmSimulationComponent!');
+                console.log('🎉 EnhancedArtifactProcessor: Rendering SimulationChartArtifact!');
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<WindFarmSimulationComponent data={parsedArtifact} />}
+                    enhancedComponent={<SimulationChartArtifact data={parsedArtifact} />}
                 />;
             }
             

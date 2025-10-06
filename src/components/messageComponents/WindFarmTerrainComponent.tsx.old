@@ -472,9 +472,24 @@ const WindFarmTerrainComponent: React.FC<WindFarmTerrainComponentProps> = ({ dat
     });
   };
 
-  // Function to add 3D terrain layer
+  // Function to add 3D terrain layer with AWS terrain source
   const add3DTerrainLayer = () => {
     safeMapOperation(() => {
+      // Add AWS terrain source if not present
+      if (!mapInstanceRef.current!.getSource('aws-terrain-dem')) {
+        mapInstanceRef.current!.addSource('aws-terrain-dem', {
+          type: 'raster-dem',
+          tiles: [`https://maps.geo.${REGION}.amazonaws.com/v2/tiles/terrain/{z}/{x}/{y}?key=${apiKey}`],
+          tileSize: 512,
+          maxzoom: 14
+        });
+        
+        // Set terrain source with exaggeration for better visibility
+        mapInstanceRef.current!.setTerrain({ source: 'aws-terrain-dem', exaggeration: 2.0 });
+        console.log('🌍 Added AWS terrain DEM source');
+      }
+      
+      // Also add elevation point visualization if not present
       if (mapInstanceRef.current!.getSource('terrain-3d')) return;
 
       // Create 3D terrain representation using elevation data
@@ -499,7 +514,7 @@ const WindFarmTerrainComponent: React.FC<WindFarmTerrainComponentProps> = ({ dat
             id: `terrain-${index}`,
             elevation: point.elevation,
             slope: point.slope,
-            height: point.elevation,
+            height: Math.max(point.elevation - 150, 5), // Relative height above base
             baseHeight: 0
           }
         };
@@ -528,11 +543,13 @@ const WindFarmTerrainComponent: React.FC<WindFarmTerrainComponentProps> = ({ dat
             200, '#FFD700',
             250, '#FF6347'
           ],
-          'fill-extrusion-height': ['get', 'height'],
+          'fill-extrusion-height': ['*', ['get', 'height'], 3], // Scale for visibility
           'fill-extrusion-base': ['get', 'baseHeight'],
-          'fill-extrusion-opacity': 0.8
+          'fill-extrusion-opacity': 0.9
         }
       });
+      
+      console.log('🏔️ Added 3D terrain visualization layer');
     });
   };
 

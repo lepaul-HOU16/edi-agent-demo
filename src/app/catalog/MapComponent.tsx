@@ -810,7 +810,7 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     }
   }, []);
 
-  // Toggle 3D functionality
+  // Toggle 3D functionality with improved terrain support
   const toggle3D = useCallback((enabled: boolean) => {
     if (!mapRef.current) return;
     
@@ -818,16 +818,56 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     
     try {
       if (enabled) {
-        // Enable 3D with pitch only (no terrain for now to ensure it works)
+        // Try to add terrain source with fallback approach
+        if (!mapRef.current.getSource('terrain-source')) {
+          // Try AWS terrain tiles first, with OpenStreetMap terrain as fallback
+          try {
+            mapRef.current.addSource('terrain-source', {
+              type: 'raster-dem',
+              tiles: [`https://maps.geo.${REGION}.amazonaws.com/v2/tiles/terrain/{z}/{x}/{y}?key=${apiKey}`],
+              tileSize: 512,
+              maxzoom: 14
+            });
+            console.log('🌍 Added AWS terrain source');
+          } catch (awsError) {
+            console.warn('⚠️ AWS terrain not available, using OpenStreetMap terrain');
+            mapRef.current.addSource('terrain-source', {
+              type: 'raster-dem',
+              tiles: ['https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png'],
+              tileSize: 256,
+              maxzoom: 15,
+              encoding: 'terrarium'
+            });
+          }
+        }
+        
+        // Set terrain source with error handling
+        try {
+          mapRef.current.setTerrain({ source: 'terrain-source', exaggeration: 1.5 });
+          console.log('🌍 Terrain rendering enabled');
+        } catch (terrainError) {
+          console.warn('⚠️ Terrain rendering not supported, using 3D view only');
+        }
+        
+        // Enable 3D view with enhanced perspective
         mapRef.current.easeTo({
           pitch: 60,
-          bearing: 0,
+          bearing: -20,
+          zoom: Math.min(mapRef.current.getZoom() + 0.5, 15),
           duration: 1000
         });
         setIs3DEnabled(true);
         is3DRef.current = true;
         console.log('✅ 3D mode enabled');
       } else {
+        // Disable terrain
+        try {
+          mapRef.current.setTerrain(null);
+          console.log('🌍 Disabled terrain');
+        } catch (error) {
+          console.warn('⚠️ No terrain to disable');
+        }
+        
         // Disable 3D mode - return to flat view
         mapRef.current.easeTo({
           pitch: 0,
@@ -843,7 +883,7 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
       setCurrentMapState(prev => ({
         ...prev,
         pitch: enabled ? 60 : 0,
-        bearing: 0
+        bearing: enabled ? -20 : 0
       }));
 
       // Update button appearance immediately

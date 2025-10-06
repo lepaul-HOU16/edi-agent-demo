@@ -6,7 +6,8 @@
 
 import { GeneralKnowledgeAgent } from './generalKnowledgeAgent';
 import { EnhancedStrandsAgent } from './enhancedStrandsAgent';
-import { RenewableEnergyAgent } from './renewableEnergyAgent';
+import { RenewableProxyAgent } from './renewableProxyAgent';
+import { getRenewableConfig } from '../../../src/services/renewable-integration/config';
 import { 
   ThoughtStep, 
   createThoughtStep, 
@@ -26,12 +27,27 @@ interface RouterResponse {
 export class AgentRouter {
   private generalAgent: GeneralKnowledgeAgent;
   private petrophysicsAgent: EnhancedStrandsAgent;
-  private renewableAgent: RenewableEnergyAgent;
+  private renewableAgent: RenewableProxyAgent | null = null;
+  private renewableEnabled: boolean = false;
 
   constructor(foundationModelId?: string, s3Bucket?: string) {
     this.generalAgent = new GeneralKnowledgeAgent();
     this.petrophysicsAgent = new EnhancedStrandsAgent(foundationModelId, s3Bucket);
-    this.renewableAgent = new RenewableEnergyAgent(foundationModelId, s3Bucket);
+    
+    // Initialize renewable agent if enabled
+    try {
+      const renewableConfig = getRenewableConfig();
+      if (renewableConfig.enabled) {
+        this.renewableAgent = new RenewableProxyAgent();
+        this.renewableEnabled = true;
+        console.log('✅ AgentRouter: Renewable energy integration enabled');
+      } else {
+        console.log('ℹ️ AgentRouter: Renewable energy integration disabled via config');
+      }
+    } catch (error) {
+      console.warn('⚠️ AgentRouter: Failed to initialize renewable agent:', error);
+      this.renewableEnabled = false;
+    }
     
     console.log('AgentRouter initialized with multi-agent capabilities');
   }
@@ -70,10 +86,31 @@ export class AgentRouter {
 
         case 'renewable':
           console.log('🌱 Routing to Renewable Energy Agent');
-          result = await this.renewableAgent.processQuery(message);
+          
+          // Check if renewable integration is enabled
+          if (!this.renewableEnabled || !this.renewableAgent) {
+            console.log('⚠️ Renewable energy integration is disabled');
+            return {
+              success: true,
+              message: 'Renewable energy features are currently disabled. Please contact your administrator to enable this feature.',
+              artifacts: [],
+              thoughtSteps: [{
+                id: 'renewable_disabled',
+                type: 'completion',
+                timestamp: Date.now(),
+                title: 'Renewable Energy Feature Disabled',
+                summary: 'This feature requires configuration. Please contact your administrator.',
+                status: 'complete'
+              }],
+              agentUsed: 'renewable_disabled'
+            };
+          }
+          
+          // Route to renewable agent
+          result = await this.renewableAgent.processQuery(message, conversationHistory);
           return {
             ...result,
-            agentUsed: 'renewableEnergyAgent'
+            agentUsed: 'renewable_energy'
           };
 
         case 'catalog':

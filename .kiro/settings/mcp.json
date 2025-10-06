@@ -1,7 +1,7 @@
 {
   "mcpServers": {
     "petrophysical-analysis": {
-      "command": "./start_mcp_with_venv.sh",
+      "command": "/Users/lepaul/Dev/prototypes/edi-agent-demo/start_mcp_server.sh",
       "args": [],
       "env": {},
       "disabled": false,
@@ -17,6 +17,15 @@
         "calculate_data_completeness",
         "validate_environmental_corrections",
         "assess_well_data_quality"
+      ]
+    },
+    "fetch": {
+      "command": "/Users/lepaul/.local/bin/uvx",
+      "args": ["mcp-server-fetch"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": [
+        "fetch"
       ]
     }
   }
