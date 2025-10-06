@@ -1,0 +1,33 @@
+# Core scientific libraries
+pandas>=2.0.0
+numpy>=1.24.0
+scipy>=1.10.0
+
+# GIS and mapping
+geopandas>=0.14.0
+folium>=0.15.0
+shapely>=2.0.0
+
+# Wind farm simulation
+py-wake>=2.5.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+plotly>=5.17.0
+
+# AWS SDK
+boto3>=1.28.0
+botocore>=1.31.0
+
+# HTTP requests
+requests>=2.31.0
+
+# MCP and agent frameworks (from demo)
+mcp>=0.9.0
+strands-agents>=0.1.0
+strands-agents-tools>=0.1.0
+
+# Utilities
+python-dotenv>=1.0.0
+pydantic>=2.0.0
