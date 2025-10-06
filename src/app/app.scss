@@ -13,6 +13,8 @@
     height: auto;
     background-color: var(--bg-light);
     box-shadow: var(--shadow-light);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
     display: flex;
     align-items: center;
     border-radius: 14px;
@@ -141,8 +143,8 @@
     background: transparent !important;
 }
 
-/* Dark mode styles */
-[data-mode="dark"] {
+/* Dark mode styles - Custom data-theme attribute */
+[data-theme="dark"] {
     .controls {
         background-color: var(--bg-dark);
         box-shadow: var(--shadow-dark);
@@ -155,6 +157,23 @@
     
     .convo {
         color: var(--text-dark);
+    }
+}
+
+/* Fallback for media query dark mode */
+@media (prefers-color-scheme: dark) {
+    .controls {
+        background-color: var(--bg-dark) !important;
+        box-shadow: var(--shadow-dark) !important;
+        color: var(--text-dark) !important;
+    }
+    
+    .panel > div {
+        box-shadow: var(--shadow-dark) !important;
+    }
+    
+    .convo {
+        color: var(--text-dark) !important;
     }
 }
 .awsui_layout_5gtk3_1mzpq_145.awsui_is-visual-refresh_5gtk3_1mzpq_204 > .awsui_background_5gtk3_1mzpq_159.awsui_has-default-background_5gtk3_1mzpq_204:not(#\9) {

@@ -121,6 +121,11 @@ function RootLayoutContent({
     // Apply the mode when component mounts and when darkMode changes
     applyMode(darkMode ? Mode.Dark : Mode.Light);
     
+    // Also set a custom data attribute on the body for our CSS
+    if (typeof window !== 'undefined') {
+      document.body.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    }
+    
     // Try to load the preference from localStorage if available
     if (typeof window !== 'undefined') {
       const savedMode = localStorage.getItem('darkMode');
