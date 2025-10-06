@@ -228,162 +228,7 @@ def convert_well_to_geojson(well_data):
     return feature
 
 
-# def determine_returned_fields() -> list:
-#     """
-#     Determines which fields would be useful to show on a table view for the frontend.
-
-#     Args:
-#         user_prompt (str): The user's input prompt
-#         schema_data (dict or list): Schema data containing available fields
-#         schema_fields (dict): Identified schema fields from the query
-#         query (str): The generated query string
-
-#     Returns:
-#         list: List of fields to return in the search results
-#     """
-
-#     global input_data, output_data, search_fields
-
-#     try:
-#         print(f'determine_returned_fields: Determining fields to display for user prompt: {input_data["prompt"]}')
-
-#         # Always include these basic fields
-#         base_fields = ["id", "kind"]
-
-#         schema_context = f"The schemas being queried are {output_data['searchResults']['search_queries'][0]['data_source']['body']['kind']}."
-
-#         system_prompt_fields = """
-#         You are an AI assistant helping determine which fields from OSDU data would be most useful to display in a table view for the frontend.
-#         Your job is to analyze the user's query, the schema data, and the fields being searched to determine what information would be most relevant to show in search results.
-
-#         Consider the following when making your selection:
-#         1. Include fields that directly answer the user's question
-#         2. Include identifying information (names, IDs, etc.) that would help users recognize the records
-#         3. Include key metrics or values mentioned in the user's query
-#         4. For well data, typically include fields like WellName, WellID, Field, Operator, Status
-#         5. For seismic data, typically include fields like SurveyName, VintageName, LineNumber
-#         6. For log data, include fields like WellboreID, LogName, TopMeasuredDepth, BottomMeasuredDepth
-#         7. Include location information when available (coordinates, field names, etc.)
-#         8. Include date information when relevant (acquisition date, drilling date, etc.)
-
-#         Respond with a JSON array of field names that should be returned. All field names should be prefixed with "data."
-#         unless they are system fields like "id" or "kind". For nested fields, use dot notation.
-
-#         Example response format:
-#         ["id", "kind", "data.WellName", "data.Field", "data.Status", "data.TopMeasuredDepth"]
-
-#         Keep your selection focused and relevant - typically between 5-10 fields total.
-#         """
-
-#         # Clean up schema data to make it more manageable for the agent
-#         schema_data = get_schema_data(output_data['searchResults']['search_queries'][0]['data_source']['body']['kind'])
-#         schema_data = remove_descriptions(schema_data)
-
-#         agent_fields = Agent(
-#             model=model_id,
-#             system_prompt=system_prompt_fields,
-#             messages=[
-#                 {"role": "user", "content": [{"text": f"Schema Context: {schema_context}"}]},
-#                 {"role": "user", "content": [{"text": "Schema Data: " + json.dumps(schema_data)}]},
-#                 # {"role": "user", "content": [{"text": "Schema Fields: " + json.dumps(schema_fields)}]},
-#                 {"role": "user", "content": [{"text": "Query: " + output_data['searchResults']['search_queries'][0]['data_source']['body']['query']}]},
-#                 {"role": "user", "content": [{"text": "User Prompt: " + input_data["prompt"]}]}
-#             ]
-#         )
-
-#         response = agent_fields("Determine which fields would be most useful to display in search results")
-#         response_text = str(response)
-
-#         print(f'determine_returned_fields: Agent response: {response_text}')
-
-
-#         returned_fields = []
-#         # Parse the response to extract the field list
-#         # Try to extract JSON array from the response
-#         if "[" in response_text and "]" in response_text:
-#             # Extract content between first [ and last ]
-#             fields_str = response_text[response_text.find("["):response_text.rfind("]")+1]
-#             returned_fields = json.loads(fields_str)
-
-#             # Ensure base fields are included
-#             for field in base_fields:
-#                 if field not in returned_fields:
-#                     returned_fields.append(field)
-#         else:
-#             print("Could not find JSON array in agent response")
-
-#         print(f'determine_returned_fields: Extracted fields: {returned_fields}')
-#         output_data['searchResults']['search_queries'][0]['data_source']['body']['returnedFields'] = returned_fields
-
-#         return returned_fields
-
-#         # system_prompt_names = """
-#         # You are an AI assistant helping determine names for fields from OSDU data would be most useful to display in a table view for the frontend.
-#         # Your job is to analyze the user's query and the fields being searched to determine how to name the columns in a more user-friendly way, if needed.
-
-#         # Consider the following when making your selection:
-#         # 1. process fields one by one.
-#         # 2. determine if the field name is easy to understand or if it needs to be modified to something better.
-#         # 3. if it needs to be modified, suggest a better name for the field while retaining the meaning.
-#         # 4. if it doesn't need to be modified, use the original field name, but make sure it is capitalized correctly.
-
-
-#         # Respond with a JSON array of field names and labels that should be returned. 
-
-#         # Example response format:
-#         # [
-#         #     { "field": "id", "label": "ID" },
-#         #     { "field": "data.FacilityName", "label": "Well Name" },
-#         #     { "field": "data.SeismicVolume", "label": "Seismic Volume" },
-#         # ]
-
-#         # Keep your selection focused and relevant - typically between 5-10 fields total.
-#         # """
-
-#         # agent_names = Agent(
-#         #     model=model_id,
-#         #     system_prompt=system_prompt_names,
-#         #     messages=[
-#         #         {"role": "user", "content": [{"text": f"Schema Context: {schema_context}"}]},
-#         #         {"role": "user", "content": [{"text": "Schema Fields: " + json.dumps(returned_fields)}]},
-#         #         {"role": "user", "content": [{"text": "User Prompt: " + input_data["prompt"]}]}
-#         #     ]
-#         # )
-
-#         # response = agent_names("Generate column names following the example.")
-#         # response_text = str(response)
-
-#         # print(f'determine_returned_fields: Agent names response: {response_text}')
-
-#         # returned_columns = []
-#         # # Parse the response to extract the field list
-#         # # Try to extract JSON array from the response
-#         # if "[" in response_text and "]" in response_text:
-#         #     # Extract content between first [ and last ]
-#         #     columns_str = response_text[response_text.find("["):response_text.rfind("]")+1]
-#         #     returned_columns = json.loads(columns_str)
-
-#         # else:
-#         #     print("Could not find JSON array in agent response")
-#         #     base_columns = [
-#         #         { "field": "id", "label": "ID" },
-#         #         { "field": "kind", "label": "Data Type" },
-#         #     ]
-#         #     return base_columns
-
-#         # print(f'determine_returned_fields: Extracted fields: {returned_fields}')
-#         # output_data['searchResults']['search_queries'][0]['data_source']['body']['tabular_data']['columns'] = returned_fields
-
-#         # return returned_columns
-    
-#     except Exception as e:
-#         print(f"determine_returned_fields: Error processing returned fields: {str(e)}")
-#         print(traceback.format_exc())
-#         return []
-
-
-def perform_wellbore_to_well_lookup(wellbore_ids, headers):
-
+def perform_wellbore_to_well_lookup(wellbore_ids: list, headers: dict):
     # Build query
     query = ''
     for id in wellbore_ids:
@@ -403,6 +248,10 @@ def perform_wellbore_to_well_lookup(wellbore_ids, headers):
 
     well_ids = [item['key'][:-1] for item in response_wellbores['aggregations']]
 
+    return well_ids
+
+
+def well_to_geojson_and_tabular_data(well_ids: list, headers: dict):
     print(f'well_ids count=\n{len(well_ids)}')
 
     query = ''
@@ -464,10 +313,12 @@ def lambda_handler(event, context):
 
     auth_headers = authenticate_edi(username, password, client_id, client_secret, edi_partition)
 
-    prompt = event.get('prompt', "Which wells have DT and GR logs")
+    prompt = json.loads(event.get('body'))
+    prompt = prompt.get('prompt')
+
     print(f'prompt={prompt}')
 
-    sample_request = {
+    request = {
         "prompt": prompt,
         "sessionId": "test-session-123",
         "data_sources": [
@@ -499,7 +350,9 @@ def lambda_handler(event, context):
     
     # print(f'sample_request={sample_request}')
 
-    results_tool = osdu_search_tool(sample_request)
+    results_tool = osdu_search_tool(request)
+
+    print(f'results_tool={results_tool}')
 
     # results_tool = {
     #     'chainOfThought': 'Because!', 
@@ -535,8 +388,6 @@ def lambda_handler(event, context):
     #     }
     # }
 
-    # results_data = perform_osdu_search(results_tool['searchResults']['search_queries'][0]['data_source']['body'], auth_headers)
-
     full_query = {
         'kind': results_tool['searchResults']['search_queries'][0]['data_source']['body']['kind'],
         'query': results_tool['searchResults']['search_queries'][0]['data_source']['body']['query'],
@@ -544,28 +395,34 @@ def lambda_handler(event, context):
         'limit': 1,
     }
 
-    # print(f'full_query={full_query}')
+    print(f'full_query=\n{full_query}')
     results_data = requests.post(edi_search_url, headers=auth_headers, json=full_query)
     results_data = results_data.json()
-    # print(f'results_data=\n{results_data}')
+    print(f'results_data=\n{results_data}')
     results_aggregate = results_data['aggregations']
     results_aggregate_keys = [item['key'] for item in results_aggregate]
-    # print(f'\n\n\n results_aggregate_keys={results_aggregate_keys}')
+    print(f'results_aggregate_keys=\n{results_aggregate_keys}')
 
+    # Get map and table data
     well_geojson_data = {}
     tabular_data = {}
+
     if results_tool['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'] == 'data.WellboreID.keyword':
-        well_geojson_data, tabular_data = perform_wellbore_to_well_lookup(results_aggregate_keys, auth_headers)
+        well_ids = perform_wellbore_to_well_lookup(results_aggregate_keys, auth_headers)
         # print(f'\n\n\n well_ids={well_ids}')
+        well_geojson_data, tabular_data = well_to_geojson_and_tabular_data(well_ids, auth_headers)
 
-
+    if results_tool['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'] == 'data.FacilityID.keyword' or \
+        results_tool['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'] == 'data.FacilityName.keyword':
+        well_geojson_data, tabular_data = well_to_geojson_and_tabular_data(results_aggregate_keys, auth_headers)
+    
 
     body['geojson'] = well_geojson_data
     body['tabular_data'] = tabular_data
 
     # print(f'\n\n\n well_geojson_data=\n{well_geojson_data}')
 
-    print(f'body={body}')
+    # print(f'body=\n{body}')
 
     return {
         'statusCode': 200,
@@ -574,8 +431,17 @@ def lambda_handler(event, context):
 
 
 if __name__ == "__main__":
+
+    prompt = "what wells have GR and RHOB and DT logs?"
+    # prompt = "Show me WELL-008"
+    # prompt = "Show me wells in Vietnam"
+    # prompt = "Display wells with core data"
+    # prompt = "Show me data owned by my company"
+
     event = {}
-    event['prompt'] = "what wells have GR and RHOB and DT logs?"
+    event['body'] = json.dumps({
+        "prompt": prompt,
+    })
 
     response = lambda_handler(event, None)
 

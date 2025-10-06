@@ -137,7 +137,8 @@ def find_schemas() -> str:
         print(f"Searching for schemas with query: {input_data['prompt']}")
 
         agent_kb = Agent(
-            model= 'us.meta.llama4-scout-17b-instruct-v1:0',  
+            # model= 'us.meta.llama4-scout-17b-instruct-v1:0',  
+            model= 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
             #model= 'us.anthropic.claude-3-7-sonnet-20250219-v1:0' - Slow
             system_prompt=system_prompt_kb,
             tools=[memory, check_schemas_exist]
@@ -495,6 +496,15 @@ def generate_query() -> str:
                                         
         prompt: which wells have Dongen Formation markers
         assistant: nested(data.Markers, (MarkerName.keyword: "Dongen Formation"))
+
+        prompt: which wells are in Vietnam?
+        assistant: nested(data.GeoContexts (GeoPoliticalEntityID:(Vietnam))
+
+        prompt: get logs with bottom measured depth between 2000 and 3000
+        assistant: data.BottomMeasuredDepth:[2000 TO 3000]
+
+        prompt: wells with markers for Coppershale below 1000
+        assistant: nested(data.Markers, (MarkerMeasuredDepth:(>1000) AND MarkerName:(Coppershale)))
         </Examples>
         """
         osdu_search_query_documentation_long = """
@@ -664,7 +674,7 @@ def generate_query() -> str:
         schema_data = remove_schema_definition_keys(schema_data)
 
         agent = Agent(
-            model=model_id,
+            model= 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
             system_prompt=system_prompt,
             messages=[
                 {"role": "user", "content": [{"text": "Schema Data: " + json.dumps(schema_data)}]},
@@ -1067,7 +1077,7 @@ def determine_returned_fields() -> list:
         schema_data = remove_descriptions(schema_data)
 
         agent_fields = Agent(
-            model=model_id,
+            model= 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
             system_prompt=system_prompt_fields,
             messages=[
                 {"role": "user", "content": [{"text": f"Schema Context: {schema_context}"}]},
@@ -1180,6 +1190,23 @@ def determine_aggregation() -> str:
 
     global input_data, output_data, search_fields
     try:
+        # Hardcoded quick responses
+        if 'master-data--Well' in output_data['searchResults']['search_queries'][0]['data_source']['body']['kind']:
+            output_data['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'] = 'data.FacilityName.keyword'
+            return 'data.FacilityName.keyword'
+        
+        if 'master-data--Wellbore' in output_data['searchResults']['search_queries'][0]['data_source']['body']['kind']:
+            output_data['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'] = 'data.WellID.keyword'
+            return 'data.WellID.keyword'
+        
+        if 'work-product-component--WellLog' in output_data['searchResults']['search_queries'][0]['data_source']['body']['kind']:
+            output_data['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'] = 'data.WellboreID.keyword'
+            return 'data.WellboreID.keyword'
+        
+        if 'master-data--SeismicVolume' in output_data['searchResults']['search_queries'][0]['data_source']['body']['kind']:
+            output_data['searchResults']['search_queries'][0]['data_source']['body']['aggregateBy'] = 'data.BinGridID.keyword'
+
+
         system_prompt = """
         You are an AI assistant helping determine an OSDU query based on a user prompt.
         You need to focus on determining what is the OSDU aggregrateBy field to be.
@@ -1191,12 +1218,13 @@ def determine_aggregation() -> str:
 
         <examples>
         If it is related to seismic data, aggregate by "data.BinGridID.keyword"
-        If it is related to well data and well logs, aggregate by "data.WellboreID.keyword"
+        If it is related to well logs, aggregate by "data.WellboreID.keyword"
         </examples>
         """
 
         agent = Agent(
-            model= 'us.meta.llama4-scout-17b-instruct-v1:0',  
+            # model= 'us.meta.llama4-scout-17b-instruct-v1:0',  
+            model= 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
             #model= 'us.anthropic.claude-3-7-sonnet-20250219-v1:0' - Slow
             system_prompt=system_prompt,
             messages=[
@@ -1322,7 +1350,6 @@ def osdu_search_tool(inputs: dict) -> dict:
         Chain of thought:
         - Find the schemas/kinds needed that has the correct data
         - Determine the fields in the schemas that need to be searched
-        - Remove any schemas that do not have fields that are being used
         - Generate the query
         - Determine the aggregateBy field
         - Test the query to make sure it works

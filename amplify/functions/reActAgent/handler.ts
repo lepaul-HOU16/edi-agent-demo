@@ -20,7 +20,7 @@ import { renderAssetTool } from "../tools/renderAssetTool";
 import { createProjectTool } from "../tools/createProjectTool";
 import { permeabilityCalculator } from "../tools/customWorkshopTool";
 import { plotDataTool } from "../tools/plotDataTool";
-import { wellLogDisplayTool } from "../tools/wellLogDisplayTool";
+// import { wellLogDisplayTool } from "../tools/wellLogDisplayTool";
 import { petrophysicsSystemMessage } from "./petrophysicsSystemMessage";
 
 import { Schema } from '../../data/resource';
@@ -139,9 +139,9 @@ export const handler: Schema["invokeReActAgent"]["functionHandler"] = async (eve
             createProjectTool,
             permeabilityCalculator,
             plotDataTool,
-            wellLogDisplayTool,
+            // wellLogDisplayTool,
             renderAssetTool,
-            ...mcpTools
+            ...mcpTools,
             pysparkTool({
                 additionalToolDescription: `
 las = lasio.read("local_file.las")
