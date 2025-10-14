@@ -1445,23 +1445,13 @@ def handler(event, context):
         # Add visualization data if available
         logger.info("📦 Preparing response data...")
         
-        # CRITICAL FIX: Only return S3 URLs, NOT inline HTML to prevent size issues
-        # Inline HTML can exceed DynamoDB limits and cause "Visualization Unavailable" errors
+        # Add visualization data if available
+        if map_html:
+            response_data['mapHtml'] = map_html
         if map_url:
             response_data['mapUrl'] = map_url
-            logger.info(f"✅ Added mapUrl to response: {map_url}")
-        elif map_html:
-            # Fallback: If S3 upload failed but we have HTML, log warning
-            logger.warning(f"⚠️ S3 upload failed, inline HTML available but NOT included ({len(map_html)} characters)")
-            logger.warning("⚠️ User will see 'Visualization Unavailable' - S3 configuration required")
-            response_data['visualizationError'] = 'S3 storage not configured - visualization cannot be displayed'
-        else:
-            logger.warning("⚠️ No map visualization available")
-            response_data['visualizationError'] = 'Map generation failed'
-            
         if visualizations:
             response_data['visualizations'] = visualizations
-            logger.info(f"✅ Added visualizations to response: {list(visualizations.keys())}")
         
         # Log final response structure
         response_keys = list(response_data.keys())
