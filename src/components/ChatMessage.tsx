@@ -439,19 +439,13 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             }
             
             // NEW: Check for renewable energy wind farm terrain analysis
-            // CRITICAL FIX: Check both top-level and nested messageContentType
-            if (parsedArtifact && typeof parsedArtifact === 'object' && 
-                (parsedArtifact.messageContentType === 'wind_farm_terrain_analysis' ||
-                 parsedArtifact.data?.messageContentType === 'wind_farm_terrain_analysis' ||
-                 parsedArtifact.type === 'wind_farm_terrain_analysis')) {
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_terrain_analysis') {
                 console.log('🎉 EnhancedArtifactProcessor: Rendering TerrainMapArtifact!');
-                // Normalize data structure - if data is nested, use it directly
-                const artifactData = parsedArtifact.data || parsedArtifact;
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
                     enhancedComponent={<TerrainMapArtifact 
-                        data={artifactData} 
+                        data={parsedArtifact} 
                         onFollowUpAction={onSendMessage}
                     />}
                 />;
