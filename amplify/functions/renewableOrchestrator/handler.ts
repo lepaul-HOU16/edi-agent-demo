@@ -1000,22 +1000,18 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
     
     switch (result.type) {
       case 'terrain_analysis':
-        // Pass S3 reference - frontend will fetch via S3 proxy API
         artifact = {
           type: 'wind_farm_terrain_analysis',
           data: {
             messageContentType: 'wind_farm_terrain_analysis',
-            title: result.data.title || `Terrain Analysis - ${result.data.projectId}`,
-            subtitle: result.data.subtitle,
             coordinates: result.data.coordinates,
             projectId: result.data.projectId,
+            exclusionZones: result.data.exclusionZones,
             metrics: result.data.metrics,
-            geojson: result.data.geojson, // Small inline geojson if available
-            geojsonS3Key: result.data.geojsonS3Key, // S3 reference for large data
-            geojsonS3Bucket: result.data.geojsonS3Bucket,
+            geojson: result.data.geojson,
+            mapHtml: result.data.mapHtml,
             mapUrl: result.data.mapUrl,
             visualizations: result.data.visualizations,
-            visualizationError: result.data.visualizationError,
             message: result.data.message
           }
         };
