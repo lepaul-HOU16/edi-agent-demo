@@ -187,5 +187,136 @@ dist/
 # reference repos for other agents and demos wanting to integrate, should not be included in the git repo
 agentic-ai-for-renewable-site-design-mainline/
 
+# Lambda layers - Python packages and dependencies
+amplify/layers/*/python/
+amplify/layers/*/build/
+amplify/layers/*/dist/
+amplify/layers/*/*.zip
+python-layer/
+
+# Kiro IDE - only ignore local settings, keep specs and steering
+.kiro/settings/local-*
+
+# Python package installations in layers and functions
+**/python/lib/
+**/python/bin/
+**/python/include/
+**/python/share/
+**/*.dist-info/
+**/*.egg-info/
+
+# Python virtual environments in function directories
+amplify/functions/**/venv/
+amplify/functions/**/.venv/
+amplify/functions/**/env/
+amplify/functions/**/__pycache__/
+
+# Python Lambda layer packages
+amplify/functions/**/layer/
+amplify/functions/**/python/
+amplify/functions/**/.aws-sam/
+
+# Python packages installed in function directories (pip install -t)
+amplify/functions/renewableTools/terrain/aiohappyeyeballs/
+amplify/functions/renewableTools/terrain/aiohttp/
+amplify/functions/renewableTools/terrain/aiosignal/
+amplify/functions/renewableTools/terrain/async_timeout/
+amplify/functions/renewableTools/terrain/attr/
+amplify/functions/renewableTools/terrain/attrs/
+amplify/functions/renewableTools/terrain/frozenlist/
+amplify/functions/renewableTools/terrain/idna/
+amplify/functions/renewableTools/terrain/multidict/
+amplify/functions/renewableTools/terrain/propcache/
+amplify/functions/renewableTools/terrain/yarl/
+amplify/functions/renewableTools/terrain/typing_extensions.py
+amplify/functions/renewableTools/terrain/*-*.dist-info/
+
+# Ignore all Python package directories in any function folder
+amplify/functions/**/aiohappyeyeballs/
+amplify/functions/**/aiohttp/
+amplify/functions/**/aiosignal/
+amplify/functions/**/async_timeout/
+amplify/functions/**/attr/
+amplify/functions/**/attrs/
+amplify/functions/**/frozenlist/
+amplify/functions/**/idna/
+amplify/functions/**/multidict/
+amplify/functions/**/propcache/
+amplify/functions/**/yarl/
+amplify/functions/**/certifi/
+amplify/functions/**/charset_normalizer/
+amplify/functions/**/requests/
+amplify/functions/**/urllib3/
+amplify/functions/**/*-*.dist-info/
+
+# Amplify generated files
+.amplify-hosting/
+amplify_outputs.json
+amplifyconfiguration.json
+aws-exports.js
+
+# Build artifacts and temporary files
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# Documentation builds
+docs/_build/
+docs/build/
+site/
+
+# Temporary files and backups
+*.tmp
+*.temp
+*.bak
+*.backup
+*~
+.#*
+
+# Package manager lock files (optional - uncomment if you want to ignore them)
+# package-lock.json
+# yarn.lock
+
+# Editor and IDE files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# OS specific files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
 # Version files (sometimes created by package managers)
 =*
+
+# Test and diagnostic output files
+docs/LAMBDA_EXISTENCE_CHECK.json
+scripts/test-output/
+*.test.log
+
+# Temporary deployment and status files (keep in docs/ for reference)
+# Uncomment these if you don't want to track deployment status docs
+# DEPLOY_NOW.md
+# DEMO_NOW.md
+# *_COMPLETE.md
+# *_STATUS.md
+# *_SUMMARY.mdrenewable-python-layer.zip

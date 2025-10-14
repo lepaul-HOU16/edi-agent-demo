@@ -64,9 +64,10 @@ export class AgentRouter {
   /**
    * Main routing function - determines which agent should handle the query
    */
-  async routeQuery(message: string, conversationHistory?: any[]): Promise<RouterResponse> {
+  async routeQuery(message: string, conversationHistory?: any[], sessionContext?: { chatSessionId?: string; userId?: string }): Promise<RouterResponse> {
     console.log('🔀 AgentRouter: Routing query:', message.substring(0, 100) + '...');
     console.log('🔀 AgentRouter: Conversation history provided:', !!conversationHistory, 'messages:', conversationHistory?.length || 0);
+    console.log('🔀 AgentRouter: Session context:', sessionContext);
     
     try {
       // Determine which agent should handle this query
@@ -115,8 +116,8 @@ export class AgentRouter {
             };
           }
           
-          // Route to renewable agent
-          result = await this.renewableAgent.processQuery(message, conversationHistory);
+          // Route to renewable agent with session context for async processing
+          result = await this.renewableAgent.processQuery(message, conversationHistory, sessionContext);
           return {
             ...result,
             agentUsed: 'renewable_energy'
@@ -191,6 +192,11 @@ export class AgentRouter {
 
     // Priority 2: Renewable energy patterns (before catalog/petrophysics to avoid conflicts)
     const renewablePatterns = [
+      // Environmental and impact assessment (HIGHEST PRIORITY)
+      /environmental/i,
+      /impact.*assessment/i,
+      /perform.*environmental/i,
+      
       // Wind farm development
       /wind.*farm|wind.*turbine|turbine.*layout|wind.*energy/,
       /renewable.*energy|clean.*energy|green.*energy/,
@@ -202,6 +208,7 @@ export class AgentRouter {
       // Layout and optimization
       /turbine.*placement|layout.*optimization|turbine.*spacing/,
       /wind.*farm.*design|wind.*farm.*layout/,
+      /create.*wind.*farm.*layout|create.*\d+mw.*wind.*farm/,
       
       // Performance and simulation
       /wake.*analysis|wake.*effect|capacity.*factor/,
@@ -211,7 +218,11 @@ export class AgentRouter {
       // Specific renewable terms
       /offshore.*wind|onshore.*wind|wind.*project/,
       /megawatt.*wind|mw.*wind|gigawatt.*hour|gwh/,
-      /wind.*farm.*development|renewable.*site.*design/
+      /wind.*farm.*development|renewable.*site.*design/,
+      
+      // Report generation
+      /generate.*comprehensive.*report|generate.*executive.*report/,
+      /generate.*terrain.*analysis.*report|generate.*environmental.*impact.*assessment.*report/
     ];
 
     // Priority 3: Catalog/geographic patterns
@@ -262,20 +273,22 @@ export class AgentRouter {
       /reservoir.*quality|completion.*target|net.*pay/
     ];
 
-    // Test patterns in priority order - WEATHER FIRST!
+    // Test patterns in priority order - WEATHER FIRST, then RENEWABLE!
+    console.log('🔍 AgentRouter: Testing patterns for message:', lowerMessage.substring(0, 100));
+    
     if (weatherPatterns.some(pattern => pattern.test(lowerMessage))) {
       console.log('🌤️ AgentRouter: Weather pattern matched');
-      return 'general';
-    }
-
-    if (generalPatterns.some(pattern => pattern.test(lowerMessage))) {
-      console.log('🌐 AgentRouter: General knowledge pattern matched');
       return 'general';
     }
 
     if (renewablePatterns.some(pattern => pattern.test(lowerMessage))) {
       console.log('🌱 AgentRouter: Renewable energy pattern matched');
       return 'renewable';
+    }
+
+    if (generalPatterns.some(pattern => pattern.test(lowerMessage))) {
+      console.log('🌐 AgentRouter: General knowledge pattern matched');
+      return 'general';
     }
 
     if (catalogPatterns.some(pattern => pattern.test(lowerMessage))) {
@@ -330,7 +343,8 @@ export class AgentRouter {
   private containsRenewableTerms(message: string): boolean {
     const renewableTerms = [
       'wind', 'turbine', 'renewable', 'clean energy', 'green energy',
-      'wind farm', 'layout', 'wake', 'capacity factor', 'aep'
+      'wind farm', 'layout', 'wake', 'capacity factor', 'aep',
+      'environmental', 'impact assessment', 'terrain analysis'
     ];
 
     return renewableTerms.some(term => message.includes(term));
