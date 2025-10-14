@@ -16,6 +16,7 @@ import ExpandablePromptInput from './ExpandablePromptInput';
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 import { getThinkingContextFromStep } from '../../utils/thoughtTypes';
+import { useRenewableJobPolling, useChatMessagePolling } from '@/hooks';
 
 const ChatBox = (params: {
   chatSessionId: string,
@@ -32,6 +33,21 @@ const ChatBox = (params: {
   // Use provided messages and setMessages if available, otherwise use local state
   const messages = params.messages || localMessages;
   const setMessages = params.setMessages || setLocalMessages;
+  
+  // Create stable callback using useCallback with proper dependencies
+  const handleMessagesUpdated = useCallback((updatedMessages: any[]) => {
+    console.log('🔄 ChatBox: Messages updated from polling, refreshing UI');
+    setMessages((prevMessages) => combineAndSortMessages(prevMessages, updatedMessages as Message[]));
+  }, [setMessages]);
+  
+  // POLLING: Disabled due to infinite loop issues
+  // TODO: Implement proper GraphQL subscription instead
+  // useChatMessagePolling({
+  //   chatSessionId,
+  //   enabled: false,
+  //   interval: 3000,
+  //   onMessagesUpdated: handleMessagesUpdated,
+  // });
 
 
   // Initialize Amplify client after component mounts
@@ -76,6 +92,32 @@ const ChatBox = (params: {
 
   // CRITICAL FIX: Add ref for thinking timeout management
   const thinkingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // ASYNC RENEWABLE JOBS: Poll for results from background processing
+  const {
+    isProcessing: isRenewableJobProcessing,
+    hasNewResults: hasNewRenewableResults,
+    latestMessage: latestRenewableMessage,
+  } = useRenewableJobPolling({
+    chatSessionId,
+    enabled: true, // Always poll when chat is open
+    pollingInterval: 3000, // Poll every 3 seconds
+    onNewMessage: (message) => {
+      console.log('🌱 ChatBox: New renewable job results received', message);
+      // Manually add the message to trigger UI update
+      if (message) {
+        setMessages((prevMessages) => {
+          // Check if message already exists
+          const exists = prevMessages.some(m => m.id === message.id);
+          if (!exists) {
+            console.log('🌱 ChatBox: Adding new renewable message to UI');
+            return [...prevMessages, message as Message];
+          }
+          return prevMessages;
+        });
+      }
+    },
+  });
 
   // Unified message filter function to ensure consistency
   const shouldDisplayMessage = useCallback((message: Message) => {
@@ -204,7 +246,8 @@ const ChatBox = (params: {
       const messagesSub = amplifyClient.models.ChatMessage.observeQuery({
         filter: {
           chatSessionId: { eq: params.chatSessionId }
-        }
+        },
+        selectionSet: ['id', 'role', 'content.*', 'chatSessionId', 'createdAt', 'responseComplete', 'artifacts', 'thoughtSteps']
       }).subscribe({
         next: ({ items }) => {
         setMessages((prevMessages) => {
@@ -240,7 +283,8 @@ const ChatBox = (params: {
       const result = await amplifyClient.models.ChatMessage.list({
         filter: {
           chatSessionId: { eq: params.chatSessionId }
-        }
+        },
+        selectionSet: ['id', 'role', 'content.*', 'chatSessionId', 'createdAt', 'responseComplete', 'artifacts', 'thoughtSteps']
       });
 
       if (result.data) {
@@ -411,7 +455,8 @@ const ChatBox = (params: {
     try {
       const { data: messagesToDelete } = await amplifyClient.models.ChatMessage.listChatMessageByChatSessionIdAndCreatedAt({
         chatSessionId: params.chatSessionId as any,
-        createdAt: { ge: messageToRegenerate.createdAt as any }
+        createdAt: { ge: messageToRegenerate.createdAt as any },
+        selectionSet: ['id', 'role', 'content.*', 'chatSessionId', 'createdAt', 'responseComplete', 'artifacts', 'thoughtSteps']
       });
 
       if (!messagesToDelete || messagesToDelete.length === 0) {

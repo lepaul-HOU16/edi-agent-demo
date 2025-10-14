@@ -26,7 +26,8 @@ export function getRenewableConfig(): RenewableConfig {
   const enabled = process.env.RENEWABLE_ENABLED !== 'false';
   
   // Get orchestrator function name (primary endpoint for Lambda-based approach)
-  const orchestratorFunctionName = process.env.RENEWABLE_ORCHESTRATOR_FUNCTION_NAME || 'renewableOrchestrator';
+  const orchestratorFunctionName = process.env.RENEWABLE_ORCHESTRATOR_FUNCTION_NAME || 
+    'amplify-digitalassistant--renewableOrchestratorlam-jBcrYHDFlPXd';  // Hardcoded for now
   
   // Get AgentCore endpoint (fallback for when AgentCore becomes GA)
   const agentCoreEndpoint = process.env.RENEWABLE_AGENTCORE_ENDPOINT || orchestratorFunctionName;

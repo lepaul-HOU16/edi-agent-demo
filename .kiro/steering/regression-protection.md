@@ -1,8 +1,27 @@
-# Regression Protection Guidelines
+# Regression Protection Guidelines - ENHANCED
 
 ## Core Principle: Protect Critical Fixes from Regression
 
+**CRITICAL WARNING**: This project has experienced REPEATED regressions where fixes are implemented and then immediately broken by subsequent changes. The current regression rate is UNACCEPTABLE.
+
 When implementing new AI code, **preserve existing fixes and understand the context** of what was previously broken and how it was resolved. Regressions often occur when new code inadvertently undoes carefully crafted solutions.
+
+## MANDATORY PRE-CHANGE CHECKLIST
+
+Before making ANY code change:
+
+```
+□ Have I read ALL related documentation?
+□ Have I identified ALL features that could be affected?
+□ Have I reviewed previous fixes to this area?
+□ Have I created a comprehensive test plan?
+□ Have I documented expected behavior?
+□ Have I identified protected patterns in this code?
+□ Do I understand WHY the current code exists?
+□ Have I planned regression tests?
+```
+
+If you cannot check ALL boxes, DO NOT PROCEED with changes.
 
 ## Critical Fix Categories to Protect
 
@@ -192,21 +211,46 @@ npm run test:professional-responses
 **Symptom**: Artifacts disappear, messages save but components don't render
 **Cause**: Modifying object creation patterns in `amplifyUtils.ts`
 **Prevention**: Always include artifacts in initial object creation
+**Test Required**: Verify artifacts persist and render after every database change
 
 ### 2. Intent Detection Regressions
 **Symptom**: Wrong components render, prompts route to generic responses
 **Cause**: Simplifying or reordering pattern matching logic
 **Prevention**: Maintain exclusion patterns and test all prompt combinations
+**Test Required**: Test ALL preloaded prompts after any intent detection change
 
 ### 3. Data Pipeline Regressions
 **Symptom**: Blank visualizations, synthetic data instead of real data
 **Cause**: Reverting to fallback data generation methods
 **Prevention**: Always validate S3 data flow and null value filtering
+**Test Required**: Verify real data flows through entire pipeline
 
 ### 4. Professional Response Regressions
 **Symptom**: Basic JSON responses instead of professional documentation
 **Cause**: Bypassing ProfessionalResponseBuilder classes
 **Prevention**: Use builder patterns for all professional tools
+**Test Required**: Verify response format matches professional standards
+
+### 5. Feature Count Regressions (CRITICAL - RECURRING ISSUE)
+**Symptom**: Map shows 60 features instead of 151
+**Cause**: Filtering logic, data fetching issues, or state management problems
+**Prevention**: ALWAYS verify feature count after ANY map-related change
+**Test Required**: 
+- Count features in raw data
+- Count features after filtering
+- Count features rendered in UI
+- Verify count matches expected 151
+
+### 6. Loading State Regressions (CRITICAL - RECURRING ISSUE)
+**Symptom**: "Analyzing" popup never dismisses, requires page reload
+**Cause**: State management issues, missing state updates, race conditions
+**Prevention**: ALWAYS test complete request/response cycle
+**Test Required**:
+- Verify loading state shows
+- Verify loading state dismisses on success
+- Verify loading state dismisses on error
+- Verify response displays after loading
+- Verify NO reload required
 
 ## Implementation Strategy
 

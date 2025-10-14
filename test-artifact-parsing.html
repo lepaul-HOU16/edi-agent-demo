@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Artifact Parsing Test</title>
+</head>
+<body>
+    <h1>Artifact Parsing Test</h1>
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, data) {
+            const div = document.createElement('div');
+            div.innerHTML = `<strong>${message}</strong>: ${JSON.stringify(data, null, 2)}`;
+            output.appendChild(div);
+            console.log(message, data);
+        }
+        
+        // Test cases
+        const testCases = [
+            {
+                name: 'Valid object artifact',
+                artifact: { type: 'wind_farm_terrain_analysis', data: { title: 'Test' } }
+            },
+            {
+                name: 'Single-stringified artifact',
+                artifact: JSON.stringify({ type: 'wind_farm_terrain_analysis', data: { title: 'Test' } })
+            },
+            {
+                name: 'Double-stringified artifact',
+                artifact: JSON.stringify(JSON.stringify({ type: 'wind_farm_terrain_analysis', data: { title: 'Test' } }))
+            },
+            {
+                name: 'Null artifact',
+                artifact: 'null'
+            },
+            {
+                name: 'Array artifact',
+                artifact: JSON.stringify([{ type: 'test' }])
+            },
+            {
+                name: 'Primitive artifact',
+                artifact: JSON.stringify(42)
+            }
+        ];
+        
+        testCases.forEach(testCase => {
+            log(`\n=== Testing: ${testCase.name} ===`, '');
+            
+            const artifact = testCase.artifact;
+            log('Input type', typeof artifact);
+            
+            try {
+                if (typeof artifact === 'string') {
+                    let parsed = JSON.parse(artifact);
+                    log('First parse result type', typeof parsed);
+                    
+                    // Handle double-stringified JSON
+                    if (typeof parsed === 'string') {
+                        log('Double-stringified detected, parsing again', '');
+                        parsed = JSON.parse(parsed);
+                        log('Second parse result type', typeof parsed);
+                    }
+                    
+                    // Validate
+                    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                        throw new Error(`Parsed artifact is ${Array.isArray(parsed) ? 'an array' : 'not an object'}`);
+                    }
+                    
+                    log('✅ SUCCESS', parsed);
+                } else if (artifact && typeof artifact === 'object') {
+                    log('✅ Already an object', artifact);
+                } else {
+                    throw new Error('Invalid artifact type');
+                }
+            } catch (error) {
+                log('❌ ERROR', error.message);
+            }
+        });
+    </script>
+</body>
+</html>

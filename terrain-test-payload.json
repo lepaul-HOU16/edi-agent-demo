@@ -1,0 +1,8 @@
+{
+  "parameters": {
+    "latitude": 35.067482,
+    "longitude": -101.395466,
+    "radius_km": 5,
+    "project_id": "test-deployment-validation"
+  }
+}

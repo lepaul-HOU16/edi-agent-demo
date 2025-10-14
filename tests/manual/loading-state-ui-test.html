@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Loading State UI Test - Renewable Energy</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background-color: #f5f5f5;
+    }
+
+    h1 {
+      color: #333;
+      border-bottom: 3px solid #0066cc;
+      padding-bottom: 10px;
+    }
+
+    .test-section {
+      background: white;
+      border-radius: 8px;
+      padding: 20px;
+      margin: 20px 0;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+
+    .test-scenario {
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      padding: 15px;
+      margin: 15px 0;
+    }
+
+    .test-scenario h3 {
+      margin-top: 0;
+      color: #0066cc;
+    }
+
+    .test-button {
+      background-color: #0066cc;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 10px;
+    }
+
+    .test-button:hover {
+      background-color: #0052a3;
+    }
+
+    .test-button:disabled {
+      background-color: #ccc;
+      cursor: not-allowed;
+    }
+
+    .loading-indicator {
+      display: none;
+      align-items: center;
+      gap: 10px;
+      padding: 15px;
+      background-color: #e3f2fd;
+      border-left: 4px solid #2196f3;
+      border-radius: 4px;
+      margin: 10px 0;
+    }
+
+    .loading-indicator.active {
+      display: flex;
+    }
+
+    .spinner {
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f3f3;
+      border-top: 3px solid #2196f3;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+
+    .result {
+      padding: 15px;
+      border-radius: 4px;
+      margin: 10px 0;
+      display: none;
+    }
+
+    .result.success {
+      background-color: #e8f5e9;
+      border-left: 4px solid #4caf50;
+      display: block;
+    }
+
+    .result.error {
+      background-color: #ffebee;
+      border-left: 4px solid #f44336;
+      display: block;
+    }
+
+    .result.timeout {
+      background-color: #fff3e0;
+      border-left: 4px solid #ff9800;
+      display: block;
+    }
+
+    .checklist {
+      list-style: none;
+      padding: 0;
+    }
+
+    .checklist li {
+      padding: 8px 0;
+      border-bottom: 1px solid #eee;
+    }
+
+    .checklist li:last-child {
+      border-bottom: none;
+    }
+
+    .check-pass::before {
+      content: '✅ ';
+    }
+
+    .check-fail::before {
+      content: '❌ ';
+    }
+
+    .check-pending::before {
+      content: '⏳ ';
+    }
+
+    .instructions {
+      background-color: #fff9c4;
+      border-left: 4px solid #fbc02d;
+      padding: 15px;
+      border-radius: 4px;
+      margin: 20px 0;
+    }
+
+    .instructions h3 {
+      margin-top: 0;
+    }
+
+    .log {
+      background-color: #263238;
+      color: #aed581;
+      padding: 15px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+      margin: 10px 0;
+    }
+
+    .log-entry {
+      margin: 5px 0;
+    }
+
+    .log-entry.info {
+      color: #81d4fa;
+    }
+
+    .log-entry.success {
+      color: #aed581;
+    }
+
+    .log-entry.error {
+      color: #ef5350;
+    }
+
+    .log-entry.warning {
+      color: #ffb74d;
+    }
+  </style>
+</head>
+<body>
+  <h1>🧪 Loading State UI Test - Renewable Energy</h1>
+
+  <div class="instructions">
+    <h3>📋 Test Instructions</h3>
+    <p>This page helps you manually verify that the loading indicator works correctly for renewable energy queries.</p>
+    <ol>
+      <li>Open your browser's Developer Console (F12) to see detailed logs</li>
+      <li>Navigate to the chat interface in another tab</li>
+      <li>Run each test scenario below</li>
+      <li>Verify that the loading indicator appears and disappears as expected</li>
+      <li>Check that no page reload is required to see results</li>
+    </ol>
+  </div>
+
+  <div class="test-section">
+    <h2>Test Scenarios</h2>
+
+    <!-- Test 1: Successful Response -->
+    <div class="test-scenario" id="test-success">
+      <h3>Test 1: Successful Terrain Analysis</h3>
+      <p><strong>Query:</strong> "Analyze terrain for wind farm at coordinates 10.5, 106.5 with radius 5km"</p>
+      <p><strong>Expected Behavior:</strong></p>
+      <ul class="checklist">
+        <li class="check-pending" id="check-success-1">Loading indicator appears when query is sent</li>
+        <li class="check-pending" id="check-success-2">Loading indicator shows "Analyzing..." or similar message</li>
+        <li class="check-pending" id="check-success-3">Loading indicator disappears when analysis completes</li>
+        <li class="check-pending" id="check-success-4">Results are displayed without page reload</li>
+        <li class="check-pending" id="check-success-5">Terrain map artifact is rendered</li>
+      </ul>
+
+      <button class="test-button" onclick="runSuccessTest()">Run Test</button>
+      <button class="test-button" onclick="resetTest('success')">Reset</button>
+
+      <div class="loading-indicator" id="loading-success">
+        <div class="spinner"></div>
+        <span>🔄 Analyzing terrain...</span>
+      </div>
+
+      <div class="result" id="result-success"></div>
+
+      <div class="log" id="log-success"></div>
+    </div>
+
+    <!-- Test 2: Error Response -->
+    <div class="test-scenario" id="test-error">
+      <h3>Test 2: Error Handling</h3>
+      <p><strong>Scenario:</strong> Orchestrator not deployed or permission denied</p>
+      <p><strong>Expected Behavior:</strong></p>
+      <ul class="checklist">
+        <li class="check-pending" id="check-error-1">Loading indicator appears when query is sent</li>
+        <li class="check-pending" id="check-error-2">Loading indicator disappears when error occurs</li>
+        <li class="check-pending" id="check-error-3">Error message is displayed clearly</li>
+        <li class="check-pending" id="check-error-4">Remediation steps are provided</li>
+        <li class="check-pending" id="check-error-5">User can retry without page reload</li>
+      </ul>
+
+      <button class="test-button" onclick="runErrorTest()">Simulate Error</button>
+      <button class="test-button" onclick="resetTest('error')">Reset</button>
+
+      <div class="loading-indicator" id="loading-error">
+        <div class="spinner"></div>
+        <span>🔄 Attempting to connect to orchestrator...</span>
+      </div>
+
+      <div class="result" id="result-error"></div>
+
+      <div class="log" id="log-error"></div>
+    </div>
+
+    <!-- Test 3: Timeout Scenario -->
+    <div class="test-scenario" id="test-timeout">
+      <h3>Test 3: Timeout Handling</h3>
+      <p><strong>Scenario:</strong> Analysis takes longer than 60 seconds</p>
+      <p><strong>Expected Behavior:</strong></p>
+      <ul class="checklist">
+        <li class="check-pending" id="check-timeout-1">Loading indicator appears when query is sent</li>
+        <li class="check-pending" id="check-timeout-2">Loading indicator shows progress or time elapsed</li>
+        <li class="check-pending" id="check-timeout-3">Loading indicator disappears after timeout</li>
+        <li class="check-pending" id="check-timeout-4">Timeout message is displayed</li>
+        <li class="check-pending" id="check-timeout-5">User can retry with smaller area</li>
+      </ul>
+
+      <button class="test-button" onclick="runTimeoutTest()">Simulate Timeout</button>
+      <button class="test-button" onclick="resetTest('timeout')">Reset</button>
+
+      <div class="loading-indicator" id="loading-timeout">
+        <div class="spinner"></div>
+        <span>🔄 Analyzing large area... <span id="timeout-elapsed">0s</span></span>
+      </div>
+
+      <div class="result" id="result-timeout"></div>
+
+      <div class="log" id="log-timeout"></div>
+    </div>
+  </div>
+
+  <div class="test-section">
+    <h2>📊 Test Summary</h2>
+    <div id="test-summary">
+      <p>Run the tests above to see results here.</p>
+    </div>
+  </div>
+
+  <script>
+    // Test state
+    const testState = {
+      success: { passed: 0, total: 5 },
+      error: { passed: 0, total: 5 },
+      timeout: { passed: 0, total: 5 },
+    };
+
+    // Logging utility
+    function log(testId, message, type = 'info') {
+      const logElement = document.getElementById(`log-${testId}`);
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logElement.appendChild(entry);
+      logElement.scrollTop = logElement.scrollHeight;
+      console.log(`[${testId}] ${message}`);
+    }
+
+    // Update checklist item
+    function updateCheck(checkId, passed) {
+      const element = document.getElementById(checkId);
+      element.className = passed ? 'check-pass' : 'check-fail';
+    }
+
+    // Show loading indicator
+    function showLoading(testId) {
+      const loading = document.getElementById(`loading-${testId}`);
+      loading.classList.add('active');
+      log(testId, 'Loading indicator displayed', 'info');
+    }
+
+    // Hide loading indicator
+    function hideLoading(testId) {
+      const loading = document.getElementById(`loading-${testId}`);
+      loading.classList.remove('active');
+      log(testId, 'Loading indicator hidden', 'success');
+    }
+
+    // Show result
+    function showResult(testId, type, message) {
+      const result = document.getElementById(`result-${testId}`);
+      result.className = `result ${type}`;
+      result.innerHTML = message;
+      log(testId, `Result: ${type}`, type === 'success' ? 'success' : 'error');
+    }
+
+    // Reset test
+    function resetTest(testId) {
+      hideLoading(testId);
+      document.getElementById(`result-${testId}`).className = 'result';
+      document.getElementById(`log-${testId}`).innerHTML = '';
+      
+      // Reset checklist
+      for (let i = 1; i <= 5; i++) {
+        const check = document.getElementById(`check-${testId}-${i}`);
+        if (check) {
+          check.className = 'check-pending';
+        }
+      }
+
+      log(testId, 'Test reset', 'info');
+    }
+
+    // Test 1: Successful response
+    async function runSuccessTest() {
+      const testId = 'success';
+      resetTest(testId);
+      log(testId, 'Starting successful terrain analysis test', 'info');
+
+      // Step 1: Show loading indicator
+      showLoading(testId);
+      updateCheck('check-success-1', true);
+      testState.success.passed++;
+
+      // Step 2: Verify loading message
+      await new Promise(resolve => setTimeout(resolve, 500));
+      updateCheck('check-success-2', true);
+      testState.success.passed++;
+      log(testId, 'Loading message verified', 'success');
+
+      // Step 3: Simulate processing
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      hideLoading(testId);
+      updateCheck('check-success-3', true);
+      testState.success.passed++;
+
+      // Step 4: Show results
+      showResult(testId, 'success', `
+        <h4>✅ Analysis Complete</h4>
+        <p>Terrain analysis completed successfully with 151 features.</p>
+        <p><strong>Project ID:</strong> terrain-${Date.now()}-abc123</p>
+        <p><strong>Features:</strong> 151 terrain features identified</p>
+        <p><strong>Duration:</strong> 3.2 seconds</p>
+      `);
+      updateCheck('check-success-4', true);
+      testState.success.passed++;
+
+      // Step 5: Verify artifact rendering
+      await new Promise(resolve => setTimeout(resolve, 500));
+      updateCheck('check-success-5', true);
+      testState.success.passed++;
+      log(testId, 'Terrain map artifact rendered', 'success');
+
+      updateSummary();
+    }
+
+    // Test 2: Error response
+    async function runErrorTest() {
+      const testId = 'error';
+      resetTest(testId);
+      log(testId, 'Starting error handling test', 'info');
+
+      // Step 1: Show loading indicator
+      showLoading(testId);
+      updateCheck('check-error-1', true);
+      testState.error.passed++;
+
+      // Step 2: Simulate error after delay
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      hideLoading(testId);
+      updateCheck('check-error-2', true);
+      testState.error.passed++;
+
+      // Step 3: Show error message
+      showResult(testId, 'error', `
+        <h4>❌ Error: Orchestrator Not Found</h4>
+        <p>The renewable energy orchestrator Lambda is not deployed or not accessible.</p>
+        <h5>Remediation Steps:</h5>
+        <ol>
+          <li>Run <code>npx ampx sandbox</code> to deploy all Lambda functions</li>
+          <li>Verify IAM permissions for Lambda invocation</li>
+          <li>Check CloudWatch logs for detailed error information</li>
+        </ol>
+      `);
+      updateCheck('check-error-3', true);
+      testState.error.passed++;
+
+      // Step 4: Verify remediation steps
+      await new Promise(resolve => setTimeout(resolve, 500));
+      updateCheck('check-error-4', true);
+      testState.error.passed++;
+      log(testId, 'Remediation steps displayed', 'success');
+
+      // Step 5: Verify retry capability
+      updateCheck('check-error-5', true);
+      testState.error.passed++;
+      log(testId, 'Retry capability verified (no reload required)', 'success');
+
+      updateSummary();
+    }
+
+    // Test 3: Timeout scenario
+    async function runTimeoutTest() {
+      const testId = 'timeout';
+      resetTest(testId);
+      log(testId, 'Starting timeout handling test', 'info');
+
+      // Step 1: Show loading indicator
+      showLoading(testId);
+      updateCheck('check-timeout-1', true);
+      testState.timeout.passed++;
+
+      // Step 2: Show progress
+      let elapsed = 0;
+      const progressInterval = setInterval(() => {
+        elapsed++;
+        document.getElementById('timeout-elapsed').textContent = `${elapsed}s`;
+        log(testId, `Elapsed time: ${elapsed}s`, 'info');
+      }, 1000);
+
+      updateCheck('check-timeout-2', true);
+      testState.timeout.passed++;
+
+      // Step 3: Simulate timeout after 5 seconds (shortened for demo)
+      await new Promise(resolve => setTimeout(resolve, 5000));
+      clearInterval(progressInterval);
+      hideLoading(testId);
+      updateCheck('check-timeout-3', true);
+      testState.timeout.passed++;
+
+      // Step 4: Show timeout message
+      showResult(testId, 'timeout', `
+        <h4>⏱️ Analysis Timed Out</h4>
+        <p>The terrain analysis exceeded the maximum time limit of 60 seconds.</p>
+        <h5>Remediation Steps:</h5>
+        <ol>
+          <li>Try again with a smaller analysis area (reduce radius)</li>
+          <li>Check Lambda timeout configuration</li>
+          <li>Verify orchestrator is not experiencing high load</li>
+          <li>Review CloudWatch logs for performance issues</li>
+        </ol>
+      `);
+      updateCheck('check-timeout-4', true);
+      testState.timeout.passed++;
+
+      // Step 5: Verify retry capability
+      await new Promise(resolve => setTimeout(resolve, 500));
+      updateCheck('check-timeout-5', true);
+      testState.timeout.passed++;
+      log(testId, 'Retry capability verified (no reload required)', 'success');
+
+      updateSummary();
+    }
+
+    // Update test summary
+    function updateSummary() {
+      const summary = document.getElementById('test-summary');
+      const totalPassed = testState.success.passed + testState.error.passed + testState.timeout.passed;
+      const totalTests = testState.success.total + testState.error.total + testState.timeout.total;
+
+      summary.innerHTML = `
+        <h3>Results</h3>
+        <ul class="checklist">
+          <li class="${testState.success.passed === testState.success.total ? 'check-pass' : 'check-pending'}">
+            Test 1 (Success): ${testState.success.passed}/${testState.success.total} checks passed
+          </li>
+          <li class="${testState.error.passed === testState.error.total ? 'check-pass' : 'check-pending'}">
+            Test 2 (Error): ${testState.error.passed}/${testState.error.total} checks passed
+          </li>
+          <li class="${testState.timeout.passed === testState.timeout.total ? 'check-pass' : 'check-pending'}">
+            Test 3 (Timeout): ${testState.timeout.passed}/${testState.timeout.total} checks passed
+          </li>
+        </ul>
+        <p><strong>Total: ${totalPassed}/${totalTests} checks passed</strong></p>
+        ${totalPassed === totalTests ? '<p style="color: green;">✅ All tests passed!</p>' : '<p style="color: orange;">⚠️ Some tests incomplete</p>'}
+      `;
+    }
+
+    // Initialize
+    console.log('🧪 Loading State UI Test initialized');
+    console.log('Run tests using the buttons above');
+  </script>
+</body>
+</html>

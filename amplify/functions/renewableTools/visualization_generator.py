@@ -55,16 +55,20 @@ class RenewableVisualizationGenerator:
             aws_region: AWS region for S3 operations
         """
         self.s3_bucket = s3_bucket or os.environ.get('RENEWABLE_S3_BUCKET')
-        self.aws_region = aws_region
+        self.aws_region = aws_region or os.environ.get('RENEWABLE_AWS_REGION', 'us-west-2')
         
         # Initialize S3 client if bucket is provided
         self.s3_client = None
         if self.s3_bucket:
             try:
                 self.s3_client = boto3.client('s3', region_name=self.aws_region)
-                logger.info(f"Initialized S3 client for bucket: {self.s3_bucket}")
+                logger.info(f"✅ Initialized S3 client for bucket: {self.s3_bucket} in region: {self.aws_region}")
             except Exception as e:
-                logger.warning(f"Failed to initialize S3 client: {e}")
+                logger.error(f"❌ Failed to initialize S3 client: {e}")
+                logger.error(f"   Bucket: {self.s3_bucket}, Region: {self.aws_region}")
+        else:
+            logger.warning(f"⚠️ S3 bucket not configured - visualizations will not be stored")
+            logger.warning(f"   Set RENEWABLE_S3_BUCKET environment variable to enable S3 storage")
         
         # Configure matplotlib for professional appearance
         self._setup_matplotlib_style()
@@ -202,15 +206,37 @@ class RenewableVisualizationGenerator:
         if boundaries_data and boundaries_data.get('features'):
             for feature in boundaries_data['features']:
                 feature_type = feature.get('properties', {}).get('feature_type', 'other')
+                data_source = feature.get('properties', {}).get('data_source', 'unknown')
+                reliability = feature.get('properties', {}).get('reliability', 'unknown')
+                warning = feature.get('properties', {}).get('warning', '')
                 
                 # Get color style for feature type
                 color_style = self.terrain_colors.get(feature_type, self.terrain_colors['other'])
                 
+                # Modify style for synthetic data
+                if data_source == 'synthetic_fallback':
+                    color_style = color_style.copy()
+                    color_style['fillOpacity'] = 0.3  # Reduce opacity for synthetic data
+                    color_style['opacity'] = 0.6
+                
+                # Create enhanced popup with data source information
+                popup_content = f"""
+                <div style="font-family: Arial, sans-serif;">
+                    <h4>{feature_type.title()} Feature</h4>
+                    <p><strong>Data Source:</strong> {data_source.replace('_', ' ').title()}</p>
+                    <p><strong>Reliability:</strong> {reliability.title()}</p>
+                """
+                
+                if warning:
+                    popup_content += f'<p style="color: orange;"><strong>⚠️ {warning}</strong></p>'
+                
+                popup_content += "</div>"
+                
                 folium.GeoJson(
                     feature,
                     style_function=lambda x, style=color_style: style,
-                    popup=folium.Popup(f"Type: {feature_type.title()}", parse_html=True),
-                    tooltip=f"{feature_type.title()} - Unbuildable Area"
+                    popup=folium.Popup(popup_content, parse_html=True),
+                    tooltip=f"{feature_type.title()} - {data_source.replace('_', ' ').title()}"
                 ).add_to(m)
         
         # Add center marker
@@ -484,10 +510,14 @@ class RenewableVisualizationGenerator:
             S3 URL if successful, None otherwise
         """
         if not self.s3_client or not self.s3_bucket:
-            logger.warning("S3 client not configured, cannot save visualization")
+            logger.error("❌ S3 client not configured, cannot save visualization")
+            logger.error(f"   S3 Client: {self.s3_client is not None}, Bucket: {self.s3_bucket}")
             return None
         
         try:
+            content_size_kb = len(content) / 1024
+            logger.info(f"📤 Uploading {content_size_kb:.2f} KB to S3: s3://{self.s3_bucket}/{key}")
+            
             # Upload to S3
             self.s3_client.put_object(
                 Bucket=self.s3_bucket,
@@ -499,11 +529,18 @@ class RenewableVisualizationGenerator:
             
             # Generate URL
             url = f"https://{self.s3_bucket}.s3.{self.aws_region}.amazonaws.com/{key}"
-            logger.info(f"Saved visualization to S3: {url}")
+            logger.info(f"✅ Saved visualization to S3: {url}")
             return url
             
         except ClientError as e:
-            logger.error(f"Failed to save to S3: {e}")
+            error_code = e.response.get('Error', {}).get('Code', 'Unknown')
+            error_message = e.response.get('Error', {}).get('Message', str(e))
+            logger.error(f"❌ Failed to save to S3 (Error: {error_code}): {error_message}")
+            logger.error(f"   Bucket: {self.s3_bucket}, Key: {key}, Region: {self.aws_region}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Unexpected error saving to S3: {e}")
+            logger.error(f"   Bucket: {self.s3_bucket}, Key: {key}")
             return None
     
     def save_html_to_s3(self, html_content: str, key: str) -> Optional[str]:

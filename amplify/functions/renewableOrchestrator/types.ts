@@ -4,8 +4,8 @@
 
 export interface OrchestratorRequest {
   query: string;
-  userId: string;
-  sessionId: string;
+  userId?: string;  // Optional - only required for async mode
+  sessionId?: string;  // Optional - only required for async mode
   context?: {
     previousResults?: any;
     projectId?: string;
@@ -17,10 +17,46 @@ export interface OrchestratorResponse {
   message: string;
   artifacts: Artifact[];
   thoughtSteps: ThoughtStep[];
+  responseComplete?: boolean;  // Signal to frontend that response is complete
   metadata: {
     executionTime: number;
     toolsUsed: string[];
     projectId?: string;
+    requestId?: string;
+    validationErrors?: string[];
+    parameterValidation?: {
+      missingRequired: string[];
+      invalidValues: string[];
+    };
+    timings?: {
+      validation: number;
+      intentDetection: number;
+      toolInvocation: number;
+      resultFormatting: number;
+      total: number;
+    };
+    error?: {
+      type: string;
+      message: string;
+      remediationSteps: string[];
+    };
+    health?: {
+      functionName: string;
+      version: string;
+      region: string;
+      toolsConfigured: {
+        terrain: boolean;
+        layout: boolean;
+        simulation: boolean;
+        report: boolean;
+      };
+      toolFunctionNames: {
+        terrain: string;
+        layout: string;
+        simulation: string;
+        report: string;
+      };
+    };
   };
 }
 
@@ -37,7 +73,7 @@ export interface ThoughtStep {
 }
 
 export interface RenewableIntent {
-  type: 'terrain_analysis' | 'layout_optimization' | 'wake_simulation' | 'report_generation' | 'unknown';
+  type: 'terrain_analysis' | 'layout_optimization' | 'wake_simulation' | 'wind_rose' | 'report_generation' | 'unknown';
   params: Record<string, any>;
   confidence: number;
 }

@@ -11,14 +11,13 @@ const __dirname = dirname(__filename);
 export const renewableLayoutTool = defineFunction((scope: Construct) => {
   return new lambda.Function(scope, 'RenewableLayoutTool', {
     runtime: lambda.Runtime.PYTHON_3_12,
-    handler: 'handler.handler',
+    handler: 'simple_handler.handler',
     code: lambda.Code.fromAsset(__dirname),
     timeout: Duration.seconds(60),
     memorySize: 1024,
     environment: {
-      S3_BUCKET: process.env.RENEWABLE_S3_BUCKET || '',
       LOG_LEVEL: 'INFO'
     },
-    description: 'Layout optimization tool - stdlib only, no dependencies'
+    description: 'Layout optimization tool (simple ZIP deployment)'
   });
 });

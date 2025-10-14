@@ -102,7 +102,10 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts, onFollow
           case 'wind_farm_simulation':
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
-                <SimulationChartArtifact data={artifact as any} />
+                <SimulationChartArtifact 
+                  data={artifact as any} 
+                  onFollowUpAction={onFollowUpAction}
+                />
               </div>
             );
 

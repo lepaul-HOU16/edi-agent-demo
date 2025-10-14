@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Orchestrator Diagnostics Panel - Manual Test Guide</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 30px;
+      border-radius: 10px;
+      margin-bottom: 30px;
+    }
+    .section {
+      background: white;
+      padding: 25px;
+      margin-bottom: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .section h2 {
+      margin-top: 0;
+      color: #333;
+      border-bottom: 2px solid #667eea;
+      padding-bottom: 10px;
+    }
+    .test-case {
+      background: #f8f9fa;
+      padding: 15px;
+      margin: 15px 0;
+      border-left: 4px solid #667eea;
+      border-radius: 4px;
+    }
+    .test-case h3 {
+      margin-top: 0;
+      color: #667eea;
+    }
+    .checklist {
+      list-style: none;
+      padding: 0;
+    }
+    .checklist li {
+      padding: 8px 0;
+      border-bottom: 1px solid #e0e0e0;
+    }
+    .checklist li:before {
+      content: "☐ ";
+      font-size: 18px;
+      margin-right: 10px;
+      color: #667eea;
+    }
+    .expected {
+      background: #e8f5e9;
+      padding: 10px;
+      border-left: 3px solid #4caf50;
+      margin: 10px 0;
+    }
+    .expected:before {
+      content: "✓ Expected: ";
+      font-weight: bold;
+      color: #4caf50;
+    }
+    .warning {
+      background: #fff3cd;
+      padding: 10px;
+      border-left: 3px solid #ffc107;
+      margin: 10px 0;
+    }
+    .warning:before {
+      content: "⚠ Warning: ";
+      font-weight: bold;
+      color: #ff9800;
+    }
+    .code {
+      background: #2d2d2d;
+      color: #f8f8f2;
+      padding: 15px;
+      border-radius: 5px;
+      overflow-x: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 14px;
+    }
+    .button {
+      display: inline-block;
+      background: #667eea;
+      color: white;
+      padding: 12px 24px;
+      border-radius: 5px;
+      text-decoration: none;
+      margin: 10px 10px 10px 0;
+      font-weight: 500;
+    }
+    .button:hover {
+      background: #5568d3;
+    }
+    .status-badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-left: 10px;
+    }
+    .status-healthy {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status-unhealthy {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .status-degraded {
+      background: #fff3cd;
+      color: #856404;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 15px 0;
+    }
+    th, td {
+      padding: 12px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background: #667eea;
+      color: white;
+      font-weight: 600;
+    }
+    tr:hover {
+      background: #f5f5f5;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔍 Orchestrator Diagnostics Panel - Manual Test Guide</h1>
+    <p>Task 18: Run diagnostic panel tests to verify orchestrator health monitoring</p>
+    <p><strong>Requirements:</strong> 6.1, 6.2, 6.3, 6.4, 6.5</p>
+  </div>
+
+  <div class="section">
+    <h2>📋 Test Overview</h2>
+    <p>This guide walks you through manually testing the Orchestrator Diagnostic Panel to ensure it correctly identifies orchestrator deployment status, displays diagnostic results, and provides actionable remediation steps.</p>
+    
+    <div class="warning">
+      You must be logged in to the application to access the diagnostic panel. The API requires authentication.
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🚀 Setup Instructions</h2>
+    
+    <h3>Step 1: Start the Development Server</h3>
+    <div class="code">npm run dev</div>
+    
+    <h3>Step 2: Access the Diagnostic Panel</h3>
+    <p>The diagnostic panel needs to be integrated into a page. You have two options:</p>
+    
+    <h4>Option A: Create a Test Page (Recommended)</h4>
+    <div class="code">
+# Create a test page at src/app/diagnostics/page.tsx
+# See the code example below
+    </div>
+    
+    <h4>Option B: Add to Existing Page</h4>
+    <p>Import and add the component to any existing page in your application.</p>
+    
+    <h3>Step 3: Deploy Backend (if not already deployed)</h3>
+    <div class="code">npx ampx sandbox --stream-function-logs</div>
+  </div>
+
+  <div class="section">
+    <h2>📝 Test Page Code</h2>
+    <p>Create <code>src/app/diagnostics/page.tsx</code> with the following content:</p>
+    <div class="code">
+'use client';
+
+import { OrchestratorDiagnosticPanel } from '@/components/renewable/OrchestratorDiagnosticPanel';
+import { Authenticator } from '@aws-amplify/ui-react';
+
+export default function DiagnosticsPage() {
+  return (
+    &lt;Authenticator&gt;
+      {({ signOut, user }) =&gt; (
+        &lt;div style={{ padding: '20px' }}&gt;
+          &lt;h1&gt;Orchestrator Diagnostics&lt;/h1&gt;
+          &lt;p&gt;User: {user?.username}&lt;/p&gt;
+          &lt;button onClick={signOut}&gt;Sign Out&lt;/button&gt;
+          
+          &lt;div style={{ marginTop: '20px' }}&gt;
+            &lt;OrchestratorDiagnosticPanel 
+              onDiagnosticsComplete={(response) =&gt; {
+                console.log('Diagnostics complete:', response);
+              }}
+            /&gt;
+          &lt;/div&gt;
+        &lt;/div&gt;
+      )}
+    &lt;/Authenticator&gt;
+  );
+}
+    </div>
+    
+    <p>Then navigate to: <a href="http://localhost:3000/diagnostics" class="button" target="_blank">http://localhost:3000/diagnostics</a></p>
+  </div>
+
+  <div class="section">
+    <h2>🧪 Test Cases</h2>
+
+    <div class="test-case">
+      <h3>Test Case 1: Panel Renders Correctly</h3>
+      <ul class="checklist">
+        <li>Panel displays with "Orchestrator Diagnostics" header</li>
+        <li>"Quick Check" button is visible and enabled</li>
+        <li>"Run Full Diagnostics" button is visible and enabled</li>
+        <li>Initial state shows "Click 'Run Full Diagnostics' to check the orchestrator health"</li>
+        <li>No errors or console warnings appear</li>
+      </ul>
+      <div class="expected">
+        Panel should render cleanly with all UI elements visible and functional.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 2: Quick Check Functionality</h3>
+      <ul class="checklist">
+        <li>Click "Quick Check" button</li>
+        <li>Loading spinner appears with "Running diagnostics..." message</li>
+        <li>Results appear within 1-2 seconds</li>
+        <li>Badge shows "Quick Check" (not "Full Diagnostics")</li>
+        <li>Only environment variable check is performed</li>
+        <li>Summary statistics show: Total Checks = 1</li>
+      </ul>
+      <div class="expected">
+        Quick check should complete quickly and only validate environment variables.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 3: Full Diagnostics - Orchestrator Deployed</h3>
+      <p><strong>Prerequisite:</strong> Orchestrator must be deployed (run <code>npx ampx sandbox</code>)</p>
+      <ul class="checklist">
+        <li>Click "Run Full Diagnostics" button</li>
+        <li>Loading spinner appears</li>
+        <li>Results appear within 5-10 seconds</li>
+        <li>Overall Status shows <span class="status-badge status-healthy">Healthy</span></li>
+        <li>Summary shows: Total Checks = 3, Passed = 3, Failed = 0</li>
+        <li>All three diagnostic checks pass:
+          <ul>
+            <li>✓ Check Environment Variables</li>
+            <li>✓ Check Orchestrator Exists</li>
+            <li>✓ Test Orchestrator Invocation</li>
+          </ul>
+        </li>
+        <li>Each check shows green "Passed" status indicator</li>
+        <li>Duration is displayed for each check</li>
+        <li>CloudWatch log links section appears</li>
+        <li>Links are clickable and open in new tab</li>
+        <li>Next Steps shows: "All systems operational - orchestrator is ready to use"</li>
+        <li>No recommendations section appears (only shown when issues exist)</li>
+      </ul>
+      <div class="expected">
+        All checks should pass with green status indicators. CloudWatch links should be functional.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 4: Full Diagnostics - Orchestrator NOT Deployed</h3>
+      <p><strong>Prerequisite:</strong> Stop sandbox or use wrong function name to simulate missing orchestrator</p>
+      <ul class="checklist">
+        <li>Click "Run Full Diagnostics" button</li>
+        <li>Overall Status shows <span class="status-badge status-unhealthy">Unhealthy</span></li>
+        <li>Environment Variables check may pass or fail depending on configuration</li>
+        <li>Check Orchestrator Exists shows red "Failed" status</li>
+        <li>Test Orchestrator Invocation is skipped (not shown)</li>
+        <li>Recommendations section appears with actionable steps</li>
+        <li>Recommendations include:
+          <ul>
+            <li>"Deploy the orchestrator Lambda function"</li>
+            <li>"Run: npx ampx sandbox"</li>
+            <li>"Wait for deployment to complete"</li>
+          </ul>
+        </li>
+        <li>Next Steps section provides deployment guidance</li>
+        <li>Error details are expandable and show specific error message</li>
+      </ul>
+      <div class="expected">
+        Failed checks should display clear error messages and remediation steps.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 5: Expandable Details</h3>
+      <ul class="checklist">
+        <li>Run full diagnostics</li>
+        <li>Each result row has "View Details" expandable section</li>
+        <li>Click to expand details for a passed check</li>
+        <li>Details show success information (function ARN, runtime, etc.)</li>
+        <li>Click to expand details for a failed check (if any)</li>
+        <li>Details show error message and recommendations</li>
+        <li>Recommendations are displayed as a bulleted list</li>
+        <li>Details can be collapsed by clicking again</li>
+      </ul>
+      <div class="expected">
+        Details should expand/collapse smoothly and show relevant information.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 6: CloudWatch Log Links</h3>
+      <ul class="checklist">
+        <li>Run full diagnostics with orchestrator deployed</li>
+        <li>"CloudWatch Log Links" expandable section appears</li>
+        <li>Expand the section</li>
+        <li>Links are shown for:
+          <ul>
+            <li>Orchestrator Logs</li>
+            <li>Terrain Tool Logs</li>
+            <li>Layout Tool Logs</li>
+            <li>Simulation Tool Logs</li>
+            <li>Report Tool Logs</li>
+          </ul>
+        </li>
+        <li>Each link has an external link icon</li>
+        <li>Click a link - it opens CloudWatch in a new tab</li>
+        <li>CloudWatch URL is correctly formatted for the AWS region</li>
+        <li>Log group corresponds to the Lambda function</li>
+      </ul>
+      <div class="expected">
+        CloudWatch links should open the correct log groups in the AWS Console.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 7: Summary Statistics</h3>
+      <ul class="checklist">
+        <li>Run full diagnostics</li>
+        <li>Summary section displays four metrics:
+          <ul>
+            <li>Total Checks (number)</li>
+            <li>Passed (green number)</li>
+            <li>Failed (red number)</li>
+            <li>Total Duration (formatted time)</li>
+          </ul>
+        </li>
+        <li>Numbers match the actual results</li>
+        <li>Duration is formatted correctly (ms or s)</li>
+        <li>Passed count is green, Failed count is red</li>
+      </ul>
+      <div class="expected">
+        Summary should accurately reflect diagnostic results with proper formatting.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 8: Authentication Required</h3>
+      <ul class="checklist">
+        <li>Sign out of the application</li>
+        <li>Try to access the diagnostics page</li>
+        <li>Authentication prompt appears</li>
+        <li>Sign in with valid credentials</li>
+        <li>Diagnostic panel loads successfully</li>
+        <li>Try running diagnostics while signed out (if possible)</li>
+        <li>Error message: "Authentication required. Please sign in to run diagnostics."</li>
+      </ul>
+      <div class="expected">
+        Diagnostic API should require authentication and show appropriate error message.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 9: Error Handling</h3>
+      <ul class="checklist">
+        <li>Disconnect from network (or use browser dev tools to simulate offline)</li>
+        <li>Click "Run Full Diagnostics"</li>
+        <li>Error alert appears with message: "Failed to run diagnostics: [error details]"</li>
+        <li>Error is displayed in red alert box</li>
+        <li>Reconnect to network</li>
+        <li>Click "Run Full Diagnostics" again</li>
+        <li>Error clears and diagnostics run successfully</li>
+      </ul>
+      <div class="expected">
+        Network errors should be caught and displayed clearly to the user.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 10: Multiple Runs</h3>
+      <ul class="checklist">
+        <li>Run full diagnostics</li>
+        <li>Wait for results to appear</li>
+        <li>Note the timestamp</li>
+        <li>Click "Run Full Diagnostics" again</li>
+        <li>Previous results are cleared</li>
+        <li>Loading state appears</li>
+        <li>New results appear with updated timestamp</li>
+        <li>Results are different from previous run (timestamp changed)</li>
+        <li>Run quick check after full diagnostics</li>
+        <li>Badge changes from "Full Diagnostics" to "Quick Check"</li>
+      </ul>
+      <div class="expected">
+        Multiple diagnostic runs should work correctly with proper state management.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 11: Callback Functionality</h3>
+      <ul class="checklist">
+        <li>Open browser console (F12)</li>
+        <li>Run full diagnostics</li>
+        <li>Check console for log: "Diagnostics complete: [response object]"</li>
+        <li>Response object contains all diagnostic data</li>
+        <li>Callback is triggered after diagnostics complete</li>
+      </ul>
+      <div class="expected">
+        onDiagnosticsComplete callback should fire with complete diagnostic response.
+      </div>
+    </div>
+
+    <div class="test-case">
+      <h3>Test Case 12: Remediation Steps Display</h3>
+      <ul class="checklist">
+        <li>Run diagnostics with at least one failure</li>
+        <li>Recommendations section appears</li>
+        <li>Recommendations are specific to the failure type</li>
+        <li>Each recommendation is actionable (includes commands or specific steps)</li>
+        <li>Next Steps section provides sequential guidance</li>
+        <li>Steps are numbered and easy to follow</li>
+      </ul>
+      <div class="expected">
+        Remediation guidance should be clear, specific, and actionable.
+      </div>
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>✅ Acceptance Criteria Verification</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Requirement</th>
+          <th>Test Case(s)</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>6.1 - Verify orchestrator exists and is accessible</td>
+          <td>Test Case 3, 4</td>
+          <td>☐</td>
+        </tr>
+        <tr>
+          <td>6.2 - Check orchestrator availability before routing</td>
+          <td>Test Case 3, 4</td>
+          <td>☐</td>
+        </tr>
+        <tr>
+          <td>6.3 - Return clear error with remediation steps</td>
+          <td>Test Case 4, 12</td>
+          <td>☐</td>
+        </tr>
+        <tr>
+          <td>6.4 - Provide specific deployment guidance</td>
+          <td>Test Case 4, 12</td>
+          <td>☐</td>
+        </tr>
+        <tr>
+          <td>6.5 - Route queries normally when healthy</td>
+          <td>Test Case 3</td>
+          <td>☐</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>🐛 Common Issues and Solutions</h2>
+    
+    <h3>Issue: "Authentication required" error</h3>
+    <p><strong>Solution:</strong> Make sure you're signed in to the application. The diagnostic API requires authentication.</p>
+    
+    <h3>Issue: All checks fail immediately</h3>
+    <p><strong>Solution:</strong> Check that environment variables are set correctly in your backend configuration. Run <code>npx ampx sandbox</code> to deploy.</p>
+    
+    <h3>Issue: CloudWatch links don't work</h3>
+    <p><strong>Solution:</strong> Ensure you're signed in to AWS Console in the same browser. Check that the AWS region matches your deployment.</p>
+    
+    <h3>Issue: Panel doesn't render</h3>
+    <p><strong>Solution:</strong> Check browser console for errors. Ensure all Cloudscape components are properly imported.</p>
+    
+    <h3>Issue: Diagnostics take too long</h3>
+    <p><strong>Solution:</strong> Use "Quick Check" for faster results. Full diagnostics may take 5-10 seconds due to Lambda cold starts.</p>
+  </div>
+
+  <div class="section">
+    <h2>📊 Test Results Template</h2>
+    <p>Use this template to document your test results:</p>
+    <div class="code">
+## Orchestrator Diagnostics Panel Test Results
+
+**Date:** [Date]
+**Tester:** [Your Name]
+**Environment:** [Development/Staging/Production]
+**Orchestrator Status:** [Deployed/Not Deployed]
+
+### Test Case Results
+
+| Test Case | Status | Notes |
+|-----------|--------|-------|
+| 1. Panel Renders | ☐ Pass ☐ Fail | |
+| 2. Quick Check | ☐ Pass ☐ Fail | |
+| 3. Full Diagnostics (Deployed) | ☐ Pass ☐ Fail | |
+| 4. Full Diagnostics (Not Deployed) | ☐ Pass ☐ Fail | |
+| 5. Expandable Details | ☐ Pass ☐ Fail | |
+| 6. CloudWatch Links | ☐ Pass ☐ Fail | |
+| 7. Summary Statistics | ☐ Pass ☐ Fail | |
+| 8. Authentication | ☐ Pass ☐ Fail | |
+| 9. Error Handling | ☐ Pass ☐ Fail | |
+| 10. Multiple Runs | ☐ Pass ☐ Fail | |
+| 11. Callback | ☐ Pass ☐ Fail | |
+| 12. Remediation Steps | ☐ Pass ☐ Fail | |
+
+### Issues Found
+[List any issues discovered during testing]
+
+### Recommendations
+[List any recommendations for improvements]
+
+### Overall Assessment
+☐ All tests passed - Ready for production
+☐ Minor issues found - Needs fixes
+☐ Major issues found - Requires significant work
+    </div>
+  </div>
+
+  <div class="section">
+    <h2>🎯 Next Steps After Testing</h2>
+    <ol>
+      <li>Document all test results using the template above</li>
+      <li>Create GitHub issues for any bugs found</li>
+      <li>Update task status in <code>.kiro/specs/fix-renewable-orchestrator-flow/tasks.md</code></li>
+      <li>If all tests pass, mark task 18 as complete</li>
+      <li>Proceed to task 19: Document findings and fixes</li>
+    </ol>
+  </div>
+
+  <div class="section">
+    <h2>📚 Additional Resources</h2>
+    <ul>
+      <li><a href="../docs/ORCHESTRATOR_DIAGNOSTIC_PANEL_IMPLEMENTATION.md">Diagnostic Panel Implementation Guide</a></li>
+      <li><a href="../docs/DIAGNOSTIC_API_IMPLEMENTATION.md">Diagnostic API Documentation</a></li>
+      <li><a href="../docs/ORCHESTRATOR_DIAGNOSTICS_IMPLEMENTATION.md">Diagnostics Utility Documentation</a></li>
+      <li><a href="../amplify/functions/agents/diagnostics/orchestratorDiagnostics.ts">Diagnostics Source Code</a></li>
+    </ul>
+  </div>
+
+  <footer style="text-align: center; margin-top: 40px; padding: 20px; color: #666;">
+    <p>Task 18: Run diagnostic panel tests | Requirements: 6.1, 6.2, 6.3, 6.4, 6.5</p>
+    <p>Part of: Fix Renewable Orchestrator Flow Spec</p>
+  </footer>
+</body>
+</html>

@@ -72,3 +72,45 @@ global.console = {
   // error: jest.fn(),
   // warn: jest.fn(),
 }
+
+// Add TextEncoder/TextDecoder polyfill for Node.js environment
+import { TextEncoder, TextDecoder } from 'util';
+import React from 'react';
+
+global.TextEncoder = TextEncoder as any;
+global.TextDecoder = TextDecoder as any;
+
+// Mock Cloudscape Design System components
+jest.mock('@cloudscape-design/components/box', () => ({
+  __esModule: true,
+  default: ({ children, ...props }: any) => 
+    React.createElement('div', { 'data-testid': 'cloudscape-box', ...props }, children)
+}));
+
+jest.mock('@cloudscape-design/components/status-indicator', () => ({
+  __esModule: true,
+  default: ({ children, type, ...props }: any) =>
+    React.createElement('div', { 'data-testid': 'cloudscape-status-indicator', 'data-type': type, ...props }, children)
+}));
+
+jest.mock('@cloudscape-design/components/progress-bar', () => ({
+  __esModule: true,
+  default: ({ value, label, description, additionalInfo, ...props }: any) =>
+    React.createElement('div', { 'data-testid': 'cloudscape-progress-bar', 'data-value': value, ...props }, [
+      label && React.createElement('div', { key: 'label' }, label),
+      description && React.createElement('div', { key: 'description' }, description),
+      additionalInfo && React.createElement('div', { key: 'additionalInfo' }, additionalInfo)
+    ].filter(Boolean))
+}));
+
+jest.mock('@cloudscape-design/components/container', () => ({
+  __esModule: true,
+  default: ({ children, ...props }: any) =>
+    React.createElement('div', { 'data-testid': 'cloudscape-container', ...props }, children)
+}));
+
+jest.mock('@cloudscape-design/components/space-between', () => ({
+  __esModule: true,
+  default: ({ children, ...props }: any) =>
+    React.createElement('div', { 'data-testid': 'cloudscape-space-between', ...props }, children)
+}));

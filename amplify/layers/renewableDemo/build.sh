@@ -12,7 +12,7 @@ rm -f renewable-demo-layer.zip
 
 # Install Python dependencies
 echo "Installing Python dependencies..."
-pip install -r python/renewable-demo/requirements.txt -t python/ --upgrade
+pip3 install -r python/requirements.txt -t python/ --upgrade
 
 # Create layer zip
 echo "Creating layer zip file..."

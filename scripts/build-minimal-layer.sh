@@ -1,67 +1,71 @@
 #!/bin/bash
-# Build MINIMAL Lambda Layer for Renewable Energy Tools
-# Only essential dependencies, no heavy geospatial libraries
-
 set -e
 
-echo "🔨 Building MINIMAL Renewable Energy Tools Lambda Layer..."
+echo "🔧 Building MINIMAL Python Lambda Layer..."
 
-# Create layer directory
-LAYER_DIR="renewable-tools-layer"
-rm -rf $LAYER_DIR
-mkdir -p $LAYER_DIR/python
+# Create temp directory
+LAYER_DIR=$(mktemp -d)
+echo "📁 Working in: $LAYER_DIR"
 
+# Create python directory structure
+mkdir -p "$LAYER_DIR/python"
+
+# Use Docker to build with Python 3.12 - MINIMAL packages only
 echo "📦 Installing MINIMAL Python dependencies..."
-
-# Install only boto3 and requests (lightweight)
-pip3 install \
-  boto3>=1.28.0 \
-  requests>=2.31.0 \
-  -t $LAYER_DIR/python/
-
-echo "📁 Copying renewable-demo tools..."
-
-# Copy the renewable demo tools
-mkdir -p $LAYER_DIR/python/agents/tools
-cp -r agentic-ai-for-renewable-site-design-mainline/workshop-assets/agents/tools/*.py \
-  $LAYER_DIR/python/agents/tools/
-
-echo "🗜️  Creating layer zip..."
+docker run --rm \
+  --entrypoint /bin/bash \
+  -v "$LAYER_DIR":/layer \
+  -w /layer \
+  public.ecr.aws/lambda/python:3.12 \
+  -c "pip install pandas folium boto3 aiohttp -t /layer/python --no-cache-dir --no-deps && \
+      pip install numpy pytz python-dateutil tzdata branca jinja2 requests xyzservices certifi charset-normalizer idna urllib3 botocore jmespath s3transfer aiohappyeyeballs aiosignal async-timeout attrs frozenlist multidict propcache yarl typing-extensions -t /layer/python --no-cache-dir && \
+      echo '🧹 Cleaning up...' && \
+      find /layer/python -type d -name 'tests' -exec rm -rf {} + 2>/dev/null || true && \
+      find /layer/python -type d -name 'test' -exec rm -rf {} + 2>/dev/null || true && \
+      find /layer/python -type d -name '__pycache__' -exec rm -rf {} + 2>/dev/null || true && \
+      find /layer/python -name '*.pyc' -delete && \
+      find /layer/python -name '*.pyo' -delete && \
+      find /layer/python -name '*.dist-info' -type d -exec rm -rf {} + 2>/dev/null || true && \
+      rm -rf /layer/python/pandas/tests 2>/dev/null || true && \
+      rm -rf /layer/python/numpy/tests 2>/dev/null || true"
 
 # Create zip file
-cd $LAYER_DIR
-zip -r ../renewable-tools-layer.zip python/
-cd ..
+echo "📦 Creating layer zip..."
+cd "$LAYER_DIR"
+zip -r9 -q /tmp/python-minimal-layer.zip python
 
-# Check size
-SIZE=$(du -h renewable-tools-layer.zip | cut -f1)
-echo "📏 Layer size: $SIZE"
+# Get layer size
+LAYER_SIZE=$(du -h /tmp/python-minimal-layer.zip | cut -f1)
+echo "📊 Layer size: $LAYER_SIZE"
 
-echo "☁️  Uploading to AWS Lambda..."
+# Upload to S3
+echo "📤 Uploading to S3..."
+aws s3 cp /tmp/python-minimal-layer.zip s3://amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy/layers/python-minimal-layer.zip
 
-# Upload layer
+# Publish new layer version
+echo "🚀 Publishing layer to AWS..."
 LAYER_ARN=$(aws lambda publish-layer-version \
-  --layer-name renewable-tools-minimal \
-  --description "Minimal dependencies for renewable energy analysis tools" \
-  --zip-file fileb://renewable-tools-layer.zip \
+  --layer-name RenewableDemoLayer24365431 \
+  --description "Minimal renewable energy Python dependencies" \
+  --content S3Bucket=amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy,S3Key=layers/python-minimal-layer.zip \
   --compatible-runtimes python3.12 \
-  --query 'LayerVersionArn' \
+  --query "LayerVersionArn" \
   --output text)
 
-echo "✅ Layer created: $LAYER_ARN"
-echo ""
-echo "📝 Update amplify/backend.ts with:"
-echo "const renewableLayerArn = '$LAYER_ARN';"
-echo ""
+echo "✅ Layer published: $LAYER_ARN"
 
-# Clean up
-rm -rf $LAYER_DIR
-rm renewable-tools-layer.zip
+# Update terrain Lambda to use new layer
+echo "🔗 Attaching layer to terrain Lambda..."
+aws lambda update-function-configuration \
+  --function-name amplify-digitalassistant--RenewableTerrainToolFBBF-ybNZBb7mi7Uv \
+  --layers "$LAYER_ARN"
 
-echo "🎉 Done!"
-echo ""
-echo "⚠️  NOTE: This minimal layer does NOT include:"
-echo "  - geopandas (use OSM Overpass API instead)"
-echo "  - folium (generate simple GeoJSON)"
-echo "  - py-wake (use simplified calculations)"
-echo "  - scipy/numpy (use basic math)"
+echo "⏳ Waiting for Lambda update to complete..."
+aws lambda wait function-updated \
+  --function-name amplify-digitalassistant--RenewableTerrainToolFBBF-ybNZBb7mi7Uv
+
+echo "✅ Layer rebuild and attachment complete!"
+
+# Cleanup
+rm -rf "$LAYER_DIR"
+rm /tmp/python-minimal-layer.zip

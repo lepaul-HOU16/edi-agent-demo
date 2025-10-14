@@ -17,6 +17,8 @@ import {
   SimulationArtifact,
   ReportArtifact,
   BaseArtifact,
+  EnhancedWakeArtifact,
+  EnhancedWindRoseArtifact,
 } from './types';
 
 /**
@@ -262,6 +264,88 @@ export class ResponseTransformer {
         ? data.metrics.optimizationRecommendations
         : [],
       s3Url: metadata?.s3Url,
+    };
+  }
+
+  /**
+   * Transform wake analysis artifact
+   * 
+   * Extracts wake analysis data including turbine wake losses and GeoJSON.
+   * 
+   * @param artifact - Wake analysis artifact
+   * @returns Wake artifact for EDI Platform
+   */
+  private transformWakeArtifact(artifact: any): EnhancedWakeArtifact {
+    console.log('🌪️ Transforming wake analysis artifact:', artifact);
+
+    const data = artifact.data || {};
+    const metrics = data.metrics || {};
+    
+    // Extract wake analysis metrics
+    const annualEnergyLoss = metrics.annualEnergyLoss || 0;
+    const affectedTurbines = metrics.affectedTurbines || 0;
+    const totalTurbines = metrics.totalTurbines || 0;
+    
+    // Process GeoJSON data
+    const geojson = data.geojson || { type: 'FeatureCollection', features: [] };
+    
+    return {
+      messageContentType: 'wake_analysis',
+      projectId: data.projectId,
+      title: data.title || 'Wake Analysis',
+      subtitle: data.subtitle || `${annualEnergyLoss.toFixed(1)}% energy loss`,
+      coordinates: data.coordinates,
+      metrics: {
+        annualEnergyLoss,
+        affectedTurbines,
+        totalTurbines,
+        wakeLosses: metrics.wakeLosses || []
+      },
+      geojson: geojson,
+      message: data.message,
+      visualization_available: data.visualization_available || false
+    };
+  }
+
+  /**
+   * Transform wind rose artifact
+   * 
+   * Extracts wind rose analysis data including wind directions and speeds.
+   * 
+   * @param artifact - Wind rose artifact
+   * @returns Wind rose artifact for EDI Platform
+   */
+  private transformWindRoseArtifact(artifact: any): EnhancedWindRoseArtifact {
+    console.log('🌹 Transforming wind rose artifact:', artifact);
+
+    const data = artifact.data || {};
+    const metrics = data.metrics || {};
+    const windData = data.windData || { directions: [], chartData: {} };
+    
+    return {
+      messageContentType: 'wind_rose',
+      projectId: data.projectId,
+      title: data.title || 'Wind Rose Analysis',
+      subtitle: data.subtitle || `${metrics.avgWindSpeed?.toFixed(1)} m/s average`,
+      coordinates: data.coordinates,
+      metrics: {
+        avgWindSpeed: metrics.avgWindSpeed || 0,
+        maxWindSpeed: metrics.maxWindSpeed || 0,
+        prevailingDirection: metrics.prevailingDirection || 'N',
+        totalObservations: metrics.totalObservations || 0
+      },
+      windData: {
+        directions: windData.directions || [],
+        chartData: windData.chartData || {
+          directions: [],
+          frequencies: [],
+          speeds: [],
+          speed_distributions: []
+        }
+      },
+      geojson: data.geojson || { type: 'FeatureCollection', features: [] },
+      message: data.message || '',
+      visualization_available: data.visualization_available || false
     };
   }
 

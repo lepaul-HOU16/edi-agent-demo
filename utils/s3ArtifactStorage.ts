@@ -1,8 +1,9 @@
 import { uploadData, downloadData, remove } from 'aws-amplify/storage';
 import { getCurrentUser } from 'aws-amplify/auth';
 
-// DynamoDB item size limit is 400KB, we'll use 300KB as safe threshold
-const DYNAMODB_SIZE_LIMIT = 300 * 1024; // 300KB in bytes
+// DynamoDB item size limit is 400KB, we'll use 100KB as safe threshold for individual artifacts
+// This ensures that even with multiple artifacts and message content, we stay under the limit
+const DYNAMODB_SIZE_LIMIT = 100 * 1024; // 100KB in bytes
 
 export interface S3ArtifactReference {
   type: 's3_reference';
@@ -130,7 +131,56 @@ export const downloadArtifactFromS3 = async (
 };
 
 /**
+ * Check if an array is a feature array (GeoJSON features)
+ * Feature arrays have objects with type, geometry, and properties
+ */
+const isFeatureArray = (arr: any[]): boolean => {
+  if (!Array.isArray(arr) || arr.length === 0) {
+    return false;
+  }
+  
+  // Check first few items to determine if this is a feature array
+  const sampleSize = Math.min(3, arr.length);
+  const samples = arr.slice(0, sampleSize);
+  
+  return samples.every(item => 
+    item && 
+    typeof item === 'object' &&
+    (item.type === 'Feature' || item.type === 'feature') &&
+    item.geometry &&
+    typeof item.geometry === 'object' &&
+    item.properties &&
+    typeof item.properties === 'object'
+  );
+};
+
+/**
+ * Count features in an artifact before and after optimization
+ */
+const countFeatures = (obj: any, path: string = ''): { path: string; count: number }[] => {
+  const featureCounts: { path: string; count: number }[] = [];
+  
+  if (!obj || typeof obj !== 'object') {
+    return featureCounts;
+  }
+  
+  Object.keys(obj).forEach(key => {
+    const value = obj[key];
+    const currentPath = path ? `${path}.${key}` : key;
+    
+    if (Array.isArray(value) && isFeatureArray(value)) {
+      featureCounts.push({ path: currentPath, count: value.length });
+    } else if (typeof value === 'object' && value !== null) {
+      featureCounts.push(...countFeatures(value, currentPath));
+    }
+  });
+  
+  return featureCounts;
+};
+
+/**
  * Optimize artifact for DynamoDB storage by reducing precision/sampling
+ * CRITICAL: Preserves feature arrays intact, only samples coordinate arrays
  */
 const optimizeArtifactForDynamoDB = (artifact: any): any => {
   try {
@@ -226,7 +276,17 @@ const optimizeArtifactForDynamoDB = (artifact: any): any => {
     } else {
       console.log('⚠️ Not a log plot viewer artifact, checking for other optimizable data...');
       
+      // Count features BEFORE optimization
+      const featureCountsBefore = countFeatures(optimizedArtifact);
+      if (featureCountsBefore.length > 0) {
+        console.log('📊 Feature counts BEFORE optimization:');
+        featureCountsBefore.forEach(({ path, count }) => {
+          console.log(`   ${path}: ${count} features`);
+        });
+      }
+      
       // Try to optimize any large arrays in the artifact
+      // CRITICAL FIX: Only optimize coordinate arrays, NEVER sample features arrays
       let dataReduced = false;
       
       const optimizeObject = (obj: any, path: string = '') => {
@@ -234,18 +294,70 @@ const optimizeArtifactForDynamoDB = (artifact: any): any => {
           const value = obj[key];
           const currentPath = path ? `${path}.${key}` : key;
           
-          if (Array.isArray(value) && value.length > 1000) {
-            const sampledData = value.filter((_, index) => index % 8 === 0);
+          // CRITICAL: Check if this is a feature array first (NEVER sample)
+          if (Array.isArray(value) && isFeatureArray(value)) {
+            console.log(`✅ PRESERVING feature array at ${currentPath}: ${value.length} features (no sampling)`);
+            // Recursively optimize within each feature (e.g., coordinates inside geometry)
+            value.forEach((feature: any, index: number) => {
+              if (typeof feature === 'object' && feature !== null) {
+                optimizeObject(feature, `${currentPath}[${index}]`);
+              }
+            });
+            return; // Skip further processing for this array
+          }
+          
+          // Check if this is a coordinate array (safe to sample)
+          const isCoordinateArray = currentPath.includes('coordinates') && 
+                                    !currentPath.includes('features') &&
+                                    Array.isArray(value) && 
+                                    value.length > 100 &&
+                                    value.every((item: any) => Array.isArray(item) || typeof item === 'number');
+          
+          if (isCoordinateArray) {
+            // Sample coordinate arrays for size reduction
+            const sampledData = value.filter((_: any, index: number) => index % 4 === 0);
             obj[key] = sampledData;
             dataReduced = true;
-            console.log(`🔧 Sampled array at ${currentPath}: ${value.length} → ${sampledData.length} items`);
-          } else if (typeof value === 'object' && value !== null) {
+            console.log(`🔧 Sampled coordinate array at ${currentPath}: ${value.length} → ${sampledData.length} items`);
+          } else if (Array.isArray(value) && value.length > 1000) {
+            // For other large arrays (not features, not coordinates), sample them
+            const sampledData = value.filter((_: any, index: number) => index % 8 === 0);
+            obj[key] = sampledData;
+            dataReduced = true;
+            console.log(`🔧 Sampled generic array at ${currentPath}: ${value.length} → ${sampledData.length} items`);
+          } else if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
             optimizeObject(value, currentPath);
           }
         });
       };
       
       optimizeObject(optimizedArtifact);
+      
+      // Count features AFTER optimization
+      const featureCountsAfter = countFeatures(optimizedArtifact);
+      if (featureCountsAfter.length > 0) {
+        console.log('📊 Feature counts AFTER optimization:');
+        featureCountsAfter.forEach(({ path, count }) => {
+          console.log(`   ${path}: ${count} features`);
+        });
+        
+        // Validate feature counts match
+        featureCountsBefore.forEach(before => {
+          const after = featureCountsAfter.find(a => a.path === before.path);
+          if (after) {
+            if (before.count !== after.count) {
+              console.error(`⚠️ WARNING: Feature count mismatch at ${before.path}!`);
+              console.error(`   Before: ${before.count} features`);
+              console.error(`   After: ${after.count} features`);
+              console.error(`   LOST: ${before.count - after.count} features`);
+            } else {
+              console.log(`✅ Feature count preserved at ${before.path}: ${before.count} features`);
+            }
+          } else {
+            console.error(`⚠️ WARNING: Feature array at ${before.path} was removed during optimization!`);
+          }
+        });
+      }
       
       if (dataReduced) {
         console.log('✅ Generic array optimization applied');
@@ -295,9 +407,10 @@ export const processArtifactsForStorage = async (
       console.log(`📤 Artifact ${i + 1} is large (${(sizeBytes / 1024).toFixed(2)} KB), attempting S3 upload...`);
       try {
         const s3Reference = await uploadArtifactToS3(artifact, chatSessionId);
+        // Serialize S3 reference as JSON string for GraphQL AWSJSON type
         results.push({
           shouldUseS3: true,
-          artifact: s3Reference,
+          artifact: JSON.stringify(s3Reference),
           sizeBytes
         });
       } catch (error) {
@@ -312,26 +425,43 @@ export const processArtifactsForStorage = async (
         
         if (optimizedSize < DYNAMODB_SIZE_LIMIT) {
           console.log(`✅ Optimization successful, using optimized artifact inline`);
+          // Serialize optimized artifact as JSON string
           results.push({
             shouldUseS3: false,
-            artifact: optimizedArtifact,
+            artifact: typeof optimizedArtifact === 'string' ? optimizedArtifact : JSON.stringify(optimizedArtifact),
             sizeBytes: optimizedSize
           });
         } else {
-          console.log(`⚠️ Artifact still too large after optimization, using as-is (may fail)`);
-          // Last resort: keep original inline (may fail, but preserves data)
+          console.error(`❌ Artifact still too large after optimization (${(optimizedSize / 1024).toFixed(2)} KB > 100 KB)`);
+          console.error(`   S3 upload failed and optimization didn't reduce size enough`);
+          console.error(`   Creating minimal error placeholder to preserve user experience`);
+          
+          // Create a minimal error placeholder that preserves key information
+          const errorPlaceholder = {
+            type: 'error',
+            messageContentType: 'error',
+            title: 'Visualization Unavailable',
+            data: {
+              message: 'This visualization was too large to store and could not be uploaded to cloud storage. Please try with a smaller analysis area or radius.',
+              originalType: artifact.type || artifact.messageContentType || 'unknown',
+              size: `${(optimizedSize / 1024).toFixed(2)} KB`,
+              suggestion: 'Try reducing the analysis radius or area to generate a smaller visualization.'
+            }
+          };
+          
           results.push({
             shouldUseS3: false,
-            artifact,
-            sizeBytes
+            artifact: JSON.stringify(errorPlaceholder),
+            sizeBytes: calculateArtifactSize(errorPlaceholder)
           });
         }
       }
     } else {
       console.log(`📝 Artifact ${i + 1} is small (${(sizeBytes / 1024).toFixed(2)} KB), keeping inline`);
+      // Serialize artifact as JSON string for GraphQL AWSJSON type
       results.push({
         shouldUseS3: false,
-        artifact,
+        artifact: JSON.stringify(artifact),
         sizeBytes
       });
     }

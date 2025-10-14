@@ -1,0 +1,29 @@
+# Exclude TypeScript and build files
+*.ts
+*.js
+*.map
+node_modules/
+resource.ts
+handler.ts
+
+# Exclude test files
+__pycache__/
+*.pyc
+*.pyo
+*.test.py
+*_test.py
+tests/
+
+# Exclude documentation
+*.md
+docs/
+
+# Exclude IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Keep only Python source and requirements
+!*.py
+!requirements.txt

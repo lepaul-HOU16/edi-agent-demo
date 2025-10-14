@@ -5,6 +5,15 @@
 
 set -e
 
+# Load environment variables from .env.local if it exists
+if [ -f ".env.local" ]; then
+    echo "Loading environment variables from .env.local..."
+    set -a  # automatically export all variables
+    source .env.local
+    set +a  # stop automatically exporting
+    echo ""
+fi
+
 echo "🌱 Renewable Energy Integration Validation"
 echo "=========================================="
 echo ""
@@ -23,19 +32,19 @@ WARNINGS=0
 # Function to print success
 success() {
     echo -e "${GREEN}✓${NC} $1"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 }
 
 # Function to print failure
 failure() {
     echo -e "${RED}✗${NC} $1"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 }
 
 # Function to print warning
 warning() {
     echo -e "${YELLOW}⚠${NC} $1"
-    ((WARNINGS++))
+    WARNINGS=$((WARNINGS + 1))
 }
 
 echo "1. Checking Environment Variables"
@@ -87,7 +96,12 @@ echo "-------------------------"
 
 # Check S3 bucket exists (if configured)
 if [ -n "$NEXT_PUBLIC_RENEWABLE_S3_BUCKET" ]; then
-    if aws s3 ls "s3://$NEXT_PUBLIC_RENEWABLE_S3_BUCKET" > /dev/null 2>&1; then
+    set +e  # Temporarily disable exit on error for AWS CLI
+    aws s3 ls "s3://$NEXT_PUBLIC_RENEWABLE_S3_BUCKET" > /dev/null 2>&1
+    S3_RESULT=$?
+    set -e  # Re-enable exit on error
+    
+    if [ $S3_RESULT -eq 0 ]; then
         success "S3 bucket exists and is accessible"
     else
         failure "S3 bucket does not exist or is not accessible"
@@ -103,7 +117,12 @@ echo "--------------------------"
 
 REGION="${NEXT_PUBLIC_RENEWABLE_AWS_REGION:-us-west-2}"
 
-if aws ssm get-parameter --name "/wind-farm-assistant/s3-bucket-name" --region "$REGION" > /dev/null 2>&1; then
+set +e  # Temporarily disable exit on error for AWS CLI
+aws ssm get-parameter --name "/wind-farm-assistant/s3-bucket-name" --region "$REGION" > /dev/null 2>&1
+SSM1_RESULT=$?
+set -e  # Re-enable exit on error
+
+if [ $SSM1_RESULT -eq 0 ]; then
     success "SSM parameter /wind-farm-assistant/s3-bucket-name exists"
     BUCKET_PARAM=$(aws ssm get-parameter --name "/wind-farm-assistant/s3-bucket-name" --region "$REGION" --query 'Parameter.Value' --output text)
     echo "   Value: $BUCKET_PARAM"
@@ -120,7 +139,12 @@ else
     fi
 fi
 
-if aws ssm get-parameter --name "/wind-farm-assistant/use-s3-storage" --region "$REGION" > /dev/null 2>&1; then
+set +e  # Temporarily disable exit on error for AWS CLI
+aws ssm get-parameter --name "/wind-farm-assistant/use-s3-storage" --region "$REGION" > /dev/null 2>&1
+SSM2_RESULT=$?
+set -e  # Re-enable exit on error
+
+if [ $SSM2_RESULT -eq 0 ]; then
     success "SSM parameter /wind-farm-assistant/use-s3-storage exists"
     STORAGE_PARAM=$(aws ssm get-parameter --name "/wind-farm-assistant/use-s3-storage" --region "$REGION" --query 'Parameter.Value' --output text)
     echo "   Value: $STORAGE_PARAM"
@@ -161,7 +185,12 @@ echo ""
 echo "5. Checking TypeScript Compilation"
 echo "-----------------------------------"
 
-if npm run build > /dev/null 2>&1; then
+set +e  # Temporarily disable exit on error for build
+npm run build > /dev/null 2>&1
+BUILD_RESULT=$?
+set -e  # Re-enable exit on error
+
+if [ $BUILD_RESULT -eq 0 ]; then
     success "TypeScript compilation successful"
 else
     failure "TypeScript compilation failed"
@@ -172,7 +201,12 @@ echo "6. Running Integration Tests"
 echo "-----------------------------"
 
 if [ "$NEXT_PUBLIC_RENEWABLE_ENABLED" = "true" ]; then
-    if npm test -- tests/integration/renewable-integration.test.ts --passWithNoTests > /dev/null 2>&1; then
+    set +e  # Temporarily disable exit on error for test
+    npm test -- tests/integration/renewable-integration.test.ts --passWithNoTests > /dev/null 2>&1
+    TEST_RESULT=$?
+    set -e  # Re-enable exit on error
+    
+    if [ $TEST_RESULT -eq 0 ]; then
         success "Integration tests passed"
     else
         warning "Integration tests failed or not found"

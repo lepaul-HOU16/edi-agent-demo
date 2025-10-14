@@ -23,7 +23,7 @@
     margin: 0 auto;
     padding: 15px 20px;
     z-index: 1000;
-     
+
     .input-bkgd {
         width: 100%;
         height: 52px;
@@ -33,7 +33,10 @@
         align-items: center;
         padding-left: 10px;
 
-        > div:first-child {width: 100%;}
+        >div:first-child {
+            width: 100%;
+        }
+
         .awsui_button-dropdown_sne0l_ncm5v_145:not(#\9) {
             position: relative;
             left: 17px;
@@ -52,23 +55,31 @@
 .panel {
     margin-top: -1px;
 
-    > div {
+    >div {
         box-shadow: var(--shadow-light);
         border-radius: 16px;
-        border-top-left-radius: 0px!important;
-        border-top-right-radius: 0px!important;
+        border-top-left-radius: 0px !important;
+        border-top-right-radius: 0px !important;
         height: calc(100vh - 200px);
         overflow-y: auto;
         overflow-x: hidden;
         /* Hide scrollbars across all browsers */
-        -ms-overflow-style: none;  /* IE and Edge */
-        scrollbar-width: none;  /* Firefox */
+        -ms-overflow-style: none;
+        /* IE and Edge */
+        scrollbar-width: none;
+
+        /* Firefox */
         &::-webkit-scrollbar {
-            display: none;  /* Chrome, Safari and Opera */
+            display: none;
+            /* Chrome, Safari and Opera */
         }
     }
-    #map {margin-top: 1px;}
+
+    #map {
+        margin-top: 1px;
+    }
 }
+
 .convo {
     box-sizing: border-box;
     padding: 20px 0 60px 40px;
@@ -77,10 +88,14 @@
     display: flex;
     flex-direction: column;
     /* Hide scrollbars across all browsers */
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+
+    /* Firefox */
     &::-webkit-scrollbar {
-        display: none;  /* Chrome, Safari and Opera */
+        display: none;
+        /* Chrome, Safari and Opera */
     }
 
     .messages-container {
@@ -89,10 +104,11 @@
         max-width: 1200px;
         margin: 0 auto;
 
-        > div:first-child {
+        >div:first-child {
             padding: 0;
             background-color: transparent;
         }
+
         ul {
             padding-top: 0;
             width: 100%;
@@ -103,12 +119,14 @@
         }
     }
 }
+
 .reset-chat {
     position: absolute;
     top: 87px;
     z-index: 0;
     width: calc(100% - 160px);
 }
+
 .panel-header {
     height: 100%;
     display: flex;
@@ -120,13 +138,13 @@
     display: flex;
     align-items: center;
     margin-left: 40px;
-    
+
     /* Fix for Cloudscape BreadcrumbGroup */
     .awsui-breadcrumb-group {
         width: auto;
         display: inline-block;
     }
-    
+
     /* Ensure breadcrumb items display properly */
     .awsui-breadcrumb-group-item {
         display: inline-block;
@@ -139,43 +157,192 @@
 .convo iframe {
     background-color: transparent !important;
 }
+
 .main-svg {
     background: transparent !important;
+}
+
+/* Light mode styles - Explicit light mode */
+[data-theme="light"] {
+    .controls {
+        background-color: var(--bg-light) !important;
+        box-shadow: var(--shadow-light) !important;
+        color: var(--text-light) !important;
+    }
+
+    .panel>div {
+        box-shadow: var(--shadow-light) !important;
+    }
+
+    // .convo {
+    //     color: var(--text-light);
+    // }
+
+    /* Fix all text elements inside .convo for light mode */
+    .convo h1,
+    .convo h2,
+    .convo h3,
+    .convo h4,
+    .convo h5,
+    .convo h6,
+    .convo p,
+
+    .convo div,
+    .convo {
+        color: var(--text-light);
+    }
+
+    /* Fix breadcrumb text color in light mode */
+    .brea {
+        color: var(--text-light) !important;
+    }
+
+    .brea * {
+        color: var(--text-light) !important;
+    }
+
+    /* Fix large header text color in light mode */
+    [class*="awsui_header_"] h1,
+    [class*="awsui_header_"] [class*="awsui_heading_"],
+    [class*="awsui-header"] h1,
+    [class*="awsui-header"] [class*="awsui-heading"] {
+        color: var(--text-light) !important;
+    }
+
+    /* Fix CloudScape Header component text */
+    [data-awsui-header] h1,
+    [data-awsui-header] [class*="heading"] {
+        color: var(--text-light) !important;
+    }
+
+    /* Fix agent switcher dropdown icon to be dark/visible in light mode */
+    .input-bkgd [class*="awsui_button-dropdown_"] [class*="awsui_icon_"],
+    .input-bkgd [class*="awsui_button-dropdown_"] svg,
+    .input-bkgd [class*="awsui-button-dropdown"] [class*="awsui-icon"],
+    .input-bkgd [class*="awsui-button-dropdown"] svg {
+        color: #000000 !important;
+        fill: #000000 !important;
+    }
+
+    /* User prompt bubbles - force white text even in light mode */
+    /* Target the blue bubble with rgb(0 108 224) background */
+    .convo div[style*="rgb(0 108 224)"],
+    .convo div[style*="rgb(0 108 224)"] *,
+    .convo div[style*="rgb(0 108 224)"] p,
+    .convo div[style*="rgb(0 108 224)"] span,
+    .convo div[style*="rgb(0 108 224)"] div,
+    .convo div[style*="rgb(0 108 224)"] li,
+    .convo div[style*="rgb(0 108 224)"] a {
+        color: #FFFFFF !important;
+    }
+
+    /* Input textarea and input text - dark in light mode */
+    .input-bkgd textarea,
+    .input-bkgd input {
+        color: #000000 !important;
+    }
+
+    /* Input placeholder text - dark gray in light mode */
+    .input-bkgd textarea::placeholder,
+    .input-bkgd input::placeholder {
+        color: #666666 !important;
+    }
 }
 
 /* Dark mode styles - Custom data-theme attribute */
 [data-theme="dark"] {
     .controls {
-        background-color: var(--bg-dark);
-        box-shadow: var(--shadow-dark);
+        background-color: var(--bg-dark) !important;
+        box-shadow: var(--shadow-dark) !important;
+        // color: var(--text-dark) !important;
+    }
+
+    .panel>div {
+        box-shadow: var(--shadow-dark) !important;
+    }
+
+    // .convo {
+    //     color: var(--text-dark) !important;
+    // }
+
+    /* Fix all text elements inside .convo for dark mode */
+    .convo h1,
+    .convo h2,
+    .convo h3,
+    .convo h4,
+    .convo h5,
+    .convo h6,
+    .convo p {
         color: var(--text-dark);
     }
-    
-    .panel > div {
-        box-shadow: var(--shadow-dark);
+
+    /* User prompt bubbles - force white text in dark mode too */
+    /* Target the blue bubble with rgb(0 108 224) background */
+    .convo div[style*="rgb(0 108 224)"],
+    .convo div[style*="rgb(0 108 224)"] *,
+    .convo div[style*="rgb(0 108 224)"] p,
+    .convo div[style*="rgb(0 108 224)"] span,
+    .convo div[style*="rgb(0 108 224)"] div,
+    .convo div[style*="rgb(0 108 224)"] li,
+    .convo div[style*="rgb(0 108 224)"] a {
+        color: #FFFFFF !important;
     }
-    
-    .convo {
-        color: var(--text-dark);
+
+    /* Input textarea and input text - white in dark mode */
+    .input-bkgd textarea,
+    .input-bkgd input {
+        color: #FFFFFF !important;
+    }
+
+    /* Input placeholder text - light gray in dark mode */
+    .input-bkgd textarea::placeholder,
+    .input-bkgd input::placeholder {
+        color: #CCCCCC !important;
     }
 }
 
-/* Fallback for media query dark mode */
+/* Fallback for media query - only apply if no data-theme attribute */
 @media (prefers-color-scheme: dark) {
-    .controls {
+    body:not([data-theme]) .controls {
         background-color: var(--bg-dark) !important;
         box-shadow: var(--shadow-dark) !important;
         color: var(--text-dark) !important;
     }
-    
-    .panel > div {
+
+    body:not([data-theme]) .panel>div {
         box-shadow: var(--shadow-dark) !important;
     }
-    
-    .convo {
+
+    body:not([data-theme]) .convo {
         color: var(--text-dark) !important;
     }
 }
-.awsui_layout_5gtk3_1mzpq_145.awsui_is-visual-refresh_5gtk3_1mzpq_204 > .awsui_background_5gtk3_1mzpq_159.awsui_has-default-background_5gtk3_1mzpq_204:not(#\9) {
+
+.awsui_layout_5gtk3_1mzpq_145.awsui_is-visual-refresh_5gtk3_1mzpq_204>.awsui_background_5gtk3_1mzpq_159.awsui_has-default-background_5gtk3_1mzpq_204:not(#\9) {
     background-color: transparent;
+}
+
+/* AI Agent Switcher text - white in both light and dark modes */
+.input-bkgd [class*="MuiTypography"] {
+    color: #FFFFFF !important;
+}
+
+/* User prompt bubbles - force white text in all modes */
+/* Target the blue bubble with rgb(0 108 224) background */
+.convo div[style*="rgb(0 108 224)"],
+.convo div[style*="background-color: rgb(0 108 224)"],
+.convo div[style*="backgroundColor: rgb(0 108 224)"] {
+    color: #FFFFFF !important;
+}
+
+/* User prompt bubble content - force white text for all children */
+.convo div[style*="rgb(0 108 224)"] *,
+.convo div[style*="background-color: rgb(0 108 224)"] *,
+.convo div[style*="backgroundColor: rgb(0 108 224)"] *,
+.convo div[style*="rgb(0 108 224)"] p,
+.convo div[style*="rgb(0 108 224)"] span,
+.convo div[style*="rgb(0 108 224)"] div,
+.convo div[style*="rgb(0 108 224)"] li,
+.convo div[style*="rgb(0 108 224)"] a {
+    color: #FFFFFF !important;
 }

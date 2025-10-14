@@ -1,5 +1,55 @@
 @import '@cloudscape-design/global-styles/index.css';
 
+/* Leaflet map interaction fixes */
+.leaflet-container {
+  cursor: grab !important;
+  touch-action: none !important;
+}
+
+.leaflet-container.leaflet-drag-target {
+  cursor: grabbing !important;
+}
+
+.leaflet-dragging .leaflet-container {
+  cursor: grabbing !important;
+}
+
+/* Ensure Leaflet maps are interactive */
+.leaflet-interactive {
+  pointer-events: auto !important;
+}
+
+/* Fix for Cloudscape containers blocking map interactions */
+.awsui-container .leaflet-container {
+  pointer-events: auto !important;
+  user-select: none !important;
+}
+
+/* More aggressive fix for map dragging */
+.leaflet-container,
+.leaflet-container * {
+  pointer-events: auto !important;
+}
+
+.leaflet-pane,
+.leaflet-tile-pane,
+.leaflet-overlay-pane,
+.leaflet-shadow-pane,
+.leaflet-marker-pane,
+.leaflet-tooltip-pane,
+.leaflet-popup-pane {
+  pointer-events: auto !important;
+}
+
+/* Ensure map tiles don't block dragging */
+.leaflet-tile-container {
+  pointer-events: none !important;
+}
+
+.leaflet-tile {
+  pointer-events: none !important;
+}
+
 /* Flexible iframe styling for different content types */
 iframe {
   border: none !important;
@@ -887,4 +937,10 @@ div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
   opacity: 0 !important;
   transform: translateY(-10px) !important;
   pointer-events: none !important;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: transparent !important;
+  box-shadow: none !important;
 }

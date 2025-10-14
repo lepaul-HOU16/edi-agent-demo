@@ -1,7 +1,8 @@
 import { type ClientSchema, a, defineData, defineFunction } from '@aws-amplify/backend';
 
-export const lightweightAgentFunction = defineFunction({
-  name: 'lightweightAgent',
+// Main agent function with full routing capabilities (EnhancedStrandsAgent + RenewableProxyAgent)
+export const agentFunction = defineFunction({
+  name: 'agent',
   entry: '../functions/agents/handler.ts',
   timeoutSeconds: 300,
   memoryMB: 1024,
@@ -15,6 +16,8 @@ export const lightweightAgentFunction = defineFunction({
     AMPLIFY_BRANCH: process.env.AMPLIFY_BRANCH || 'main',
     AMPLIFY_APP_ID: process.env.AMPLIFY_APP_ID || 'unknown',
     // Renewable energy integration configuration
+    RENEWABLE_ENABLED: 'true',
+    RENEWABLE_ORCHESTRATOR_FUNCTION_NAME: 'amplify-digitalassistant--renewableOrchestratorlam-jBcrYHDFlPXd',
     NEXT_PUBLIC_RENEWABLE_ENABLED: process.env.NEXT_PUBLIC_RENEWABLE_ENABLED || 'false',
     NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT: process.env.NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT || '',
     NEXT_PUBLIC_RENEWABLE_S3_BUCKET: process.env.NEXT_PUBLIC_RENEWABLE_S3_BUCKET || 'renewable-energy-artifacts-484907533441',
@@ -185,7 +188,7 @@ export const schema = a.schema({
       artifacts: a.json().array(),
       thoughtSteps: a.json().array() // CRITICAL FIX: Add thoughtSteps to return type
     }))
-    .handler(a.handler.function(lightweightAgentFunction))
+    .handler(a.handler.function(agentFunction))
     .authorization((allow) => [allow.authenticated()]),
 
   // invokeReActAgent has been deprecated - use invokeLightweightAgent instead
@@ -232,7 +235,7 @@ export const schema = a.schema({
     .authorization((allow) => [allow.authenticated()]),
 })
   .authorization((allow) => [
-    allow.resource(lightweightAgentFunction).to(["query", "mutate"])
+    allow.resource(agentFunction).to(["query", "mutate"])
   ]);
 
 export type Schema = ClientSchema<typeof schema>;

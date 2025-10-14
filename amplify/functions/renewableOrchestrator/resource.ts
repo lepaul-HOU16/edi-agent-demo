@@ -5,6 +5,7 @@ export const renewableOrchestrator = defineFunction({
   entry: './handler.ts',
   timeoutSeconds: 90,
   memoryMB: 512,
+  resourceGroupName: 'data', // Assign to data stack to access ChatMessage table
   environment: {
     RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME: process.env.RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME || '',
     RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME: process.env.RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME || '',

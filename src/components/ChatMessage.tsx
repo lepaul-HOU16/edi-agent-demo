@@ -41,7 +41,8 @@ import {
   TerrainMapArtifact, 
   LayoutMapArtifact, 
   SimulationChartArtifact, 
-  ReportArtifact 
+  ReportArtifact,
+  WindRoseArtifact
 } from './renewable';
 
 // Enhanced artifact processor component with S3 support - STABLE VERSION
@@ -62,19 +63,138 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
     const processArtifacts = useCallback(async () => {
         try {
             console.log('🔄 EnhancedArtifactProcessor: Processing artifacts...');
+            console.log('🔍 Raw artifacts type:', typeof stableRawArtifacts);
+            console.log('🔍 Raw artifacts count:', stableRawArtifacts?.length || 0);
+            
+            // CRITICAL FIX: Deserialize JSON strings from GraphQL with error handling
+            // GraphQL stores artifacts as JSON strings (AWSJSON type), we need to parse them
+            let deserializedArtifacts: any[] = [];
+            const deserializationErrors: Array<{ index: number; error: string }> = [];
+            
+            if (stableRawArtifacts && stableRawArtifacts.length > 0) {
+                for (let index = 0; index < stableRawArtifacts.length; index++) {
+                    const artifact = stableRawArtifacts[index];
+                    
+                    // Check if artifact is a JSON string that needs parsing
+                    if (typeof artifact === 'string') {
+                        try {
+                            // Handle empty strings
+                            if (artifact.trim() === '') {
+                                console.warn(`⚠️ Artifact ${index + 1} is empty string, skipping`);
+                                continue;
+                            }
+                            
+                            let parsed = JSON.parse(artifact);
+                            
+                            // Handle double-stringified JSON (common GraphQL issue)
+                            let parseAttempts = 0;
+                            while (typeof parsed === 'string' && parseAttempts < 3) {
+                                parseAttempts++;
+                                console.log(`🔄 Artifact ${index + 1} is ${parseAttempts}x stringified, parsing again...`);
+                                parsed = JSON.parse(parsed);
+                            }
+                            
+                            // Validate parsed artifact has required fields
+                            if (parsed === null) {
+                                console.error(`❌ Artifact ${index + 1} parsed to null`);
+                                throw new Error('Parsed artifact is null');
+                            }
+                            
+                            if (typeof parsed !== 'object') {
+                                console.error(`❌ Artifact ${index + 1} parsed to primitive type:`, typeof parsed, parsed);
+                                throw new Error(`Parsed artifact is a ${typeof parsed}, not an object`);
+                            }
+                            
+                            if (Array.isArray(parsed)) {
+                                console.error(`❌ Artifact ${index + 1} parsed to array with ${parsed.length} items`);
+                                throw new Error('Parsed artifact is an array, not an object');
+                            }
+                            
+                            if (!parsed.type && !parsed.messageContentType) {
+                                console.warn(`⚠️ Artifact ${index + 1} missing type field, keys:`, Object.keys(parsed));
+                            }
+                            
+                            console.log(`✅ Deserialized artifact ${index + 1} from JSON string:`, {
+                                type: parsed.type || parsed.messageContentType,
+                                hasData: !!parsed.data,
+                                keys: Object.keys(parsed).slice(0, 5)
+                            });
+                            
+                            deserializedArtifacts.push(parsed);
+                        } catch (parseError: any) {
+                            console.error(`❌ Failed to parse artifact ${index + 1}:`, parseError);
+                            deserializationErrors.push({
+                                index: index + 1,
+                                error: parseError.message || 'Unknown parsing error',
+                            });
+                            
+                            // Create error placeholder artifact
+                            const errorArtifact = {
+                                type: 'deserialization_error',
+                                messageContentType: 'error',
+                                title: `Artifact ${index + 1} Failed to Load`,
+                                data: {
+                                    message: `This artifact could not be displayed due to a deserialization error: ${parseError.message}`,
+                                    originalArtifact: typeof artifact === 'string' ? artifact.substring(0, 200) + '...' : 'Invalid data',
+                                },
+                            };
+                            deserializedArtifacts.push(errorArtifact);
+                        }
+                    } else if (artifact && typeof artifact === 'object') {
+                        // Already an object (backward compatibility)
+                        console.log(`📝 Artifact ${index + 1} already an object:`, {
+                            type: artifact.type || artifact.messageContentType,
+                            hasData: !!artifact.data,
+                        });
+                        deserializedArtifacts.push(artifact);
+                    } else {
+                        console.error(`❌ Artifact ${index + 1} has invalid type:`, typeof artifact);
+                        deserializationErrors.push({
+                            index: index + 1,
+                            error: `Invalid artifact type: ${typeof artifact}`,
+                        });
+                        
+                        // Create error placeholder
+                        const errorArtifact = {
+                            type: 'invalid_artifact',
+                            messageContentType: 'error',
+                            title: `Invalid Artifact ${index + 1}`,
+                            data: {
+                                message: `This artifact has an invalid format and cannot be displayed.`,
+                            },
+                        };
+                        deserializedArtifacts.push(errorArtifact);
+                    }
+                }
+                
+                // Log deserialization summary
+                if (deserializationErrors.length > 0) {
+                    console.error('❌ Deserialization errors:', deserializationErrors);
+                    setError(`${deserializationErrors.length} artifact(s) failed to load`);
+                } else {
+                    console.log(`✅ Successfully deserialized all ${deserializedArtifacts.length} artifacts`);
+                }
+            }
             
             // Check if any artifacts are S3 references
-            const hasS3References = stableRawArtifacts.some(artifact => 
+            const hasS3References = deserializedArtifacts.some(artifact => 
                 artifact && artifact.type === 's3_reference'
             );
             
             if (hasS3References) {
                 console.log('📥 EnhancedArtifactProcessor: S3 references detected, retrieving...');
-                const retrievedArtifacts = await retrieveArtifacts(stableRawArtifacts);
-                setArtifacts(retrievedArtifacts);
+                try {
+                    const retrievedArtifacts = await retrieveArtifacts(deserializedArtifacts);
+                    setArtifacts(retrievedArtifacts);
+                } catch (s3Error: any) {
+                    console.error('❌ Failed to retrieve S3 artifacts:', s3Error);
+                    setError(`Failed to load artifacts from storage: ${s3Error.message}`);
+                    // Use deserialized artifacts as fallback
+                    setArtifacts(deserializedArtifacts);
+                }
             } else {
                 console.log('📝 EnhancedArtifactProcessor: No S3 references, using artifacts directly');
-                setArtifacts(stableRawArtifacts);
+                setArtifacts(deserializedArtifacts);
             }
             
             setLoading(false);
@@ -129,11 +249,15 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
         if (artifact) {
             let parsedArtifact = artifact;
             
+            // DEBUG: Log raw artifact
+            console.log('🔍 RAW ARTIFACT:', typeof artifact, artifact);
+            
             // Parse artifact if it's a JSON string
             if (typeof artifact === 'string') {
                 try {
                     parsedArtifact = JSON.parse(artifact);
                     console.log('✅ EnhancedArtifactProcessor: Successfully parsed JSON string artifact');
+                    console.log('🔍 PARSED ARTIFACT:', parsedArtifact);
                 } catch (e) {
                     console.error('❌ EnhancedArtifactProcessor: Failed to parse artifact JSON:', e);
                     continue;
@@ -142,6 +266,38 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             
             console.log('🔍 EnhancedArtifactProcessor: Parsed artifact keys:', Object.keys(parsedArtifact || {}));
             console.log('🔍 EnhancedArtifactProcessor: Checking artifact type:', parsedArtifact.messageContentType || parsedArtifact.type);
+            
+            // Check for error artifacts (deserialization errors, validation errors, etc.)
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.type === 'deserialization_error' || 
+                 parsedArtifact.type === 'invalid_artifact' ||
+                 parsedArtifact.type === 'validation_error' ||
+                 parsedArtifact.type === 'error' ||
+                 parsedArtifact.messageContentType === 'error')) {
+                console.log('⚠️ EnhancedArtifactProcessor: Rendering error artifact');
+                return (
+                    <div style={{
+                        padding: '16px',
+                        margin: '8px 0',
+                        backgroundColor: theme.palette.mode === 'dark' ? '#3d1f1f' : '#fff3cd',
+                        border: `1px solid ${theme.palette.mode === 'dark' ? '#721c24' : '#ffc107'}`,
+                        borderRadius: '4px',
+                        color: theme.palette.mode === 'dark' ? '#f8d7da' : '#856404',
+                    }}>
+                        <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
+                            {parsedArtifact.title || 'Artifact Error'}
+                        </div>
+                        <div style={{ fontSize: '14px' }}>
+                            {parsedArtifact.data?.message || parsedArtifact.message || 'This artifact could not be displayed.'}
+                        </div>
+                        {parsedArtifact.data?.originalType && (
+                            <div style={{ fontSize: '12px', marginTop: '8px', opacity: 0.8 }}>
+                                Original type: {parsedArtifact.data.originalType}
+                            </div>
+                        )}
+                    </div>
+                );
+            }
             
             // Check for comprehensive shale analysis
             if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_shale_analysis') {
@@ -283,35 +439,91 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             }
             
             // NEW: Check for renewable energy wind farm terrain analysis
-            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_terrain_analysis') {
+            // CRITICAL FIX: Check both top-level and nested messageContentType
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'wind_farm_terrain_analysis' ||
+                 parsedArtifact.data?.messageContentType === 'wind_farm_terrain_analysis' ||
+                 parsedArtifact.type === 'wind_farm_terrain_analysis')) {
                 console.log('🎉 EnhancedArtifactProcessor: Rendering TerrainMapArtifact!');
+                // Normalize data structure - if data is nested, use it directly
+                const artifactData = parsedArtifact.data || parsedArtifact;
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
                     enhancedComponent={<TerrainMapArtifact 
-                        data={parsedArtifact} 
+                        data={artifactData} 
                         onFollowUpAction={onSendMessage}
                     />}
                 />;
             }
             
             // NEW: Check for renewable energy wind farm layout
-            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_layout') {
+            // CRITICAL FIX: Check both top-level and nested messageContentType
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'wind_farm_layout' ||
+                 parsedArtifact.data?.messageContentType === 'wind_farm_layout' ||
+                 parsedArtifact.type === 'wind_farm_layout')) {
                 console.log('🎉 EnhancedArtifactProcessor: Rendering LayoutMapArtifact!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<LayoutMapArtifact data={parsedArtifact} />}
+                    enhancedComponent={<LayoutMapArtifact data={artifactData} />}
                 />;
             }
             
             // NEW: Check for renewable energy wind farm simulation
-            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_simulation') {
+            // CRITICAL FIX: Check both top-level and nested messageContentType
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'wind_farm_simulation' ||
+                 parsedArtifact.data?.messageContentType === 'wind_farm_simulation' ||
+                 parsedArtifact.type === 'wind_farm_simulation')) {
                 console.log('🎉 EnhancedArtifactProcessor: Rendering SimulationChartArtifact!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<SimulationChartArtifact data={parsedArtifact} />}
+                    enhancedComponent={<SimulationChartArtifact 
+                        data={artifactData} 
+                        onFollowUpAction={onSendMessage}
+                    />}
+                />;
+            }
+            
+            // NEW: Check for wake analysis
+            // CRITICAL FIX: Check both top-level and nested messageContentType
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'wake_analysis' ||
+                 parsedArtifact.data?.messageContentType === 'wake_analysis' ||
+                 parsedArtifact.type === 'wake_analysis')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering SimulationChartArtifact for wake analysis!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<SimulationChartArtifact 
+                        data={artifactData} 
+                        onFollowUpAction={onSendMessage}
+                    />}
+                />;
+            }
+            
+            // NEW: Check for wind rose analysis
+            // CRITICAL FIX: Check both top-level and nested messageContentType
+            console.log('🔍 Checking wind rose:', parsedArtifact?.messageContentType, parsedArtifact?.data?.messageContentType, parsedArtifact?.type);
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'wind_rose' || 
+                 parsedArtifact.messageContentType === 'wind_rose_analysis' ||
+                 parsedArtifact.data?.messageContentType === 'wind_rose' ||
+                 parsedArtifact.data?.messageContentType === 'wind_rose_analysis' ||
+                 parsedArtifact.type === 'wind_rose' ||
+                 parsedArtifact.type === 'wind_rose_analysis')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering WindRoseArtifact!', parsedArtifact);
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<WindRoseArtifact data={artifactData} />}
                 />;
             }
             

@@ -101,7 +101,11 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
     
     // Initialize the multi-agent router
     const router = new AgentRouter(event.arguments.foundationModelId, s3Bucket);
-    const response = await router.routeQuery(event.arguments.message, conversationHistory);
+    const sessionContext = {
+      chatSessionId: event.arguments.chatSessionId,
+      userId: userId
+    };
+    const response = await router.routeQuery(event.arguments.message, conversationHistory, sessionContext);
     console.log('🔍 HANDLER: Agent response received:', {
       success: response.success,
       messageLength: response.message?.length || 0,

@@ -62,13 +62,16 @@ export class RenewableProxyAgent {
    * 
    * @param message - User query
    * @param conversationHistory - Optional conversation history
+   * @param sessionContext - Session and user IDs for async result storage
    * @returns RouterResponse with artifacts and thought steps
    */
   async processQuery(
     message: string, 
-    conversationHistory?: any[]
+    conversationHistory?: any[],
+    sessionContext?: { chatSessionId?: string; userId?: string }
   ): Promise<RouterResponse> {
     console.log('🌱 RenewableProxyAgent: Processing query:', message.substring(0, 100) + '...');
+    console.log('🌱 RenewableProxyAgent: Session context:', sessionContext);
 
     // Create initial thought step
     const routingStep = createThoughtStep(
@@ -81,51 +84,47 @@ export class RenewableProxyAgent {
       // Invoke Lambda orchestrator directly
       console.log('🌱 RenewableProxyAgent: Invoking Lambda orchestrator:', this.orchestratorFunctionName);
       
+      // Include session context for async result storage in DynamoDB
       const payload = {
         query: message,
-        userId: 'user',
-        sessionId: this.sessionId || `session-${Date.now()}`,
-        context: {}
+        context: {},
+        sessionId: sessionContext?.chatSessionId,
+        userId: sessionContext?.userId
       };
       
+      // CRITICAL FIX: Invoke synchronously to get results immediately
+      // Async invocation was causing polling issues - results never appeared
       const command = new InvokeCommand({
         FunctionName: this.orchestratorFunctionName,
+        InvocationType: 'RequestResponse', // Synchronous invocation - wait for results
         Payload: JSON.stringify(payload)
       });
       
-      const lambdaResponse = await this.lambdaClient.send(command);
-      
-      if (!lambdaResponse.Payload) {
-        throw new Error('No payload in Lambda response');
-      }
-      
-      const orchestratorResponse = JSON.parse(new TextDecoder().decode(lambdaResponse.Payload));
-      
+      console.log('🌱 RenewableProxyAgent: Invoking orchestrator synchronously (waiting for results)...');
+      const invokeResponse = await this.lambdaClient.send(command);
+      console.log('🌱 RenewableProxyAgent: Orchestrator completed');
+
+      // Parse the response
+      const responsePayload = JSON.parse(new TextDecoder().decode(invokeResponse.Payload));
       console.log('🌱 RenewableProxyAgent: Orchestrator response:', {
-        success: orchestratorResponse.success,
-        artifactCount: orchestratorResponse.artifacts?.length || 0
+        success: responsePayload.success,
+        artifactCount: responsePayload.artifacts?.length || 0,
+        thoughtStepCount: responsePayload.thoughtSteps?.length || 0
       });
 
       // Complete routing step
-      completeThoughtStep(routingStep, 'Connected to renewable energy service');
+      completeThoughtStep(routingStep, 'Analysis complete');
 
-      // Transform orchestrator response to EDI format
-      const artifacts = this.transformArtifacts(orchestratorResponse.artifacts || []);
-      const thoughtSteps = this.transformThoughtSteps(orchestratorResponse.thoughtSteps || [], routingStep);
-
-      // Build successful response
+      // Return the actual results
       const response: RouterResponse = {
-        success: orchestratorResponse.success,
-        message: orchestratorResponse.message,
-        artifacts: artifacts,
-        thoughtSteps: thoughtSteps,
+        success: responsePayload.success,
+        message: responsePayload.message,
+        artifacts: this.transformArtifacts(responsePayload.artifacts || []),
+        thoughtSteps: [routingStep, ...this.transformThoughtSteps(responsePayload.thoughtSteps || [], routingStep)],
         agentUsed: 'renewable_energy',
       };
 
-      console.log('✅ RenewableProxyAgent: Query processed successfully', {
-        artifactCount: artifacts.length,
-        thoughtStepCount: thoughtSteps.length,
-      });
+      console.log('✅ RenewableProxyAgent: Returning results with', response.artifacts.length, 'artifacts');
 
       return response;
 

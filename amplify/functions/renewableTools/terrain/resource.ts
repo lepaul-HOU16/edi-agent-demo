@@ -10,16 +10,20 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const renewableTerrainTool = defineFunction((scope: Construct) => {
-  return new lambda.Function(scope, 'RenewableTerrainTool', {
+  // Use simple ZIP deployment with boto3 only (no external dependencies)
+  // This avoids Docker build issues and deploys instantly
+  
+  const func = new lambda.Function(scope, 'RenewableTerrainTool', {
     runtime: lambda.Runtime.PYTHON_3_12,
-    handler: 'handler.handler',
-    code: lambda.Code.fromAsset(__dirname),
+    handler: 'simple_handler.handler',
+    code: lambda.Code.fromAsset(join(__dirname)),
     timeout: Duration.seconds(60),
     memorySize: 1024,
     environment: {
-      S3_BUCKET: process.env.RENEWABLE_S3_BUCKET || '',
       LOG_LEVEL: 'INFO'
     },
-    description: 'Terrain analysis tool for renewable energy projects - Dependencies must be pre-installed or use Lambda Layer'
+    description: 'Terrain analysis tool (simple ZIP deployment)'
   });
+  
+  return func;
 });

@@ -16,7 +16,7 @@ export const renewableReportTool = defineFunction((scope: Construct) => {
     timeout: Duration.seconds(30),
     memorySize: 512,
     environment: {
-      S3_BUCKET: process.env.RENEWABLE_S3_BUCKET || '',
+      // Environment variables will be set in backend.ts to use actual Amplify storage bucket
       LOG_LEVEL: 'INFO'
     },
     description: 'Report generation tool - stdlib only, no dependencies'

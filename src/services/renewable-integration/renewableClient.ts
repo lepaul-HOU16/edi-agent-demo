@@ -13,6 +13,7 @@ import {
   ConnectionError,
   RenewableConfig,
 } from './types';
+import { ReportErrorHandler } from './ReportErrorHandler';
 
 /**
  * HTTP client for communicating with AgentCore
@@ -22,6 +23,7 @@ export class RenewableClient {
   private region: string;
   private maxRetries: number;
   private retryDelay: number;
+  private errorHandler: ReportErrorHandler;
 
   /**
    * Create a new RenewableClient
@@ -39,6 +41,7 @@ export class RenewableClient {
     this.region = config.region;
     this.maxRetries = maxRetries;
     this.retryDelay = retryDelay;
+    this.errorHandler = new ReportErrorHandler();
 
     console.log('RenewableClient initialized:', {
       endpoint: this.agentCoreEndpoint,
@@ -67,44 +70,24 @@ export class RenewableClient {
       userId,
     };
 
-    // Try with retries
-    let lastError: Error | null = null;
-    
-    for (let attempt = 1; attempt <= this.maxRetries; attempt++) {
-      try {
-        console.log(`RenewableClient: Attempt ${attempt}/${this.maxRetries}`);
-        
-        const response = await this.makeRequest(request);
-        
-        console.log('RenewableClient: Success!', {
-          artifactCount: response.artifacts?.length || 0,
-          thoughtStepCount: response.thoughtSteps?.length || 0,
-        });
-        
-        return response;
-        
-      } catch (error) {
-        lastError = error as Error;
-        
-        // Don't retry on authentication errors
-        if (error instanceof AuthenticationError) {
-          throw error;
-        }
-        
-        // Don't retry on the last attempt
-        if (attempt === this.maxRetries) {
-          break;
-        }
-        
-        // Wait before retrying
-        console.log(`RenewableClient: Attempt ${attempt} failed, retrying in ${this.retryDelay}ms...`);
-        await this.sleep(this.retryDelay);
-      }
-    }
+    const context = {
+      prompt: prompt.substring(0, 100),
+      sessionId,
+      userId,
+      endpoint: this.agentCoreEndpoint
+    };
 
-    // All retries failed
-    console.error('RenewableClient: All retry attempts failed');
-    throw lastError || new AgentCoreError('Failed to invoke agent after retries');
+    // Use error handler with retry logic
+    return await this.errorHandler.withRetry(
+      () => this.makeRequest(request),
+      context,
+      {
+        maxRetries: this.maxRetries,
+        baseDelay: this.retryDelay,
+        maxDelay: 10000,
+        backoffMultiplier: 2
+      }
+    );
   }
 
   /**

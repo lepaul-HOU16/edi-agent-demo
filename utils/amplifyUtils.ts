@@ -8,7 +8,7 @@ import { getAmplifyConfigurationStatus } from "../src/components/ConfigureAmplif
 import { 
   processArtifactsForStorage, 
   calculateArtifactSize, 
-  getStorageStats 
+  getStorageStats
 } from "./s3ArtifactStorage";
 
 // Function to safely load outputs
@@ -305,42 +305,198 @@ export const sendMessage = async (props: {
         if (invokeResponse.data.artifacts && invokeResponse.data.artifacts.length > 0) {
           console.log('📦 Processing artifacts for storage...');
           
-          // Calculate total size before processing
-          invokeResponse.data.artifacts.forEach((artifact: any, index: number) => {
-            const size = calculateArtifactSize(artifact);
-            totalArtifactSize += size;
-            console.log(`📏 Artifact ${index + 1} size: ${(size / 1024).toFixed(2)} KB`);
-          });
+          // Validate artifacts before processing
+          const validatedArtifacts: any[] = [];
+          for (let i = 0; i < invokeResponse.data.artifacts.length; i++) {
+            let artifact: any = invokeResponse.data.artifacts[i];
+            
+            // CRITICAL FIX: Parse artifact if it's a JSON string
+            if (typeof artifact === 'string') {
+              console.log(`🔧 Artifact ${i} is a string, parsing JSON...`);
+              try {
+                artifact = JSON.parse(artifact);
+                console.log(`✅ Artifact ${i} parsed successfully:`, {
+                  type: artifact.type || artifact.messageContentType,
+                  hasType: !!artifact.type,
+                  hasMessageContentType: !!artifact.messageContentType
+                });
+              } catch (parseError) {
+                console.error(`❌ Artifact ${i} failed to parse:`, parseError);
+                continue;
+              }
+            }
+            
+            // Check required fields (artifact is now guaranteed to be an object)
+            if (!artifact.type && !artifact.messageContentType) {
+              console.error(`❌ Artifact ${i} missing type field, skipping`);
+              continue;
+            }
+            
+            // Test JSON serializability
+            try {
+              const serialized = JSON.stringify(artifact);
+              JSON.parse(serialized);
+              
+              const size = calculateArtifactSize(artifact);
+              totalArtifactSize += size;
+              console.log(`📏 Artifact ${i + 1} (${artifact.type || artifact.messageContentType}) size: ${(size / 1024).toFixed(2)} KB`);
+              
+              validatedArtifacts.push(artifact);
+            } catch (error: any) {
+              console.error(`❌ Artifact ${i} failed JSON serialization:`, error.message);
+              console.error('   Artifact type:', artifact.type || artifact.messageContentType);
+              console.error('   Attempting to sanitize...');
+              
+              // Try to sanitize
+              try {
+                const sanitized = JSON.parse(JSON.stringify(artifact, (key, value) => {
+                  if (typeof value === 'function' || value === undefined) {
+                    return null;
+                  }
+                  // Check for circular references
+                  if (typeof value === 'object' && value !== null) {
+                    return value;
+                  }
+                  return value;
+                }));
+                
+                validatedArtifacts.push(sanitized);
+                console.log(`✅ Artifact ${i} sanitized successfully`);
+              } catch (sanitizeError: any) {
+                console.error(`❌ Failed to sanitize artifact ${i}:`, sanitizeError.message);
+              }
+            }
+          }
           
           console.log(`📊 Total artifact size: ${(totalArtifactSize / 1024).toFixed(2)} KB`);
+          console.log(`✅ Validated ${validatedArtifacts.length} of ${invokeResponse.data.artifacts.length} artifacts`);
           
-          try {
-            // Process artifacts for storage - this will upload large ones to S3
-            const storageResults = await processArtifactsForStorage(
-              invokeResponse.data.artifacts, 
-              props.chatSessionId
-            );
-            
-            // Extract the processed artifacts (either originals or S3 references)
-            processedArtifacts = storageResults.map(result => result.artifact);
-            
-            // Log storage statistics
-            const stats = getStorageStats(processedArtifacts);
-            console.log('📈 Storage Statistics:', {
-              totalArtifacts: stats.totalArtifacts,
-              inlineArtifacts: stats.inlineArtifacts,
-              s3Artifacts: stats.s3Artifacts,
-              inlineSize: `${(stats.totalInlineSize / 1024).toFixed(2)} KB`,
-              s3Size: `${(stats.estimatedS3Size / 1024).toFixed(2)} KB`
-            });
-            
-            console.log('✅ Artifact processing complete');
-          } catch (artifactProcessingError) {
-            console.error('❌ Error processing artifacts for storage:', artifactProcessingError);
-            // Fallback: use original artifacts (may fail if too large, but preserves data)
-            processedArtifacts = invokeResponse.data.artifacts;
-            console.log('⚠️ Using original artifacts as fallback');
+          if (validatedArtifacts.length === 0) {
+            console.error('❌ No valid artifacts to process');
+            processedArtifacts = [];
+          } else {
+            try {
+              // Process artifacts for storage - this will upload large ones to S3
+              const storageResults = await processArtifactsForStorage(
+                validatedArtifacts, 
+                props.chatSessionId
+              );
+              
+              // Extract the processed artifacts (now JSON strings from processArtifactsForStorage)
+              processedArtifacts = storageResults.map(result => result.artifact);
+              
+              // Log storage statistics
+              const stats = getStorageStats(processedArtifacts);
+              console.log('📈 Storage Statistics:', {
+                totalArtifacts: stats.totalArtifacts,
+                inlineArtifacts: stats.inlineArtifacts,
+                s3Artifacts: stats.s3Artifacts,
+                inlineSize: `${(stats.totalInlineSize / 1024).toFixed(2)} KB`,
+                s3Size: `${(stats.estimatedS3Size / 1024).toFixed(2)} KB`
+              });
+              
+              console.log('✅ Artifact processing complete');
+            } catch (artifactProcessingError) {
+              console.error('❌ Error processing artifacts for storage:', artifactProcessingError);
+              // Fallback: manually serialize validated artifacts as JSON strings
+              try {
+                processedArtifacts = validatedArtifacts.map((artifact: any) => JSON.stringify(artifact));
+                console.log('⚠️ Using manually serialized validated artifacts as fallback');
+              } catch (serializationError) {
+                console.error('❌ Critical: Failed to serialize fallback artifacts:', serializationError);
+                processedArtifacts = [];
+              }
+            }
           }
+        }
+        
+        // CRITICAL: Ensure all artifacts are serialized as JSON strings for GraphQL
+        // processedArtifacts should already be JSON strings from processArtifactsForStorage,
+        // but we validate and ensure consistency here
+        let serializedArtifacts: string[] = [];
+        if (processedArtifacts.length > 0) {
+          try {
+            // Validate that all artifacts are strings (they should be from processArtifactsForStorage)
+            const allStrings = processedArtifacts.every(artifact => typeof artifact === 'string');
+            
+            if (allStrings) {
+              console.log('✅ All artifacts are already JSON strings (from processArtifactsForStorage)');
+              serializedArtifacts = processedArtifacts as string[];
+            } else {
+              console.log('⚠️ Some artifacts are not strings, re-serializing...');
+              serializedArtifacts = processedArtifacts.map((artifact: any) => 
+                typeof artifact === 'string' ? artifact : JSON.stringify(artifact)
+              );
+            }
+            
+            console.log(`✅ Final serialized artifacts count: ${serializedArtifacts.length}`);
+          } catch (serializationError) {
+            console.error('❌ Failed to serialize artifacts for GraphQL:', serializationError);
+            serializedArtifacts = [];
+          }
+        }
+        
+        // CRITICAL: Validate final message size before creating
+        let finalArtifacts = serializedArtifacts.length > 0 ? serializedArtifacts : undefined;
+        
+        // Create test message to check size
+        const testMessage = {
+          role: 'ai',
+          content: { text: invokeResponse.data.message },
+          chatSessionId: props.chatSessionId,
+          responseComplete: true,
+          artifacts: finalArtifacts,
+          thoughtSteps: (invokeResponse.data as any).thoughtSteps || undefined,
+          createdAt: new Date().toISOString()
+        };
+        
+        try {
+          const testSerialization = JSON.stringify(testMessage);
+          const messageSize = new Blob([testSerialization]).size;
+          const messageTextSize = new Blob([testMessage.content.text]).size;
+          const artifactsSize = finalArtifacts ? new Blob([JSON.stringify(finalArtifacts)]).size : 0;
+          
+          console.log(`📏 Final AI message size breakdown:`);
+          console.log(`   Total: ${(messageSize / 1024).toFixed(2)} KB`);
+          console.log(`   Message text: ${(messageTextSize / 1024).toFixed(2)} KB`);
+          console.log(`   Artifacts: ${(artifactsSize / 1024).toFixed(2)} KB`);
+          console.log(`   Artifact count: ${finalArtifacts?.length || 0}`);
+          
+          // DynamoDB item size limit is 400KB, but we use 300KB as safe threshold
+          const MAX_DYNAMODB_SIZE = 300 * 1024;
+          
+          if (messageSize > MAX_DYNAMODB_SIZE) {
+            console.error(`❌ Message size (${(messageSize / 1024).toFixed(2)} KB) exceeds DynamoDB limit (300 KB)`);
+            console.error('   This should not happen - artifacts should have been moved to S3');
+            
+            // Log each artifact size
+            if (finalArtifacts && Array.isArray(finalArtifacts)) {
+              finalArtifacts.forEach((artifact, index) => {
+                const artifactSize = new Blob([artifact]).size;
+                console.error(`   Artifact ${index + 1}: ${(artifactSize / 1024).toFixed(2)} KB`);
+                
+                // Try to parse and log type
+                try {
+                  const parsed = JSON.parse(artifact);
+                  console.error(`      Type: ${parsed.type || parsed.messageContentType || 'unknown'}`);
+                  console.error(`      Is S3 reference: ${parsed.type === 's3_reference'}`);
+                } catch (e) {
+                  console.error(`      Failed to parse artifact`);
+                }
+              });
+            }
+            
+            // Emergency fallback: remove artifacts and add error message
+            console.error('⚠️ EMERGENCY: Removing artifacts to prevent DynamoDB error');
+            finalArtifacts = undefined;
+            
+            // Add error message to content
+            testMessage.content.text += '\n\n⚠️ Note: Visualization artifacts were too large to display. Please try with a smaller analysis area or radius.';
+          } else {
+            console.log('✅ Message size is within DynamoDB limits');
+          }
+        } catch (sizeCheckError) {
+          console.error('❌ Failed to check message size:', sizeCheckError);
         }
         
         const aiMessage: Schema['ChatMessage']['createType'] = {
@@ -350,8 +506,8 @@ export const sendMessage = async (props: {
           } as any,
           chatSessionId: props.chatSessionId as any,
           responseComplete: true as any,
-          // Use processed artifacts (may include S3 references for large artifacts)
-          artifacts: processedArtifacts.length > 0 ? processedArtifacts : undefined,
+          // CRITICAL: Use validated and size-checked artifacts
+          artifacts: finalArtifacts,
           // CRITICAL FIX: Add thought steps from agent response
           thoughtSteps: (invokeResponse.data as any).thoughtSteps || undefined,
           // CRITICAL FIX: Add timestamp to ensure message ordering and prevent race conditions
@@ -367,21 +523,20 @@ export const sendMessage = async (props: {
         }
         
         // Enhanced debugging with improved artifact handling
-        if (processedArtifacts.length > 0) {
-          console.log('✅ FRONTEND: Processed artifacts included in AI message creation');
-          console.log('🔍 FRONTEND: AI message artifacts count:', processedArtifacts.length);
-          console.log('🎯 FRONTEND: First processed artifact preview:', processedArtifacts[0]);
+        if (serializedArtifacts.length > 0) {
+          console.log('✅ FRONTEND: Serialized artifacts included in AI message creation');
+          console.log('🔍 FRONTEND: AI message artifacts count:', serializedArtifacts.length);
+          console.log('🎯 FRONTEND: First serialized artifact preview (first 200 chars):', 
+            serializedArtifacts[0].substring(0, 200));
           
-          // Check if any artifacts are S3 references
-          const s3References = processedArtifacts.filter(artifact => 
-            artifact && artifact.type === 's3_reference'
-          );
-          
-          if (s3References.length > 0) {
-            console.log(`🗂️ FRONTEND: ${s3References.length} artifact(s) stored in S3`);
-            s3References.forEach((ref, index) => {
-              console.log(`   S3 Reference ${index + 1}: ${ref.key} (${(ref.size / 1024).toFixed(2)} KB)`);
-            });
+          // Check if any artifacts are S3 references by parsing the first one
+          try {
+            const firstArtifact = JSON.parse(serializedArtifacts[0]);
+            if (firstArtifact.type === 's3_reference') {
+              console.log(`🗂️ FRONTEND: Artifact is S3 reference: ${firstArtifact.key}`);
+            }
+          } catch (parseError) {
+            console.log('⚠️ Could not parse first artifact for type check');
           }
           
           // Test serialization of the final message

@@ -575,8 +575,9 @@ class FoliumMapGenerator:
         # Add layer control
         m = self.add_layer_control(m)
         
-        return m._repr_html_()  
-  def add_elevation_contours(self, map_obj: folium.Map, elevation_data: Dict) -> folium.Map:
+        return m._repr_html_()
+    
+    def add_elevation_contours(self, map_obj: folium.Map, elevation_data: Dict) -> folium.Map:
         """
         Add elevation contour overlays to the map
         
