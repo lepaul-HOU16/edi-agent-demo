@@ -124,87 +124,172 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
 
   // Initialize Leaflet map - only once per data.projectId
   useEffect(() => {
-    if (!mapRef.current || !data.geojson) return;
+    console.log('[TerrainMap] useEffect triggered', {
+      hasMapRef: !!mapRef.current,
+      hasGeojson: !!data.geojson,
+      hasMapInstance: !!mapInstanceRef.current,
+      projectId: data.projectId,
+      geojsonFeatureCount: data.geojson?.features?.length || 0
+    });
+
+    if (!mapRef.current) {
+      console.warn('[TerrainMap] mapRef.current is null - DOM element not available');
+      return;
+    }
+
+    if (!data.geojson) {
+      console.warn('[TerrainMap] data.geojson is null - no map data available');
+      return;
+    }
     
     // If map already exists, don't recreate it
     if (mapInstanceRef.current) {
-      console.log('Map already exists, skipping re-initialization');
+      console.log('[TerrainMap] Map already exists, skipping re-initialization');
       return;
     }
+
+    console.log('[TerrainMap] Starting map initialization...');
 
     // Clear container completely
     mapRef.current.innerHTML = '';
     (mapRef.current as any)._leaflet_id = undefined;
 
+    // Check container dimensions
+    const rect = mapRef.current.getBoundingClientRect();
+    console.log('[TerrainMap] Container dimensions:', {
+      width: rect.width,
+      height: rect.height,
+      top: rect.top,
+      left: rect.left
+    });
+
+    if (rect.width === 0 || rect.height === 0) {
+      console.error('[TerrainMap] Container has no dimensions! Map cannot initialize.');
+      return;
+    }
+
     // Add a small delay to ensure DOM is ready
     const timer = setTimeout(() => {
-      if (!mapRef.current) return;
+      console.log('[TerrainMap] Timer fired, checking mapRef again...');
+      
+      if (!mapRef.current) {
+        console.error('[TerrainMap] mapRef.current is null after timeout');
+        return;
+      }
+      
+      console.log('[TerrainMap] Starting dynamic Leaflet import...');
       
       // Dynamically import Leaflet
-      import('leaflet').then((L) => {
-        if (!mapRef.current) return;
-        
-        // Fix Leaflet default marker icon issue
-        delete (L.Icon.Default.prototype as any)._getIconUrl;
-        L.Icon.Default.mergeOptions({
-          iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
-          iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
-          shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
-        });
+      import('leaflet')
+        .then((L) => {
+          console.log('[TerrainMap] Leaflet imported successfully', {
+            hasMap: typeof L.map === 'function',
+            hasGeoJSON: typeof L.geoJSON === 'function',
+            hasMarker: typeof L.marker === 'function',
+            hasTileLayer: typeof L.tileLayer === 'function'
+          });
 
-        // Create map with explicit dragging enabled
-        const map = L.map(mapRef.current, {
-          center: [data.coordinates.lat, data.coordinates.lng],
-          zoom: 13,
-          dragging: true,
-          touchZoom: true,
-          doubleClickZoom: true,
-          scrollWheelZoom: true,
-          boxZoom: true,
-          keyboard: true,
-          zoomControl: true,
-          attributionControl: true,
-        });
-        
-        mapInstanceRef.current = map;
-        
-        // Force enable dragging (sometimes gets disabled)
-        map.dragging.enable();
-        
-        console.log('Map created with dragging:', map.dragging.enabled());
+          if (!mapRef.current) {
+            console.error('[TerrainMap] mapRef.current is null after Leaflet import');
+            return;
+          }
+          
+          console.log('[TerrainMap] Fixing Leaflet icon paths...');
+          
+          // Fix Leaflet default marker icon issue
+          try {
+            delete (L.Icon.Default.prototype as any)._getIconUrl;
+            L.Icon.Default.mergeOptions({
+              iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+              iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+              shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+            });
+            console.log('[TerrainMap] Icon paths fixed successfully');
+          } catch (error) {
+            console.error('[TerrainMap] Error fixing icon paths:', error);
+          }
 
-      // Add satellite basemap (matching original notebook)
-      const satelliteLayer = L.tileLayer(
-        'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-        {
-          attribution: 'Esri',
-          maxZoom: 19,
-        }
-      );
+          console.log('[TerrainMap] Creating Leaflet map instance...', {
+            center: [data.coordinates.lat, data.coordinates.lng],
+            zoom: 13
+          });
 
-      // Add OpenStreetMap tiles
-      const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19,
-      });
+          // Create map with explicit dragging enabled
+          let map;
+          try {
+            map = L.map(mapRef.current, {
+              center: [data.coordinates.lat, data.coordinates.lng],
+              zoom: 13,
+              dragging: true,
+              touchZoom: true,
+              doubleClickZoom: true,
+              scrollWheelZoom: true,
+              boxZoom: true,
+              keyboard: true,
+              zoomControl: true,
+              attributionControl: true,
+            });
+            
+            console.log('[TerrainMap] Map instance created successfully', {
+              hasMap: !!map,
+              mapId: (map as any)._leaflet_id,
+              draggingEnabled: map.dragging.enabled()
+            });
+            
+            mapInstanceRef.current = map;
+            
+            // Force enable dragging (sometimes gets disabled)
+            map.dragging.enable();
+            
+            console.log('[TerrainMap] Map created with dragging:', map.dragging.enabled());
+          } catch (error) {
+            console.error('[TerrainMap] CRITICAL ERROR creating map:', error);
+            console.error('[TerrainMap] Error details:', {
+              name: (error as Error).name,
+              message: (error as Error).message,
+              stack: (error as Error).stack
+            });
+            return;
+          }
 
-      // Add satellite as default (matching notebook)
-      satelliteLayer.addTo(map);
+          console.log('[TerrainMap] Adding tile layers...');
 
-      // Add layer control to switch between satellite and OSM
-      L.control.layers(
-        {
-          'Satellite': satelliteLayer,
-          'Street Map': osmLayer,
-        },
-        {},
-        { position: 'topright' }
-      ).addTo(map);
+          // Add satellite basemap (matching original notebook)
+          const satelliteLayer = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            {
+              attribution: 'Esri',
+              maxZoom: 19,
+            }
+          );
 
-      // Add center marker
-      L.marker([data.coordinates.lat, data.coordinates.lng])
-        .addTo(map)
-        .bindPopup(`
+          // Add OpenStreetMap tiles
+          const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19,
+          });
+
+          // Add satellite as default (matching notebook)
+          satelliteLayer.addTo(map);
+          console.log('[TerrainMap] Satellite layer added');
+
+          // Add layer control to switch between satellite and OSM
+          L.control.layers(
+            {
+              'Satellite': satelliteLayer,
+              'Street Map': osmLayer,
+            },
+            {},
+            { position: 'topright' }
+          ).addTo(map);
+          console.log('[TerrainMap] Layer control added');
+
+          console.log('[TerrainMap] Adding center marker...');
+
+          // Add center marker
+          L.marker([data.coordinates.lat, data.coordinates.lng])
+            .addTo(map)
+            .bindPopup(`
           <div style="
             min-width: 250px;
             padding: 12px;
@@ -223,12 +308,14 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
             </div>
           </div>
         `, {
-          maxWidth: 300,
-          minWidth: 250,
-          className: 'custom-popup'
-        });
+              maxWidth: 300,
+              minWidth: 250,
+              className: 'custom-popup'
+            });
+          
+          console.log('[TerrainMap] Center marker added');
 
-      // Style function matching original Folium notebook styling
+          // Style function matching original Folium notebook styling
       const getFeatureStyle = (featureType: string, geometry: any) => {
         const isLine = geometry?.type === 'LineString' || geometry?.type === 'MultiLineString';
         
@@ -270,10 +357,14 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
         }
       };
 
-      // Pre-process GeoJSON to convert highway polygons to linestrings
-      const processedGeojson = {
-        ...data.geojson,
-        features: data.geojson.features.map(feature => {
+          console.log('[TerrainMap] Processing GeoJSON features...', {
+            totalFeatures: data.geojson.features.length
+          });
+
+          // Pre-process GeoJSON to convert highway polygons to linestrings
+          const processedGeojson = {
+            ...data.geojson,
+            features: data.geojson.features.map(feature => {
           const featureType = feature.properties?.feature_type;
           
           // Convert highway polygons to linestrings
@@ -302,8 +393,10 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
         })
       };
 
-      // Add GeoJSON features
-      const geoJsonLayer = L.geoJSON(processedGeojson, {
+          console.log('[TerrainMap] Adding GeoJSON layer to map...');
+
+          // Add GeoJSON features
+          const geoJsonLayer = L.geoJSON(processedGeojson, {
         style: (feature) => {
           const featureType = feature?.properties?.feature_type || 'other';
           const geometry = feature?.geometry;
@@ -371,44 +464,78 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
             keepInView: false,   // Don't keep in view
             offset: [0, 0]       // No offset (might remove tip positioning)
           });
-        },
-      }).addTo(map);
+            },
+          }).addTo(map);
+          
+          console.log('[TerrainMap] GeoJSON layer added successfully', {
+            layerCount: Object.keys((geoJsonLayer as any)._layers).length
+          });
 
-      // Wait for map to be fully ready before fitting bounds
-      map.whenReady(() => {
-        // Fit map to show all features
-        if (geoJsonLayer.getBounds().isValid()) {
-          try {
-            map.fitBounds(geoJsonLayer.getBounds(), { 
-              padding: [50, 50],
-              animate: false  // Disable animation to prevent position errors
+          // Wait for map to be fully ready before fitting bounds
+          map.whenReady(() => {
+            console.log('[TerrainMap] Map is ready, fitting bounds...');
+            // Fit map to show all features
+            const bounds = geoJsonLayer.getBounds();
+            console.log('[TerrainMap] GeoJSON bounds:', {
+              isValid: bounds.isValid(),
+              bounds: bounds.isValid() ? {
+                north: bounds.getNorth(),
+                south: bounds.getSouth(),
+                east: bounds.getEast(),
+                west: bounds.getWest()
+              } : null
             });
-          } catch (error) {
-            console.warn('Error fitting bounds:', error);
-          }
-        }
-        
-        // Invalidate size to ensure proper rendering
-        setTimeout(() => {
-          try {
-            map.invalidateSize();
-            console.log('Map size invalidated, dragging enabled:', map.dragging.enabled());
-          } catch (error) {
-            console.warn('Error invalidating size:', error);
-          }
-        }, 100);
-      });
 
+            if (bounds.isValid()) {
+              try {
+                map.fitBounds(bounds, { 
+                  padding: [50, 50],
+                  animate: false  // Disable animation to prevent position errors
+                });
+                console.log('[TerrainMap] Bounds fitted successfully');
+              } catch (error) {
+                console.error('[TerrainMap] Error fitting bounds:', error);
+              }
+            } else {
+              console.warn('[TerrainMap] Bounds are not valid, skipping fitBounds');
+            }
+            
+            // Invalidate size to ensure proper rendering
+            setTimeout(() => {
+              try {
+                map.invalidateSize();
+                console.log('[TerrainMap] Map size invalidated, dragging enabled:', map.dragging.enabled());
+                console.log('[TerrainMap] ✅ MAP INITIALIZATION COMPLETE');
+              } catch (error) {
+                console.error('[TerrainMap] Error invalidating size:', error);
+              }
+            }, 100);
+          });
 
-      });
+        })
+        .catch((error) => {
+          console.error('[TerrainMap] ❌ CRITICAL ERROR: Failed to import Leaflet:', error);
+          console.error('[TerrainMap] Error details:', {
+            name: error.name,
+            message: error.message,
+            stack: error.stack
+          });
+        });
     }, 100);
 
     // Cleanup only on unmount
     return () => {
+      console.log('[TerrainMap] Cleanup function called');
       clearTimeout(timer);
       if (mapInstanceRef.current) {
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
+        console.log('[TerrainMap] Removing map instance');
+        try {
+          mapInstanceRef.current.remove();
+          mapInstanceRef.current = null;
+          console.log('[TerrainMap] Map instance removed successfully');
+        } catch (error) {
+          console.error('[TerrainMap] Error removing map instance:', error);
+        }
       }
     };
   }, [data.projectId]); // Only re-run if projectId changes (new terrain analysis)
@@ -512,19 +639,21 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
         </ColumnLayout>
 
         {/* Feature Breakdown */}
-        <Box>
-          <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
-            Feature Breakdown
+        {data.metrics?.featuresByType && (
+          <Box>
+            <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
+              Feature Breakdown
+            </Box>
+            <ColumnLayout columns={4} variant="text-grid">
+              {Object.entries(data.metrics.featuresByType).map(([type, count]) => (
+                <div key={type}>
+                  <Box variant="small" color="text-body-secondary">{type}</Box>
+                  <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{count}</div>
+                </div>
+              ))}
+            </ColumnLayout>
           </Box>
-          <ColumnLayout columns={4} variant="text-grid">
-            {Object.entries(data.metrics.featuresByType).map(([type, count]) => (
-              <div key={type}>
-                <Box variant="small" color="text-body-secondary">{type}</Box>
-                <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{count}</div>
-              </div>
-            ))}
-          </ColumnLayout>
-        </Box>
+        )}
 
         {/* Interactive Map */}
         <Box>
@@ -569,72 +698,74 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
         </Box>
 
         {/* Feature Table with Pagination */}
-        <Box>
-          <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
-            Features ({data.exclusionZones.length})
-          </Box>
-          <Table
-            columnDefinitions={[
-              {
-                id: 'type',
-                header: 'Type',
-                cell: (item: GeoJSONFeature) => (
-                  <Box padding={{ left: 's' }}>
-                    {item.properties.feature_type || 'Unknown'}
-                  </Box>
-                ),
-                minWidth: 120,
-              },
-              {
-                id: 'osmId',
-                header: 'OSM ID',
-                cell: (item: GeoJSONFeature) => item.properties.osm_id || 'N/A',
-                minWidth: 120,
-              },
-              {
-                id: 'name',
-                header: 'Name',
-                cell: (item: GeoJSONFeature) => item.properties.tags?.name || '-',
-                minWidth: 150,
-              },
-              {
-                id: 'details',
-                header: 'Details',
-                cell: (item: GeoJSONFeature) => {
-                  const tags = item.properties.tags || {};
-                  if (tags.building) return `Building: ${tags.building}`;
-                  if (tags.highway) return `Highway: ${tags.highway}`;
-                  if (tags.natural) return `Natural: ${tags.natural}`;
-                  return '-';
+        {data.exclusionZones && data.exclusionZones.length > 0 && (
+          <Box>
+            <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
+              Features ({data.exclusionZones.length})
+            </Box>
+            <Table
+              columnDefinitions={[
+                {
+                  id: 'type',
+                  header: 'Type',
+                  cell: (item: GeoJSONFeature) => (
+                    <Box padding={{ left: 's' }}>
+                      {item.properties.feature_type || 'Unknown'}
+                    </Box>
+                  ),
+                  minWidth: 120,
                 },
-                minWidth: 150,
-              },
-            ]}
-            items={data.exclusionZones.slice(
-              (currentPageIndex - 1) * pageSize,
-              currentPageIndex * pageSize
-            )}
-            loadingText="Loading features"
-            empty={
-              <Box textAlign="center" color="inherit">
-                <b>No features found</b>
-              </Box>
-            }
-            contentDensity="comfortable"
-            pagination={
-              <Pagination
-                currentPageIndex={currentPageIndex}
-                pagesCount={Math.ceil(data.exclusionZones.length / pageSize)}
-                onChange={({ detail }) => setCurrentPageIndex(detail.currentPageIndex)}
-                ariaLabels={{
-                  nextPageLabel: 'Next page',
-                  previousPageLabel: 'Previous page',
-                  pageLabel: (pageNumber) => `Page ${pageNumber}`,
-                }}
-              />
-            }
-          />
-        </Box>
+                {
+                  id: 'osmId',
+                  header: 'OSM ID',
+                  cell: (item: GeoJSONFeature) => item.properties.osm_id || 'N/A',
+                  minWidth: 120,
+                },
+                {
+                  id: 'name',
+                  header: 'Name',
+                  cell: (item: GeoJSONFeature) => item.properties.tags?.name || '-',
+                  minWidth: 150,
+                },
+                {
+                  id: 'details',
+                  header: 'Details',
+                  cell: (item: GeoJSONFeature) => {
+                    const tags = item.properties.tags || {};
+                    if (tags.building) return `Building: ${tags.building}`;
+                    if (tags.highway) return `Highway: ${tags.highway}`;
+                    if (tags.natural) return `Natural: ${tags.natural}`;
+                    return '-';
+                  },
+                  minWidth: 150,
+                },
+              ]}
+              items={data.exclusionZones.slice(
+                (currentPageIndex - 1) * pageSize,
+                currentPageIndex * pageSize
+              )}
+              loadingText="Loading features"
+              empty={
+                <Box textAlign="center" color="inherit">
+                  <b>No features found</b>
+                </Box>
+              }
+              contentDensity="comfortable"
+              pagination={
+                <Pagination
+                  currentPageIndex={currentPageIndex}
+                  pagesCount={Math.ceil(data.exclusionZones.length / pageSize)}
+                  onChange={({ detail }) => setCurrentPageIndex(detail.currentPageIndex)}
+                  ariaLabels={{
+                    nextPageLabel: 'Next page',
+                    previousPageLabel: 'Previous page',
+                    pageLabel: (pageNumber) => `Page ${pageNumber}`,
+                  }}
+                />
+              }
+            />
+          </Box>
+        )}
 
         {/* Additional Visualizations */}
         {data.visualizations && Object.keys(data.visualizations).length > 0 && (

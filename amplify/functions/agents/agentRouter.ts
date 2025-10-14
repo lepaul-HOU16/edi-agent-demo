@@ -195,8 +195,8 @@ export class AgentRouter {
       /wind.*farm|wind.*turbine|turbine.*layout|wind.*energy/,
       /renewable.*energy|clean.*energy|green.*energy/,
       
-      // Site analysis and terrain
-      /terrain.*analysis|site.*analysis.*wind|unbuildable.*areas|exclusion.*zones/,
+      // Site analysis and terrain (BOTH WORD ORDERS)
+      /terrain.*analysis|analyze.*terrain|site.*analysis.*wind|unbuildable.*areas|exclusion.*zones/,
       /wind.*resource|wind.*speed.*analysis|wind.*data/,
       
       // Layout and optimization
