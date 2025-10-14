@@ -1000,6 +1000,14 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
     
     switch (result.type) {
       case 'terrain_analysis':
+        console.log('🔍 TERRAIN DEBUG - result.data keys:', Object.keys(result.data));
+        console.log('🔍 TERRAIN DEBUG - has geojson:', !!result.data.geojson);
+        console.log('🔍 TERRAIN DEBUG - has mapHtml:', !!result.data.mapHtml);
+        console.log('🔍 TERRAIN DEBUG - geojson type:', typeof result.data.geojson);
+        if (result.data.geojson) {
+          console.log('🔍 TERRAIN DEBUG - geojson features:', result.data.geojson.features?.length);
+        }
+        
         artifact = {
           type: 'wind_farm_terrain_analysis',
           data: {
@@ -1015,6 +1023,8 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
             message: result.data.message
           }
         };
+        
+        console.log('🔍 TERRAIN DEBUG - artifact.data has geojson:', !!artifact.data.geojson);
         break;
         
       case 'layout_optimization':
