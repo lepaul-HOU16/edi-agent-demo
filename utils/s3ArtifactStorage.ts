@@ -432,27 +432,12 @@ export const processArtifactsForStorage = async (
             sizeBytes: optimizedSize
           });
         } else {
-          console.error(`❌ Artifact still too large after optimization (${(optimizedSize / 1024).toFixed(2)} KB > 100 KB)`);
-          console.error(`   S3 upload failed and optimization didn't reduce size enough`);
-          console.error(`   Creating minimal error placeholder to preserve user experience`);
-          
-          // Create a minimal error placeholder that preserves key information
-          const errorPlaceholder = {
-            type: 'error',
-            messageContentType: 'error',
-            title: 'Visualization Unavailable',
-            data: {
-              message: 'This visualization was too large to store and could not be uploaded to cloud storage. Please try with a smaller analysis area or radius.',
-              originalType: artifact.type || artifact.messageContentType || 'unknown',
-              size: `${(optimizedSize / 1024).toFixed(2)} KB`,
-              suggestion: 'Try reducing the analysis radius or area to generate a smaller visualization.'
-            }
-          };
-          
+          console.log(`⚠️ Artifact still too large after optimization, using as-is (may fail)`);
+          // Last resort: keep original inline (may fail, but preserves data)
           results.push({
             shouldUseS3: false,
-            artifact: JSON.stringify(errorPlaceholder),
-            sizeBytes: calculateArtifactSize(errorPlaceholder)
+            artifact,
+            sizeBytes
           });
         }
       }

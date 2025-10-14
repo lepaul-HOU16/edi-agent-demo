@@ -197,7 +197,7 @@ def handler(event, context):
         
         print(f"📦 Stored GeoJSON in S3: s3://{S3_BUCKET}/{geojson_s3_key}")
         
-        # Return response with S3 reference instead of full GeoJSON
+        # Return response with BOTH geojson AND S3 reference
         response_data = {
             'success': True,
             'type': 'terrain_analysis',
@@ -213,7 +213,8 @@ def handler(event, context):
                     'totalFeatures': feature_count,
                     'radiusKm': radius_km
                 },
-                'geojsonS3Key': geojson_s3_key,  # S3 reference instead of full data
+                'geojson': geojson,  # CRITICAL: Include geojson for Leaflet map rendering
+                'geojsonS3Key': geojson_s3_key,  # Also provide S3 reference
                 'geojsonS3Bucket': S3_BUCKET,
                 'message': f'Successfully analyzed terrain: {feature_count} features found',
                 'visualizations': {},
