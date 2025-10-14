@@ -441,6 +441,11 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             // NEW: Check for renewable energy wind farm terrain analysis
             if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_terrain_analysis') {
                 console.log('🎉 EnhancedArtifactProcessor: Rendering TerrainMapArtifact!');
+                console.log('🔍 FRONTEND DEBUG - parsedArtifact keys:', Object.keys(parsedArtifact));
+                console.log('🔍 FRONTEND DEBUG - has geojson:', !!parsedArtifact.geojson);
+                console.log('🔍 FRONTEND DEBUG - has data.geojson:', !!parsedArtifact.data?.geojson);
+                console.log('🔍 FRONTEND DEBUG - has mapHtml:', !!parsedArtifact.mapHtml);
+                console.log('🔍 FRONTEND DEBUG - parsedArtifact:', parsedArtifact);
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
