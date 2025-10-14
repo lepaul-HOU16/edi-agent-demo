@@ -670,30 +670,18 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
               position: 'relative',
             }}
           >
-            {data.mapHtml ? (
-              <iframe
-                srcDoc={data.mapHtml}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  border: 'none',
-                }}
-                title="Terrain Analysis Map"
-                sandbox="allow-scripts allow-same-origin"
-              />
-            ) : (
-              <div
-                ref={mapRef}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  position: 'relative',
-                  zIndex: 1,
-                  pointerEvents: 'auto',
-                  touchAction: 'none',
-                }}
-              />
-            )}
+            {/* Always use Leaflet map, not iframe - mapHtml is deprecated */}
+            <div
+              ref={mapRef}
+              style={{
+                width: '100%',
+                height: '100%',
+                position: 'relative',
+                zIndex: 1,
+                pointerEvents: 'auto',
+                touchAction: 'none',
+              }}
+            />
           </div>
         </Box>
 

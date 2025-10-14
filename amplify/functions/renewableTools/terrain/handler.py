@@ -1421,14 +1421,9 @@ def handler(event, context):
             feature_type = feature.get('properties', {}).get('feature_type', 'unknown')
             feature_counts[feature_type] = feature_counts.get(feature_type, 0) + 1
         
-        # CRITICAL: Limit inline geojson to prevent DynamoDB size limits (400KB)
-        # For large datasets, only include S3 reference
-        MAX_INLINE_FEATURES = 500
-        include_inline_geojson = len(features) <= MAX_INLINE_FEATURES
-        
-        if not include_inline_geojson:
-            logger.warning(f"⚠️ Dataset too large ({len(features)} features), using S3 reference only")
-            logger.info(f"📍 Frontend will fetch from S3: {geojson_s3_key}")
+        # CRITICAL: Always include geojson for map rendering
+        # The frontend Leaflet map requires geojson data to render
+        # Size optimization is handled by S3 storage, not by removing data
         
         # Prepare response data
         response_data = {
@@ -1440,8 +1435,8 @@ def handler(event, context):
                 'featuresByType': feature_counts,
                 'radiusKm': radius_km
             },
-            'geojson': geojson if include_inline_geojson else None,  # Only include if small enough
-            'geojsonS3Key': geojson_s3_key,  # Always provide S3 reference
+            'geojson': geojson,  # ALWAYS include geojson - required for Leaflet map
+            'geojsonS3Key': geojson_s3_key,  # Also provide S3 reference for backup
             'geojsonS3Bucket': geojson_s3_bucket,
             'message': f'Found {len(features)} terrain features',
             'debug': debug_info
