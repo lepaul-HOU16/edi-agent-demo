@@ -55,12 +55,23 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
     const [artifacts, setArtifacts] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    const processingRef = useRef<boolean>(false); // Prevent multiple processing
 
     // Memoize raw artifacts to prevent dependency changes
-    const stableRawArtifacts = useMemo(() => rawArtifacts, [JSON.stringify(rawArtifacts)]);
+    // Use a stable string representation for comparison
+    const artifactsKey = useMemo(() => JSON.stringify(rawArtifacts), [rawArtifacts]);
+    const stableRawArtifacts = useMemo(() => rawArtifacts, [artifactsKey]);
 
     // Memoize the process function to prevent useEffect re-runs
     const processArtifacts = useCallback(async () => {
+        // Prevent multiple simultaneous processing
+        if (processingRef.current) {
+            console.log('⏭️ EnhancedArtifactProcessor: Already processing, skipping...');
+            return;
+        }
+        
+        processingRef.current = true;
+        
         try {
             console.log('🔄 EnhancedArtifactProcessor: Processing artifacts...');
             console.log('🔍 Raw artifacts type:', typeof stableRawArtifacts);
@@ -181,20 +192,44 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                 artifact && artifact.type === 's3_reference'
             );
             
+            // CRITICAL FIX: Deduplicate artifacts before setting
+            // Artifacts can be duplicated due to multiple saves or re-renders
+            const deduplicateArtifacts = (arts: any[]) => {
+                const seen = new Set<string>();
+                return arts.filter(art => {
+                    const key = JSON.stringify({
+                        type: art.type,
+                        messageContentType: art.messageContentType || art.data?.messageContentType,
+                        projectId: art.projectId || art.data?.projectId
+                    });
+                    if (seen.has(key)) {
+                        console.warn('⚠️ Duplicate artifact detected and removed:', key);
+                        return false;
+                    }
+                    seen.add(key);
+                    return true;
+                });
+            };
+            
             if (hasS3References) {
                 console.log('📥 EnhancedArtifactProcessor: S3 references detected, retrieving...');
                 try {
                     const retrievedArtifacts = await retrieveArtifacts(deserializedArtifacts);
-                    setArtifacts(retrievedArtifacts);
+                    const deduplicated = deduplicateArtifacts(retrievedArtifacts);
+                    console.log(`🔍 Deduplicated: ${retrievedArtifacts.length} -> ${deduplicated.length} artifacts`);
+                    setArtifacts(deduplicated);
                 } catch (s3Error: any) {
                     console.error('❌ Failed to retrieve S3 artifacts:', s3Error);
                     setError(`Failed to load artifacts from storage: ${s3Error.message}`);
                     // Use deserialized artifacts as fallback
-                    setArtifacts(deserializedArtifacts);
+                    const deduplicated = deduplicateArtifacts(deserializedArtifacts);
+                    setArtifacts(deduplicated);
                 }
             } else {
                 console.log('📝 EnhancedArtifactProcessor: No S3 references, using artifacts directly');
-                setArtifacts(deserializedArtifacts);
+                const deduplicated = deduplicateArtifacts(deserializedArtifacts);
+                console.log(`🔍 Deduplicated: ${deserializedArtifacts.length} -> ${deduplicated.length} artifacts`);
+                setArtifacts(deduplicated);
             }
             
             setLoading(false);
@@ -204,6 +239,8 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             setLoading(false);
             // Fallback: use raw artifacts
             setArtifacts(stableRawArtifacts);
+        } finally {
+            processingRef.current = false;
         }
     }, [stableRawArtifacts]);
 
@@ -457,17 +494,24 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             }
             
             // NEW: Check for renewable energy wind farm layout
-            // CRITICAL FIX: Check both top-level and nested messageContentType
+            // Check both parsedArtifact.data.messageContentType (from orchestrator) and parsedArtifact.messageContentType (direct)
+            // Also check parsedArtifact.type to catch orchestrator-wrapped responses
             if (parsedArtifact && typeof parsedArtifact === 'object' && 
-                (parsedArtifact.messageContentType === 'wind_farm_layout' ||
-                 parsedArtifact.data?.messageContentType === 'wind_farm_layout' ||
+                (parsedArtifact.data?.messageContentType === 'wind_farm_layout' || 
+                 parsedArtifact.messageContentType === 'wind_farm_layout' ||
                  parsedArtifact.type === 'wind_farm_layout')) {
                 console.log('🎉 EnhancedArtifactProcessor: Rendering LayoutMapArtifact!');
-                const artifactData = parsedArtifact.data || parsedArtifact;
+                const layoutData = parsedArtifact.data || parsedArtifact;
+                console.log('🔍 FRONTEND DEBUG - parsedArtifact.type:', parsedArtifact.type);
+                console.log('🔍 FRONTEND DEBUG - layoutData keys:', Object.keys(layoutData));
+                console.log('🔍 FRONTEND DEBUG - turbineCount:', layoutData.turbineCount);
+                console.log('🔍 FRONTEND DEBUG - totalCapacity:', layoutData.totalCapacity);
+                console.log('🔍 FRONTEND DEBUG - has geojson:', !!layoutData.geojson);
+                console.log('🔍 FRONTEND DEBUG - full layoutData:', layoutData);
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<LayoutMapArtifact data={artifactData} />}
+                    enhancedComponent={<LayoutMapArtifact data={layoutData} />}
                 />;
             }
             

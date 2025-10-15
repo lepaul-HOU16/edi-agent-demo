@@ -244,7 +244,11 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     
     // Step 3: Format results as EDI artifacts
     const formattingStartTime = Date.now();
+    console.log('🔍 DEBUG - Results count before formatting:', results.length);
+    console.log('🔍 DEBUG - Results types:', results.map(r => r.type));
     const artifacts = formatArtifacts(results);
+    console.log('🔍 DEBUG - Artifacts count after formatting:', artifacts.length);
+    console.log('🔍 DEBUG - Artifact types:', artifacts.map(a => a.type));
     const message = generateResponseMessage(intentWithDefaults, results);
     timings.resultFormatting = Date.now() - formattingStartTime;
     

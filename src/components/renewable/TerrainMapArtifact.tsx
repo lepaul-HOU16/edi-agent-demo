@@ -101,8 +101,18 @@ interface TerrainArtifactProps {
 const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAction }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const initializingRef = useRef<boolean>(false); // Prevent multiple initializations
+  const renderCountRef = useRef<number>(0); // Track render count
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
   const pageSize = 5;
+
+  // Log every render to diagnose the flashing
+  renderCountRef.current += 1;
+  console.log(`[TerrainMap] RENDER #${renderCountRef.current}`, {
+    projectId: data.projectId,
+    hasMapInstance: !!mapInstanceRef.current,
+    isInitializing: initializingRef.current
+  });
 
   // Inject popup styles
   useEffect(() => {
@@ -124,10 +134,17 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
 
   // Initialize Leaflet map - only once per data.projectId
   useEffect(() => {
+    // Skip Leaflet initialization if we have pre-rendered HTML
+    if (data.mapHtml || data.mapUrl) {
+      console.log('[TerrainMap] Using pre-rendered HTML map, skipping Leaflet initialization');
+      return;
+    }
+
     console.log('[TerrainMap] useEffect triggered', {
       hasMapRef: !!mapRef.current,
       hasGeojson: !!data.geojson,
       hasMapInstance: !!mapInstanceRef.current,
+      isInitializing: initializingRef.current,
       projectId: data.projectId,
       geojsonFeatureCount: data.geojson?.features?.length || 0
     });
@@ -142,13 +159,14 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
       return;
     }
     
-    // If map already exists, don't recreate it
-    if (mapInstanceRef.current) {
-      console.log('[TerrainMap] Map already exists, skipping re-initialization');
+    // If map already exists or is being initialized, don't recreate it
+    if (mapInstanceRef.current || initializingRef.current) {
+      console.log('[TerrainMap] Map already exists or is initializing, skipping re-initialization');
       return;
     }
 
     console.log('[TerrainMap] Starting map initialization...');
+    initializingRef.current = true; // Mark as initializing
 
     // Clear container completely
     mapRef.current.innerHTML = '';
@@ -165,22 +183,14 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
 
     if (rect.width === 0 || rect.height === 0) {
       console.error('[TerrainMap] Container has no dimensions! Map cannot initialize.');
+      initializingRef.current = false;
       return;
     }
 
-    // Add a small delay to ensure DOM is ready
-    const timer = setTimeout(() => {
-      console.log('[TerrainMap] Timer fired, checking mapRef again...');
-      
-      if (!mapRef.current) {
-        console.error('[TerrainMap] mapRef.current is null after timeout');
-        return;
-      }
-      
-      console.log('[TerrainMap] Starting dynamic Leaflet import...');
-      
-      // Dynamically import Leaflet
-      import('leaflet')
+    console.log('[TerrainMap] Starting dynamic Leaflet import...');
+    
+    // Dynamically import Leaflet (no timeout - immediate initialization)
+    import('leaflet')
         .then((L) => {
           console.log('[TerrainMap] Leaflet imported successfully', {
             hasMap: typeof L.map === 'function',
@@ -191,6 +201,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
 
           if (!mapRef.current) {
             console.error('[TerrainMap] mapRef.current is null after Leaflet import');
+            initializingRef.current = false;
             return;
           }
           
@@ -237,6 +248,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
             });
             
             mapInstanceRef.current = map;
+            initializingRef.current = false; // Initialization complete
             
             // Force enable dragging (sometimes gets disabled)
             map.dragging.enable();
@@ -249,6 +261,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
               message: (error as Error).message,
               stack: (error as Error).stack
             });
+            initializingRef.current = false;
             return;
           }
 
@@ -316,20 +329,87 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
           console.log('[TerrainMap] Center marker added');
 
           // Style function matching original Folium notebook styling
-      const getFeatureStyle = (featureType: string, geometry: any) => {
+      const getFeatureStyle = (featureType: string, geometry: any, tags: any = {}) => {
         const isLine = geometry?.type === 'LineString' || geometry?.type === 'MultiLineString';
         
-        switch (featureType) {
+        // FIX: Determine actual feature type from OSM tags if feature_type is 'way' or incorrect
+        let actualFeatureType = featureType;
+        
+        if (featureType === 'way' || !featureType || featureType === 'other') {
+          // Identify from OSM tags - order matters (most specific first)
+          if (tags.highway) {
+            actualFeatureType = 'highway';
+            console.log('[TerrainMap] Corrected feature type from "way" to "highway"', { highway: tags.highway });
+          } else if (tags.railway) {
+            actualFeatureType = 'railway';
+            console.log('[TerrainMap] Corrected feature type from "way" to "railway"', { railway: tags.railway });
+          } else if (tags.waterway) {
+            actualFeatureType = 'water';
+            console.log('[TerrainMap] Corrected feature type from "way" to "water" (waterway)', { waterway: tags.waterway });
+          } else if (tags.natural === 'water') {
+            actualFeatureType = 'water';
+            console.log('[TerrainMap] Corrected feature type from "way" to "water" (natural)', { tags });
+          } else if (tags.building) {
+            actualFeatureType = 'building';
+            console.log('[TerrainMap] Corrected feature type from "way" to "building"', { tags });
+          }
+        }
+        
+        // DIAGNOSTIC LOGGING for water features
+        if (actualFeatureType === 'water' || tags?.natural === 'water' || tags?.waterway) {
+          console.log('[TerrainMap] Water feature styling:', {
+            originalType: featureType,
+            actualType: actualFeatureType,
+            geometryType: geometry?.type,
+            tags,
+            isWaterway: !!tags.waterway,
+            willApplyBlueFill: actualFeatureType === 'water' && !tags.waterway
+          });
+        }
+        
+        switch (actualFeatureType) {
           case 'water':
+            // FIX: Waterways (rivers, streams) should be lines, not filled polygons
+            if (tags.waterway) {
+              console.log('[TerrainMap] ✅ Applying waterway styling (blue line, no fill)', { waterway: tags.waterway });
+              return {
+                fillColor: 'none',
+                color: 'blue',
+                weight: isLine ? 3 : 2,
+                fillOpacity: 0,  // No fill for waterways
+                opacity: 0.8,
+                fill: false,  // Explicitly disable fill for rivers/streams
+              };
+            }
+            // Water bodies (lakes, ponds) get filled
+            console.log('[TerrainMap] ✅ Applying water body styling (blue fill with 0.4 opacity)');
             return {
               fillColor: 'blue',
               color: 'darkblue',
               weight: 2,
               fillOpacity: 0.4,
               opacity: 0.8,
+              fill: true,  // Explicitly enable fill for water bodies
             };
           case 'highway':
-            // Render highways as lines, not filled polygons
+            // Check if it's a path/track/trail (unpaved)
+            const highwayType = tags.highway;
+            if (highwayType === 'path' || highwayType === 'track' || 
+                highwayType === 'footway' || highwayType === 'bridleway' ||
+                highwayType === 'cycleway' || highwayType === 'steps') {
+              console.log('[TerrainMap] ✅ Applying path/trail styling (brown dashed line)', { highway: highwayType });
+              return {
+                fillColor: 'none',
+                color: '#8B4513',  // Brown color for dirt paths
+                weight: 2,
+                fillOpacity: 0,
+                opacity: 0.7,
+                fill: false,
+                dashArray: '5, 5',  // Dashed line for unpaved paths
+              };
+            }
+            // Regular paved highways
+            console.log('[TerrainMap] ✅ Applying highway styling (orange line)', { highway: highwayType });
             return {
               fillColor: 'none',
               color: 'darkorange',
@@ -338,21 +418,48 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
               opacity: 1,
               fill: false,  // Explicitly disable fill
             };
+          case 'railway':
+            console.log('[TerrainMap] ✅ Applying railway styling (gray dashed line)');
+            return {
+              fillColor: 'none',
+              color: '#666666',
+              weight: 2,
+              fillOpacity: 0,
+              opacity: 0.8,
+              fill: false,
+              dashArray: '8, 4',  // Dashed line for railways
+            };
           case 'building':
+            console.log('[TerrainMap] ✅ Applying building styling (red fill with 0.4 opacity)');
             return {
               fillColor: 'red',
               color: 'darkred',
               weight: 2,
               fillOpacity: 0.4,
               opacity: 0.8,
+              fill: true,  // Explicitly enable fill
+            };
+          case 'way':
+            // Generic "way" that couldn't be classified - render as line (likely a path/trail)
+            console.log('[TerrainMap] ⚠️ Unclassified "way" feature, using brown line styling (likely path/trail)');
+            return {
+              fillColor: 'none',
+              color: '#8B4513',  // Brown for unclassified paths
+              weight: 2,
+              fillOpacity: 0,
+              opacity: 0.6,
+              fill: false,  // Don't fill unclassified ways
+              dashArray: '5, 5',  // Dashed line
             };
           default:
+            console.log('[TerrainMap] Using default styling for feature type:', actualFeatureType);
             return {
               fillColor: 'purple',
               color: 'darkviolet',
               weight: 2,
               fillOpacity: 0.4,
               opacity: 0.8,
+              fill: true,  // Explicitly enable fill
             };
         }
       };
@@ -361,14 +468,16 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
             totalFeatures: data.geojson.features.length
           });
 
-          // Pre-process GeoJSON to convert highway polygons to linestrings
+          // Pre-process GeoJSON to convert highway and waterway polygons to linestrings
           const processedGeojson = {
             ...data.geojson,
             features: data.geojson.features.map(feature => {
           const featureType = feature.properties?.feature_type;
+          const tags = feature.properties?.tags || {};
+          const isPolygon = feature.geometry?.type === 'Polygon';
           
           // Convert highway polygons to linestrings
-          if (featureType === 'highway' && feature.geometry?.type === 'Polygon') {
+          if (featureType === 'highway' && isPolygon) {
             let coords = feature.geometry.coordinates[0];
             
             // Remove duplicate last coordinate if it matches the first (closes the polygon)
@@ -380,6 +489,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
               }
             }
             
+            console.log('[TerrainMap] Converting highway polygon to linestring');
             return {
               ...feature,
               geometry: {
@@ -389,30 +499,151 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
             };
           }
           
+          // Convert waterway (river, stream, etc.) polygons to linestrings
+          if (tags.waterway && isPolygon) {
+            let coords = feature.geometry.coordinates[0];
+            
+            // Remove duplicate last coordinate if it matches the first (closes the polygon)
+            if (coords.length > 1) {
+              const first = coords[0];
+              const last = coords[coords.length - 1];
+              if (first[0] === last[0] && first[1] === last[1]) {
+                coords = coords.slice(0, -1); // Remove last coordinate
+              }
+            }
+            
+            console.log('[TerrainMap] Converting waterway polygon to linestring', { waterway: tags.waterway });
+            return {
+              ...feature,
+              geometry: {
+                type: 'LineString',
+                coordinates: coords
+              }
+            };
+          }
+          
+          // Convert generic "way" features that are likely paths/tracks to linestrings
+          // These are often unpaved roads, trails, dirt paths that shouldn't be filled polygons
+          if (featureType === 'way' && isPolygon) {
+            // Check if it's a linear feature (path, track, footway, etc.)
+            const isLinearFeature = tags.highway || tags.railway || tags.waterway || 
+                                   tags.barrier || tags.man_made === 'pipeline' ||
+                                   tags.natural === 'tree_row';
+            
+            if (isLinearFeature) {
+              let coords = feature.geometry.coordinates[0];
+              
+              // Remove duplicate last coordinate if it matches the first (closes the polygon)
+              if (coords.length > 1) {
+                const first = coords[0];
+                const last = coords[coords.length - 1];
+                if (first[0] === last[0] && first[1] === last[1]) {
+                  coords = coords.slice(0, -1); // Remove last coordinate
+                }
+              }
+              
+              console.log('[TerrainMap] Converting generic "way" polygon to linestring', { 
+                tags,
+                reason: tags.highway ? 'highway' : tags.railway ? 'railway' : 'other linear feature'
+              });
+              return {
+                ...feature,
+                geometry: {
+                  type: 'LineString',
+                  coordinates: coords
+                }
+              };
+            }
+          }
+          
           return feature;
         })
       };
 
           console.log('[TerrainMap] Adding GeoJSON layer to map...');
+          
+          // DIAGNOSTIC: Log all feature types
+          const featureTypeCounts: Record<string, number> = {};
+          processedGeojson.features.forEach(feature => {
+            const type = feature.properties?.feature_type || 'unknown';
+            featureTypeCounts[type] = (featureTypeCounts[type] || 0) + 1;
+          });
+          console.log('[TerrainMap] Feature type distribution:', featureTypeCounts);
+          
+          // DIAGNOSTIC: Log sample water features
+          const waterFeatures = processedGeojson.features.filter(f => 
+            f.properties?.feature_type === 'water' || 
+            f.properties?.feature_type === 'way' ||
+            f.properties?.tags?.natural === 'water' ||
+            f.properties?.tags?.waterway
+          );
+          console.log('[TerrainMap] Water features found:', waterFeatures.length);
+          if (waterFeatures.length > 0) {
+            console.log('[TerrainMap] Sample water feature:', {
+              featureType: waterFeatures[0].properties?.feature_type,
+              geometryType: waterFeatures[0].geometry?.type,
+              tags: waterFeatures[0].properties?.tags
+            });
+          }
 
           // Add GeoJSON features
           const geoJsonLayer = L.geoJSON(processedGeojson, {
         style: (feature) => {
           const featureType = feature?.properties?.feature_type || 'other';
           const geometry = feature?.geometry;
-          return getFeatureStyle(featureType, geometry);
+          const tags = feature?.properties?.tags || {};
+          return getFeatureStyle(featureType, geometry, tags);
         },
         onEachFeature: (feature, layer) => {
           const props = feature.properties || {};
-          const featureType = props.feature_type || 'Unknown';
+          let featureType = props.feature_type || 'Unknown';
           const osmId = props.osm_id || 'N/A';
           const tags = props.tags || {};
+          
+          // FIX: Correct feature type from OSM tags if it's 'way'
+          if (featureType === 'way' || featureType === 'Unknown') {
+            if (tags.highway) {
+              featureType = 'highway';
+            } else if (tags.railway) {
+              featureType = 'railway';
+            } else if (tags.waterway) {
+              featureType = 'water';
+            } else if (tags.natural === 'water') {
+              featureType = 'water';
+            } else if (tags.building) {
+              featureType = 'building';
+            }
+          }
           
           // Better display name based on actual feature details
           let displayName = featureType;
           if (featureType === 'highway' && tags.highway) {
-            // Show the actual road type instead of generic "highway"
-            displayName = tags.highway.charAt(0).toUpperCase() + tags.highway.slice(1) + ' Road';
+            // Show specific path/trail types
+            const highwayType = tags.highway;
+            if (highwayType === 'path') {
+              displayName = 'Path';
+            } else if (highwayType === 'track') {
+              displayName = 'Track';
+            } else if (highwayType === 'footway') {
+              displayName = 'Footway';
+            } else if (highwayType === 'cycleway') {
+              displayName = 'Cycleway';
+            } else if (highwayType === 'bridleway') {
+              displayName = 'Bridleway';
+            } else if (highwayType === 'steps') {
+              displayName = 'Steps';
+            } else {
+              // Regular roads
+              displayName = highwayType.charAt(0).toUpperCase() + highwayType.slice(1) + ' Road';
+            }
+          } else if (featureType === 'railway' && tags.railway) {
+            displayName = tags.railway.charAt(0).toUpperCase() + tags.railway.slice(1);
+          } else if (featureType === 'water' && tags.name) {
+            displayName = tags.name;
+          } else if (featureType === 'water' && tags.waterway) {
+            displayName = tags.waterway.charAt(0).toUpperCase() + tags.waterway.slice(1);
+          } else if (featureType === 'water' && tags.natural === 'water') {
+            displayName = 'Water Body';
           } else if (tags.name) {
             displayName = tags.name;
           }
@@ -520,18 +751,18 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
             message: error.message,
             stack: error.stack
           });
+          initializingRef.current = false;
         });
-    }, 100);
 
     // Cleanup only on unmount
     return () => {
       console.log('[TerrainMap] Cleanup function called');
-      clearTimeout(timer);
       if (mapInstanceRef.current) {
         console.log('[TerrainMap] Removing map instance');
         try {
           mapInstanceRef.current.remove();
           mapInstanceRef.current = null;
+          initializingRef.current = false;
           console.log('[TerrainMap] Map instance removed successfully');
         } catch (error) {
           console.error('[TerrainMap] Error removing map instance:', error);
@@ -670,8 +901,9 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
               position: 'relative',
             }}
           >
-            {data.mapHtml ? (
+            {data.mapHtml || data.mapUrl ? (
               <iframe
+                src={data.mapUrl}
                 srcDoc={data.mapHtml}
                 style={{
                   width: '100%',
@@ -681,9 +913,10 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
                 title="Terrain Analysis Map"
                 sandbox="allow-scripts allow-same-origin"
               />
-            ) : (
+            ) : data.geojson ? (
               <div
                 ref={mapRef}
+                key={`terrain-map-${data.projectId}`}
                 style={{
                   width: '100%',
                   height: '100%',
@@ -691,8 +924,13 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
                   zIndex: 1,
                   pointerEvents: 'auto',
                   touchAction: 'none',
+                  minHeight: '600px', // Prevent collapse during initialization
                 }}
               />
+            ) : (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                <p>No map data available</p>
+              </div>
             )}
           </div>
         </Box>
@@ -807,4 +1045,8 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
   );
 };
 
-export default TerrainMapArtifact;
+// Wrap with React.memo to prevent unnecessary re-renders
+export default React.memo(TerrainMapArtifact, (prevProps, nextProps) => {
+  // Only re-render if projectId changes (new terrain analysis)
+  return prevProps.data.projectId === nextProps.data.projectId;
+});

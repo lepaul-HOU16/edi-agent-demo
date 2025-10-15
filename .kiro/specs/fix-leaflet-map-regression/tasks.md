@@ -1,4 +1,4 @@
-# Implementation Plan
+git # Implementation Plan
 
 - [x] 1. Diagnose the map loading failure
   - Add debug logging to track initialization flow
@@ -77,9 +77,91 @@
     - Verify fallback UI displays
     - _Requirements: 3.4_
 
-- [ ] 5. Document the fix and prevention measures
-  - Document the root cause of the regression
-  - Update component comments with initialization notes
+- [ ] 5. Fix feature list table rendering
+  - [ ] 5.1 Diagnose why table is not displaying
+    - Check if data.exclusionZones is populated
+    - Verify table component is rendering in DOM
+    - Check for CSS issues hiding the table
+    - Log table data and rendering state
+    - _Requirements: 4.1, 4.2, 4.3_
+  
+  - [ ] 5.2 Restore table visibility
+    - Ensure table section renders after map
+    - Verify pagination controls work correctly
+    - Check table header alignment
+    - Test with various feature counts
+    - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
+
+- [x] 6. Fix water body styling
+  - [x] 6.1 Diagnose water feature rendering issues
+    - Check current water feature styling in getFeatureStyle
+    - Verify water features are identified correctly
+    - Check if fillOpacity is being applied
+    - Log water feature properties and geometry
+    - _Requirements: 5.1, 5.2, 5.3_
+  
+  - [x] 6.2 Apply correct water styling
+    - Set fillColor to 'blue' with fillOpacity 0.4
+    - Set border color to 'darkblue' with weight 2
+    - Ensure fill is enabled for water polygons
+    - Verify feature_type is 'water' not 'way'
+    - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+
+- [ ] 7. Fix building styling
+  - [ ] 7.1 Diagnose building feature rendering issues
+    - Check current building styling in getFeatureStyle
+    - Verify buildings are identified correctly
+    - Check if fillOpacity is being applied
+    - Log building properties and geometry
+    - _Requirements: 6.1, 6.2, 6.3_
+  
+  - [ ] 7.2 Apply correct building styling
+    - Set fillColor to 'red' with fillOpacity 0.4
+    - Set border color to 'darkred' with weight 2
+    - Ensure polygons are properly closed
+    - Verify building details show in popups
+    - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+
+- [ ] 8. Verify against original Renewables notebook
+  - [ ] 8.1 Compare feature styling
+    - Review original notebook feature colors
+    - Match color scheme exactly
+    - Verify highway rendering as lines
+    - Verify water/buildings as filled polygons
+    - _Requirements: 7.1, 7.2, 7.3_
+  
+  - [ ] 8.2 Verify popup content
+    - Check feature names display correctly
+    - Verify OSM tags show in popups
+    - Match popup styling to original
+    - Test popup interactions
+    - _Requirements: 7.4, 7.5_
+
+- [ ] 9. Complete end-to-end testing
+  - [ ] 9.1 Test map rendering
+    - Verify map loads without errors
+    - Check all features display correctly
+    - Test map interactions (drag, zoom, click)
+    - Verify layer switcher works
+    - _Requirements: 8.1, 8.3, 8.4, 8.5_
+  
+  - [ ] 9.2 Test feature table
+    - Verify table displays all features
+    - Test pagination controls
+    - Check feature data accuracy
+    - Verify table styling and alignment
+    - _Requirements: 8.2_
+  
+  - [ ] 9.3 Test feature styling
+    - Verify water bodies are blue and filled
+    - Verify buildings are red and filled
+    - Verify highways are orange lines
+    - Check all popups display correctly
+    - _Requirements: 8.1, 8.2_
+
+- [ ] 10. Document the fix and prevention measures
+  - Document all root causes of regressions
+  - Update component comments with styling notes
   - Add troubleshooting guide for future issues
   - Create regression test to prevent future breakage
   - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_

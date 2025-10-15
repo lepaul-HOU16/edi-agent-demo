@@ -105,22 +105,9 @@ def create_basic_layout_map(geojson, center_lat, center_lon):
         
         var markers = {json.dumps(markers)};
         
+        // Add markers - use default Leaflet markers (blue teardrop) to match notebook style
         markers.forEach(function(marker) {{
-            var icon = marker.type === 'center' ? 
-                L.divIcon({{
-                    className: 'center-marker',
-                    html: '<div style="background-color: green; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white;"></div>',
-                    iconSize: [16, 16],
-                    iconAnchor: [8, 8]
-                }}) :
-                L.divIcon({{
-                    className: 'turbine-marker',
-                    html: '<div style="background-color: blue; width: 10px; height: 10px; border-radius: 50%; border: 2px solid white;"></div>',
-                    iconSize: [14, 14],
-                    iconAnchor: [7, 7]
-                }});
-            
-            L.marker([marker.lat, marker.lng], {{icon: icon}})
+            L.marker([marker.lat, marker.lng])
                 .bindPopup(marker.title)
                 .addTo(map);
         }});
@@ -283,6 +270,29 @@ def handler(event, context):
         logger.info("Creating interactive HTML map")
         map_html = create_basic_layout_map(geojson, center_lat, center_lon)
         
+        # Save map HTML to S3
+        map_url = None
+        if map_html:
+            try:
+                import boto3
+                s3_bucket = os.environ.get('RENEWABLE_S3_BUCKET')
+                if s3_bucket:
+                    s3_client = boto3.client('s3')
+                    s3_key = f"renewable/layout/{project_id}/layout_map.html"
+                    s3_client.put_object(
+                        Bucket=s3_bucket,
+                        Key=s3_key,
+                        Body=map_html.encode('utf-8'),
+                        ContentType='text/html',
+                        CacheControl='max-age=3600'
+                    )
+                    map_url = f"https://{s3_bucket}.s3.amazonaws.com/{s3_key}"
+                    logger.info(f"✅ Saved layout map HTML to S3: {map_url}")
+                else:
+                    logger.warning("⚠️ RENEWABLE_S3_BUCKET not configured, cannot save map to S3")
+            except Exception as s3_error:
+                logger.error(f"❌ Failed to save map HTML to S3: {s3_error}")
+        
         # Generate additional visualizations if available
         visualizations = []
         if VISUALIZATIONS_AVAILABLE:
@@ -339,12 +349,18 @@ def handler(event, context):
             'visualizations': visualizations
         }
         
-        # Add map HTML if available
+        # Add map HTML and URL if available
         if map_html:
             response_data['mapHtml'] = map_html
             logger.info("✅ Added mapHtml to response data")
         else:
             logger.warning("❌ No mapHtml available for response")
+        
+        if map_url:
+            response_data['mapUrl'] = map_url
+            logger.info(f"✅ Added mapUrl to response data: {map_url}")
+        else:
+            logger.warning("❌ No mapUrl available for response")
         
         return {
             'statusCode': 200,

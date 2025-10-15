@@ -2,25 +2,68 @@
 
 ## Overview
 
-This design addresses the Leaflet map loading regression in the TerrainMapArtifact component. The map was previously working but has stopped rendering, likely due to changes in the component lifecycle, import patterns, or DOM manipulation.
+This design addresses multiple regressions in the TerrainMapArtifact component:
+
+**Priority 1: Feature Styling Issues**
+- Water bodies not filled (should be blue with 0.4 opacity)
+- Buildings not filled (should be red with 0.4 opacity)
+- Features incorrectly labeled as 'way' instead of proper type
+- Lost original styling from Renewables notebook reference
+
+**Priority 2: Missing Feature Table**
+- Feature list table not displaying below map
+
+**Priority 3: Map Initialization**
+- Map loading issues (if still present)
+
+The feature styling is the highest priority as it directly impacts user ability to interpret terrain analysis results.
 
 ## Root Cause Analysis
 
-### Potential Issues
+### Priority 1: Feature Styling Issues
+
+**Current State Analysis:**
+Looking at the code (lines 329-361 in TerrainMapArtifact.tsx), the `getFeatureStyle` function exists and defines correct colors:
+- Water: blue fill with 0.4 opacity
+- Buildings: red fill with 0.4 opacity
+- Highways: orange lines with no fill
+
+**Potential Root Causes:**
+
+1. **Feature Type Mismatch**: Backend may be sending `feature_type: 'way'` instead of `'water'` or `'building'`
+2. **Data Pipeline Issue**: OSM data processing may not be correctly identifying feature types
+3. **GeoJSON Properties**: The `properties.feature_type` field may be missing or incorrect
+4. **Backend Processing**: Python terrain analysis may not be properly categorizing OSM features
+
+**Investigation Needed:**
+1. Log actual feature properties from backend data
+2. Check what `feature_type` values are being received
+3. Verify OSM tag processing in Python backend
+4. Compare with original Renewables notebook feature identification logic
+
+### Priority 2: Missing Feature Table
+
+**Current State Analysis:**
+The table code exists (lines 682-745) and should render when `data.exclusionZones` has items.
+
+**Potential Root Causes:**
+
+1. **Data Property Mismatch**: Backend may be sending features in `data.geojson.features` but not in `data.exclusionZones`
+2. **Empty Array**: `data.exclusionZones` may be undefined or empty array
+3. **Conditional Rendering**: The condition `{data.exclusionZones && data.exclusionZones.length > 0 && (` may be failing
+4. **CSS Display Issue**: Table may be rendering but hidden by CSS
+
+**Investigation Needed:**
+1. Log `data.exclusionZones` to see if it's populated
+2. Check if features are in different property
+3. Verify backend is sending exclusionZones array
+4. Check browser DevTools for hidden table elements
+
+### Priority 3: Map Initialization (If Needed)
 
 1. **Dynamic Import Timing**: The component uses dynamic `import('leaflet')` which may be failing or timing out
 2. **MapRef Availability**: The `mapRef.current` may not be available when Leaflet tries to initialize
 3. **Duplicate Initialization**: The map may be trying to initialize multiple times on the same container
-4. **CSS Loading**: Leaflet CSS may not be loaded before map initialization
-5. **Container Dimensions**: The map container may not have proper dimensions when Leaflet initializes
-
-### Investigation Approach
-
-1. Check if the dynamic import is resolving correctly
-2. Verify the mapRef is attached to a valid DOM element
-3. Confirm the useEffect dependencies are correct
-4. Check for any console errors during map initialization
-5. Verify Leaflet CSS is loaded
 
 ## Architecture
 
@@ -161,79 +204,163 @@ But this may fail if:
 
 ## Proposed Solutions
 
-### Solution 1: Improve Import Error Handling
+### Priority 1: Fix Feature Styling
 
-Add error handling to the dynamic import:
+#### Solution 1A: Diagnose Feature Type Values
+
+Add logging to see what feature types are actually being received:
 
 ```typescript
-import('leaflet')
-  .then((L) => {
-    // Initialize map
-  })
-  .catch((error) => {
-    console.error('Failed to load Leaflet:', error);
-    // Show fallback UI
-  });
+console.log('[TerrainMap] Feature types in data:', 
+  data.geojson.features.map(f => ({
+    type: f.properties?.feature_type,
+    tags: f.properties?.tags,
+    geometry: f.geometry?.type
+  }))
+);
 ```
 
-### Solution 2: Ensure DOM Readiness
+#### Solution 1B: Fix Feature Type Identification
 
-Use a more robust DOM readiness check:
+If backend is sending incorrect feature types, we need to:
+
+1. **Check OSM tags directly** - Look at `tags.natural`, `tags.building`, `tags.waterway` to identify features
+2. **Update getFeatureStyle** - Add fallback logic to check tags if feature_type is wrong
+3. **Fix backend processing** - Update Python terrain analysis to correctly set feature_type
+
+Example fix in frontend:
 
 ```typescript
-const initializeMap = () => {
-  if (!mapRef.current) {
-    console.warn('Map container not ready');
-    return;
+const getFeatureStyle = (feature: GeoJSONFeature) => {
+  const props = feature.properties || {};
+  const tags = props.tags || {};
+  const geometry = feature.geometry;
+  
+  // Determine actual feature type from tags if feature_type is wrong
+  let featureType = props.feature_type;
+  
+  if (featureType === 'way' || !featureType) {
+    // Identify from OSM tags
+    if (tags.natural === 'water' || tags.waterway) {
+      featureType = 'water';
+    } else if (tags.building) {
+      featureType = 'building';
+    } else if (tags.highway) {
+      featureType = 'highway';
+    }
   }
   
-  // Check if container has dimensions
-  const rect = mapRef.current.getBoundingClientRect();
-  if (rect.width === 0 || rect.height === 0) {
-    console.warn('Map container has no dimensions');
-    return;
+  // Apply styling based on corrected feature type
+  switch (featureType) {
+    case 'water':
+      return {
+        fillColor: 'blue',
+        color: 'darkblue',
+        weight: 2,
+        fillOpacity: 0.4,
+        opacity: 0.8,
+        fill: true  // Explicitly enable fill
+      };
+    case 'building':
+      return {
+        fillColor: 'red',
+        color: 'darkred',
+        weight: 2,
+        fillOpacity: 0.4,
+        opacity: 0.8,
+        fill: true  // Explicitly enable fill
+      };
+    case 'highway':
+      return {
+        color: 'darkorange',
+        weight: 3,
+        fillOpacity: 0,
+        opacity: 1,
+        fill: false  // Explicitly disable fill
+      };
+    default:
+      return {
+        fillColor: 'purple',
+        color: 'darkviolet',
+        weight: 2,
+        fillOpacity: 0.4,
+        opacity: 0.8,
+        fill: true
+      };
   }
-  
-  // Proceed with initialization
 };
 ```
 
-### Solution 3: Add Fallback to Folium HTML
+#### Solution 1C: Verify Backend Feature Processing
 
-If Leaflet fails to load, fall back to the Folium HTML iframe:
+Check the Python terrain analysis handler to ensure it's setting feature_type correctly:
+
+```python
+# In terrain analysis Python code
+for feature in osm_features:
+    tags = feature.get('tags', {})
+    
+    # Correctly identify feature type
+    if 'natural' in tags and tags['natural'] == 'water':
+        feature['properties']['feature_type'] = 'water'
+    elif 'waterway' in tags:
+        feature['properties']['feature_type'] = 'water'
+    elif 'building' in tags:
+        feature['properties']['feature_type'] = 'building'
+    elif 'highway' in tags:
+        feature['properties']['feature_type'] = 'highway'
+    else:
+        feature['properties']['feature_type'] = 'other'
+```
+
+### Priority 2: Fix Missing Feature Table
+
+#### Solution 2A: Diagnose Data Property
+
+Add logging to check what data is available:
 
 ```typescript
-{data.mapHtml ? (
-  <iframe srcDoc={data.mapHtml} ... />
-) : data.geojson ? (
-  <div ref={mapRef} ... />
-) : (
-  <div>Map data not available</div>
+console.log('[TerrainMap] Table data check:', {
+  hasExclusionZones: !!data.exclusionZones,
+  exclusionZonesLength: data.exclusionZones?.length,
+  hasGeojson: !!data.geojson,
+  geojsonFeaturesLength: data.geojson?.features?.length
+});
+```
+
+#### Solution 2B: Use Correct Data Source
+
+If `exclusionZones` is empty but `geojson.features` has data, update the table to use the correct source:
+
+```typescript
+// Use geojson.features if exclusionZones is not populated
+const tableFeatures = data.exclusionZones && data.exclusionZones.length > 0 
+  ? data.exclusionZones 
+  : data.geojson?.features || [];
+
+{tableFeatures.length > 0 && (
+  <Box>
+    <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
+      Features ({tableFeatures.length})
+    </Box>
+    <Table
+      items={tableFeatures.slice(...)}
+      // ...
+    />
+  </Box>
 )}
 ```
 
-### Solution 4: Simplify Initialization
+#### Solution 2C: Fix Backend Data Structure
 
-Remove the setTimeout and use a more direct approach:
+Ensure Python backend sends features in both properties:
 
-```typescript
-useEffect(() => {
-  if (!mapRef.current || !data.geojson || mapInstanceRef.current) {
-    return;
-  }
-
-  // Initialize immediately
-  import('leaflet').then((L) => {
-    if (!mapRef.current) return;
-    
-    // Create map
-    const map = L.map(mapRef.current, { ... });
-    mapInstanceRef.current = map;
-    
-    // Add layers
-    // ...
-  });
-}, [data.projectId, data.geojson]);
+```python
+return {
+    'geojson': geojson_data,
+    'exclusionZones': geojson_data['features'],  # Duplicate for table
+    'metrics': metrics
+}
 ```
 
 ## Error Handling
@@ -296,40 +423,68 @@ If Leaflet fails:
 
 ## Implementation Plan
 
-### Phase 1: Diagnosis (15 minutes)
+### Phase 1: Diagnose Feature Styling (10 minutes)
 
-1. Add debug logging to useEffect
-2. Check browser console for errors
-3. Verify mapRef.current exists
-4. Verify Leaflet import succeeds
+1. Add logging to see actual feature_type values from backend
+2. Check OSM tags in feature properties
+3. Verify which features are being styled incorrectly
+4. Compare with original Renewables notebook logic
 5. Document findings
 
-### Phase 2: Fix Implementation (30 minutes)
+### Phase 2: Fix Feature Styling (20 minutes)
 
-1. Implement error handling for import
-2. Add DOM readiness checks
-3. Improve cleanup logic
-4. Add fallback UI
-5. Test locally
+1. Update getFeatureStyle to check OSM tags as fallback
+2. Add explicit `fill: true` for water and buildings
+3. Ensure feature_type is correctly identified
+4. Test styling with real terrain data
+5. Verify all feature types render correctly
 
-### Phase 3: Verification (15 minutes)
+### Phase 3: Diagnose Missing Table (5 minutes)
+
+1. Log data.exclusionZones vs data.geojson.features
+2. Check which property has the feature data
+3. Verify table conditional rendering logic
+4. Check browser DevTools for hidden elements
+
+### Phase 4: Fix Missing Table (10 minutes)
+
+1. Update table to use correct data source
+2. Add fallback to geojson.features if exclusionZones empty
+3. Verify table renders with all features
+4. Test pagination controls
+5. Verify feature data accuracy
+
+### Phase 5: Verification (15 minutes)
 
 1. Test with real terrain data
-2. Verify no console errors
-3. Test all map interactions
-4. Test on multiple browsers
-5. Document fix
+2. Verify water bodies are blue and filled
+3. Verify buildings are red and filled
+4. Verify highways are orange lines
+5. Verify feature table displays all features
+6. Test all interactions
+7. Check browser console for errors
 
 ## Success Criteria
 
+**Priority 1: Feature Styling**
+- ✅ Water bodies render with blue fill (fillOpacity: 0.4)
+- ✅ Buildings render with red fill (fillOpacity: 0.4)
+- ✅ Highways render as orange lines (no fill)
+- ✅ Features show correct type in popups (not 'way')
+- ✅ Styling matches original Renewables notebook
+
+**Priority 2: Feature Table**
+- ✅ Feature table displays below map
+- ✅ Table shows all features with correct data
+- ✅ Pagination works correctly
+- ✅ Feature count is accurate
+
+**Priority 3: Map Functionality**
 - ✅ Map loads without console errors
 - ✅ Map displays all GeoJSON features
 - ✅ Map interactions work (pan, zoom, click)
 - ✅ Feature popups display correctly
 - ✅ Layer switcher works
-- ✅ No duplicate initialization
-- ✅ Proper cleanup on unmount
-- ✅ Graceful error handling
 
 ## Rollback Plan
 

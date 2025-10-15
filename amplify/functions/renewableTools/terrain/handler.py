@@ -652,21 +652,12 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
         var markers = {json.dumps(markers)};
         var overlays = {json.dumps(overlays)};
         
-        // Add markers with enhanced styling and popups
+        // Add markers - use default Leaflet markers (blue teardrop) to match notebook style
         markers.forEach(function(marker) {{
-            var color = getMarkerColor(marker.type);
-            var size = marker.type === 'center' ? 12 : 8;
-            var borderWidth = marker.type === 'center' ? 3 : 2;
-            
-            var icon = L.divIcon({{
-                className: 'terrain-marker',
-                html: '<div style="background-color: ' + color + '; width: ' + size + 'px; height: ' + size + 'px; border-radius: 50%; border: ' + borderWidth + 'px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>',
-                iconSize: [size + borderWidth * 2, size + borderWidth * 2],
-                iconAnchor: [(size + borderWidth * 2) / 2, (size + borderWidth * 2) / 2]
-            }});
-            
             var popupContent = marker.popup_content || marker.title;
-            var markerLayer = L.marker([marker.lat, marker.lng], {{icon: icon}})
+            
+            // Use default Leaflet marker for all markers (matches notebook visualization)
+            var markerLayer = L.marker([marker.lat, marker.lng]])
                 .bindPopup(popupContent, {{
                     maxWidth: 300,
                     className: 'terrain-feature-popup'
@@ -678,33 +669,7 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
                 this.openPopup();
             }});
         }});
-        
-        // Enhanced marker color function
-        function getMarkerColor(markerType) {{
-            switch (markerType) {{
-                case 'center':
-                    return '#e74c3c';  // Red for center
-                case 'building':
-                    return '#e67e22';  // Orange for buildings
-                case 'highway':
-                case 'major_highway':
-                    return '#f39c12';  // Orange for highways
-                case 'water':
-                    return '#3498db';  // Blue for water
-                case 'railway':
-                    return '#34495e';  // Dark gray for railways
-                case 'power_infrastructure':
-                    return '#e74c3c';  // Red for power infrastructure
-                case 'industrial':
-                    return '#95a5a6';  // Gray for industrial
-                case 'forest':
-                    return '#27ae60';  // Green for forest
-                case 'protected_area':
-                    return '#f39c12';  // Orange for protected areas
-                default:
-                    return '#9b59b6';  // Purple for unknown
-            }}
-        }}
+
         
         // Add overlays (polygons and polylines) with enhanced styling
         overlays.forEach(function(overlay) {{
@@ -1299,6 +1264,27 @@ def handler(event, context):
                 debug_info['map_html_length'] = len(map_html)
                 debug_info['generation_time'] = generation_time
                 logger.info(f"✅ Basic terrain map created successfully in {generation_time:.2f}s")
+                
+                # Save basic map HTML to S3 (bucket policy handles public access)
+                try:
+                    import boto3
+                    s3_bucket = os.environ.get('RENEWABLE_S3_BUCKET')
+                    if s3_bucket:
+                        s3_client = boto3.client('s3')
+                        s3_key = f"renewable/terrain/{project_id}/terrain_map.html"
+                        s3_client.put_object(
+                            Bucket=s3_bucket,
+                            Key=s3_key,
+                            Body=map_html.encode('utf-8'),
+                            ContentType='text/html',
+                            CacheControl='max-age=3600'
+                        )
+                        map_url = f"https://{s3_bucket}.s3.amazonaws.com/{s3_key}"
+                        logger.info(f"✅ Saved basic map HTML to S3: {map_url}")
+                    else:
+                        logger.warning("⚠️ RENEWABLE_S3_BUCKET not configured, cannot save map to S3")
+                except Exception as s3_error:
+                    logger.error(f"❌ Failed to save map HTML to S3: {s3_error}")
             else:
                 debug_info['errors'].append('Basic map generation returned None')
                 logger.error("❌ Basic terrain map generation returned None")

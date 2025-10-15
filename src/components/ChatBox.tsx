@@ -103,15 +103,27 @@ const ChatBox = (params: {
     enabled: true, // Always poll when chat is open
     pollingInterval: 3000, // Poll every 3 seconds
     onNewMessage: (message) => {
-      console.log('🌱 ChatBox: New renewable job results received', message);
+      console.log('🌱 ChatBox: New renewable job results received', {
+        messageId: message?.id,
+        role: message?.role,
+        hasArtifacts: !!(message as any)?.artifacts?.length
+      });
       // Manually add the message to trigger UI update
       if (message) {
         setMessages((prevMessages) => {
           // Check if message already exists
           const exists = prevMessages.some(m => m.id === message.id);
+          console.log('🌱 ChatBox: Checking if message exists', {
+            messageId: message.id,
+            exists,
+            currentMessageCount: prevMessages.length,
+            currentMessageIds: prevMessages.map(m => m.id)
+          });
           if (!exists) {
             console.log('🌱 ChatBox: Adding new renewable message to UI');
             return [...prevMessages, message as Message];
+          } else {
+            console.log('🌱 ChatBox: Message already exists, skipping add');
           }
           return prevMessages;
         });
@@ -202,6 +214,24 @@ const ChatBox = (params: {
       messagesLength: messages?.length || 0,
       hasStreamChunk: !!streamChunkMessage
     });
+    
+    // Check for duplicate messages
+    const messageIds = messages?.map(m => m.id) || [];
+    const uniqueIds = new Set(messageIds);
+    if (messageIds.length !== uniqueIds.size) {
+      console.warn('⚠️ DUPLICATE MESSAGES DETECTED!', {
+        totalMessages: messageIds.length,
+        uniqueMessages: uniqueIds.size,
+        duplicateCount: messageIds.length - uniqueIds.size
+      });
+      // Log which IDs are duplicated
+      const idCounts = messageIds.reduce((acc, id) => {
+        acc[id] = (acc[id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      const duplicates = Object.entries(idCounts).filter(([_, count]) => count > 1);
+      console.warn('Duplicate message IDs:', duplicates);
+    }
     
     const allMessages = [
       ...(messages ? messages : []),

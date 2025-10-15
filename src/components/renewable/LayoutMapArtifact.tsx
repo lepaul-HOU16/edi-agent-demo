@@ -44,28 +44,56 @@ interface LayoutArtifactProps {
 const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const initializingRef = useRef<boolean>(false); // Prevent multiple initializations
 
   // Initialize Leaflet map with turbine layout
   useEffect(() => {
-    if (!mapRef.current || !data.geojson) return;
+    console.log('[LayoutMap] useEffect triggered', {
+      hasMapRef: !!mapRef.current,
+      hasGeojson: !!data.geojson,
+      geojsonFeatureCount: data.geojson?.features?.length || 0,
+      projectId: data.projectId
+    });
 
-    // If map already exists, don't recreate it
-    if (mapInstanceRef.current) {
-      console.log('Layout map already exists, skipping re-initialization');
+    if (!mapRef.current) {
+      console.error('[LayoutMap] mapRef.current is null, cannot initialize map');
       return;
     }
+
+    if (!data.geojson) {
+      console.error('[LayoutMap] data.geojson is missing, cannot initialize map');
+      return;
+    }
+
+    // If map already exists or is being initialized, don't recreate it
+    if (mapInstanceRef.current || initializingRef.current) {
+      console.log('Layout map already exists or is initializing, skipping re-initialization');
+      return;
+    }
+
+    console.log('[LayoutMap] Starting map initialization for project:', data.projectId);
+    initializingRef.current = true; // Mark as initializing
 
     // Clear container completely
     mapRef.current.innerHTML = '';
     (mapRef.current as any)._leaflet_id = undefined;
 
-    // Add a small delay to ensure DOM is ready
+    // Reduce delay to minimize chance of unmount before initialization
     const timer = setTimeout(() => {
-      if (!mapRef.current) return;
+      console.log('[LayoutMap] Timer fired, checking mapRef...');
+      if (!mapRef.current) {
+        console.error('[LayoutMap] mapRef.current is null after timer!');
+        return;
+      }
 
+      console.log('[LayoutMap] Starting Leaflet import...');
       // Dynamically import Leaflet
       import('leaflet').then((L) => {
-      if (!mapRef.current) return;
+      console.log('[LayoutMap] Leaflet imported successfully');
+      if (!mapRef.current) {
+        console.error('[LayoutMap] mapRef.current is null after Leaflet import!');
+        return;
+      }
 
       // Fix Leaflet default marker icon issue
       delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -79,27 +107,58 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
       let centerLat = 0;
       let centerLng = 0;
       
+      console.log('[LayoutMap] GeoJSON features count:', data.geojson.features?.length || 0);
+      
       if (data.geojson.features && data.geojson.features.length > 0) {
         const firstTurbine = data.geojson.features[0];
         centerLat = firstTurbine.geometry.coordinates[1];
         centerLng = firstTurbine.geometry.coordinates[0];
+        console.log('[LayoutMap] Map center:', { centerLat, centerLng });
+      } else {
+        console.error('[LayoutMap] No features in geojson!');
+        initializingRef.current = false;
+        return;
+      }
+
+      // Check container dimensions
+      const rect = mapRef.current.getBoundingClientRect();
+      console.log('[LayoutMap] Container dimensions:', {
+        width: rect.width,
+        height: rect.height,
+        top: rect.top,
+        left: rect.left
+      });
+
+      if (rect.width === 0 || rect.height === 0) {
+        console.error('[LayoutMap] Container has no dimensions! Map cannot initialize.');
+        initializingRef.current = false;
+        return;
       }
 
       // Create map with all interactions enabled
-      const map = L.map(mapRef.current, {
-        center: [centerLat, centerLng],
-        zoom: 13,
-        dragging: true,
-        touchZoom: true,
-        scrollWheelZoom: true,
-        doubleClickZoom: true,
-        boxZoom: true,
-        keyboard: true,
-        zoomControl: true,
-        attributionControl: true,
-      });
+      let map;
+      try {
+        map = L.map(mapRef.current, {
+          center: [centerLat, centerLng],
+          zoom: 13,
+          dragging: true,
+          touchZoom: true,
+          scrollWheelZoom: true,
+          doubleClickZoom: true,
+          boxZoom: true,
+          keyboard: true,
+          zoomControl: true,
+          attributionControl: true,
+        });
 
-      mapInstanceRef.current = map;
+        mapInstanceRef.current = map;
+        initializingRef.current = false; // Initialization complete
+        console.log('[LayoutMap] Map initialization complete');
+      } catch (error) {
+        console.error('[LayoutMap] Error creating map:', error);
+        initializingRef.current = false;
+        return;
+      }
 
       // Explicitly enable dragging (force it)
       if (map.dragging) {
@@ -134,28 +193,14 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
         { position: 'topright' }
       ).addTo(map);
 
-      // Create custom turbine icon
-      const turbineIcon = L.divIcon({
-        className: 'turbine-marker',
-        html: `<div style="
-          width: 24px;
-          height: 24px;
-          background: #0972d3;
-          border: 3px solid white;
-          border-radius: 50%;
-          box-shadow: 0 2px 4px rgba(0,0,0,0.3);
-        "></div>`,
-        iconSize: [24, 24],
-        iconAnchor: [12, 12],
-      });
-
-      // Add turbine markers
+      // Add turbine markers using default Leaflet markers (matches Folium/notebook style)
       const markers: any[] = [];
       data.geojson.features.forEach((feature: any, index: number) => {
         const coords = feature.geometry.coordinates;
         const props = feature.properties || {};
         
-        const marker = L.marker([coords[1], coords[0]], { icon: turbineIcon })
+        // Use default Leaflet marker (blue teardrop) to match notebook visualization
+        const marker = L.marker([coords[1], coords[0]])
           .addTo(map)
           .bindPopup(`
             <div style="
@@ -193,17 +238,23 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
           map.invalidateSize();
         }
       }, 100);
+      }).catch((error) => {
+        console.error('[LayoutMap] Error importing Leaflet:', error);
+        initializingRef.current = false;
       });
-    }, 100); // End of setTimeout for map creation
+    }, 10); // Reduced delay to 10ms to minimize unmount risk
 
     return () => {
+      console.log('[LayoutMap] Cleanup function called');
       clearTimeout(timer);
       if (mapInstanceRef.current) {
+        console.log('[LayoutMap] Removing existing map instance');
         mapInstanceRef.current.remove();
         mapInstanceRef.current = null;
       }
+      initializingRef.current = false; // Reset initialization flag on cleanup
     };
-  }, [data.geojson, data.projectId]);
+  }, [data.projectId]); // Only depend on projectId to prevent re-renders
 
   return (
     <Container
@@ -267,6 +318,7 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
           <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
             Wind Farm Layout Map
           </Box>
+          {/* Always use Leaflet map for now (S3 iframe has access issues) */}
           {data.geojson && data.geojson.features && data.geojson.features.length > 0 ? (
             <div
               ref={mapRef}
