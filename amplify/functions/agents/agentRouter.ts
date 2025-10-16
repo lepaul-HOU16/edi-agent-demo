@@ -210,6 +210,8 @@ export class AgentRouter {
       /asset.*health|equipment.*health/,
       /equipment.*status|status.*equipment|status.*for.*equipment|status.*of.*equipment/,
       /show.*equipment.*status|check.*equipment.*status|get.*equipment.*status/,
+      /status.*for.*all|status.*all.*wells|all.*wells.*status|all.*equipment.*status/,
+      /show.*status.*for.*all|show.*all.*equipment|show.*all.*wells/,
       /status.*for.*(pump|comp|turb|motor|valve|tank|well)/,
       /status.*of.*(pump|comp|turb|motor|valve|tank|well)/,
       /what.*status.*(pump|comp|turb|motor|valve|tank|well)/,

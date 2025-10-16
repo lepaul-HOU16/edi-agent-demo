@@ -99,6 +99,21 @@ export const schema = a.schema({
   })
     .authorization((allow) => [allow.owner(), allow.authenticated(), allow.guest()]),
 
+  // Well Equipment Model for Wells Equipment Dashboard
+  Well: a.model({
+    name: a.string().required(),
+    type: a.string().required(), // 'well'
+    location: a.string().required(),
+    operationalStatus: a.enum(["operational", "degraded", "critical", "offline"]),
+    healthScore: a.integer().required(),
+    lastMaintenanceDate: a.string().required(),
+    nextMaintenanceDate: a.string().required(),
+    sensors: a.json().required(), // Array of sensor objects
+    alerts: a.json().required(), // Array of alert objects
+    metadata: a.json().required(), // Field, operator, install date, depth, production data
+  })
+    .authorization((allow) => [allow.authenticated(), allow.guest()]),
+
   WorkStep: a.customType({
     name: a.string(),
     description: a.string(),
