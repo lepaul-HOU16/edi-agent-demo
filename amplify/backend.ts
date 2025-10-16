@@ -3,8 +3,10 @@ import { auth } from './auth/resource';
 import { data, agentFunction, catalogMapDataFunction, catalogSearchFunction, renewableToolsFunction } from './data/resource';
 import { storage } from './storage/resource';
 import { renewableAgentCoreProxy } from './functions/renewableAgentCoreProxy/resource';
-import { aws_iam as iam, Stack } from 'aws-cdk-lib';
+import { aws_iam as iam, Stack, RemovalPolicy, Duration } from 'aws-cdk-lib';
 import { McpServerConstruct } from './custom/mcpServer';
+import { LocationServiceConstruct } from './custom/locationService';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 
 // Import NEW Lambda-based renewable energy functions
 import { renewableOrchestrator } from './functions/renewableOrchestrator/resource';
@@ -32,6 +34,28 @@ const backend = defineBackend({
 });
 
 backend.stack.tags.setTag('Project', 'workshop-a4e');
+
+// ============================================
+// Project Persistence Infrastructure
+// ============================================
+
+// Create DynamoDB table for session context
+const sessionContextTable = new dynamodb.Table(backend.stack, 'RenewableSessionContext', {
+  partitionKey: { name: 'session_id', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  timeToLiveAttribute: 'ttl',
+  removalPolicy: RemovalPolicy.DESTROY,
+  tableName: 'RenewableSessionContext'
+});
+
+console.log('✅ Created DynamoDB table for session context:', sessionContextTable.tableName);
+
+// Create AWS Location Service Place Index for reverse geocoding
+const locationService = new LocationServiceConstruct(backend.stack, 'LocationService', {
+  placeIndexName: 'RenewableProjectPlaceIndex'
+});
+
+console.log('✅ Created AWS Location Service Place Index:', locationService.placeIndexName);
 
 // CRITICAL FIX: Add S3 permissions for authenticated users to upload chat artifacts
 // This fixes the AccessDenied error when uploading large artifacts to S3
@@ -257,11 +281,73 @@ backend.renewableOrchestrator.resources.lambda.addToRolePolicy(
   })
 );
 
+// Grant orchestrator permission to access session context table
+backend.renewableOrchestrator.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      'dynamodb:GetItem',
+      'dynamodb:PutItem',
+      'dynamodb:UpdateItem',
+      'dynamodb:Query',
+      'dynamodb:Scan'
+    ],
+    resources: [
+      sessionContextTable.tableArn,
+      `${sessionContextTable.tableArn}/index/*`
+    ]
+  })
+);
+
+// Grant orchestrator permission to use AWS Location Service for reverse geocoding
+backend.renewableOrchestrator.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      'geo:SearchPlaceIndexForPosition',
+      'geo:SearchPlaceIndexForText'
+    ],
+    resources: [
+      locationService.placeIndex.attrArn
+    ]
+  })
+);
+
+// Grant orchestrator S3 permissions for project data storage
+backend.renewableOrchestrator.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      's3:GetObject',
+      's3:PutObject',
+      's3:ListBucket',
+      's3:DeleteObject'
+    ],
+    resources: [
+      backend.storage.resources.bucket.bucketArn,
+      `${backend.storage.resources.bucket.bucketArn}/*`
+    ]
+  })
+);
+
+console.log('✅ Granted orchestrator permissions for session context, Location Service, and S3');
+
 // Add ChatMessage table name environment variable to orchestrator
 backend.renewableOrchestrator.addEnvironment(
   'AMPLIFY_DATA_CHATMESSAGE_TABLE_NAME',
   backend.data.resources.tables['ChatMessage'].tableName
 );
+
+// Add session context table name environment variable to orchestrator
+backend.renewableOrchestrator.addEnvironment(
+  'SESSION_CONTEXT_TABLE',
+  sessionContextTable.tableName
+);
+
+// Add AWS Location Service place index name environment variable
+backend.renewableOrchestrator.addEnvironment(
+  'AWS_LOCATION_PLACE_INDEX',
+  locationService.placeIndexName
+);
+
+console.log('✅ Added session context table and Location Service environment variables to orchestrator');
 
 // Grant tool Lambdas permission to access S3
 // CRITICAL FIX: Grant permissions to the actual Amplify storage bucket

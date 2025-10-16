@@ -145,9 +145,28 @@ def handler(event, context):
         
         project_id = params.get('project_id', 'default-project')
         
-        # Support both old (center_lat/center_lon) and new (latitude/longitude) parameter names
-        center_lat = params.get('latitude') or params.get('center_lat')
-        center_lon = params.get('longitude') or params.get('center_lon')
+        # Check for project context (from orchestrator)
+        project_context = event.get('project_context', {})
+        logger.info(f"Project context available: {bool(project_context)}")
+        
+        # Get coordinates from project context first, then fall back to explicit parameters
+        center_lat = None
+        center_lon = None
+        
+        # Priority 1: Check project context for coordinates
+        if project_context and 'coordinates' in project_context:
+            coords = project_context['coordinates']
+            center_lat = coords.get('latitude')
+            center_lon = coords.get('longitude')
+            if center_lat and center_lon:
+                logger.info(f"✅ Using coordinates from project context: ({center_lat}, {center_lon})")
+        
+        # Priority 2: Check explicit parameters (backward compatibility)
+        if center_lat is None or center_lon is None:
+            center_lat = params.get('latitude') or params.get('center_lat')
+            center_lon = params.get('longitude') or params.get('center_lon')
+            if center_lat and center_lon:
+                logger.info(f"✅ Using coordinates from explicit parameters: ({center_lat}, {center_lon})")
         
         num_turbines = params.get('num_turbines', 10)
         turbine_model = params.get('turbine_model', 'GE 2.5-120')
@@ -163,19 +182,41 @@ def handler(event, context):
             if center_lon is None:
                 missing_params.append('longitude (or center_lon)')
             
-            error_message = f"Missing required parameters: {', '.join(missing_params)}"
+            # Get project name if available
+            project_name = params.get('project_name', project_id)
+            
+            # Generate user-friendly error message
+            error_message = f"No coordinates found for {project_name}. Coordinates are required to optimize the turbine layout."
+            suggestion = "Run terrain analysis first to establish project coordinates, or provide explicit latitude/longitude parameters."
+            
+            next_steps = [
+                f'Analyze terrain: "analyze terrain at [latitude], [longitude]"',
+                f'Or provide coordinates: "optimize layout at [latitude], [longitude] with [N] turbines"'
+            ]
+            
+            if project_name and project_name != project_id:
+                next_steps.append(f'View project status: "show project {project_name}"')
+            
             logger.error(f"❌ Parameter validation failed: {error_message}")
             logger.error(f"Received parameters: {params}")
+            logger.error(f"Project context: {project_context}")
             
             return {
                 'statusCode': 400,
                 'body': json.dumps({
                     'success': False,
                     'error': error_message,
-                    'errorCategory': 'PARAMETER_ERROR',
+                    'errorCategory': 'MISSING_PROJECT_DATA',
                     'details': {
+                        'projectId': project_id,
+                        'projectName': project_name,
+                        'missingData': 'coordinates',
+                        'requiredOperation': 'terrain_analysis',
                         'missingParameters': missing_params,
-                        'receivedParameters': list(params.keys())
+                        'receivedParameters': list(params.keys()),
+                        'hasProjectContext': bool(project_context),
+                        'suggestion': suggestion,
+                        'nextSteps': next_steps
                     }
                 })
             }

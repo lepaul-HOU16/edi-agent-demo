@@ -1020,6 +1020,18 @@
               "get",
               "list"
             ]
+          },
+          "renewable/projects/*": {
+            "authenticated": [
+              "get",
+              "list",
+              "write",
+              "delete"
+            ],
+            "guest": [
+              "get",
+              "list"
+            ]
           }
         }
       }

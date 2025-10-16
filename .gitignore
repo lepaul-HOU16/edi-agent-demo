@@ -186,7 +186,7 @@ dist/
 
 # reference repos for other agents and demos wanting to integrate, should not be included in the git repo
 agentic-ai-for-renewable-site-design-mainline/
-renewable_generated_samples/
+# renewable_generated_samples/
 
 # Lambda layers - Python packages and dependencies
 amplify/layers/*/python/

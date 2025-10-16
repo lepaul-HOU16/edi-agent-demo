@@ -22,6 +22,13 @@ import {
   formatValidationError,
   logValidationFailure 
 } from './parameterValidator';
+import { ProjectStore } from '../shared/projectStore';
+import { ProjectNameGenerator } from '../shared/projectNameGenerator';
+import { SessionContextManager } from '../shared/sessionContextManager';
+import { ProjectResolver } from '../shared/projectResolver';
+import { ErrorMessageTemplates } from '../shared/errorMessageTemplates';
+import { generateActionButtons, generateNextStepSuggestion, formatProjectStatusChecklist } from '../shared/actionButtonTypes';
+import { ProjectListHandler } from '../shared/projectListHandler';
 
 interface ValidationResult {
   isValid: boolean;
@@ -110,16 +117,114 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       };
     }
     
+    // Handle project listing queries
+    const projectListHandler = new ProjectListHandler(
+      process.env.RENEWABLE_S3_BUCKET,
+      process.env.SESSION_CONTEXT_TABLE
+    );
+    
+    // Check if this is a "list my projects" query
+    if (ProjectListHandler.isProjectListQuery(event.query)) {
+      console.log('📋 Detected project list query');
+      const listStartTime = Date.now();
+      thoughtSteps.push({
+        step: 1,
+        action: 'Listing projects',
+        reasoning: 'Retrieving all renewable energy projects',
+        status: 'in_progress',
+        timestamp: new Date(listStartTime).toISOString()
+      });
+      
+      const listResponse = await projectListHandler.listProjects(event.sessionId);
+      const listDuration = Date.now() - listStartTime;
+      
+      // Update thought step with completion
+      thoughtSteps[0] = {
+        ...thoughtSteps[0],
+        status: 'complete',
+        duration: listDuration,
+        result: `Found ${listResponse.projects?.length || 0} project(s)`
+      };
+      
+      return {
+        success: listResponse.success,
+        message: listResponse.message,
+        artifacts: [],
+        thoughtSteps,
+        responseComplete: true,
+        metadata: {
+          executionTime: Date.now() - startTime,
+          toolsUsed: ['project_list'],
+          projectCount: listResponse.projects?.length || 0,
+          activeProject: listResponse.activeProject
+        }
+      };
+    }
+    
+    // Check if this is a "show project {name}" query
+    const projectDetailsCheck = ProjectListHandler.isProjectDetailsQuery(event.query);
+    if (projectDetailsCheck.isMatch && projectDetailsCheck.projectName) {
+      console.log(`📋 Detected project details query for: ${projectDetailsCheck.projectName}`);
+      const detailsStartTime = Date.now();
+      thoughtSteps.push({
+        step: 1,
+        action: 'Loading project details',
+        reasoning: `Retrieving details for project: ${projectDetailsCheck.projectName}`,
+        status: 'in_progress',
+        timestamp: new Date(detailsStartTime).toISOString()
+      });
+      
+      const detailsResponse = await projectListHandler.showProjectDetails(projectDetailsCheck.projectName);
+      const detailsDuration = Date.now() - detailsStartTime;
+      
+      // Update thought step with completion
+      thoughtSteps[0] = {
+        ...thoughtSteps[0],
+        status: detailsResponse.success ? 'complete' : 'error',
+        duration: detailsDuration,
+        result: detailsResponse.success ? 'Project details loaded' : 'Project not found',
+        ...(detailsResponse.success ? {} : {
+          error: {
+            message: 'Project not found',
+            suggestion: 'Check project name or list all projects'
+          }
+        })
+      };
+      
+      return {
+        success: detailsResponse.success,
+        message: detailsResponse.message,
+        artifacts: [],
+        thoughtSteps,
+        responseComplete: true,
+        metadata: {
+          executionTime: Date.now() - startTime,
+          toolsUsed: ['project_details'],
+          projectName: projectDetailsCheck.projectName
+        }
+      };
+    }
+    
     // Step 1: Quick validation check
+    const validationStartTime = Date.now();
     thoughtSteps.push({
       step: 1,
       action: 'Validating deployment',
-      reasoning: 'Checking if renewable energy tools are available'
+      reasoning: 'Checking if renewable energy tools are available',
+      status: 'in_progress',
+      timestamp: new Date(validationStartTime).toISOString()
     });
     
-    const validationStartTime = Date.now();
     const validation = await quickValidationCheck();
     timings.validation = Date.now() - validationStartTime;
+    
+    // Update thought step with completion
+    thoughtSteps[thoughtSteps.length - 1] = {
+      ...thoughtSteps[thoughtSteps.length - 1],
+      status: 'complete',
+      duration: timings.validation,
+      result: validation.canProceed ? 'All tools available' : 'Deployment issues detected'
+    };
     
     console.log(`⏱️  Validation Duration: ${timings.validation}ms`);
     
@@ -138,15 +243,25 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     }
     
     // Step 2: Parse intent from query
+    const intentStartTime = Date.now();
     thoughtSteps.push({
       step: 2,
       action: 'Analyzing query',
-      reasoning: 'Determining which renewable energy tool to use'
+      reasoning: 'Determining which renewable energy tool to use',
+      status: 'in_progress',
+      timestamp: new Date(intentStartTime).toISOString()
     });
     
-    const intentStartTime = Date.now();
     const intent = await parseIntent(event.query, event.context);
     timings.intentDetection = Date.now() - intentStartTime;
+    
+    // Update thought step with completion
+    thoughtSteps[thoughtSteps.length - 1] = {
+      ...thoughtSteps[thoughtSteps.length - 1],
+      status: 'complete',
+      duration: timings.intentDetection,
+      result: `Detected: ${intent.type}`
+    };
     
     // Enhanced intent detection logging
     console.log('───────────────────────────────────────────────────────────');
@@ -172,14 +287,148 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       };
     }
     
-    // Step 2.5: Validate parameters before tool invocation
+    // Step 2.5: Project name resolution
+    const projectResolutionStartTime = Date.now();
     thoughtSteps.push({
       step: 3,
+      action: 'Resolving project name',
+      reasoning: 'Determining project context from query and session',
+      status: 'in_progress',
+      timestamp: new Date(projectResolutionStartTime).toISOString()
+    });
+    
+    let projectName: string | null = null;
+    
+    try {
+      // Initialize project persistence components
+      const projectStore = new ProjectStore(process.env.RENEWABLE_S3_BUCKET);
+      const sessionContextManager = new SessionContextManager(process.env.SESSION_CONTEXT_TABLE);
+      const projectNameGenerator = new ProjectNameGenerator(projectStore);
+      const projectResolver = new ProjectResolver(projectStore);
+      
+      // Get session context
+      const sessionId = event.sessionId || `session-${Date.now()}`;
+      const sessionContext = await sessionContextManager.getContext(sessionId);
+      
+      console.log('───────────────────────────────────────────────────────────');
+      console.log('🆔 PROJECT NAME RESOLUTION');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log(`📋 Request ID: ${requestId}`);
+      console.log(`🔗 Session ID: ${sessionId}`);
+      console.log(`📝 Active Project: ${sessionContext.active_project || 'none'}`);
+      console.log(`📚 Project History: ${sessionContext.project_history.join(', ') || 'empty'}`);
+      
+      // Try to resolve existing project reference
+      const resolveResult = await projectResolver.resolve(event.query, sessionContext);
+      
+      console.log(`🔍 Resolution Result: ${JSON.stringify(resolveResult, null, 2)}`);
+      
+      if (resolveResult.isAmbiguous && resolveResult.matches) {
+        // Multiple projects match - return user-friendly error with suggestions
+        const errorMessage = ErrorMessageTemplates.formatAmbiguousReferenceForUser(
+          resolveResult.matches,
+          event.query
+        );
+        
+        console.log('❌ Ambiguous project reference detected');
+        console.log(`   Query: ${event.query}`);
+        console.log(`   Matches: ${resolveResult.matches.join(', ')}`);
+        
+        return {
+          success: false,
+          message: errorMessage,
+          artifacts: [],
+          thoughtSteps,
+          metadata: {
+            executionTime: Date.now() - startTime,
+            toolsUsed: [],
+            errorCategory: 'AMBIGUOUS_REFERENCE',
+            ambiguousProjects: resolveResult.matches,
+            matchCount: resolveResult.matches.length
+          }
+        };
+      }
+      
+      if (resolveResult.projectName) {
+        // Found existing project
+        projectName = resolveResult.projectName;
+        console.log(`✅ Resolved to existing project: ${projectName}`);
+      } else {
+        // No existing project found - generate new project name
+        const coordinates = intent.params.latitude && intent.params.longitude
+          ? { lat: intent.params.latitude, lon: intent.params.longitude }
+          : undefined;
+        
+        projectName = await projectNameGenerator.generateFromQuery(event.query, coordinates);
+        console.log(`🆕 Generated new project name: ${projectName}`);
+      }
+      
+      // Set as active project in session
+      await sessionContextManager.setActiveProject(sessionId, projectName);
+      await sessionContextManager.addToHistory(sessionId, projectName);
+      
+      // Add project name to intent params
+      intent.params.project_name = projectName;
+      if (!intent.params.project_id) {
+        intent.params.project_id = projectName; // Use project name as ID for now
+      }
+      
+      const projectResolutionDuration = Date.now() - projectResolutionStartTime;
+      console.log(`⏱️  Project Resolution Duration: ${projectResolutionDuration}ms`);
+      console.log('───────────────────────────────────────────────────────────');
+      
+      // Update thought step with completion
+      thoughtSteps[thoughtSteps.length - 1] = {
+        ...thoughtSteps[thoughtSteps.length - 1],
+        status: 'complete',
+        duration: projectResolutionDuration,
+        result: projectName ? `Project: ${projectName}` : 'No project context'
+      };
+      
+    } catch (error) {
+      console.error('❌ Error in project name resolution:', error);
+      // Continue without project name - will use fallback logic
+      console.warn('⚠️  Continuing without project name resolution');
+      
+      // Update thought step with error
+      const projectResolutionDuration = Date.now() - projectResolutionStartTime;
+      thoughtSteps[thoughtSteps.length - 1] = {
+        ...thoughtSteps[thoughtSteps.length - 1],
+        status: 'error',
+        duration: projectResolutionDuration,
+        error: {
+          message: 'Failed to resolve project name',
+          suggestion: 'Continuing without project context'
+        }
+      };
+    }
+    
+    // Step 3: Validate parameters before tool invocation
+    const paramValidationStartTime = Date.now();
+    thoughtSteps.push({
+      step: 4,
       action: 'Validating parameters',
-      reasoning: 'Checking that all required parameters are present and valid'
+      reasoning: 'Checking that all required parameters are present and valid',
+      status: 'in_progress',
+      timestamp: new Date(paramValidationStartTime).toISOString()
     });
     
     const paramValidation = validateParameters(intent);
+    const paramValidationDuration = Date.now() - paramValidationStartTime;
+    
+    // Update thought step with completion
+    thoughtSteps[thoughtSteps.length - 1] = {
+      ...thoughtSteps[thoughtSteps.length - 1],
+      status: paramValidation.isValid ? 'complete' : 'error',
+      duration: paramValidationDuration,
+      result: paramValidation.isValid ? 'All parameters valid' : 'Missing required parameters',
+      ...(paramValidation.isValid ? {} : {
+        error: {
+          message: `Missing: ${paramValidation.missingRequired.join(', ')}`,
+          suggestion: 'Please provide all required parameters'
+        }
+      })
+    };
     
     if (!paramValidation.isValid) {
       // Log validation failure to CloudWatch
@@ -210,17 +459,125 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     console.log('✅ Parameter validation passed');
     console.log(`📦 Final parameters: ${JSON.stringify(intentWithDefaults.params, null, 2)}`);
     
+    // Step 4.5: Load project data from S3 if project name exists
+    let projectData: any = null;
+    if (projectName) {
+      const loadProjectStartTime = Date.now();
+      thoughtSteps.push({
+        step: 5,
+        action: 'Loading project data',
+        reasoning: `Loading existing data for project: ${projectName}`,
+        status: 'in_progress',
+        timestamp: new Date(loadProjectStartTime).toISOString()
+      });
+      
+      try {
+        const projectStore = new ProjectStore(process.env.RENEWABLE_S3_BUCKET);
+        projectData = await projectStore.load(projectName);
+        
+        const loadProjectDuration = Date.now() - loadProjectStartTime;
+        
+        // Update thought step with completion
+        thoughtSteps[thoughtSteps.length - 1] = {
+          ...thoughtSteps[thoughtSteps.length - 1],
+          status: 'complete',
+          duration: loadProjectDuration,
+          result: projectData ? 'Project data loaded' : 'New project'
+        };
+        
+        if (projectData) {
+          console.log('───────────────────────────────────────────────────────────');
+          console.log('📦 PROJECT DATA LOADED');
+          console.log('───────────────────────────────────────────────────────────');
+          console.log(`📋 Request ID: ${requestId}`);
+          console.log(`🆔 Project Name: ${projectName}`);
+          console.log(`📅 Created: ${projectData.created_at}`);
+          console.log(`📅 Updated: ${projectData.updated_at}`);
+          console.log(`📍 Has Coordinates: ${!!projectData.coordinates}`);
+          console.log(`🗺️  Has Terrain Results: ${!!projectData.terrain_results}`);
+          console.log(`📐 Has Layout Results: ${!!projectData.layout_results}`);
+          console.log(`💨 Has Simulation Results: ${!!projectData.simulation_results}`);
+          console.log(`📄 Has Report Results: ${!!projectData.report_results}`);
+          console.log('───────────────────────────────────────────────────────────');
+          
+          // Merge project data into context
+          const mergedContext = {
+            ...event.context,
+            projectData,
+            coordinates: projectData.coordinates,
+            terrain_results: projectData.terrain_results,
+            terrainResults: projectData.terrain_results,
+            layout_results: projectData.layout_results,
+            layoutResults: projectData.layout_results,
+            simulation_results: projectData.simulation_results,
+            simulationResults: projectData.simulation_results,
+            report_results: projectData.report_results,
+            reportResults: projectData.report_results
+          };
+          
+          // Update event context for tool Lambda calls
+          event.context = mergedContext;
+          
+          // Auto-fill missing parameters from project data
+          if (!intentWithDefaults.params.latitude && projectData.coordinates) {
+            intentWithDefaults.params.latitude = projectData.coordinates.latitude;
+            intentWithDefaults.params.longitude = projectData.coordinates.longitude;
+            console.log(`✅ Auto-filled coordinates from project data: (${projectData.coordinates.latitude}, ${projectData.coordinates.longitude})`);
+          }
+          
+          if (!intentWithDefaults.params.layout && projectData.layout_results) {
+            intentWithDefaults.params.layout = projectData.layout_results;
+            console.log(`✅ Auto-filled layout from project data`);
+          }
+        } else {
+          console.log(`ℹ️  No existing data found for project: ${projectName} (new project)`);
+        }
+      } catch (error) {
+        console.error('❌ Error loading project data:', error);
+        console.warn('⚠️  Continuing without project data');
+        
+        const loadProjectDuration = Date.now() - loadProjectStartTime;
+        
+        // Update thought step with error
+        thoughtSteps[thoughtSteps.length - 1] = {
+          ...thoughtSteps[thoughtSteps.length - 1],
+          status: 'error',
+          duration: loadProjectDuration,
+          error: {
+            message: 'Failed to load project data',
+            suggestion: 'Continuing without project context'
+          }
+        };
+      }
+    }
+    
+    const toolStartTime = Date.now();
     thoughtSteps.push({
-      step: 4,
+      step: 6,
       action: `Calling ${intentWithDefaults.type} tool`,
-      reasoning: `Query matches ${intentWithDefaults.type} pattern with ${intentWithDefaults.confidence}% confidence, all parameters validated`
+      reasoning: `Query matches ${intentWithDefaults.type} pattern with ${intentWithDefaults.confidence}% confidence, all parameters validated`,
+      status: 'in_progress',
+      timestamp: new Date(toolStartTime).toISOString()
     });
     
-    // Step 3: Call appropriate tool Lambda(s) with fallback
-    const toolStartTime = Date.now();
+    // Step 5: Call appropriate tool Lambda(s) with fallback
     const results = await callToolLambdasWithFallback(intentWithDefaults, event.query, event.context, requestId);
     timings.toolInvocation = Date.now() - toolStartTime;
     toolsUsed.push(intentWithDefaults.type);
+    
+    // Update thought step with completion
+    thoughtSteps[thoughtSteps.length - 1] = {
+      ...thoughtSteps[thoughtSteps.length - 1],
+      status: results && results.length > 0 ? 'complete' : 'error',
+      duration: timings.toolInvocation,
+      result: results && results.length > 0 ? `Generated ${results.length} artifact(s)` : 'Tool execution failed',
+      ...(results && results.length > 0 ? {} : {
+        error: {
+          message: 'Tool execution failed',
+          suggestion: 'Check CloudWatch logs for details'
+        }
+      })
+    };
     
     if (!results || results.length === 0) {
       return {
@@ -235,21 +592,143 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       };
     }
     
+    const processingStartTime = Date.now();
     thoughtSteps.push({
-      step: 5,
+      step: 7,
       action: 'Processing results',
       reasoning: 'Formatting tool output for display',
+      status: 'complete',
+      timestamp: new Date(processingStartTime).toISOString(),
+      duration: Date.now() - processingStartTime,
       result: `Successfully processed ${results.length} result(s)`
     });
     
-    // Step 3: Format results as EDI artifacts
+    // Step 6: Save project data to S3
+    if (projectName && results && results.length > 0) {
+      const saveProjectStartTime = Date.now();
+      thoughtSteps.push({
+        step: 8,
+        action: 'Saving project data',
+        reasoning: `Persisting results for project: ${projectName}`,
+        status: 'in_progress',
+        timestamp: new Date(saveProjectStartTime).toISOString()
+      });
+      
+      try {
+        const projectStore = new ProjectStore(process.env.RENEWABLE_S3_BUCKET);
+        
+        // Extract results by type
+        const resultsByType: Record<string, any> = {};
+        for (const result of results) {
+          if (result.success && result.data) {
+            resultsByType[result.type] = result.data;
+          }
+        }
+        
+        // Prepare project data update
+        const projectDataUpdate: any = {
+          project_name: projectName,
+          updated_at: new Date().toISOString()
+        };
+        
+        // Add coordinates if this is terrain analysis
+        if (intentWithDefaults.type === 'terrain_analysis' && intentWithDefaults.params.latitude && intentWithDefaults.params.longitude) {
+          projectDataUpdate.coordinates = {
+            latitude: intentWithDefaults.params.latitude,
+            longitude: intentWithDefaults.params.longitude
+          };
+        }
+        
+        // Add results based on intent type
+        if (intentWithDefaults.type === 'terrain_analysis' && resultsByType.terrain_analysis) {
+          projectDataUpdate.terrain_results = resultsByType.terrain_analysis;
+        } else if (intentWithDefaults.type === 'layout_optimization' && resultsByType.layout_optimization) {
+          projectDataUpdate.layout_results = resultsByType.layout_optimization;
+          
+          // Extract metadata
+          if (resultsByType.layout_optimization.turbine_count) {
+            projectDataUpdate.metadata = {
+              turbine_count: resultsByType.layout_optimization.turbine_count,
+              total_capacity_mw: resultsByType.layout_optimization.total_capacity_mw
+            };
+          }
+        } else if (intentWithDefaults.type === 'wake_simulation' && resultsByType.wake_simulation) {
+          projectDataUpdate.simulation_results = resultsByType.wake_simulation;
+          
+          // Extract metadata
+          if (resultsByType.wake_simulation.annual_energy_gwh) {
+            projectDataUpdate.metadata = {
+              ...projectDataUpdate.metadata,
+              annual_energy_gwh: resultsByType.wake_simulation.annual_energy_gwh
+            };
+          }
+        } else if (intentWithDefaults.type === 'report_generation' && resultsByType.report_generation) {
+          projectDataUpdate.report_results = resultsByType.report_generation;
+        }
+        
+        // Save to S3
+        await projectStore.save(projectName, projectDataUpdate);
+        
+        console.log('───────────────────────────────────────────────────────────');
+        console.log('💾 PROJECT DATA SAVED');
+        console.log('───────────────────────────────────────────────────────────');
+        console.log(`📋 Request ID: ${requestId}`);
+        console.log(`🆔 Project Name: ${projectName}`);
+        console.log(`📝 Updated Fields: ${Object.keys(projectDataUpdate).join(', ')}`);
+        console.log(`⏰ Saved At: ${projectDataUpdate.updated_at}`);
+        console.log('───────────────────────────────────────────────────────────');
+        
+        const saveProjectDuration = Date.now() - saveProjectStartTime;
+        
+        // Update thought step with completion
+        thoughtSteps[thoughtSteps.length - 1] = {
+          ...thoughtSteps[thoughtSteps.length - 1],
+          status: 'complete',
+          duration: saveProjectDuration,
+          result: 'Project data saved to S3'
+        };
+        
+      } catch (error) {
+        console.error('❌ Error saving project data:', error);
+        console.warn('⚠️  Continuing without saving project data');
+        
+        const saveProjectDuration = Date.now() - saveProjectStartTime;
+        
+        // Update thought step with error
+        thoughtSteps[thoughtSteps.length - 1] = {
+          ...thoughtSteps[thoughtSteps.length - 1],
+          status: 'error',
+          duration: saveProjectDuration,
+          error: {
+            message: 'Failed to save project data',
+            suggestion: 'Results are still available but not persisted'
+          }
+        };
+        // Don't fail the request if saving fails
+      }
+    }
+    
+    // Step 7: Reload project data to get updated status
+    let updatedProjectData = projectData;
+    if (projectName) {
+      try {
+        const projectStore = new ProjectStore(process.env.RENEWABLE_S3_BUCKET);
+        updatedProjectData = await projectStore.load(projectName);
+      } catch (error) {
+        console.warn('Could not reload project data for status:', error);
+      }
+    }
+    
+    // Format results as EDI artifacts with action buttons
     const formattingStartTime = Date.now();
     console.log('🔍 DEBUG - Results count before formatting:', results.length);
     console.log('🔍 DEBUG - Results types:', results.map(r => r.type));
-    const artifacts = formatArtifacts(results);
+    const artifacts = formatArtifacts(results, intentWithDefaults.type, projectName || undefined, updatedProjectData);
     console.log('🔍 DEBUG - Artifacts count after formatting:', artifacts.length);
     console.log('🔍 DEBUG - Artifact types:', artifacts.map(a => a.type));
-    const message = generateResponseMessage(intentWithDefaults, results);
+    console.log('🔍 DEBUG - Artifacts with actions:', artifacts.filter(a => a.actions).length);
+    
+    const message = generateResponseMessage(intentWithDefaults, results, projectName || undefined, updatedProjectData);
     timings.resultFormatting = Date.now() - formattingStartTime;
     
     // Enhanced project ID logging
@@ -271,6 +750,14 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     
     timings.total = Date.now() - startTime;
     
+    // Calculate project status
+    const projectStatus = updatedProjectData ? {
+      terrain: !!updatedProjectData.terrain_results,
+      layout: !!updatedProjectData.layout_results,
+      simulation: !!updatedProjectData.simulation_results,
+      report: !!updatedProjectData.report_results
+    } : undefined;
+    
     const response: OrchestratorResponse = {
       success: true,
       message,
@@ -281,6 +768,8 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         executionTime: timings.total,
         toolsUsed,
         projectId,
+        projectName: projectName || undefined,
+        projectStatus,
         requestId,
         timings: {
           validation: timings.validation || 0,
@@ -659,10 +1148,46 @@ async function callToolLambdas(
       case 'wake_simulation':
         // Use lightweight simulation Lambda
         functionName = process.env.RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME || 'renewable-simulation-simple';
+        
+        // Fetch layout data from S3 if not in context
+        let layoutData = context?.layout || context?.layoutResults || intent.params.layout;
+        
+        if (!layoutData && intent.params.project_id) {
+          try {
+            console.log(`📦 Fetching layout data for project ${intent.params.project_id} from S3`);
+            const { S3Client, GetObjectCommand } = await import('@aws-sdk/client-s3');
+            const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
+            
+            const s3Key = `renewable/layout/${intent.params.project_id}/layout.json`;
+            const command = new GetObjectCommand({
+              Bucket: process.env.RENEWABLE_S3_BUCKET,
+              Key: s3Key
+            });
+            
+            const response = await s3Client.send(command);
+            const bodyString = await response.Body?.transformToString();
+            
+            if (bodyString) {
+              const layoutResult = JSON.parse(bodyString);
+              layoutData = layoutResult.layout || layoutResult;
+              console.log(`✅ Retrieved layout with ${layoutData.features?.length || 0} turbines from S3`);
+            }
+          } catch (s3Error: any) {
+            console.warn(`⚠️ Could not fetch layout from S3: ${s3Error.message}`);
+            console.warn(`   This is expected if layout hasn't been generated yet for project ${intent.params.project_id}`);
+          }
+        }
+        
+        // If still no layout data, provide helpful error
+        if (!layoutData) {
+          console.warn(`⚠️ No layout data available for project ${intent.params.project_id}`);
+          console.warn(`   User should run layout optimization first`);
+        }
+        
         payload = {
           parameters: {
             project_id: intent.params.project_id,
-            layout: context?.layout || context?.layoutResults || intent.params.layout,
+            layout: layoutData,
             wind_speed: intent.params.wind_speed || 8.5,
             wind_direction: intent.params.wind_direction || 270
           }
@@ -992,9 +1517,9 @@ async function invokeLambdaWithRetry(
 }
 
 /**
- * Format tool results as EDI artifacts with validation
+ * Format tool results as EDI artifacts with validation and action buttons
  */
-function formatArtifacts(results: ToolResult[]): Artifact[] {
+function formatArtifacts(results: ToolResult[], intentType?: string, projectName?: string, projectStatus?: any): Artifact[] {
   const artifacts: Artifact[] = [];
   
   for (const result of results) {
@@ -1003,6 +1528,11 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
     }
     
     let artifact: Artifact | null = null;
+    
+    // Generate action buttons for this artifact
+    const actions = projectName && intentType 
+      ? generateActionButtons(intentType, projectName, projectStatus)
+      : undefined;
     
     switch (result.type) {
       case 'terrain_analysis':
@@ -1028,7 +1558,8 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
             // mapUrl: result.data.mapUrl,
             visualizations: result.data.visualizations,
             message: result.data.message
-          }
+          },
+          actions
         };
         
         console.log('🔍 TERRAIN DEBUG - artifact.data has geojson:', !!artifact.data.geojson);
@@ -1052,7 +1583,8 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
             spacing: result.data.spacing,
             visualizations: result.data.visualizations,
             message: result.data.message
-          }
+          },
+          actions
         };
         break;
         
@@ -1070,7 +1602,8 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
             optimizationRecommendations: result.data.optimizationRecommendations,
             s3Url: result.data.s3Url || result.data.s3_data?.url,
             message: result.data.message
-          }
+          },
+          actions
         };
         break;
         
@@ -1089,7 +1622,8 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
             windStatistics: result.data.windStatistics,
             s3_data: result.data.s3_data,
             message: result.data.message
-          }
+          },
+          actions
         };
         break;
         
@@ -1102,7 +1636,8 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
             recommendations: result.data.recommendations,
             reportHtml: result.data.reportHtml,
             message: result.data.message
-          }
+          },
+          actions
         };
         break;
     }
@@ -1157,9 +1692,9 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
 }
 
 /**
- * Generate response message
+ * Generate response message with project status
  */
-function generateResponseMessage(intent: RenewableIntent, results: ToolResult[]): string {
+function generateResponseMessage(intent: RenewableIntent, results: ToolResult[], projectName?: string, projectData?: any): string {
   const successfulResults = results.filter(r => r.success);
   
   if (successfulResults.length === 0) {
@@ -1173,27 +1708,91 @@ function generateResponseMessage(intent: RenewableIntent, results: ToolResult[])
   }
   
   const result = successfulResults[0];
+  let baseMessage = '';
   
   switch (intent.type) {
     case 'terrain_analysis':
-      return result.data.message || 'Terrain analysis completed successfully.';
+      baseMessage = result.data.message || 'Terrain analysis completed successfully.';
+      break;
       
     case 'layout_optimization':
-      return result.data.message || `Layout optimization completed with ${result.data.turbineCount} turbines.`;
+      baseMessage = result.data.message || `Layout optimization completed with ${result.data.turbineCount} turbines.`;
+      break;
       
     case 'wake_simulation':
-      return result.data.message || 'Wake simulation completed successfully.';
+      baseMessage = result.data.message || 'Wake simulation completed successfully.';
+      break;
       
     case 'wind_rose':
     case 'wind_rose_analysis':
-      return result.data.message || 'Wind rose analysis completed successfully.';
+      baseMessage = result.data.message || 'Wind rose analysis completed successfully.';
+      break;
       
     case 'report_generation':
-      return result.data.message || 'Report generated successfully.';
+      baseMessage = result.data.message || 'Report generated successfully.';
+      break;
       
     default:
-      return 'Analysis completed successfully.';
+      baseMessage = 'Analysis completed successfully.';
   }
+  
+  // Add project status if project name is provided
+  if (projectName && projectData) {
+    const projectStatus = {
+      terrain: !!projectData.terrain_results,
+      layout: !!projectData.layout_results,
+      simulation: !!projectData.simulation_results,
+      report: !!projectData.report_results
+    };
+    
+    const statusChecklist = formatProjectStatusChecklist(projectStatus);
+    const nextStep = generateNextStepSuggestion(projectStatus);
+    
+    baseMessage += `\n\n**Project: ${projectName}**\n\n${statusChecklist}`;
+    
+    if (nextStep) {
+      baseMessage += `\n\n**Next:** ${nextStep}`;
+    }
+  }
+  
+  return baseMessage;
+}
+
+/**
+ * Get project completion status
+ */
+function getProjectStatus(projectData: any, currentStep: string): { summary: string; nextStep: string } {
+  const steps = {
+    terrain: !!projectData.terrain_results,
+    layout: !!projectData.layout_results,
+    simulation: !!projectData.simulation_results,
+    report: !!projectData.report_results
+  };
+  
+  const statusIcons = {
+    terrain: steps.terrain ? '✓' : '○',
+    layout: steps.layout ? '✓' : '○',
+    simulation: steps.simulation ? '✓' : '○',
+    report: steps.report ? '✓' : '○'
+  };
+  
+  const summary = `Status:\n${statusIcons.terrain} Terrain Analysis\n${statusIcons.layout} Layout Optimization\n${statusIcons.simulation} Wake Simulation\n${statusIcons.report} Report Generation`;
+  
+  // Determine next step
+  let nextStep = '';
+  if (!steps.terrain) {
+    nextStep = 'Next: Run terrain analysis with coordinates';
+  } else if (!steps.layout) {
+    nextStep = 'Next: Optimize turbine layout';
+  } else if (!steps.simulation) {
+    nextStep = 'Next: Run wake simulation';
+  } else if (!steps.report) {
+    nextStep = 'Next: Generate comprehensive report';
+  } else {
+    nextStep = 'All steps complete! You can start a new project or refine this one.';
+  }
+  
+  return { summary, nextStep };
 }
 
 

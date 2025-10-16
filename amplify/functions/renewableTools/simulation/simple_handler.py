@@ -197,11 +197,20 @@ def handler(event, context):
         wind_direction = params.get('wind_direction', 270)
         
         if not layout or not layout.get('features'):
+            project_id = params.get('project_id', 'unknown')
+            error_msg = f'No layout data found for project {project_id}. Please run a layout optimization first before running wake simulation.'
+            print(f"❌ {error_msg}")
+            
             return {
                 'success': False,
                 'type': 'wake_simulation',
-                'error': 'Missing layout data with turbine features',
-                'data': {}
+                'error': error_msg,
+                'data': {
+                    'messageContentType': 'error',
+                    'title': 'Wake Simulation Failed',
+                    'message': error_msg,
+                    'suggestion': f'Try: "optimize turbine layout for project {project_id}" first, then run the wake simulation.'
+                }
             }
         
         turbines = layout['features']

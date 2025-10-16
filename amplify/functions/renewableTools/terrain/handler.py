@@ -643,8 +643,16 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
 <body>
     <div id="map"></div>
     <script>
-        var map = L.map('map').setView([{center_lat}, {center_lon}], 12);
+        // Initialize map with minimal options
+        var map = L.map('map', {{
+            center: [{center_lat}, {center_lon}],
+            zoom: 12,
+            zoomAnimation: false,  // Disable zoom animation to prevent position errors
+            fadeAnimation: false,  // Disable fade animation
+            markerZoomAnimation: false  // Disable marker zoom animation
+        }});
         
+        // Add tile layer
         L.tileLayer('https://{{s}}.tile.openstreetmap.org/{{z}}/{{x}}/{{y}}.png', {{
             attribution: '© OpenStreetMap contributors'
         }}).addTo(map);
@@ -652,71 +660,75 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
         var markers = {json.dumps(markers)};
         var overlays = {json.dumps(overlays)};
         
-        // Array to collect all layers for bounds calculation
-        var allLayers = [];
-        
-        // Add markers - use default Leaflet markers (blue teardrop) to match notebook style
-        markers.forEach(function(marker) {{
-            var popupContent = marker.popup_content || marker.title;
+        // Wait for map to be completely ready before adding any layers
+        map.whenReady(function() {{
+            console.log('Map is ready, adding layers...');
             
-            // Use default Leaflet marker for all markers (matches notebook visualization)
-            var markerLayer = L.marker([marker.lat, marker.lng]])
-                .bindPopup(popupContent, {{
-                    maxWidth: 300,
-                    className: 'terrain-feature-popup'
-                }})
-                .addTo(map);
+            // Array to collect all layers for bounds calculation
+            var allLayers = [];
             
-            // Add hover effect for markers
-            markerLayer.on('mouseover', function(e) {{
-                this.openPopup();
-            }});
-            
-            // Collect layer for bounds
-            allLayers.push(markerLayer);
-        }});
-
-        
-        // Add overlays (polygons and polylines) with enhanced styling
-        overlays.forEach(function(overlay) {{
-            var style = overlay.style_config || getDefaultOverlayStyle(overlay.feature_type);
-            var layer;
-            
-            if (overlay.type === 'polygon') {{
-                layer = L.polygon(overlay.coordinates, style);
-            }} else if (overlay.type === 'polyline') {{
-                layer = L.polyline(overlay.coordinates, style);
-            }}
-            
-            if (layer) {{
-                // Use rich popup content if available, otherwise fallback to simple
-                var popupContent = overlay.popup_content || (overlay.title + '<br><small>' + overlay.feature_type + '</small>');
-                layer.bindPopup(popupContent, {{
-                    maxWidth: 300,
-                    className: 'terrain-feature-popup'
-                }});
+            // Add markers - use default Leaflet markers (blue teardrop) to match notebook style
+            markers.forEach(function(marker) {{
+                var popupContent = marker.popup_content || marker.title;
                 
-                // Add hover effects
-                layer.on('mouseover', function(e) {{
-                    var hoverStyle = Object.assign({{}}, style);
-                    if (overlay.type === 'polygon') {{
-                        hoverStyle.fillOpacity = Math.min(1.0, (hoverStyle.fillOpacity || 0.4) + 0.2);
-                    }}
-                    hoverStyle.opacity = Math.min(1.0, (hoverStyle.opacity || 0.8) + 0.2);
-                    hoverStyle.weight = (hoverStyle.weight || 2) + 1;
-                    layer.setStyle(hoverStyle);
-                }});
+                // Use default Leaflet marker for all markers (matches notebook visualization)
+                var markerLayer = L.marker([marker.lat, marker.lng]])
+                    .bindPopup(popupContent, {{
+                        maxWidth: 300,
+                        className: 'terrain-feature-popup'
+                    }})
+                    .addTo(map);
                 
-                layer.on('mouseout', function(e) {{
-                    layer.setStyle(style);
+                // Add hover effect for markers
+                markerLayer.on('mouseover', function(e) {{
+                    this.openPopup();
                 }});
-                
-                layer.addTo(map);
                 
                 // Collect layer for bounds
-                allLayers.push(layer);
-            }}
-        }});
+                allLayers.push(markerLayer);
+            }});
+
+            
+            // Add overlays (polygons and polylines) with enhanced styling
+            overlays.forEach(function(overlay) {{
+                var style = overlay.style_config || getDefaultOverlayStyle(overlay.feature_type);
+                var layer;
+                
+                if (overlay.type === 'polygon') {{
+                    layer = L.polygon(overlay.coordinates, style);
+                }} else if (overlay.type === 'polyline') {{
+                    layer = L.polyline(overlay.coordinates, style);
+                }}
+                
+                if (layer) {{
+                    // Use rich popup content if available, otherwise fallback to simple
+                    var popupContent = overlay.popup_content || (overlay.title + '<br><small>' + overlay.feature_type + '</small>');
+                    layer.bindPopup(popupContent, {{
+                        maxWidth: 300,
+                        className: 'terrain-feature-popup'
+                    }});
+                    
+                    // Add hover effects
+                    layer.on('mouseover', function(e) {{
+                        var hoverStyle = Object.assign({{}}, style);
+                        if (overlay.type === 'polygon') {{
+                            hoverStyle.fillOpacity = Math.min(1.0, (hoverStyle.fillOpacity || 0.4) + 0.2);
+                        }}
+                        hoverStyle.opacity = Math.min(1.0, (hoverStyle.opacity || 0.8) + 0.2);
+                        hoverStyle.weight = (hoverStyle.weight || 2) + 1;
+                        layer.setStyle(hoverStyle);
+                    }});
+                    
+                    layer.on('mouseout', function(e) {{
+                        layer.setStyle(style);
+                    }});
+                    
+                    layer.addTo(map);
+                    
+                    // Collect layer for bounds
+                    allLayers.push(layer);
+                }}
+            }});
         
         // Enhanced style function for overlays with feature-specific styling
         function getDefaultOverlayStyle(featureType) {{
@@ -811,17 +823,30 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
             }}
         }}
         
-        // Fit map to show all layers
-        if (allLayers.length > 1) {{
-            var group = new L.featureGroup(allLayers);
-            try {{
-                map.fitBounds(group.getBounds().pad(0.1));
-            }} catch (e) {{
-                console.warn('Could not fit bounds:', e);
-                // Fallback to center view if fitBounds fails
-                map.setView([{center_lat}, {center_lon}], 12);
-            }}
-        }}
+            // Fit bounds after all layers are added (still inside whenReady)
+            setTimeout(function() {{
+                if (allLayers.length > 1) {{
+                    try {{
+                        var group = new L.featureGroup(allLayers);
+                        map.fitBounds(group.getBounds().pad(0.1), {{
+                            animate: false,  // Disable animation to prevent position errors
+                            duration: 0      // No animation duration
+                        }});
+                        console.log('Bounds fitted successfully');
+                    }} catch (e) {{
+                        console.warn('Could not fit bounds:', e);
+                        // Fallback to center view if fitBounds fails
+                        map.setView([{center_lat}, {center_lon}], 12, {{animate: false}});
+                    }}
+                }}
+                
+                // Invalidate size to ensure proper rendering after bounds fit
+                setTimeout(function() {{
+                    map.invalidateSize({{animate: false}});
+                    console.log('Map size invalidated');
+                }}, 100);
+            }}, 300);  // Wait 300ms for layers to be fully added
+        }});  // End of map.whenReady()
     </script>
 </body>
 </html>
@@ -1445,6 +1470,7 @@ def handler(event, context):
             'geojson': geojson,  # ALWAYS include geojson - required for Leaflet map
             'geojsonS3Key': geojson_s3_key,  # Also provide S3 reference for backup
             'geojsonS3Bucket': geojson_s3_bucket,
+            'mapHtml': map_html,  # CRITICAL: Include pre-rendered HTML to prevent frontend Leaflet initialization
             'message': f'Found {len(features)} terrain features',
             'debug': debug_info
         }

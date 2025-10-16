@@ -8,6 +8,14 @@
 import React, { useEffect, useRef } from 'react';
 import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout } from '@cloudscape-design/components';
 import 'leaflet/dist/leaflet.css';
+import { ActionButtons } from './ActionButtons';
+
+interface ActionButton {
+  label: string;
+  query: string;
+  icon: string;
+  primary?: boolean;
+}
 
 interface LayoutArtifactProps {
   data: {
@@ -39,9 +47,16 @@ interface LayoutArtifactProps {
     };
     s3Url?: string;
   };
+  actions?: ActionButton[];  // Contextual action buttons from orchestrator
+  onFollowUpAction?: (action: string) => void;
 }
 
-const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
+const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFollowUpAction }) => {
+  const handleActionClick = (query: string) => {
+    if (onFollowUpAction) {
+      onFollowUpAction(query);
+    }
+  };
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const initializingRef = useRef<boolean>(false); // Prevent multiple initializations
@@ -283,6 +298,14 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
       }
     >
       <SpaceBetween size="l">
+        {/* Contextual Action Buttons */}
+        {actions && actions.length > 0 && (
+          <ActionButtons 
+            actions={actions} 
+            onActionClick={handleActionClick}
+          />
+        )}
+        
         {/* Layout Information */}
         <ColumnLayout columns={4} variant="text-grid">
           <div>

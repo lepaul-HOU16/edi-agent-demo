@@ -44,3 +44,13 @@ export { default as ErrorRecoveryActions } from './ErrorRecoveryActions';
 // Async Job Processing Components
 export { RenewableJobProcessingIndicator } from './RenewableJobProcessingIndicator';
 export { RenewableJobStatusDisplay } from './RenewableJobStatusDisplay';
+
+// Dashboard Components
+export { default as DashboardArtifact } from './DashboardArtifact';
+export { default as WindResourceDashboard } from './WindResourceDashboard';
+export { default as PerformanceAnalysisDashboard } from './PerformanceAnalysisDashboard';
+export { default as WakeAnalysisDashboard } from './WakeAnalysisDashboard';
+export { default as PlotlyWindRose } from './PlotlyWindRose';
+
+// Project Management Components
+export { ProjectListTable, ProjectDetailsPanel } from './ProjectListTable';

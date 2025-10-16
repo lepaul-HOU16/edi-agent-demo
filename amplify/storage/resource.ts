@@ -14,6 +14,10 @@ export const storage = defineStorage({
         'renewable/*': [
             allow.authenticated.to(['read', 'write', 'delete']),
             allow.guest.to(['read'])
+        ],
+        'renewable/projects/*': [
+            allow.authenticated.to(['read', 'write', 'delete']),
+            allow.guest.to(['read'])
         ]
     })
 });

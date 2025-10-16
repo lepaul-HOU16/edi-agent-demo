@@ -22,8 +22,20 @@ export interface OrchestratorResponse {
     executionTime: number;
     toolsUsed: string[];
     projectId?: string;
+    projectName?: string;
     requestId?: string;
     validationErrors?: string[];
+    ambiguousProjects?: string[];
+    matchCount?: number;
+    projectCount?: number;  // For project list queries
+    activeProject?: string;  // For project list queries
+    errorCategory?: 'MISSING_PROJECT_DATA' | 'PARAMETER_ERROR' | 'AMBIGUOUS_REFERENCE';
+    projectStatus?: {
+      terrain: boolean;
+      layout: boolean;
+      simulation: boolean;
+      report: boolean;
+    };
     parameterValidation?: {
       missingRequired: string[];
       invalidValues: string[];
@@ -63,6 +75,14 @@ export interface OrchestratorResponse {
 export interface Artifact {
   type: string;
   data: any;
+  actions?: ActionButton[];  // Contextual action buttons for this artifact
+}
+
+export interface ActionButton {
+  label: string;
+  query: string;
+  icon: string;
+  primary?: boolean;
 }
 
 export interface ThoughtStep {
@@ -70,6 +90,13 @@ export interface ThoughtStep {
   action: string;
   reasoning: string;
   result?: string;
+  status: 'in_progress' | 'complete' | 'error';
+  timestamp: string;
+  duration?: number;  // milliseconds
+  error?: {
+    message: string;
+    suggestion?: string;
+  };
 }
 
 export interface RenewableIntent {

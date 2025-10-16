@@ -19,6 +19,7 @@ try:
     from visualization_generator import RenewableVisualizationGenerator
     from folium_generator import FoliumMapGenerator
     from matplotlib_generator import MatplotlibChartGenerator
+    from plotly_wind_rose_generator import PlotlyWindRoseGenerator, generate_plotly_wind_rose
     from visualization_config import config
     VISUALIZATIONS_AVAILABLE = True
     logger.info("Visualization modules loaded successfully")
@@ -199,35 +200,64 @@ def handler(event, context):
                     wind_speeds.append(avg_speed)
                     wind_directions.append(angle)
             
-            # Generate matplotlib wind rose if available
+            # Generate Plotly wind rose data if available
+            plotly_wind_rose_data = None
             wind_rose_url = None
+            
             if VISUALIZATIONS_AVAILABLE:
                 try:
-                    logger.info("Creating matplotlib wind rose visualization")
-                    matplotlib_gen = MatplotlibChartGenerator()
+                    logger.info("Creating Plotly wind rose data")
                     
-                    wind_data = {
-                        'speeds': wind_speeds,
-                        'directions': wind_directions
-                    }
+                    # Convert lists to numpy arrays
+                    wind_speeds_array = np.array(wind_speeds)
+                    wind_directions_array = np.array(wind_directions)
                     
-                    wind_rose_bytes = matplotlib_gen.create_wind_rose(
-                        wind_data,
-                        f"Wind Rose - {project_id}"
+                    # Generate Plotly wind rose data
+                    plotly_wind_rose_data = generate_plotly_wind_rose(
+                        wind_speeds_array,
+                        wind_directions_array,
+                        title=f"Wind Rose - {project_id}",
+                        dark_background=True
                     )
                     
-                    # Save PNG to S3
-                    wind_rose_key = f'renewable/wind_rose/{project_id}/wind_rose.png'
+                    # Save Plotly data to S3
+                    plotly_data_key = f'renewable/wind_rose/{project_id}/plotly_wind_rose.json'
                     s3_client.put_object(
                         Bucket=S3_BUCKET,
-                        Key=wind_rose_key,
-                        Body=wind_rose_bytes,
-                        ContentType='image/png',
+                        Key=plotly_data_key,
+                        Body=json.dumps(plotly_wind_rose_data),
+                        ContentType='application/json',
                         CacheControl='max-age=3600'
                     )
                     
-                    wind_rose_url = f'https://{S3_BUCKET}.s3.amazonaws.com/{wind_rose_key}'
-                    logger.info(f"✅ Saved wind rose PNG to S3: {wind_rose_url}")
+                    logger.info(f"✅ Saved Plotly wind rose data to S3: {plotly_data_key}")
+                    
+                    # Also generate matplotlib PNG for fallback
+                    try:
+                        matplotlib_gen = MatplotlibChartGenerator()
+                        wind_data = {
+                            'speeds': wind_speeds,
+                            'directions': wind_directions
+                        }
+                        wind_rose_bytes = matplotlib_gen.create_wind_rose(
+                            wind_data,
+                            f"Wind Rose - {project_id}"
+                        )
+                        
+                        # Save PNG to S3
+                        wind_rose_key = f'renewable/wind_rose/{project_id}/wind_rose.png'
+                        s3_client.put_object(
+                            Bucket=S3_BUCKET,
+                            Key=wind_rose_key,
+                            Body=wind_rose_bytes,
+                            ContentType='image/png',
+                            CacheControl='max-age=3600'
+                        )
+                        
+                        wind_rose_url = f'https://{S3_BUCKET}.s3.amazonaws.com/{wind_rose_key}'
+                        logger.info(f"✅ Saved matplotlib wind rose PNG to S3: {wind_rose_url}")
+                    except Exception as matplotlib_error:
+                        logger.warning(f"⚠️ Could not generate matplotlib fallback: {matplotlib_error}")
                     
                 except Exception as viz_error:
                     logger.error(f"❌ Error creating wind rose visualization: {viz_error}", exc_info=True)
@@ -259,7 +289,7 @@ def handler(event, context):
                 ContentType='application/json'
             )
             
-            # Return response
+            # Return response with Plotly data
             response_data = {
                 'messageContentType': 'wind_rose_analysis',
                 'title': f'Wind Rose Analysis - {project_id}',
@@ -283,6 +313,16 @@ def handler(event, context):
                 'message': f'Wind rose analysis complete for ({latitude}, {longitude})'
             }
             
+            # Add Plotly wind rose data if available
+            if plotly_wind_rose_data:
+                response_data['plotlyWindRose'] = {
+                    'data': plotly_wind_rose_data['data'],
+                    'layout': plotly_wind_rose_data['layout'],
+                    'statistics': plotly_wind_rose_data['statistics']
+                }
+                logger.info("✅ Added Plotly wind rose data to response")
+            
+            # Add matplotlib PNG fallback if available
             if wind_rose_url:
                 response_data['visualizations']['wind_rose'] = wind_rose_url
                 response_data['windRoseUrl'] = wind_rose_url
@@ -295,16 +335,64 @@ def handler(event, context):
             }
         
         # Handle wake simulation
-        layout = params.get('layout', {})
         wind_speed = params.get('wind_speed', 8.0)
         air_density = params.get('air_density', 1.225)
         
+        # Check for project context (from orchestrator)
+        project_context = event.get('project_context', {})
+        logger.info(f"Project context available: {bool(project_context)}")
+        
+        # Get layout from project context first, then fall back to explicit parameters
+        layout = None
+        
+        # Priority 1: Check project context for layout
+        if project_context and 'layout_results' in project_context:
+            layout_results = project_context['layout_results']
+            layout = layout_results.get('geojson') or layout_results.get('layout')
+            if layout and layout.get('features'):
+                logger.info(f"✅ Using layout from project context: {len(layout['features'])} turbines")
+        
+        # Priority 2: Check explicit parameters (backward compatibility)
+        if not layout or not layout.get('features'):
+            layout = params.get('layout', {})
+            if layout and layout.get('features'):
+                logger.info(f"✅ Using layout from explicit parameters: {len(layout['features'])} turbines")
+        
         # Validate required parameters
         if not layout or not layout.get('features'):
+            # Get project name if available
+            project_name = params.get('project_name', project_id)
+            
+            # Generate user-friendly error message
+            error_message = f"No turbine layout found for {project_name}. A layout is required to run wake simulation."
+            suggestion = "Run layout optimization first to establish turbine positions, or provide explicit layout data."
+            
+            next_steps = [
+                f'Optimize layout: "optimize layout for {project_name}"',
+                f'Or provide layout: "run wake simulation with layout [layout_data]"'
+            ]
+            
+            if project_name and project_name != project_id:
+                next_steps.append(f'View project status: "show project {project_name}"')
+            
+            logger.error(f"❌ Layout validation failed: {error_message}")
+            logger.error(f"Project context: {project_context}")
+            
             return {
                 'success': False,
                 'type': 'wake_simulation',
-                'error': 'Missing layout data with turbine features',
+                'error': error_message,
+                'errorCategory': 'MISSING_PROJECT_DATA',
+                'details': {
+                    'projectId': project_id,
+                    'projectName': project_name,
+                    'missingData': 'layout',
+                    'requiredOperation': 'layout_optimization',
+                    'hasProjectContext': bool(project_context),
+                    'hasLayoutInContext': bool(project_context and 'layout_results' in project_context),
+                    'suggestion': suggestion,
+                    'nextSteps': next_steps
+                },
                 'data': {}
             }
         

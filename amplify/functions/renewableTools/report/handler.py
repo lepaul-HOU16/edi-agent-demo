@@ -38,11 +38,92 @@ def handler(event, context):
         # Extract parameters
         params = event.get('parameters', {})
         project_id = params.get('project_id', 'default-project')
-        terrain_results = params.get('terrain_results', {})
-        layout_results = params.get('layout_results', {})
-        simulation_results = params.get('simulation_results', {})
+        
+        # Check for project context (from orchestrator)
+        project_context = event.get('project_context', {})
+        logger.info(f"Project context available: {bool(project_context)}")
+        
+        # Get results from project context first, then fall back to explicit parameters
+        terrain_results = None
+        layout_results = None
+        simulation_results = None
+        
+        # Priority 1: Check project context for results
+        if project_context:
+            terrain_results = project_context.get('terrain_results', {})
+            layout_results = project_context.get('layout_results', {})
+            simulation_results = project_context.get('simulation_results', {})
+            
+            if terrain_results:
+                logger.info(f"✅ Using terrain results from project context")
+            if layout_results:
+                logger.info(f"✅ Using layout results from project context")
+            if simulation_results:
+                logger.info(f"✅ Using simulation results from project context")
+        
+        # Priority 2: Check explicit parameters (backward compatibility)
+        if not terrain_results:
+            terrain_results = params.get('terrain_results', {})
+            if terrain_results:
+                logger.info(f"✅ Using terrain results from explicit parameters")
+        
+        if not layout_results:
+            layout_results = params.get('layout_results', {})
+            if layout_results:
+                logger.info(f"✅ Using layout results from explicit parameters")
+        
+        if not simulation_results:
+            simulation_results = params.get('simulation_results', {})
+            if simulation_results:
+                logger.info(f"✅ Using simulation results from explicit parameters")
         
         logger.info(f"Generating report for project {project_id}")
+        
+        # Validate that we have at least some data to generate a report
+        if not terrain_results and not layout_results and not simulation_results:
+            # Get project name if available
+            project_name = params.get('project_name', project_id)
+            
+            # Generate user-friendly error message
+            error_message = f"No analysis results found for {project_name}. Complete analysis data is required to generate a report."
+            suggestion = "Complete the full analysis workflow: terrain analysis → layout optimization → wake simulation → report generation."
+            
+            next_steps = [
+                f'Start with terrain: "analyze terrain at [latitude], [longitude]"',
+                f'Then optimize layout: "optimize layout for {project_name}"',
+                f'Run simulation: "run wake simulation for {project_name}"',
+                f'Finally generate report: "generate report for {project_name}"'
+            ]
+            
+            logger.error(f"❌ Report generation failed: {error_message}")
+            logger.error(f"Project context: {project_context}")
+            
+            return {
+                'statusCode': 400,
+                'body': json.dumps({
+                    'success': False,
+                    'error': error_message,
+                    'errorCategory': 'MISSING_PROJECT_DATA',
+                    'details': {
+                        'projectId': project_id,
+                        'projectName': project_name,
+                        'missingData': 'analysis_results',
+                        'requiredOperation': 'complete_workflow',
+                        'hasProjectContext': bool(project_context),
+                        'hasTerrainResults': bool(terrain_results),
+                        'hasLayoutResults': bool(layout_results),
+                        'hasSimulationResults': bool(simulation_results),
+                        'suggestion': suggestion,
+                        'nextSteps': next_steps
+                    }
+                })
+            }
+        
+        # Log what data we have available
+        logger.info(f"Report data availability:")
+        logger.info(f"  - Terrain results: {'✅' if terrain_results else '❌'}")
+        logger.info(f"  - Layout results: {'✅' if layout_results else '❌'}")
+        logger.info(f"  - Simulation results: {'✅' if simulation_results else '❌'}")
         
         # Build executive summary
         summary_parts = []

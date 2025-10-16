@@ -4,8 +4,9 @@
  */
 
 import React, { useState } from 'react';
-import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Table, Pagination } from '@cloudscape-design/components';
-import InteractiveWindRose from './InteractiveWindRose';
+import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Table, Pagination, Button, ButtonDropdown } from '@cloudscape-design/components';
+import PlotlyWindRose from './PlotlyWindRose';
+import { ActionButtons } from './ActionButtons';
 
 interface DirectionDetail {
   direction: string;
@@ -29,6 +30,13 @@ interface WindRoseData {
   max_speed: number;
 }
 
+interface ActionButton {
+  label: string;
+  query: string;
+  icon: string;
+  primary?: boolean;
+}
+
 interface WindRoseArtifactProps {
   data: {
     messageContentType: 'wind_rose_analysis';
@@ -49,6 +57,17 @@ interface WindRoseArtifactProps {
       prevailingDirection: string;
       directionCount: number;
     };
+    // Plotly wind rose data (new format)
+    plotlyWindRose?: {
+      data: any[];
+      layout: any;
+      statistics: {
+        average_speed: number;
+        max_speed: number;
+        prevailing_direction: string;
+        prevailing_frequency: number;
+      };
+    };
     // Legacy format support
     metrics?: {
       avgWindSpeed: number;
@@ -60,19 +79,49 @@ interface WindRoseArtifactProps {
       directions: DirectionDetail[];
     };
   };
+  actions?: ActionButton[];  // Contextual action buttons from orchestrator
+  onFollowUpAction?: (action: string) => void;
 }
 
-const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data }) => {
+const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFollowUpAction }) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
   const pageSize = 8;
+  
+  const handleActionClick = (query: string) => {
+    if (onFollowUpAction) {
+      onFollowUpAction(query);
+    }
+  };
 
   // Debug logging to track renders
   console.log('🌹 WindRoseArtifact RENDER:', {
     projectId: data.projectId,
     hasVisualizationUrl: !!(data.visualizationUrl || data.windRoseUrl || data.mapUrl),
+    hasPlotlyData: !!data.plotlyWindRose,
     visualizationUrl: data.visualizationUrl || data.windRoseUrl || data.mapUrl,
     timestamp: new Date().toISOString()
   });
+
+  // Export handlers
+  const handleExportData = () => {
+    const exportData = {
+      projectId: data.projectId,
+      coordinates: data.coordinates,
+      windRoseData: data.windRoseData,
+      windStatistics: data.windStatistics,
+      plotlyWindRose: data.plotlyWindRose,
+      exportedAt: new Date().toISOString()
+    };
+    
+    const dataStr = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `wind_rose_data_${data.projectId}.json`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   // Use new data structure or fall back to legacy
   const stats = data.windStatistics || data.metrics;
@@ -102,16 +151,25 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data }) => {
           variant="h2"
           description="Professional wind resource analysis with directional frequency distribution"
           actions={
-            stats && (
-              <SpaceBetween direction="horizontal" size="xs">
-                <Badge color="blue">
-                  {getAvgSpeed().toFixed(1)} m/s avg
-                </Badge>
-                <Badge color="green">
-                  {stats.prevailingDirection} prevailing
-                </Badge>
-              </SpaceBetween>
-            )
+            <SpaceBetween direction="horizontal" size="xs">
+              {stats && (
+                <>
+                  <Badge color="blue">
+                    {getAvgSpeed().toFixed(1)} m/s avg
+                  </Badge>
+                  <Badge color="green">
+                    {stats.prevailingDirection} prevailing
+                  </Badge>
+                </>
+              )}
+              <Button
+                iconName="download"
+                variant="normal"
+                onClick={handleExportData}
+              >
+                Export Data
+              </Button>
+            </SpaceBetween>
           }
         >
           {data.title}
@@ -119,6 +177,14 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data }) => {
       }
     >
       <SpaceBetween size="l">
+        {/* Contextual Action Buttons */}
+        {actions && actions.length > 0 && (
+          <ActionButtons 
+            actions={actions} 
+            onActionClick={handleActionClick}
+          />
+        )}
+        
         {stats && (
           <ColumnLayout columns={4} variant="text-grid">
             <div>
@@ -152,7 +218,17 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data }) => {
           <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
             Wind Rose Diagram
           </Box>
-          {(data.visualizationUrl || data.windRoseUrl || data.mapUrl) ? (
+          {data.plotlyWindRose ? (
+            // Use Plotly interactive wind rose (preferred)
+            <PlotlyWindRose
+              data={data.plotlyWindRose.data}
+              layout={data.plotlyWindRose.layout}
+              projectId={data.projectId}
+              statistics={data.plotlyWindRose.statistics}
+              darkBackground={true}
+            />
+          ) : (data.visualizationUrl || data.windRoseUrl || data.mapUrl) ? (
+            // Fallback to matplotlib PNG
             <div style={{ width: '100%', minHeight: '500px', border: '1px solid #e9ebed', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#fff' }}>
               <img 
                 src={data.visualizationUrl || data.windRoseUrl || data.mapUrl} 

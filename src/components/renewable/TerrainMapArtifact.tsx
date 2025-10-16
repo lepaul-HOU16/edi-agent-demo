@@ -8,6 +8,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Table, Pagination, Button, ButtonDropdown } from '@cloudscape-design/components';
 import 'leaflet/dist/leaflet.css';
+import { ActionButtons } from './ActionButtons';
 
 // Custom CSS to hide popup tip and style popups + fix table header padding
 const popupStyles = `
@@ -67,6 +68,13 @@ interface GeoJSONFeature {
   };
 }
 
+interface ActionButton {
+  label: string;
+  query: string;
+  icon: string;
+  primary?: boolean;
+}
+
 interface TerrainArtifactProps {
   data: {
     messageContentType: 'wind_farm_terrain_analysis';
@@ -95,10 +103,11 @@ interface TerrainArtifactProps {
     };
     message?: string;
   };
+  actions?: ActionButton[];  // Contextual action buttons from orchestrator
   onFollowUpAction?: (action: string) => void;
 }
 
-const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAction }) => {
+const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onFollowUpAction }) => {
   console.log('🗺️ TerrainMapArtifact: COMPONENT RENDERING');
   
   // CRITICAL DEBUG: Log the actual data structure received
@@ -826,57 +835,18 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
         }
       >
         <SpaceBetween size="l">
-          {/* Follow-up Actions */}
-          <Box>
-            <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
-              Next Steps
+          {/* Contextual Action Buttons */}
+          {actions && actions.length > 0 && (
+            <Box>
+              <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
+                Next Steps
+              </Box>
+              <ActionButtons 
+                actions={actions} 
+                onActionClick={handleFollowUpAction}
+              />
             </Box>
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button
-                variant="primary"
-                onClick={() => handleFollowUpAction(`Create a 30MW wind farm layout at ${data.coordinates.lat}, ${data.coordinates.lng}`)}
-              >
-                Create Layout (30MW)
-              </Button>
-              <ButtonDropdown
-                items={[
-                  { id: 'layout-50', text: 'Create 50MW Layout' },
-                  { id: 'layout-100', text: 'Create 100MW Layout' },
-                  { id: 'layout-custom', text: 'Custom Capacity...' },
-                  { id: 'turbine-15', text: 'Design with 15 Turbines' },
-                  { id: 'turbine-20', text: 'Design with 20 Turbines' },
-                  { id: 'turbine-25', text: 'Design with 25 Turbines' },
-                ]}
-                onItemClick={({ detail }) => {
-                  const coords = `${data.coordinates.lat}, ${data.coordinates.lng}`;
-                  switch (detail.id) {
-                    case 'layout-50':
-                      handleFollowUpAction(`Create a 50MW wind farm layout at ${coords}`);
-                      break;
-                    case 'layout-100':
-                      handleFollowUpAction(`Create a 100MW wind farm layout at ${coords}`);
-                      break;
-                    case 'turbine-15':
-                      handleFollowUpAction(`Design a wind farm with 15 turbines at ${coords}`);
-                      break;
-                    case 'turbine-20':
-                      handleFollowUpAction(`Design a wind farm with 20 turbines at ${coords}`);
-                      break;
-                    case 'turbine-25':
-                      handleFollowUpAction(`Design a wind farm with 25 turbines at ${coords}`);
-                      break;
-                  }
-                }}
-              >
-                More Options
-              </ButtonDropdown>
-              <Button
-                onClick={() => handleFollowUpAction('Generate executive report')}
-              >
-                Generate Report
-              </Button>
-            </SpaceBetween>
-          </Box>
+          )}
         {/* Site Information */}
         <ColumnLayout columns={4} variant="text-grid">
           <div>
