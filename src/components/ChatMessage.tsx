@@ -44,6 +44,14 @@ import {
   ReportArtifact,
   WindRoseArtifact
 } from './renewable';
+// Maintenance artifact components
+import {
+  EquipmentHealthArtifact,
+  FailurePredictionArtifact,
+  MaintenanceScheduleArtifact,
+  InspectionReportArtifact,
+  AssetLifecycleArtifact
+} from './maintenance';
 
 // Enhanced artifact processor component with S3 support - STABLE VERSION
 const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, onSendMessage }: {
@@ -602,6 +610,76 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                     message={message} 
                     theme={theme} 
                     enhancedComponent={<RenewableEnergyGuidanceComponent data={parsedArtifact} />}
+                />;
+            }
+            
+            // MAINTENANCE ARTIFACTS: Check for equipment health assessment
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'equipment_health' ||
+                 parsedArtifact.data?.messageContentType === 'equipment_health' ||
+                 parsedArtifact.type === 'equipment_health')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering EquipmentHealthArtifact!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<EquipmentHealthArtifact data={artifactData} />}
+                />;
+            }
+            
+            // MAINTENANCE ARTIFACTS: Check for failure prediction
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'failure_prediction' ||
+                 parsedArtifact.data?.messageContentType === 'failure_prediction' ||
+                 parsedArtifact.type === 'failure_prediction')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering FailurePredictionArtifact!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<FailurePredictionArtifact data={artifactData} />}
+                />;
+            }
+            
+            // MAINTENANCE ARTIFACTS: Check for maintenance schedule
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'maintenance_schedule' ||
+                 parsedArtifact.data?.messageContentType === 'maintenance_schedule' ||
+                 parsedArtifact.type === 'maintenance_schedule')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering MaintenanceScheduleArtifact!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<MaintenanceScheduleArtifact data={artifactData} />}
+                />;
+            }
+            
+            // MAINTENANCE ARTIFACTS: Check for inspection report
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'inspection_report' ||
+                 parsedArtifact.data?.messageContentType === 'inspection_report' ||
+                 parsedArtifact.type === 'inspection_report')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering InspectionReportArtifact!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<InspectionReportArtifact data={artifactData} />}
+                />;
+            }
+            
+            // MAINTENANCE ARTIFACTS: Check for asset lifecycle
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'asset_lifecycle' ||
+                 parsedArtifact.data?.messageContentType === 'asset_lifecycle' ||
+                 parsedArtifact.type === 'asset_lifecycle')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering AssetLifecycleArtifact!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<AssetLifecycleArtifact data={artifactData} />}
                 />;
             }
         }

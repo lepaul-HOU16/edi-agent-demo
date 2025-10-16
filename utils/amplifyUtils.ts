@@ -204,7 +204,8 @@ const createMessageWithRetry = async (
 
 export const sendMessage = async (props: {
   chatSessionId: string,
-  newMessage: Schema['ChatMessage']['createType']
+  newMessage: Schema['ChatMessage']['createType'],
+  agentType?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable'
 }) => {
   console.log('=== AMPLIFY UTILS DEBUG: sendMessage called ===');
   console.log('Props:', props);
@@ -253,7 +254,8 @@ export const sendMessage = async (props: {
       chatSessionId: props.chatSessionId,
       message: (props.newMessage.content as any).text,
       foundationModelId: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-      userId: userId
+      userId: userId,
+      agentType: props.agentType || 'auto'
     })
 
     console.log('=== AMPLIFY UTILS DEBUG: Agent invocation complete ===');

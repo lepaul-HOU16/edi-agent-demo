@@ -7,6 +7,7 @@
 import { GeneralKnowledgeAgent } from './generalKnowledgeAgent';
 import { EnhancedStrandsAgent } from './enhancedStrandsAgent';
 import { RenewableProxyAgent } from './renewableProxyAgent';
+import { MaintenanceStrandsAgent } from '../maintenanceAgent/maintenanceStrandsAgent';
 import { getRenewableConfig } from '../shared/renewableConfig';
 import { 
   ThoughtStep, 
@@ -27,12 +28,15 @@ interface RouterResponse {
 export class AgentRouter {
   private generalAgent: GeneralKnowledgeAgent;
   private petrophysicsAgent: EnhancedStrandsAgent;
+  private maintenanceAgent: MaintenanceStrandsAgent;
   private renewableAgent: RenewableProxyAgent | null = null;
   private renewableEnabled: boolean = false;
 
   constructor(foundationModelId?: string, s3Bucket?: string) {
     this.generalAgent = new GeneralKnowledgeAgent();
     this.petrophysicsAgent = new EnhancedStrandsAgent(foundationModelId, s3Bucket);
+    this.maintenanceAgent = new MaintenanceStrandsAgent(foundationModelId, s3Bucket);
+    console.log('✅ AgentRouter: Maintenance agent initialized');
     
     // Initialize renewable agent (always enabled unless explicitly disabled)
     try {
@@ -64,15 +68,32 @@ export class AgentRouter {
   /**
    * Main routing function - determines which agent should handle the query
    */
-  async routeQuery(message: string, conversationHistory?: any[], sessionContext?: { chatSessionId?: string; userId?: string }): Promise<RouterResponse> {
+  async routeQuery(
+    message: string, 
+    conversationHistory?: any[], 
+    sessionContext?: { 
+      chatSessionId?: string; 
+      userId?: string;
+      selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable';
+    }
+  ): Promise<RouterResponse> {
     console.log('🔀 AgentRouter: Routing query:', message.substring(0, 100) + '...');
     console.log('🔀 AgentRouter: Conversation history provided:', !!conversationHistory, 'messages:', conversationHistory?.length || 0);
     console.log('🔀 AgentRouter: Session context:', sessionContext);
     
     try {
-      // Determine which agent should handle this query
-      const agentType = this.determineAgentType(message);
-      console.log('🎯 AgentRouter: Selected agent:', agentType);
+      // Check for explicit agent selection
+      let agentType: 'general' | 'petrophysics' | 'catalog' | 'renewable' | 'maintenance';
+      
+      // If agent is explicitly selected (not 'auto'), use it directly
+      if (sessionContext?.selectedAgent && sessionContext.selectedAgent !== 'auto') {
+        agentType = sessionContext.selectedAgent;
+        console.log('✅ AgentRouter: Explicit agent selection (bypassing intent detection):', agentType);
+      } else {
+        // Auto mode: Determine which agent should handle this query based on content
+        agentType = this.determineAgentType(message);
+        console.log('🎯 AgentRouter: Auto-detected agent based on message content:', agentType);
+      }
 
       let result;
       switch (agentType) {
@@ -93,6 +114,24 @@ export class AgentRouter {
             ...result,
             agentUsed: 'general_knowledge'
           };
+
+        case 'maintenance':
+          console.log('🔧 Routing to Maintenance Agent');
+          try {
+            result = await this.maintenanceAgent.processMessage(message);
+            return {
+              ...result,
+              agentUsed: 'maintenance'
+            };
+          } catch (error) {
+            console.error('❌ Maintenance agent error:', error);
+            return {
+              success: false,
+              message: `Maintenance agent error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              agentUsed: 'maintenance_error',
+              artifacts: []
+            };
+          }
 
         case 'renewable':
           console.log('🌱 Routing to Renewable Energy Agent');
@@ -157,10 +196,30 @@ export class AgentRouter {
   /**
    * Determine which agent should handle the query
    */
-  private determineAgentType(message: string): 'general' | 'petrophysics' | 'catalog' | 'renewable' {
+  private determineAgentType(message: string): 'general' | 'petrophysics' | 'catalog' | 'renewable' | 'maintenance' {
     const lowerMessage = message.toLowerCase();
     
-    // Priority 1: Weather queries (HIGHEST PRIORITY - must come first)
+    // Priority 1: Maintenance patterns (HIGHEST PRIORITY for equipment-related queries)
+    const maintenancePatterns = [
+      /equipment.*failure|failure.*equipment/,
+      /preventive.*maintenance|preventative.*maintenance/,
+      /inspection.*schedule|schedule.*inspection/,
+      /equipment.*monitoring|monitor.*equipment/,
+      /maintenance.*planning|plan.*maintenance/,
+      /predictive.*maintenance|predict.*maintenance/,
+      /asset.*health|equipment.*health/,
+      /equipment.*status|status.*equipment|status.*for.*equipment|status.*of.*equipment/,
+      /show.*equipment.*status|check.*equipment.*status|get.*equipment.*status/,
+      /status.*for.*(pump|comp|turb|motor|valve|tank|well)/,
+      /status.*of.*(pump|comp|turb|motor|valve|tank|well)/,
+      /what.*status.*(pump|comp|turb|motor|valve|tank|well)/,
+      /maintenance.*history|maintenance.*records/,
+      /failure.*prediction|predict.*failure/,
+      /condition.*assessment|equipment.*condition/,
+      /pm.*schedule|routine.*maintenance/
+    ];
+    
+    // Priority 2: Weather queries (HIGHEST PRIORITY - must come first)
     const weatherPatterns = [
       /weather.*near.*wells?/,  // "weather near my wells"
       /weather.*near.*my.*wells?/,  // "weather near my wells" 
@@ -273,8 +332,13 @@ export class AgentRouter {
       /reservoir.*quality|completion.*target|net.*pay/
     ];
 
-    // Test patterns in priority order - WEATHER FIRST, then RENEWABLE!
+    // Test patterns in priority order - MAINTENANCE FIRST, then WEATHER, then RENEWABLE!
     console.log('🔍 AgentRouter: Testing patterns for message:', lowerMessage.substring(0, 100));
+    
+    if (maintenancePatterns.some(pattern => pattern.test(lowerMessage))) {
+      console.log('🔧 AgentRouter: Maintenance pattern matched');
+      return 'maintenance';
+    }
     
     if (weatherPatterns.some(pattern => pattern.test(lowerMessage))) {
       console.log('🌤️ AgentRouter: Weather pattern matched');
@@ -302,6 +366,10 @@ export class AgentRouter {
     }
 
     // Default routing based on content
+    if (this.containsMaintenanceTerms(lowerMessage)) {
+      return 'maintenance';
+    }
+
     if (this.containsRenewableTerms(lowerMessage)) {
       return 'renewable';
     }
@@ -335,6 +403,18 @@ export class AgentRouter {
     ];
 
     return petroTerms.some(term => message.includes(term));
+  }
+
+  /**
+   * Check if message contains maintenance terms
+   */
+  private containsMaintenanceTerms(message: string): boolean {
+    const maintenanceTerms = [
+      'equipment', 'failure', 'maintenance', 'inspection', 'preventive',
+      'predictive', 'asset', 'health', 'monitoring', 'planning'
+    ];
+
+    return maintenanceTerms.some(term => message.includes(term));
   }
 
   /**

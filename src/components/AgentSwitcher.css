@@ -1,0 +1,41 @@
+/* Agent Switcher Styles */
+
+/* Target menu items that have a check icon (selected items) */
+.agent-switcher-container [role="menuitem"]:has([class*="icon"]) {
+  background-color: #0972d3 !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+/* Alternative selector for items with icons */
+.agent-switcher-container button[role="menuitem"]:has(svg),
+.agent-switcher-container [role="menuitem"]:has(span[class*="icon"]) {
+  background-color: #0972d3 !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+/* Hover state for selected items */
+.agent-switcher-container [role="menuitem"]:has([class*="icon"]):hover {
+  background-color: #0862c0 !important;
+  color: white !important;
+}
+
+/* Force background on the entire button element */
+.agent-switcher-container button[role="menuitem"] {
+  transition: background-color 0.2s ease;
+}
+
+/* Global selector for any menu item with check icon */
+[role="menu"] [role="menuitem"]:has(svg) {
+  background-color: #0972d3 !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+/* Ensure icon color is white when selected */
+.agent-switcher-container [role="menuitem"]:has([class*="icon"]) svg,
+.agent-switcher-container [role="menuitem"]:has([class*="icon"]) [class*="icon"] {
+  color: white !important;
+  fill: white !important;
+}
