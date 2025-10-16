@@ -16,6 +16,9 @@ import { renewableSimulationTool } from './functions/renewableTools/simulation/r
 import { renewableReportTool } from './functions/renewableTools/report/resource';
 import { createRenewableDemoLayer } from './layers/renewableDemo/resource';
 
+// Import Maintenance Agent
+import { maintenanceAgentFunction } from './functions/maintenanceAgent/resource';
+
 const backend = defineBackend({
   auth,
   data,
@@ -30,7 +33,9 @@ const backend = defineBackend({
   renewableTerrainTool,
   renewableLayoutTool,
   renewableSimulationTool,
-  renewableReportTool
+  renewableReportTool,
+  // Maintenance Agent
+  maintenanceAgentFunction
 });
 
 backend.stack.tags.setTag('Project', 'workshop-a4e');
@@ -112,11 +117,13 @@ const actualS3BucketPolicyStatement = new iam.PolicyStatement({
 backend.agentFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
 backend.catalogMapDataFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
 backend.catalogSearchFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
+backend.maintenanceAgentFunction.resources.lambda.addToRolePolicy(s3PolicyStatement);
 
 // Add permissions for the actual bucket with LAS files
 backend.agentFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
 backend.catalogMapDataFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
 backend.catalogSearchFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
+backend.maintenanceAgentFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
 
 backend.agentFunction.resources.lambda.addToRolePolicy(
   new iam.PolicyStatement({
@@ -127,6 +134,20 @@ backend.agentFunction.resources.lambda.addToRolePolicy(
     ],
   })
 );
+
+// Add Bedrock permissions to Maintenance Agent
+backend.maintenanceAgentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ["bedrock:InvokeModel*"],
+    resources: [
+      `arn:aws:bedrock:us-*::foundation-model/*`,
+      `arn:aws:bedrock:us-*:${backend.stack.account}:inference-profile/*`,
+    ],
+  })
+);
+
+// Add S3_BUCKET environment variable to Maintenance Agent
+backend.maintenanceAgentFunction.addEnvironment('S3_BUCKET', backend.storage.resources.bucket.bucketName);
 
 // Add S3 permissions to MCP Server for petrophysical analysis
 mcpServer.lambdaFunction.addToRolePolicy(

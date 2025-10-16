@@ -33,6 +33,7 @@ import ChatBox from "@/components/ChatBox"
 import EditableTextBox from '@/components/EditableTextBox';
 import { withAuth } from '@/components/WithAuth';
 import FileDrawer from '@/components/FileDrawer';
+import AgentSwitcher from '@/components/AgentSwitcher';
 import { sendMessage } from '../../../../utils/amplifyUtils';
 import zIndex from '@mui/material/styles/zIndex';
 
@@ -50,6 +51,30 @@ function Page({
     const [messages, setMessages] = useState<Message[]>([]);
     const router = useRouter();
     const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
+    
+    // Agent selection state
+    const [selectedAgent, setSelectedAgent] = useState<'auto' | 'petrophysics' | 'maintenance' | 'renewable'>('auto');
+    
+    // Handler for agent change
+    const handleAgentChange = (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable') => {
+        console.log('Agent selection changed to:', agent);
+        setSelectedAgent(agent);
+        // Store in sessionStorage for persistence
+        if (typeof window !== 'undefined') {
+            sessionStorage.setItem('selectedAgent', agent);
+        }
+    };
+    
+    // Restore agent selection from sessionStorage on page load
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const storedAgent = sessionStorage.getItem('selectedAgent');
+            if (storedAgent && ['auto', 'petrophysics', 'maintenance', 'renewable'].includes(storedAgent)) {
+                setSelectedAgent(storedAgent as 'auto' | 'petrophysics' | 'maintenance' | 'renewable');
+                console.log('Restored agent selection from sessionStorage:', storedAgent);
+            }
+        }
+    }, []);
     
     // Memoized message handlers to prevent parent re-renders from interfering with message state
     const stableSetMessages = React.useCallback((newMessages: Message[] | ((prevMessages: Message[]) => Message[])) => {
@@ -451,6 +476,18 @@ function Page({
                                     React.startTransition(() => {
                                         setSelectedItems(detail?.selectedItems ?? []);
                                         setUserInput(detail?.selectedItems[0]?.prompt || '');
+                                        
+                                        // Auto-select agent if prompt has agentType specified
+                                        const selectedPrompt = detail?.selectedItems[0];
+                                        if (selectedPrompt && (selectedPrompt as any).agentType) {
+                                            const agentType = (selectedPrompt as any).agentType;
+                                            console.log('Auto-selecting agent based on prompt:', agentType);
+                                            setSelectedAgent(agentType);
+                                            // Store in sessionStorage for persistence
+                                            if (typeof window !== 'undefined') {
+                                                sessionStorage.setItem('selectedAgent', agentType);
+                                            }
+                                        }
                                     });
                                 }}
                                 selectedItems={selectedItems}
@@ -479,6 +516,37 @@ function Page({
                                         name: 'Professional Porosity Calculation (WELL-001)',
                                         description: 'Enterprise-grade porosity calculation using density-neutron methodology with complete uncertainty analysis and SPE/API documentation.',
                                         prompt: 'Calculate porosity for WELL-001 using enhanced professional methodology. Include density porosity, neutron porosity, and effective porosity calculations with statistical analysis, uncertainty assessment, and complete technical documentation following SPE/API standards.',
+                                    },
+                                    // Maintenance Agent Prompts
+                                    {
+                                        name: 'Equipment Health Assessment',
+                                        description: 'Comprehensive health analysis of critical equipment with operational status, performance metrics, and maintenance recommendations.',
+                                        prompt: 'Perform a comprehensive health assessment for equipment PUMP-001. Analyze current operational status, health score, performance metrics, sensor readings, and maintenance history. Generate health score visualization, identify potential issues, and provide actionable maintenance recommendations with priority levels.',
+                                        agentType: 'maintenance',
+                                    },
+                                    {
+                                        name: 'Failure Prediction Analysis',
+                                        description: 'AI-powered predictive analysis identifying equipment failure risks with timeline projections and contributing factors.',
+                                        prompt: 'Analyze equipment COMPRESSOR-001 for failure prediction. Use historical maintenance data, sensor readings, and operational patterns to predict failure risk over the next 90 days. Generate risk timeline chart, identify contributing factors with impact scores, calculate time-to-failure estimate, and provide preventive action recommendations.',
+                                        agentType: 'maintenance',
+                                    },
+                                    {
+                                        name: 'Preventive Maintenance Planning',
+                                        description: 'Optimized maintenance schedule generation based on equipment condition, operational priorities, and resource availability.',
+                                        prompt: 'Generate a preventive maintenance plan for equipment TURBINE-001, PUMP-001, and VALVE-001 for the next 6 months. Optimize schedule based on equipment condition, operational priorities, and resource constraints. Create Gantt-style schedule visualization, estimate costs and durations, identify task dependencies, and provide resource allocation recommendations.',
+                                        agentType: 'maintenance',
+                                    },
+                                    {
+                                        name: 'Inspection Schedule Generation',
+                                        description: 'Automated inspection schedule creation with sensor data analysis, anomaly detection, and compliance tracking.',
+                                        prompt: 'Create an inspection schedule for equipment MOTOR-001. Analyze sensor data trends (temperature, vibration, current), detect anomalies, assess compliance requirements, and generate inspection timeline. Include trend charts, anomaly highlights, inspection checklist, and findings documentation with industry standard compliance.',
+                                        agentType: 'maintenance',
+                                    },
+                                    {
+                                        name: 'Asset Lifecycle Analysis',
+                                        description: 'Complete asset lifecycle evaluation with cost analysis, maintenance history, and end-of-life predictions.',
+                                        prompt: 'Perform asset lifecycle analysis for equipment PUMP-001. Evaluate complete lifecycle from installation to current state, analyze total cost of ownership, maintenance frequency trends, performance degradation patterns, and predict end-of-life timeline. Generate lifecycle timeline visualization, cost breakdown, and replacement strategy recommendations.',
+                                        agentType: 'maintenance',
                                     },
                                     // {
                                     //     name: 'Advanced Shale Volume Analysis (WELL-001)',
@@ -520,6 +588,7 @@ function Page({
                                         await sendMessage({
                                             chatSessionId: selectedChatSessionId!,
                                             newMessage: newMessage,
+                                            agentType: selectedAgent
                                         });
                                         setUserInput('');
                                     } catch (error) {
@@ -877,6 +946,8 @@ function Page({
                                 userInput={userInput}
                                 messages={stableMessages}
                                 setMessages={stableSetMessages}
+                                selectedAgent={selectedAgent}
+                                onAgentChange={handleAgentChange}
                             />
 
                         </div>

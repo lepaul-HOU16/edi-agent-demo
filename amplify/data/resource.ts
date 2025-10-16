@@ -1,4 +1,5 @@
 import { type ClientSchema, a, defineData, defineFunction } from '@aws-amplify/backend';
+import { maintenanceAgentFunction } from '../functions/maintenanceAgent/resource';
 
 // Main agent function with full routing capabilities (EnhancedStrandsAgent + RenewableProxyAgent)
 export const agentFunction = defineFunction({
@@ -181,6 +182,7 @@ export const schema = a.schema({
       message: a.string().required(),
       foundationModelId: a.string(),
       userId: a.string(),
+      agentType: a.string(), // Optional: 'auto', 'petrophysics', 'maintenance', 'renewable'
     })
     .returns(a.customType({
       success: a.boolean().required(),
@@ -189,6 +191,25 @@ export const schema = a.schema({
       thoughtSteps: a.json().array() // CRITICAL FIX: Add thoughtSteps to return type
     }))
     .handler(a.handler.function(agentFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  // NEW: Maintenance Agent mutation
+  invokeMaintenanceAgent: a.mutation()
+    .arguments({
+      chatSessionId: a.id().required(),
+      message: a.string().required(),
+      foundationModelId: a.string(),
+      userId: a.string(),
+    })
+    .returns(a.customType({
+      success: a.boolean().required(),
+      message: a.string().required(),
+      artifacts: a.json().array(),
+      thoughtSteps: a.json().array(),
+      workflow: a.json(),
+      auditTrail: a.json()
+    }))
+    .handler(a.handler.function(maintenanceAgentFunction))
     .authorization((allow) => [allow.authenticated()]),
 
   // invokeReActAgent has been deprecated - use invokeLightweightAgent instead

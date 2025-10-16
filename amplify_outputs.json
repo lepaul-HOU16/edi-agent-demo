@@ -790,6 +790,55 @@
               "isArrayNullable": true
             }
           }
+        },
+        "InvokeMaintenanceAgentReturnType": {
+          "name": "InvokeMaintenanceAgentReturnType",
+          "fields": {
+            "success": {
+              "name": "success",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "artifacts": {
+              "name": "artifacts",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "thoughtSteps": {
+              "name": "thoughtSteps",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "workflow": {
+              "name": "workflow",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": []
+            },
+            "auditTrail": {
+              "name": "auditTrail",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
         }
       },
       "queries": {
@@ -882,6 +931,46 @@
           "isArray": false,
           "type": {
             "nonModel": "InvokeLightweightAgentReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "chatSessionId": {
+              "name": "chatSessionId",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "foundationModelId": {
+              "name": "foundationModelId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "userId": {
+              "name": "userId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "agentType": {
+              "name": "agentType",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            }
+          }
+        },
+        "invokeMaintenanceAgent": {
+          "name": "invokeMaintenanceAgent",
+          "isArray": false,
+          "type": {
+            "nonModel": "InvokeMaintenanceAgentReturnType"
           },
           "isRequired": false,
           "arguments": {

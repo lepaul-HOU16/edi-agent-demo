@@ -12,6 +12,7 @@ import { defaultPrompts } from '@/constants/defaultPrompts';
 
 import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
 import ExpandablePromptInput from './ExpandablePromptInput';
+import AgentSwitcher from './AgentSwitcher';
 
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
@@ -24,7 +25,9 @@ const ChatBox = (params: {
   onInputChange: (input: string) => void,
   userInput: string,
   messages?: Message[],
-  setMessages?: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void
+  setMessages?: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void,
+  selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable',
+  onAgentChange?: (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable') => void
 }) => {
   const { chatSessionId, showChainOfThought } = params
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -557,7 +560,8 @@ const ChatBox = (params: {
       try {
         const result = await sendMessage({
           chatSessionId: params.chatSessionId as any,
-          newMessage: newMessage as any
+          newMessage: newMessage as any,
+          agentType: params.selectedAgent || 'auto'
         });
         
         console.log('=== CHATBOX DEBUG: Send message result ===', result);
@@ -677,35 +681,20 @@ const ChatBox = (params: {
             placeholder="Ask a question"
             onTypingStateChange={handleTypingStateChange}
           />
-          <Typography
-            variant="inherit"
-            color="white"
-            style={{ lineHeight: '14px', width: '50px', marginRight: '-13px', marginLeft: '10px' }}
-            fontSize={11}
-          >
-            AI Agent Switcher
-          </Typography>
-          <ButtonDropdown
-            items={[
-            {
-              text: 'General AI Assistant - Weather, regulations, general knowledge',
-              id: 'generalAgent',
-            },
-            {
-              text: 'Petrophysics Agent - Well data analysis & formation evaluation',
-              id: 'petroAgent',
-            },
-            {
-              text: 'Catalog Explorer - Geographic well search & mapping',
-              id: 'catalogAgent',
-            },
-            {
-              text: 'Renewable Energy Agent - Wind farm site analysis & optimization',
-              id: 'renewableAgent',
-            },
-            ]}
-            expandToViewport={true}
-          ></ButtonDropdown>
+          {params.selectedAgent !== undefined && params.onAgentChange && (
+            <>
+              <Typography
+                style={{ lineHeight: '14px', width: '50px', marginRight: '-13px', marginLeft: '10px' }}
+                fontSize={11}
+              >
+                AI Agent Switcher
+              </Typography>
+              <AgentSwitcher
+                selectedAgent={params.selectedAgent}
+                onAgentChange={params.onAgentChange}
+              />
+            </>
+          )}
         </div>
       </div>
       
