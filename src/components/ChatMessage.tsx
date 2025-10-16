@@ -56,6 +56,15 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const processingRef = useRef<boolean>(false); // Prevent multiple processing
+    const renderCountRef = useRef<number>(0); // Track render count
+    
+    // Track component renders
+    renderCountRef.current += 1;
+    console.log('🔄 EnhancedArtifactProcessor RENDER #' + renderCountRef.current, {
+        messageId: (message as any).id,
+        rawArtifactsCount: rawArtifacts?.length || 0,
+        timestamp: new Date().toISOString()
+    });
 
     // Memoize raw artifacts to prevent dependency changes
     // Use a stable string representation for comparison
@@ -281,6 +290,14 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
         />;
     }
 
+    // CRITICAL: Log all artifacts before processing to detect duplicates
+    console.log('🔍 EnhancedArtifactProcessor: Processing artifacts array:', {
+        count: artifacts.length,
+        types: artifacts.map(a => a?.type || a?.messageContentType || 'unknown'),
+        messageId: (message as any).id,
+        timestamp: new Date().toISOString()
+    });
+    
     // Process retrieved artifacts
     for (const artifact of artifacts) {
         if (artifact) {
@@ -483,11 +500,18 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                 console.log('🔍 FRONTEND DEBUG - has data.geojson:', !!parsedArtifact.data?.geojson);
                 console.log('🔍 FRONTEND DEBUG - has mapHtml:', !!parsedArtifact.mapHtml);
                 console.log('🔍 FRONTEND DEBUG - parsedArtifact:', parsedArtifact);
+                
+                // CRITICAL FIX: Pass parsedArtifact.data, not parsedArtifact
+                // The component expects the data object directly with metrics, geojson, etc.
+                const terrainData = parsedArtifact.data || parsedArtifact;
+                console.log('🔍 FRONTEND DEBUG - terrainData keys:', Object.keys(terrainData));
+                console.log('🔍 FRONTEND DEBUG - terrainData.metrics:', terrainData.metrics);
+                
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
                     enhancedComponent={<TerrainMapArtifact 
-                        data={parsedArtifact} 
+                        data={terrainData} 
                         onFollowUpAction={onSendMessage}
                     />}
                 />;
@@ -501,6 +525,7 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                  parsedArtifact.messageContentType === 'wind_farm_layout' ||
                  parsedArtifact.type === 'wind_farm_layout')) {
                 console.log('🎉 EnhancedArtifactProcessor: Rendering LayoutMapArtifact!');
+                // CRITICAL FIX: Always use parsedArtifact.data if it exists
                 const layoutData = parsedArtifact.data || parsedArtifact;
                 console.log('🔍 FRONTEND DEBUG - parsedArtifact.type:', parsedArtifact.type);
                 console.log('🔍 FRONTEND DEBUG - layoutData keys:', Object.keys(layoutData));
@@ -637,15 +662,21 @@ const ChatMessage = (params: {
             />;
         case 'ai':
             // CRITICAL FIX: Check for artifacts first before other processing
-            console.log('🔍 ChatMessage: Processing AI message with artifacts check');
-            console.log('🔍 ChatMessage: Message artifacts:', (message as any).artifacts);
-            console.log('🔍 ChatMessage: Artifacts type:', typeof (message as any).artifacts);
-            console.log('🔍 ChatMessage: Artifacts is array:', Array.isArray((message as any).artifacts));
-            console.log('🔍 ChatMessage: Artifacts count:', (message as any).artifacts?.length || 0);
+            console.log('🔍 ChatMessage: Processing AI message', {
+                messageId: (message as any).id,
+                hasArtifacts: !!((message as any).artifacts),
+                artifactsType: typeof (message as any).artifacts,
+                isArray: Array.isArray((message as any).artifacts),
+                artifactsCount: (message as any).artifacts?.length || 0,
+                timestamp: new Date().toISOString()
+            });
             
             // Check for artifacts in AI message and wrap in enhanced AiMessageComponent
             if ((message as any).artifacts && Array.isArray((message as any).artifacts) && (message as any).artifacts.length > 0) {
-                console.log('🎯 ChatMessage: Found artifacts in AI message!');
+                console.log('🎯 ChatMessage: Found artifacts in AI message!', {
+                    messageId: (message as any).id,
+                    artifactsCount: (message as any).artifacts.length
+                });
                 const rawArtifacts = (message as any).artifacts;
                 console.log('🔍 ChatMessage: First artifact raw:', rawArtifacts[0]);
                 console.log('🔍 ChatMessage: First artifact type:', typeof rawArtifacts[0]);

@@ -1,29 +1,24 @@
-# Exclude TypeScript and build files
-*.ts
-*.js
-*.map
-node_modules/
-resource.ts
-handler.ts
-
-# Exclude test files
+# Ignore Python cache
 __pycache__/
 *.pyc
 *.pyo
-*.test.py
-*_test.py
-tests/
+*.pyd
+.Python
 
-# Exclude documentation
-*.md
-docs/
+# Ignore subdirectories that were copied from dependencies
+agents/
+aiohttp/
+frozenlist/
+multidict/
+propcache/
+yarl/
 
-# Exclude IDE files
-.vscode/
-.idea/
-*.swp
-*.swo
+# Ignore backup and alternative handler files
+handler_lightweight.py
+handler_complex.py.bak
 
-# Keep only Python source and requirements
-!*.py
-!requirements.txt
+# Ignore alternative requirements
+requirements_lightweight.txt
+
+# Ignore alternative Dockerfile
+Dockerfile.lightweight

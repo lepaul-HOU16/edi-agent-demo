@@ -208,33 +208,38 @@ const ChatBox = (params: {
     }, 800); // Increased delay for slower animation
   }, [autoScroll]);
 
-  // Memoized displayed messages
+  // Memoized displayed messages with deduplication
   const displayedMessages = React.useMemo(() => {
     console.log('ChatBox: Calculating displayed messages', {
       messagesLength: messages?.length || 0,
       hasStreamChunk: !!streamChunkMessage
     });
     
-    // Check for duplicate messages
-    const messageIds = messages?.map(m => m.id) || [];
-    const uniqueIds = new Set(messageIds);
-    if (messageIds.length !== uniqueIds.size) {
-      console.warn('⚠️ DUPLICATE MESSAGES DETECTED!', {
-        totalMessages: messageIds.length,
-        uniqueMessages: uniqueIds.size,
-        duplicateCount: messageIds.length - uniqueIds.size
+    // CRITICAL FIX: Deduplicate messages by ID before processing
+    const deduplicatedMessages = messages ? Array.from(
+      new Map(messages.map(m => [m.id, m])).values()
+    ) : [];
+    
+    // Check if deduplication removed any messages
+    if (messages && deduplicatedMessages.length < messages.length) {
+      console.warn('⚠️ DUPLICATE MESSAGES REMOVED!', {
+        originalCount: messages.length,
+        deduplicatedCount: deduplicatedMessages.length,
+        removedCount: messages.length - deduplicatedMessages.length
       });
-      // Log which IDs are duplicated
+      
+      // Log which IDs were duplicated
+      const messageIds = messages.map(m => m.id);
       const idCounts = messageIds.reduce((acc, id) => {
         acc[id] = (acc[id] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
       const duplicates = Object.entries(idCounts).filter(([_, count]) => count > 1);
-      console.warn('Duplicate message IDs:', duplicates);
+      console.warn('Removed duplicate message IDs:', duplicates);
     }
     
     const allMessages = [
-      ...(messages ? messages : []),
+      ...deduplicatedMessages,
       ...(streamChunkMessage ? [streamChunkMessage] : [])
     ];
     

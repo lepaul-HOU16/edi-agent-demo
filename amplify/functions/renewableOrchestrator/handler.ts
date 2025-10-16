@@ -317,10 +317,12 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     console.log(`📤 Full Response: ${JSON.stringify(response, null, 2)}`);
     console.log('═══════════════════════════════════════════════════════════');
     
-    // CRITICAL: If invoked async (has sessionId), write results to DynamoDB
+    // CRITICAL: Do NOT save to database - frontend handles all saves
+    // This prevents duplicate messages (orchestrator + frontend both saving)
+    // Frontend save ensures proper loading state management and UI updates
     if (event.sessionId && event.userId) {
-      console.log('🔄 ASYNC MODE: Writing results to ChatMessage table');
-      await writeResultsToChatMessage(event.sessionId, event.userId, response);
+      console.log('🔄 Session context provided - frontend will save message with artifacts');
+      console.log('   (Orchestrator skips save to prevent duplicates)');
     }
     
     return response;
@@ -1021,8 +1023,9 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
             exclusionZones: result.data.exclusionZones,
             metrics: result.data.metrics,
             geojson: result.data.geojson,
-            mapHtml: result.data.mapHtml,
-            mapUrl: result.data.mapUrl,
+            // CRITICAL FIX: Don't include mapHtml/mapUrl - let frontend build map with Leaflet
+            // mapHtml: result.data.mapHtml,
+            // mapUrl: result.data.mapUrl,
             visualizations: result.data.visualizations,
             message: result.data.message
           }
@@ -1072,23 +1075,19 @@ function formatArtifacts(results: ToolResult[]): Artifact[] {
         break;
         
       case 'wind_rose':
+      case 'wind_rose_analysis':
         artifact = {
           type: 'wind_rose_analysis',
           data: {
             messageContentType: 'wind_rose_analysis',
-            title: `Wind Rose Analysis - ${result.data.project_id}`,
-            subtitle: `Wind patterns with ${result.data.statistics?.avg_wind_speed || result.data.average_wind_speed}m/s average speed`,
-            projectId: result.data.project_id,
-            coordinates: result.data.location,
-            metrics: {
-              avgWindSpeed: result.data.statistics?.avg_wind_speed || result.data.average_wind_speed,
-              maxWindSpeed: result.data.statistics?.max_wind_speed || result.data.max_wind_speed,
-              prevailingDirection: result.data.statistics?.prevailing_direction || result.data.prevailing_direction,
-              totalObservations: result.data.statistics?.total_observations || 8760
-            },
-            windData: result.data.wind_data || result.data.wind_rose_data,
-            geojson: result.data.geojson,
-            s3Url: result.data.s3_data?.url,
+            title: result.data.title || `Wind Rose Analysis - ${result.data.projectId}`,
+            subtitle: result.data.subtitle,
+            projectId: result.data.projectId,
+            coordinates: result.data.coordinates || result.data.location,
+            location: result.data.location,
+            windRoseData: result.data.windRoseData,
+            windStatistics: result.data.windStatistics,
+            s3_data: result.data.s3_data,
             message: result.data.message
           }
         };
@@ -1186,6 +1185,7 @@ function generateResponseMessage(intent: RenewableIntent, results: ToolResult[])
       return result.data.message || 'Wake simulation completed successfully.';
       
     case 'wind_rose':
+    case 'wind_rose_analysis':
       return result.data.message || 'Wind rose analysis completed successfully.';
       
     case 'report_generation':

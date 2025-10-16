@@ -73,7 +73,7 @@ export interface ThoughtStep {
 }
 
 export interface RenewableIntent {
-  type: 'terrain_analysis' | 'layout_optimization' | 'wake_simulation' | 'wind_rose' | 'report_generation' | 'unknown';
+  type: 'terrain_analysis' | 'layout_optimization' | 'wake_simulation' | 'wind_rose' | 'wind_rose_analysis' | 'report_generation' | 'unknown';
   params: Record<string, any>;
   confidence: number;
 }

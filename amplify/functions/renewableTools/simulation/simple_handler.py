@@ -128,6 +128,7 @@ def handler(event, context):
             # Calculate statistics
             total_frequency = sum([d['frequency'] for d in wind_rose_data])
             avg_speed = sum([d['avg_speed'] for d in wind_rose_data]) / len(wind_rose_data)
+            max_speed = max([d['max_speed'] for d in wind_rose_data])
             
             wind_rose_result = {
                 'project_id': project_id,
@@ -168,9 +169,14 @@ def handler(event, context):
                         'latitude': latitude,
                         'longitude': longitude
                     },
+                    'coordinates': {
+                        'lat': latitude,
+                        'lng': longitude
+                    },
                     'windRoseData': wind_rose_data,
-                    'statistics': {
-                        'averageWindSpeed': round(avg_speed, 2),
+                    'windStatistics': {
+                        'averageSpeed': round(avg_speed, 2),
+                        'maxSpeed': round(max_speed, 2),
                         'prevailingDirection': 'W',
                         'totalFrequency': total_frequency,
                         'directionCount': len(wind_rose_data)

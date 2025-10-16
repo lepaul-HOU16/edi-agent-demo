@@ -311,16 +311,18 @@ backend.renewableOrchestrator.addEnvironment(
 );
 
 // Add the renewable demo layer to all Python tool functions
-[
-  backend.renewableTerrainTool,
-  backend.renewableLayoutTool,
-  backend.renewableSimulationTool,
-  backend.renewableReportTool
-].forEach(toolLambda => {
-  // Access the underlying CDK Lambda function and add the layer
-  const lambdaFunction = toolLambda.resources.lambda;
-  (lambdaFunction as any).addLayers([renewableDemoLayer]);
-});
+// NOTE: Layer attachment is not working with current defineFunction pattern
+// The functions work without the layer by using only standard library dependencies
+// TODO: Fix layer attachment or migrate to Docker deployment for heavy dependencies
+// [
+//   backend.renewableTerrainTool,
+//   backend.renewableLayoutTool,
+//   backend.renewableSimulationTool,
+//   backend.renewableReportTool
+// ].forEach(toolLambda => {
+//   const lambdaFunction = toolLambda.resources.lambda;
+//   (lambdaFunction as any).addLayers([renewableDemoLayer]);
+// });
 
 // Add S3 bucket environment variables to all renewable tool functions
 // CRITICAL: Use the actual Amplify storage bucket name, not a separate renewable bucket

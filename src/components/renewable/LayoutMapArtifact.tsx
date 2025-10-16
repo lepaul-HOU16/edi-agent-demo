@@ -46,6 +46,15 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data }) => {
   const mapInstanceRef = useRef<any>(null);
   const initializingRef = useRef<boolean>(false); // Prevent multiple initializations
 
+  // Debug logging to track renders
+  console.log('🗺️ LayoutMapArtifact RENDER:', {
+    projectId: data.projectId,
+    turbineCount: data.turbineCount,
+    hasMapHtml: !!data.mapHtml,
+    hasGeojson: !!data.geojson,
+    timestamp: new Date().toISOString()
+  });
+
   // Initialize Leaflet map with turbine layout
   useEffect(() => {
     console.log('[LayoutMap] useEffect triggered', {

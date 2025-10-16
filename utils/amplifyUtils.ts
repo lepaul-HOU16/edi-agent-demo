@@ -558,6 +558,8 @@ export const sendMessage = async (props: {
           (aiMessage as any).artifacts = undefined;
         }
         
+        // CRITICAL: Frontend always saves the AI message
+        // This ensures loading state is cleared and UI updates properly
         const { data: aiMessageData, errors: aiMessageErrors } = await createMessageWithRetry(
           amplifyClient, 
           aiMessage, 

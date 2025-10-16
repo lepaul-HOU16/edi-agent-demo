@@ -69,9 +69,10 @@ export const uploadArtifactToS3 = async (
     const artifactType = artifact.type || artifact.messageContentType || 'unknown';
     const s3Key = generateS3Key(chatSessionId, artifactType);
     
-    // Upload to S3 without access level to use default authenticated user permissions
+    // Upload to S3 with explicit path (Amplify Gen 2 uses path-based access)
+    // The path must match the storage permissions defined in amplify/storage/resource.ts
     const uploadResult = await uploadData({
-      key: s3Key,
+      path: s3Key,  // Use 'path' instead of 'key' for Amplify Gen 2
       data: JSON.stringify(artifact),
       options: {
         contentType: 'application/json',
@@ -115,7 +116,7 @@ export const downloadArtifactFromS3 = async (
     console.log(`📥 Downloading artifact from S3: ${reference.key}`);
     
     const downloadResult = await downloadData({
-      key: reference.key
+      path: reference.key  // Use 'path' instead of 'key' for Amplify Gen 2
     }).result;
     
     const artifactJson = await downloadResult.body.text();

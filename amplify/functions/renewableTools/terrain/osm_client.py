@@ -6,8 +6,9 @@ with actual geographic features from the OpenStreetMap database.
 """
 
 import json
-import asyncio
-import aiohttp
+import urllib.request
+import urllib.parse
+import urllib.error
 import logging
 from typing import Dict, List, Optional, Tuple
 from datetime import datetime
@@ -42,22 +43,9 @@ class OSMOverpassClient:
         ]
         self.timeout = 30
         self.retry_config = RetryConfig(max_attempts=3, backoff_factor=2.0)
-        self.session = None
+        self.headers = {'User-Agent': 'RenewableEnergyAnalysis/1.0'}
     
-    async def __aenter__(self):
-        """Async context manager entry"""
-        self.session = aiohttp.ClientSession(
-            timeout=aiohttp.ClientTimeout(total=self.timeout),
-            headers={'User-Agent': 'RenewableEnergyAnalysis/1.0'}
-        )
-        return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """Async context manager exit"""
-        if self.session:
-            await self.session.close()
-    
-    async def query_terrain_features(self, lat: float, lon: float, radius_km: float) -> Dict:
+    def query_terrain_features(self, lat: float, lon: float, radius_km: float) -> Dict:
         """
         Query real terrain features from OSM Overpass API
         
@@ -76,40 +64,45 @@ class OSMOverpassClient:
         query = f"""
         [out:json][timeout:25][maxsize:536870912];
         (
-          // Buildings - major structures that affect wind flow
+          // Buildings - ALL buildings that affect wind flow
           way["building"](around:{radius_m},{lat},{lon});
           relation["building"](around:{radius_m},{lat},{lon});
           
-          // Transportation infrastructure
-          way["highway"~"^(motorway|trunk|primary|secondary|tertiary)$"](around:{radius_m},{lat},{lon});
+          // Transportation infrastructure - ALL highways
+          way["highway"](around:{radius_m},{lat},{lon});
           way["railway"](around:{radius_m},{lat},{lon});
           
           // Water bodies - affect local wind patterns
           way["natural"="water"](around:{radius_m},{lat},{lon});
-          way["waterway"~"^(river|stream|canal)$"](around:{radius_m},{lat},{lon});
+          way["waterway"](around:{radius_m},{lat},{lon});
           relation["natural"="water"](around:{radius_m},{lat},{lon});
           
-          // Industrial areas - restricted zones
-          way["landuse"="industrial"](around:{radius_m},{lat},{lon});
-          way["man_made"="works"](around:{radius_m},{lat},{lon});
+          // Land use - ALL types
+          way["landuse"](around:{radius_m},{lat},{lon});
+          way["man_made"](around:{radius_m},{lat},{lon});
           
           // Power infrastructure - exclusion zones
-          way["power"="line"](around:{radius_m},{lat},{lon});
-          way["power"="substation"](around:{radius_m},{lat},{lon});
+          way["power"](around:{radius_m},{lat},{lon});
+          node["power"="tower"](around:{radius_m},{lat},{lon});
           
           // Forests and vegetation - wind roughness
-          way["landuse"="forest"](around:{radius_m},{lat},{lon});
           way["natural"="wood"](around:{radius_m},{lat},{lon});
+          way["natural"="tree"](around:{radius_m},{lat},{lon});
+          way["natural"="scrub"](around:{radius_m},{lat},{lon});
           
           // Protected areas - regulatory restrictions
-          way["boundary"="protected_area"](around:{radius_m},{lat},{lon});
-          relation["boundary"="protected_area"](around:{radius_m},{lat},{lon});
+          way["boundary"](around:{radius_m},{lat},{lon});
+          relation["boundary"](around:{radius_m},{lat},{lon});
+          
+          // Additional features
+          way["leisure"](around:{radius_m},{lat},{lon});
+          way["amenity"](around:{radius_m},{lat},{lon});
         );
         out geom 1000;
         """
         
         try:
-            response_data = await self._execute_query_with_retry(query)
+            response_data = self._execute_query_with_retry(query)
             processed_data = self._process_osm_response(response_data, lat, lon, radius_km)
             
             logger.info(f"✅ Successfully retrieved {len(processed_data['features'])} real terrain features")
@@ -122,16 +115,12 @@ class OSMOverpassClient:
             logger.error(f"❌ Unexpected error in OSM query: {e}")
             raise OSMAPIError(f"Failed to query OSM data: {str(e)}")
     
-    async def _execute_query_with_retry(self, query: str) -> Dict:
-        """Execute Overpass query with enhanced retry logic and network connectivity testing"""
+    def _execute_query_with_retry(self, query: str) -> Dict:
+        """Execute Overpass query with enhanced retry logic (synchronous)"""
         
         last_error = None
         successful_endpoints = []
         failed_endpoints = []
-        
-        # Test network connectivity first
-        logger.info("🌐 Testing network connectivity to Overpass API endpoints")
-        await self._test_network_connectivity()
         
         for attempt in range(self.retry_config.max_attempts):
             logger.info(f"🔄 Starting attempt {attempt + 1}/{self.retry_config.max_attempts}")
@@ -140,13 +129,7 @@ class OSMOverpassClient:
                 try:
                     logger.info(f"📡 Querying {base_url}")
                     
-                    # Test endpoint availability before query
-                    if not await self._test_endpoint_availability(base_url):
-                        logger.warning(f"⚠️ Endpoint {base_url} not available, skipping")
-                        failed_endpoints.append(base_url)
-                        continue
-                    
-                    response_data = await self._execute_single_query(base_url, query)
+                    response_data = self._execute_single_query(base_url, query)
                     
                     # Validate response
                     if not response_data or 'elements' not in response_data:
@@ -177,7 +160,7 @@ class OSMOverpassClient:
                     if e.status_code == 429:
                         retry_after = e.retry_after or (2 ** attempt)
                         logger.info(f"⏳ Rate limited on {base_url}, waiting {retry_after}s")
-                        await asyncio.sleep(retry_after)
+                        time.sleep(retry_after)
                         continue
                     
                     # Handle server errors - try next endpoint
@@ -205,7 +188,7 @@ class OSMOverpassClient:
             if attempt < self.retry_config.max_attempts - 1:
                 delay = self.retry_config.base_delay * (self.retry_config.backoff_factor ** attempt)
                 logger.info(f"⏳ All endpoints failed on attempt {attempt + 1}, waiting {delay}s before retry")
-                await asyncio.sleep(delay)
+                time.sleep(delay)
         
         # Log final failure statistics
         logger.error(f"❌ All attempts failed after {self.retry_config.max_attempts} attempts")
@@ -215,75 +198,32 @@ class OSMOverpassClient:
         # All attempts failed
         raise last_error or OSMAPIError("All Overpass API endpoints failed after multiple attempts")
     
-    async def _test_network_connectivity(self) -> bool:
-        """Test basic network connectivity"""
-        try:
-            # Simple connectivity test to a reliable endpoint
-            test_url = "https://httpbin.org/status/200"
-            async with self.session.get(test_url, timeout=aiohttp.ClientTimeout(total=5)) as response:
-                if response.status == 200:
-                    logger.info("✅ Network connectivity confirmed")
-                    return True
-                else:
-                    logger.warning(f"⚠️ Network connectivity test returned status {response.status}")
-                    return False
-        except Exception as e:
-            logger.warning(f"⚠️ Network connectivity test failed: {e}")
-            return False
-    
-    async def _test_endpoint_availability(self, base_url: str) -> bool:
-        """Test if a specific Overpass endpoint is available"""
-        try:
-            # Simple status query to test endpoint
-            test_query = "[out:json][timeout:5]; (node(0);); out;"
-            async with self.session.post(
-                base_url,
-                data={'data': test_query},
-                timeout=aiohttp.ClientTimeout(total=10)
-            ) as response:
-                # Accept any response that's not a server error
-                if response.status < 500:
-                    logger.debug(f"✅ Endpoint {base_url} is available (status {response.status})")
-                    return True
-                else:
-                    logger.warning(f"⚠️ Endpoint {base_url} returned server error {response.status}")
-                    return False
-        except Exception as e:
-            logger.warning(f"⚠️ Endpoint availability test failed for {base_url}: {e}")
-            return False
-    
-    async def _execute_single_query(self, base_url: str, query: str) -> Dict:
-        """Execute a single query against one Overpass endpoint"""
-        
-        if not self.session:
-            raise OSMAPIError("HTTP session not initialized")
+    def _execute_single_query(self, base_url: str, query: str) -> Dict:
+        """Execute a single query against one Overpass endpoint (synchronous)"""
         
         start_time = time.time()
         
         try:
-            async with self.session.post(
+            # Prepare request data
+            data = urllib.parse.urlencode({'data': query}).encode('utf-8')
+            
+            # Create request with headers
+            req = urllib.request.Request(
                 base_url,
-                data={'data': query},
-                headers={'Content-Type': 'application/x-www-form-urlencoded'}
-            ) as response:
-                
+                data=data,
+                headers={
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'User-Agent': 'RenewableEnergyAnalysis/1.0'
+                }
+            )
+            
+            # Execute request with timeout
+            with urllib.request.urlopen(req, timeout=self.timeout) as response:
                 query_time = time.time() - start_time
                 logger.info(f"📊 Query completed in {query_time:.2f}s")
                 
-                # Handle HTTP errors
-                if response.status == 429:
-                    retry_after = int(response.headers.get('Retry-After', 60))
-                    raise OSMAPIError(f"Rate limited", status_code=429, retry_after=retry_after)
-                
-                if response.status == 504:
-                    raise OSMAPIError("Query timeout - area too large or complex", status_code=504)
-                
-                if response.status >= 400:
-                    error_text = await response.text()
-                    raise OSMAPIError(f"HTTP {response.status}: {error_text}", status_code=response.status)
-                
-                # Parse JSON response
-                response_data = await response.json()
+                # Read and parse response
+                response_data = json.loads(response.read().decode('utf-8'))
                 
                 # Log response statistics
                 element_count = len(response_data.get('elements', []))
@@ -291,10 +231,26 @@ class OSMOverpassClient:
                 
                 return response_data
                 
-        except aiohttp.ClientError as e:
-            raise OSMAPIError(f"HTTP client error: {str(e)}")
+        except urllib.error.HTTPError as e:
+            # Handle HTTP errors
+            if e.code == 429:
+                retry_after = int(e.headers.get('Retry-After', 60))
+                raise OSMAPIError(f"Rate limited", status_code=429, retry_after=retry_after)
+            
+            if e.code == 504:
+                raise OSMAPIError("Query timeout - area too large or complex", status_code=504)
+            
+            error_text = e.read().decode('utf-8') if e.fp else str(e)
+            raise OSMAPIError(f"HTTP {e.code}: {error_text}", status_code=e.code)
+            
+        except urllib.error.URLError as e:
+            raise OSMAPIError(f"Network error: {str(e)}")
+            
         except json.JSONDecodeError as e:
             raise OSMAPIError(f"Invalid JSON response: {str(e)}")
+            
+        except Exception as e:
+            raise OSMAPIError(f"Unexpected error: {str(e)}")
     
     def _process_osm_response(self, response_data: Dict, center_lat: float, center_lon: float, radius_km: float) -> Dict:
         """Convert OSM response to GeoJSON format with proper feature classification"""
@@ -469,7 +425,6 @@ class OSMOverpassClient:
         polygon_tags = {
             'building',
             'landuse', 
-            'natural',
             'leisure',
             'amenity',
             'shop',
@@ -477,8 +432,7 @@ class OSMOverpassClient:
             'office',
             'industrial',
             'military',
-            'place',
-            'boundary'
+            'place'
         }
         
         # Features that should always be linestrings (linear features)
@@ -497,6 +451,19 @@ class OSMOverpassClient:
         if tags.get('area') == 'no':
             return False
         
+        # Special handling for natural features
+        if 'natural' in tags:
+            natural_type = tags['natural']
+            # Only water bodies should be polygons
+            if natural_type == 'water':
+                return True
+            # Everything else (wood, tree, scrub, etc.) should be linestring
+            return False
+        
+        # Special handling for boundary features - should be linestrings
+        if 'boundary' in tags:
+            return False
+        
         # Check primary tags
         for tag_key in tags:
             if tag_key in polygon_tags:
@@ -505,12 +472,9 @@ class OSMOverpassClient:
                 # Special cases for man_made
                 if tag_key == 'man_made' and tags[tag_key] in ['works', 'wastewater_plant']:
                     return True
-                # Special cases for natural water features
-                if tag_key == 'natural' and tags[tag_key] == 'water':
-                    return True
                 return False
         
-        # Default to linestring for unknown features
+        # Default to linestring for unknown features (including "other")
         return False
     
     def _get_exclusion_reason(self, feature_type: str, tags: Dict) -> str:
@@ -533,7 +497,7 @@ class OSMOverpassClient:
 # Synchronous wrapper for backward compatibility with enhanced error handling
 def query_osm_terrain_sync(lat: float, lon: float, radius_km: float) -> Dict:
     """
-    Synchronous wrapper for OSM terrain query with progressive fallback strategy
+    Synchronous OSM terrain query with progressive fallback strategy
     
     Fallback strategy:
     1. Real OSM data from Overpass API
@@ -542,31 +506,12 @@ def query_osm_terrain_sync(lat: float, lon: float, radius_km: float) -> Dict:
     """
     logger.info(f"🌍 Starting OSM terrain query for ({lat}, {lon}) radius {radius_km}km")
     
-    async def _query():
-        async with OSMOverpassClient() as client:
-            return await client.query_terrain_features(lat, lon, radius_km)
-    
-    # Try to get real OSM data
+    # Try to get real OSM data (now fully synchronous)
     try:
-        # Check if we're in an async context
-        try:
-            loop = asyncio.get_running_loop()
-            logger.info("🔄 Running in async context, using thread executor")
-            
-            # If we're already in an async context, use thread executor
-            import concurrent.futures
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                future = executor.submit(asyncio.run, _query())
-                result = future.result(timeout=60)
-                logger.info("✅ Successfully retrieved real OSM data via thread executor")
-                return result
-                
-        except RuntimeError:
-            # No event loop running, safe to create one
-            logger.info("🔄 No async context, creating new event loop")
-            result = asyncio.run(_query())
-            logger.info("✅ Successfully retrieved real OSM data via new event loop")
-            return result
+        client = OSMOverpassClient()
+        result = client.query_terrain_features(lat, lon, radius_km)
+        logger.info("✅ Successfully retrieved real OSM data")
+        return result
             
     except OSMAPIError as osm_error:
         logger.error(f"❌ OSM API error: {osm_error}")

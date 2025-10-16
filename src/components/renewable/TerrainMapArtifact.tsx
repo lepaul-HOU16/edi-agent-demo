@@ -99,6 +99,18 @@ interface TerrainArtifactProps {
 }
 
 const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAction }) => {
+  console.log('🗺️ TerrainMapArtifact: COMPONENT RENDERING');
+  
+  // CRITICAL DEBUG: Log the actual data structure received
+  console.log('🗺️ TerrainMapArtifact: Received data:', data);
+  console.log('🗺️ TerrainMapArtifact: data keys:', Object.keys(data || {}));
+  console.log('🗺️ TerrainMapArtifact: data.metrics:', data?.metrics);
+  console.log('🗺️ TerrainMapArtifact: data.geojson:', data?.geojson);
+  console.log('🗺️ TerrainMapArtifact: data.mapHtml exists:', !!data?.mapHtml);
+  console.log('🗺️ TerrainMapArtifact: data.mapUrl exists:', !!data?.mapUrl);
+  console.log('🗺️ TerrainMapArtifact: data.exclusionZones:', data?.exclusionZones);
+  console.log('🗺️ TerrainMapArtifact: data.exclusionZones length:', data?.exclusionZones?.length);
+  
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const initializingRef = useRef<boolean>(false); // Prevent multiple initializations
@@ -134,6 +146,12 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
 
   // Initialize Leaflet map - only once per data.projectId
   useEffect(() => {
+    console.log('🗺️ [TerrainMap] useEffect STARTED', {
+      hasMapHtml: !!data.mapHtml,
+      hasMapUrl: !!data.mapUrl,
+      hasGeojson: !!data.geojson
+    });
+    
     // Skip Leaflet initialization if we have pre-rendered HTML
     if (data.mapHtml || data.mapUrl) {
       console.log('[TerrainMap] Using pre-rendered HTML map, skipping Leaflet initialization');
@@ -449,6 +467,18 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, onFollowUpAc
               fillOpacity: 0,
               opacity: 0.6,
               fill: false,  // Don't fill unclassified ways
+              dashArray: '5, 5',  // Dashed line
+            };
+          case 'other':
+            // "other" features are often paths/tracks that weren't properly classified
+            console.log('[TerrainMap] Styling "other" feature as brown dashed line (likely path/track)');
+            return {
+              fillColor: 'none',
+              color: '#8B4513',  // Brown for paths
+              weight: 2,
+              fillOpacity: 0,
+              opacity: 0.7,
+              fill: false,
               dashArray: '5, 5',  // Dashed line
             };
           default:

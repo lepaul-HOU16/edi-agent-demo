@@ -1,15 +1,19 @@
-# AWS Lambda Python 3.12 container image
 FROM public.ecr.aws/lambda/python:3.12
 
-# Copy requirements from parent directory and install dependencies
-COPY requirements.txt ${LAMBDA_TASK_ROOT}/
-RUN pip3 install -r ${LAMBDA_TASK_ROOT}/requirements.txt --target "${LAMBDA_TASK_ROOT}"
+# Copy requirements.txt
+COPY terrain/requirements.txt .
 
-# Copy shared Python modules from parent directory  
-COPY *.py ${LAMBDA_TASK_ROOT}/
+# Install the specified packages
+RUN pip install -r requirements.txt
 
-# Copy terrain-specific handler to root of task directory
-COPY terrain/handler.py ${LAMBDA_TASK_ROOT}/handler.py
+# Copy function code
+COPY terrain/handler.py .
+COPY terrain/osm_client.py .
+COPY terrain/wind_client.py .
 
-# Set the Lambda handler
+# Copy shared visualization modules
+COPY visualization_generator.py .
+COPY visualization_config.py .
+
+# Set the CMD to your handler
 CMD [ "handler.handler" ]

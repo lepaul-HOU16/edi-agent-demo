@@ -652,6 +652,9 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
         var markers = {json.dumps(markers)};
         var overlays = {json.dumps(overlays)};
         
+        // Array to collect all layers for bounds calculation
+        var allLayers = [];
+        
         // Add markers - use default Leaflet markers (blue teardrop) to match notebook style
         markers.forEach(function(marker) {{
             var popupContent = marker.popup_content || marker.title;
@@ -668,6 +671,9 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
             markerLayer.on('mouseover', function(e) {{
                 this.openPopup();
             }});
+            
+            // Collect layer for bounds
+            allLayers.push(markerLayer);
         }});
 
         
@@ -706,6 +712,9 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
                 }});
                 
                 layer.addTo(map);
+                
+                // Collect layer for bounds
+                allLayers.push(layer);
             }}
         }});
         
@@ -783,6 +792,14 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
                         opacity: 0.9,
                         dashArray: '5, 5'
                     }};
+                case 'other':
+                    return {{
+                        color: '#8B4513',
+                        weight: 3,
+                        opacity: 0.8,
+                        fill: false,
+                        dashArray: '5, 5'
+                    }};
                 default:
                     return {{
                         fillColor: '#9b59b6',
@@ -794,11 +811,15 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
             }}
         }}
         
-        // Fit map to show all markers
-        if (markers.length > 1) {{
-            var group = new L.featureGroup(map._layers);
-            if (Object.keys(group._layers).length > 0) {{
+        // Fit map to show all layers
+        if (allLayers.length > 1) {{
+            var group = new L.featureGroup(allLayers);
+            try {{
                 map.fitBounds(group.getBounds().pad(0.1));
+            }} catch (e) {{
+                console.warn('Could not fit bounds:', e);
+                // Fallback to center view if fitBounds fails
+                map.setView([{center_lat}, {center_lon}], 12);
             }}
         }}
     </script>
@@ -1415,7 +1436,7 @@ def handler(event, context):
         response_data = {
             'coordinates': {'lat': latitude, 'lng': longitude},
             'projectId': project_id,
-            'exclusionZones': features[:100] if len(features) > 100 else features,  # Limit exclusion zones
+            'exclusionZones': features,  # Include ALL features for table display
             'metrics': {
                 'totalFeatures': len(features),
                 'featuresByType': feature_counts,
@@ -1431,9 +1452,14 @@ def handler(event, context):
         # Add visualization data if available
         logger.info("📦 Preparing response data...")
         
-        # Add visualization data if available
+        # Docker Lambda has 10GB response limit - we can include full mapHtml!
+        # No more size restrictions like ZIP Lambda (6MB limit)
         if map_html:
+            map_html_size = len(map_html.encode('utf-8'))
             response_data['mapHtml'] = map_html
+            logger.info(f"✅ Including mapHtml in response ({map_html_size} bytes) - Docker Lambda 10GB limit")
+        
+        # Add mapUrl as backup
         if map_url:
             response_data['mapUrl'] = map_url
         if visualizations:

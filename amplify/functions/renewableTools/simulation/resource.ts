@@ -9,8 +9,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const renewableSimulationTool = defineFunction((scope: Construct) => {
-  // Use simple ZIP deployment with boto3 only (no external dependencies)
-  // This avoids Docker build issues and deploys instantly
+  // Use ZIP deployment - returns data for client-side matplotlib rendering
   
   const func = new lambda.Function(scope, 'RenewableSimulationTool', {
     runtime: lambda.Runtime.PYTHON_3_12,
@@ -21,7 +20,7 @@ export const renewableSimulationTool = defineFunction((scope: Construct) => {
     environment: {
       LOG_LEVEL: 'INFO'
     },
-    description: 'Wake simulation tool (simple ZIP deployment)'
+    description: 'Wake simulation tool - returns data for client-side visualization'
   });
   
   return func;

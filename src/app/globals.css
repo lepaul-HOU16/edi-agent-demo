@@ -697,7 +697,7 @@ div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
 /* CRITICAL FIX: Prevent horizontal scroll in Data Analysis & Visualization panel (seg-2) */
 .panel {
   max-width: 100% !important;
-  overflow: hidden !important;
+  /* overflow: hidden !important; */
   box-sizing: border-box !important;
 }
 

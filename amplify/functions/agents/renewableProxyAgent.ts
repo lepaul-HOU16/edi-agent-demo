@@ -138,14 +138,30 @@ export class RenewableProxyAgent {
    * Transform orchestrator artifacts to EDI format
    */
   private transformArtifacts(artifacts: any[]): any[] {
-    return artifacts.map(artifact => {
-      // Orchestrator already returns artifacts in EDI format
-      // Just ensure they have the correct structure
-      return {
-        messageContentType: artifact.type,
-        ...artifact.data,
+    console.log('🔄 PROXY: Transforming artifacts, count:', artifacts.length);
+    return artifacts.map((artifact, index) => {
+      console.log(`🔍 PROXY: Artifact ${index + 1} type:`, artifact.type);
+      console.log(`🔍 PROXY: Artifact ${index + 1} data keys:`, Object.keys(artifact.data || {}));
+      
+      // CRITICAL FIX: Keep the nested structure that frontend expects
+      // Frontend looks for artifact.data.messageContentType, not artifact.messageContentType
+      const transformed = {
+        type: artifact.type,
+        messageContentType: artifact.type, // For backward compatibility
+        data: {
+          messageContentType: artifact.type,
+          ...artifact.data
+        },
         metadata: artifact.metadata
       };
+      
+      console.log(`✅ PROXY: Transformed artifact ${index + 1}:`, {
+        type: transformed.type,
+        hasData: !!transformed.data,
+        dataKeys: Object.keys(transformed.data || {}).slice(0, 5)
+      });
+      
+      return transformed;
     });
   }
 
