@@ -250,17 +250,22 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
       ).addTo(map);
 
       // Separate terrain features from turbine features
-      const terrainFeatures = data.geojson.features.filter((f: any) => 
-        f.properties?.type !== 'turbine'
-      );
+      // CRITICAL: Turbines might not have type='turbine', they might just have turbine_id
       const turbineFeatures = data.geojson.features.filter((f: any) => 
-        f.properties?.type === 'turbine'
+        f.properties?.type === 'turbine' || 
+        f.properties?.turbine_id !== undefined ||
+        f.geometry?.type === 'Point'  // Turbines are always points
+      );
+      const terrainFeatures = data.geojson.features.filter((f: any) => 
+        !turbineFeatures.includes(f)
       );
 
       console.log('[LayoutMap] Feature breakdown:', {
         total: data.geojson.features.length,
         terrain: terrainFeatures.length,
-        turbines: turbineFeatures.length
+        turbines: turbineFeatures.length,
+        firstTurbine: turbineFeatures[0]?.properties,
+        firstTerrain: terrainFeatures[0]?.properties
       });
 
       // STEP 1: Render terrain features first (perimeter, roads, buildings, water)
@@ -293,6 +298,7 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
               style.weight = 3;
               style.dashArray = '10, 5';
               style.fillOpacity = 0;
+              style.interactive = false;  // CRITICAL: Don't capture clicks
             } else {
               // Default polygon style
               style.fillColor = '#cccccc';
@@ -304,17 +310,19 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
               style: style
             }).addTo(map);
             
-            // Add popup with feature info
-            layer.bindPopup(`
-              <div style="padding: 8px; font-family: 'Amazon Ember', Arial, sans-serif;">
-                <div style="font-size: 14px; font-weight: bold; color: #0972d3; margin-bottom: 4px;">
-                  ${featureType.charAt(0).toUpperCase() + featureType.slice(1)}
+            // Add popup with feature info (but NOT for perimeter - it blocks interaction)
+            if (featureType !== 'perimeter') {
+              layer.bindPopup(`
+                <div style="padding: 8px; font-family: 'Amazon Ember', Arial, sans-serif;">
+                  <div style="font-size: 14px; font-weight: bold; color: #0972d3; margin-bottom: 4px;">
+                    ${featureType.charAt(0).toUpperCase() + featureType.slice(1)}
+                  </div>
+                  <div style="font-size: 12px; color: #545b64;">
+                    ${feature.properties?.name || 'Terrain feature'}
+                  </div>
                 </div>
-                <div style="font-size: 12px; color: #545b64;">
-                  ${feature.properties?.name || 'Terrain feature'}
-                </div>
-              </div>
-            `);
+              `);
+            }
             
             terrainLayers.push(layer);
             
@@ -354,6 +362,8 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
           console.error('[LayoutMap] Error rendering terrain feature:', error, feature);
         }
       });
+
+      console.log('[LayoutMap] Rendered terrain layers:', terrainLayers.length);
 
       console.log('[LayoutMap] Rendered terrain layers:', terrainLayers.length);
 
