@@ -47,6 +47,26 @@ interface LayoutArtifactProps {
       spacing_analysis?: string;
     };
     s3Url?: string;
+    completedSteps?: string[];
+    metadata?: {
+      algorithm?: string;
+      algorithm_proof?: string;
+      constraints_applied?: number;
+      terrain_features_considered?: string[];
+      placement_decisions?: Array<{
+        turbine_id: string;
+        position: [number, number];
+        avoided_features: string[];
+        wind_exposure_score: number;
+        placement_reason: string;
+      }>;
+      layout_metadata?: {
+        total_turbines?: number;
+        site_area_km2?: number;
+        available_area_km2?: number;
+        average_spacing_m?: number;
+      };
+    };
   };
   actions?: ActionButton[];  // Contextual action buttons from orchestrator
   onFollowUpAction?: (action: string) => void;
@@ -70,6 +90,10 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
     turbineCount: data.turbineCount,
     hasMapHtml: !!data.mapHtml,
     hasGeojson: !!data.geojson,
+    hasMetadata: !!data.metadata,
+    algorithm: data.metadata?.algorithm,
+    algorithmProof: data.metadata?.algorithm_proof,
+    constraintsApplied: data.metadata?.constraints_applied,
     timestamp: new Date().toISOString()
   });
 
@@ -179,12 +203,32 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
       console.log('[LayoutMap] GeoJSON features count:', data.geojson.features?.length || 0);
       
       if (data.geojson.features && data.geojson.features.length > 0) {
-        const firstTurbine = data.geojson.features[0];
-        centerLat = firstTurbine.geometry.coordinates[1];
-        centerLng = firstTurbine.geometry.coordinates[0];
-        console.log('[LayoutMap] Map center:', { centerLat, centerLng });
+        // Find the first turbine feature (not building/road/etc)
+        const firstTurbine = data.geojson.features.find(
+          (f: any) => f.properties?.type === 'turbine' && f.geometry?.type === 'Point'
+        );
+        
+        if (firstTurbine && firstTurbine.geometry && firstTurbine.geometry.coordinates) {
+          centerLat = firstTurbine.geometry.coordinates[1];
+          centerLng = firstTurbine.geometry.coordinates[0];
+          console.log('[LayoutMap] Map center from turbine:', { centerLat, centerLng });
+        } else {
+          // Fallback: use first feature with Point geometry
+          const firstPoint = data.geojson.features.find((f: any) => f.geometry?.type === 'Point');
+          if (firstPoint && firstPoint.geometry && firstPoint.geometry.coordinates) {
+            centerLat = firstPoint.geometry.coordinates[1];
+            centerLng = firstPoint.geometry.coordinates[0];
+            console.log('[LayoutMap] Map center from first point:', { centerLat, centerLng });
+          } else {
+            console.error('[LayoutMap] No Point features found in geojson!');
+            setRenderError('No turbine positions found in layout data');
+            initializingRef.current = false;
+            return;
+          }
+        }
       } else {
         console.error('[LayoutMap] No features in geojson!');
+        setRenderError('No features found in layout data');
         initializingRef.current = false;
         return;
       }
@@ -192,6 +236,13 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
       // Create map with all interactions enabled
       let map;
       try {
+        // Check one more time before creating map
+        if (!mapRef.current) {
+          console.error('[LayoutMap] mapRef.current is null before map creation!');
+          initializingRef.current = false;
+          return;
+        }
+
         map = L.map(mapRef.current, {
           center: [centerLat, centerLng],
           zoom: 13,
@@ -203,6 +254,9 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
           keyboard: true,
           zoomControl: true,
           attributionControl: true,
+          zoomAnimation: false, // Disable zoom animation to prevent _leaflet_pos errors
+          fadeAnimation: false, // Disable fade animation
+          markerZoomAnimation: false, // Disable marker zoom animation
         });
 
         mapInstanceRef.current = map;
@@ -475,7 +529,13 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
       clearTimeout(timer);
       if (mapInstanceRef.current) {
         console.log('[LayoutMap] Removing existing map instance');
-        mapInstanceRef.current.remove();
+        try {
+          // Stop any ongoing animations before removing
+          mapInstanceRef.current.stop();
+          mapInstanceRef.current.remove();
+        } catch (error) {
+          console.error('[LayoutMap] Error during cleanup:', error);
+        }
         mapInstanceRef.current = null;
       }
       initializingRef.current = false; // Reset initialization flag on cleanup
@@ -509,6 +569,41 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
           onAction={handleActionClick}
         />
         
+        {/* Algorithm Metadata Display */}
+        {data.metadata && (
+          <Alert
+            type="info"
+            header="Intelligent Placement Algorithm"
+          >
+            <SpaceBetween size="s">
+              <Box>
+                <strong>Algorithm:</strong> {data.metadata.algorithm || 'unknown'}
+              </Box>
+              {data.metadata.algorithm_proof && (
+                <Box variant="small" color="text-body-secondary">
+                  <strong>Verification:</strong> {data.metadata.algorithm_proof}
+                </Box>
+              )}
+              {data.metadata.constraints_applied !== undefined && (
+                <Box>
+                  <strong>Constraints Applied:</strong> {data.metadata.constraints_applied} terrain features
+                </Box>
+              )}
+              {data.metadata.terrain_features_considered && data.metadata.terrain_features_considered.length > 0 && (
+                <Box>
+                  <strong>Features Considered:</strong> {data.metadata.terrain_features_considered.join(', ')}
+                </Box>
+              )}
+              {data.metadata.layout_metadata && (
+                <Box variant="small" color="text-body-secondary">
+                  Site area: {data.metadata.layout_metadata.site_area_km2?.toFixed(2)} km² | 
+                  Average spacing: {data.metadata.layout_metadata.average_spacing_m}m
+                </Box>
+              )}
+            </SpaceBetween>
+          </Alert>
+        )}
+
         {/* Layout Information */}
         <ColumnLayout columns={4} variant="text-grid">
           <div>
