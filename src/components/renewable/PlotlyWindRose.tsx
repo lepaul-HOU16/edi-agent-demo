@@ -2,11 +2,13 @@
  * Plotly Wind Rose Component
  * Interactive polar bar chart with stacked bars showing wind speed distribution by direction
  * Implements design specifications from renewable-project-persistence spec
+ * Responsive to Cloudscape Design dark/light mode
  */
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import dynamic from 'next/dynamic';
 import { Box, Spinner } from '@cloudscape-design/components';
+import './PlotlyWindRose.css';
 
 // Dynamic import for Plotly (client-side only)
 const Plot = dynamic(() => import('react-plotly.js'), {
@@ -18,7 +20,7 @@ const Plot = dynamic(() => import('react-plotly.js'), {
       display: 'flex', 
       alignItems: 'center', 
       justifyContent: 'center',
-      backgroundColor: '#1a1a1a',
+      backgroundColor: 'var(--awsui-color-background-container-content, #1a1a1a)',
       borderRadius: '8px'
     }}>
       <Spinner size="large" />
@@ -36,10 +38,73 @@ interface PlotlyWindRoseProps {
     prevailing_direction: string;
     prevailing_frequency: number;
   };
-  darkBackground?: boolean;
   dataSource?: string;  // Data source label (e.g., "NREL Wind Toolkit")
   dataYear?: number;    // Data year
   dataQuality?: 'high' | 'medium' | 'low';  // Data quality indicator
+}
+
+/**
+ * Hook to detect current theme mode from Cloudscape Design
+ * Syncs with global theme changes via localStorage and body data-theme attribute
+ */
+const useThemeMode = (): boolean => {
+  const [isDarkMode, setIsDarkMode] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Initial theme detection
+    const detectTheme = () => {
+      // Check localStorage first (set by layout.tsx)
+      const savedMode = localStorage.getItem('darkMode');
+      if (savedMode !== null) {
+        return savedMode === 'true';
+      }
+      
+      // Fallback to body data-theme attribute
+      const bodyTheme = document.body.getAttribute('data-theme');
+      if (bodyTheme) {
+        return bodyTheme === 'dark';
+      }
+      
+      // Fallback to system preference
+      return window.matchMedia('(prefers-color-scheme: dark)').matches;
+    };
+
+    setIsDarkMode(detectTheme());
+
+    // Listen for storage events (theme changes in other tabs)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'darkMode' && e.newValue !== null) {
+        setIsDarkMode(e.newValue === 'true');
+      }
+    };
+
+    // Listen for custom theme change events
+    const handleThemeChange = () => {
+      setIsDarkMode(detectTheme());
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('themechange', handleThemeChange);
+
+    // Poll for theme changes (backup mechanism)
+    const pollInterval = setInterval(() => {
+      const currentTheme = detectTheme();
+      setIsDarkMode(prev => {
+        if (prev !== currentTheme) {
+          return currentTheme;
+        }
+        return prev;
+      });
+    }, 1000);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('themechange', handleThemeChange);
+      clearInterval(pollInterval);
+    };
+  }, []);
+
+  return isDarkMode;
 }
 
 const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
@@ -47,18 +112,64 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
   layout: providedLayout,
   projectId,
   statistics,
-  darkBackground = true,
   dataSource = 'NREL Wind Toolkit',
   dataYear = 2023,
   dataQuality = 'high'
 }) => {
+  // Detect current theme mode from Cloudscape Design
+  const isDarkMode = useThemeMode();
+  
+  // Apply theme-aware styling to data traces
+  const themedData = useMemo(() => {
+    if (!data) return data;
+    
+    const borderColor = isDarkMode ? '#ffffff' : '#000000';
+    
+    return data.map(trace => ({
+      ...trace,
+      marker: {
+        ...trace.marker,
+        line: {
+          ...trace.marker?.line,
+          color: borderColor,
+          width: trace.marker?.line?.width || 0.5
+        }
+      }
+    }));
+  }, [data, isDarkMode]);
+  
   // Default layout configuration matching design spec
   const defaultLayout = useMemo(() => {
-    const bgColor = darkBackground ? '#1a1a1a' : '#ffffff';
-    const textColor = darkBackground ? '#ffffff' : '#000000';
-    const gridColor = darkBackground ? '#444444' : '#e9ebed';
+    const bgColor = isDarkMode ? '#1a1a1a' : '#ffffff';
+    const textColor = isDarkMode ? '#ffffff' : '#000000';
+    const gridColor = isDarkMode ? '#444444' : '#e9ebed';
     
     return {
+      // Use Plotly template to force ALL text colors
+      template: {
+        layout: {
+          font: { color: textColor, family: 'Arial, sans-serif' },
+          paper_bgcolor: bgColor,
+          plot_bgcolor: bgColor,
+          polar: {
+            bgcolor: 'rgba(0,0,0,0)',
+            radialaxis: {
+              gridcolor: gridColor,
+              linecolor: gridColor,
+              tickfont: { color: textColor }
+            },
+            angularaxis: {
+              gridcolor: gridColor,
+              linecolor: gridColor,
+              tickfont: { color: textColor }
+            }
+          },
+          legend: {
+            font: { color: textColor },
+            title: { font: { color: textColor } }
+          }
+        }
+      },
       title: {
         text: `Wind Rose - ${projectId}`,
         font: {
@@ -77,7 +188,12 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
           showticklabels: true,
           ticksuffix: '%',
           gridcolor: gridColor,
-          tickfont: { color: textColor, size: 11 },
+          linecolor: gridColor,
+          tickfont: { 
+            color: textColor, 
+            size: 11,
+            family: 'Arial, sans-serif'
+          },
           showline: true,
           linewidth: 1
         },
@@ -85,7 +201,12 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
           direction: 'clockwise',
           rotation: 90,  // North at top
           gridcolor: gridColor,
-          tickfont: { color: textColor, size: 12 },
+          linecolor: gridColor,
+          tickfont: { 
+            color: textColor, 
+            size: 12,
+            family: 'Arial, sans-serif'
+          },
           showline: true,
           linewidth: 2
         },
@@ -93,18 +214,26 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
       },
       paper_bgcolor: bgColor,
       plot_bgcolor: bgColor,
-      font: { color: textColor },
+      font: { color: textColor, family: 'Arial, sans-serif' },
       showlegend: true,
       legend: {
         title: { 
           text: 'Wind Speed (m/s)',
-          font: { size: 13, color: textColor }
+          font: { 
+            size: 13, 
+            color: textColor,
+            family: 'Arial, sans-serif'
+          }
         },
         orientation: 'v',
         x: 1.05,
         y: 0.5,
-        font: { color: textColor, size: 11 },
-        bgcolor: 'rgba(0,0,0,0)',
+        font: { 
+          color: textColor, 
+          size: 11,
+          family: 'Arial, sans-serif'
+        },
+        bgcolor: isDarkMode ? 'rgba(26,26,26,0.8)' : 'rgba(255,255,255,0.8)',
         bordercolor: gridColor,
         borderwidth: 1
       },
@@ -112,7 +241,7 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
       height: 600,
       margin: { t: 80, b: 80, l: 60, r: 150 }
     };
-  }, [projectId, darkBackground]);
+  }, [projectId, isDarkMode]);
 
   // Merge provided layout with defaults
   const finalLayout = useMemo(() => {
@@ -133,7 +262,7 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
   const layoutWithStats = useMemo(() => {
     if (!statistics) return finalLayout;
 
-    const textColor = darkBackground ? '#ffffff' : '#000000';
+    const textColor = isDarkMode ? '#ffffff' : '#000000';
     const statsText = `Avg: ${statistics.average_speed.toFixed(1)} m/s | ` +
                      `Max: ${statistics.max_speed.toFixed(1)} m/s | ` +
                      `Prevailing: ${statistics.prevailing_direction} (${statistics.prevailing_frequency.toFixed(1)}%)`;
@@ -158,7 +287,7 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
         }
       ]
     };
-  }, [finalLayout, statistics, darkBackground]);
+  }, [finalLayout, statistics, isDarkMode]);
 
   // Export handlers
   const exportToPNG = React.useCallback(() => {
@@ -213,59 +342,22 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
     URL.revokeObjectURL(url);
   }, [projectId, data, layoutWithStats, statistics]);
 
-  // Plotly configuration with export buttons
+  // Plotly configuration - hide toolbar
   const config = useMemo(() => ({
     responsive: true,
-    displayModeBar: true,
-    displaylogo: false,
-    modeBarButtonsToRemove: ['lasso2d', 'select2d'],
-    modeBarButtonsToAdd: [
-      {
-        name: 'Export to PNG',
-        icon: {
-          width: 500,
-          height: 600,
-          path: 'M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm65.2 199.6c-4.7 4.7-12.3 4.7-17 0L224 287.4l-48.2 48.2c-4.7 4.7-12.3 4.7-17 0l-7.1-7.1c-4.7-4.7-4.7-12.3 0-17l48.2-48.2-48.2-48.2c-4.7-4.7-4.7-12.3 0-17l7.1-7.1c4.7-4.7 12.3-4.7 17 0l48.2 48.2 48.2-48.2c4.7-4.7 12.3-4.7 17 0l7.1 7.1c4.7 4.7 4.7 12.3 0 17L248 263.4l48.2 48.2c4.7 4.7 4.7 12.3 0 17l-7 7z'
-        },
-        click: exportToPNG
-      },
-      {
-        name: 'Export to SVG',
-        icon: {
-          width: 500,
-          height: 600,
-          path: 'M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm65.2 199.6c-4.7 4.7-12.3 4.7-17 0L224 287.4l-48.2 48.2c-4.7 4.7-12.3 4.7-17 0l-7.1-7.1c-4.7-4.7-4.7-12.3 0-17l48.2-48.2-48.2-48.2c-4.7-4.7-4.7-12.3 0-17l7.1-7.1c4.7-4.7 12.3-4.7 17 0l48.2 48.2 48.2-48.2c4.7-4.7 12.3-4.7 17 0l7.1 7.1c4.7 4.7 4.7 12.3 0 17L248 263.4l48.2 48.2c4.7 4.7 4.7 12.3 0 17l-7 7z'
-        },
-        click: exportToSVG
-      },
-      {
-        name: 'Export Data (JSON)',
-        icon: {
-          width: 500,
-          height: 600,
-          path: 'M224 136V0H24C10.7 0 0 10.7 0 24v464c0 13.3 10.7 24 24 24h336c13.3 0 24-10.7 24-24V160H248c-13.2 0-24-10.8-24-24zm65.2 199.6c-4.7 4.7-12.3 4.7-17 0L224 287.4l-48.2 48.2c-4.7 4.7-12.3 4.7-17 0l-7.1-7.1c-4.7-4.7-4.7-12.3 0-17l48.2-48.2-48.2-48.2c-4.7-4.7-4.7-12.3 0-17l7.1-7.1c4.7-4.7 12.3-4.7 17 0l48.2 48.2 48.2-48.2c4.7-4.7 12.3-4.7 17 0l7.1 7.1c4.7 4.7 4.7 12.3 0 17L248 263.4l48.2 48.2c4.7 4.7 4.7 12.3 0 17l-7 7z'
-        },
-        click: exportToJSON
-      }
-    ],
-    toImageButtonOptions: {
-      format: 'png',
-      filename: `wind_rose_${projectId}`,
-      height: 1200,
-      width: 1200,
-      scale: 2
-    }
-  }), [projectId, exportToPNG, exportToSVG, exportToJSON]);
+    displayModeBar: false,  // Hide the toolbar completely
+    displaylogo: false
+  }), []);
 
   // Validate data
   if (!data || data.length === 0) {
     return (
       <Box textAlign="center" padding="xxl" color="text-body-secondary">
         <div style={{ 
-          backgroundColor: darkBackground ? '#1a1a1a' : '#f9f9f9',
+          backgroundColor: isDarkMode ? '#1a1a1a' : '#f9f9f9',
           padding: '40px',
           borderRadius: '8px',
-          border: `1px solid ${darkBackground ? '#444' : '#e9ebed'}`
+          border: `1px solid ${isDarkMode ? '#444' : '#e9ebed'}`
         }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌬️</div>
           <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px', color: '#d91515' }}>
@@ -277,9 +369,9 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
           <div style={{ 
             fontSize: '13px', 
             padding: '12px', 
-            backgroundColor: darkBackground ? '#2a2a2a' : '#ffffff',
+            backgroundColor: isDarkMode ? '#2a2a2a' : '#ffffff',
             borderRadius: '6px',
-            border: `1px solid ${darkBackground ? '#444' : '#e9ebed'}`,
+            border: `1px solid ${isDarkMode ? '#444' : '#e9ebed'}`,
             textAlign: 'left',
             maxWidth: '500px',
             margin: '0 auto'
@@ -315,75 +407,26 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
     );
   }
 
-  // Data quality badge color
-  const qualityColor = dataQuality === 'high' ? '#037f0c' : dataQuality === 'medium' ? '#f89406' : '#d91515';
-  const qualityIcon = dataQuality === 'high' ? '✓' : dataQuality === 'medium' ? '⚠' : '✗';
-
   return (
-    <div style={{ 
-      width: '100%', 
-      position: 'relative'
-    }}>
-      {/* Data Source Label */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 16px',
-        backgroundColor: darkBackground ? '#2a2a2a' : '#f9f9f9',
-        borderRadius: '8px 8px 0 0',
-        border: `1px solid ${darkBackground ? '#444' : '#e9ebed'}`,
-        borderBottom: 'none'
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px'
-        }}>
-          <span style={{
-            fontSize: '14px',
-            fontWeight: 'bold',
-            color: darkBackground ? '#ffffff' : '#000000'
-          }}>
-            Data Source:
-          </span>
-          <span style={{
-            fontSize: '14px',
-            color: darkBackground ? '#aaaaaa' : '#5f6b7a'
-          }}>
-            {dataSource} ({dataYear})
-          </span>
-        </div>
-        
-        {/* Data Quality Badge */}
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '6px',
-          padding: '4px 12px',
-          backgroundColor: qualityColor,
-          color: '#ffffff',
-          borderRadius: '4px',
-          fontSize: '12px',
-          fontWeight: 'bold'
-        }}>
-          <span>{qualityIcon}</span>
-          <span>{dataQuality.toUpperCase()} QUALITY</span>
-        </div>
-      </div>
-
-      {/* Wind Rose Plot */}
+    <div 
+      className={isDarkMode ? 'plotly-windrose-dark' : 'plotly-windrose-light'}
+      style={{ 
+        width: '100%', 
+        position: 'relative'
+      }}
+    >
+      {/* Wind Rose Plot - No banner, just the plot */}
       <div style={{ 
         width: '100%', 
         height: '600px',
-        border: `1px solid ${darkBackground ? '#444' : '#e9ebed'}`,
-        borderRadius: '0 0 8px 8px',
-        backgroundColor: darkBackground ? '#1a1a1a' : '#ffffff',
+        border: `1px solid ${isDarkMode ? '#444' : '#e9ebed'}`,
+        borderRadius: '8px',
+        backgroundColor: isDarkMode ? '#1a1a1a' : '#ffffff',
         padding: '8px',
         overflow: 'hidden'
       }}>
         <Plot
-          data={data}
+          data={themedData}
           layout={layoutWithStats}
           config={config}
           style={{ width: '100%', height: '100%' }}

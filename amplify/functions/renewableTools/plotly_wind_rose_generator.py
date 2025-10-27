@@ -223,6 +223,7 @@ class PlotlyWindRoseGenerator:
         angles = [i * 22.5 for i in range(16)]
         
         # Create one trace per speed range (for stacked bars)
+        # NOTE: Bar borders are set to white/black by frontend based on theme
         for speed_idx in range(7):
             trace = {
                 'type': 'barpolar',
@@ -232,8 +233,7 @@ class PlotlyWindRoseGenerator:
                 'marker': {
                     'color': self.SPEED_COLORS[speed_idx],
                     'line': {
-                        'color': '#333',
-                        'width': 1
+                        'width': 0.5  # Thin border, color set by frontend
                     }
                 },
                 'hovertemplate': (

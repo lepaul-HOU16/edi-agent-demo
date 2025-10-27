@@ -11,6 +11,7 @@ import {
   SimulationChartArtifact, 
   ReportArtifact 
 } from './renewable';
+import WakeAnalysisArtifact from './renewable/WakeAnalysisArtifact';
 
 interface Artifact {
   type: string;
@@ -103,6 +104,17 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts, onFollow
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
                 <SimulationChartArtifact 
+                  data={artifact as any} 
+                  onFollowUpAction={onFollowUpAction}
+                />
+              </div>
+            );
+
+          case 'wake_simulation':
+          case 'wake_analysis':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <WakeAnalysisArtifact 
                   data={artifact as any} 
                   onFollowUpAction={onFollowUpAction}
                 />

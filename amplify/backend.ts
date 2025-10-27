@@ -1,11 +1,13 @@
 import { defineBackend } from '@aws-amplify/backend';
 import { auth } from './auth/resource';
-import { data, agentFunction, catalogMapDataFunction, catalogSearchFunction, renewableToolsFunction } from './data/resource';
+import { data, agentFunction, catalogMapDataFunction, catalogSearchFunction, renewableToolsFunction, agentProgressFunction } from './data/resource';
 import { storage } from './storage/resource';
 import { renewableAgentCoreProxy } from './functions/renewableAgentCoreProxy/resource';
 import { aws_iam as iam, Stack, RemovalPolicy, Duration } from 'aws-cdk-lib';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
 import { McpServerConstruct } from './custom/mcpServer';
 import { LocationServiceConstruct } from './custom/locationService';
+import { StrandsAgentAlarms } from './custom/strandsAgentAlarms';
 import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 
 // Import NEW Lambda-based renewable energy functions
@@ -14,10 +16,13 @@ import { renewableTerrainTool } from './functions/renewableTools/terrain/resourc
 import { renewableLayoutTool } from './functions/renewableTools/layout/resource';
 import { renewableSimulationTool } from './functions/renewableTools/simulation/resource';
 import { renewableReportTool } from './functions/renewableTools/report/resource';
-import { createRenewableDemoLayer } from './layers/renewableDemo/resource';
+// import { createRenewableDemoLayer } from './layers/renewableDemo/resource'; // DISABLED - Python layer build hanging
 
 // Import Maintenance Agent
 import { maintenanceAgentFunction } from './functions/maintenanceAgent/resource';
+
+// Import Strands Agent System
+import { renewableAgentsFunction } from './functions/renewableAgents/resource';
 
 const backend = defineBackend({
   auth,
@@ -27,6 +32,7 @@ const backend = defineBackend({
   catalogMapDataFunction,
   catalogSearchFunction,
   renewableToolsFunction,
+  agentProgressFunction,
   renewableAgentCoreProxy,
   // NEW: Lambda-based renewable energy functions
   renewableOrchestrator,
@@ -35,7 +41,9 @@ const backend = defineBackend({
   renewableSimulationTool,
   renewableReportTool,
   // Maintenance Agent
-  maintenanceAgentFunction
+  maintenanceAgentFunction,
+  // Strands Agent System (COMPLETE AGENT ARCHITECTURE)
+  renewableAgentsFunction // ✅ ENABLED - Intelligent layout optimization with py-wake
 });
 
 backend.stack.tags.setTag('Project', 'workshop-a4e');
@@ -54,6 +62,52 @@ const sessionContextTable = new dynamodb.Table(backend.stack, 'RenewableSessionC
 });
 
 console.log('✅ Created DynamoDB table for session context:', sessionContextTable.tableName);
+
+// Create DynamoDB table for agent progress tracking
+const agentProgressTable = new dynamodb.Table(backend.stack, 'AgentProgress', {
+  partitionKey: { name: 'requestId', type: dynamodb.AttributeType.STRING },
+  billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+  timeToLiveAttribute: 'expiresAt',
+  removalPolicy: RemovalPolicy.DESTROY,
+  tableName: 'AgentProgress'
+});
+
+console.log('✅ Created DynamoDB table for agent progress:', agentProgressTable.tableName);
+
+// Grant agentProgressFunction permission to read from AgentProgress table
+backend.agentProgressFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      'dynamodb:GetItem',
+      'dynamodb:Query'
+    ],
+    resources: [
+      agentProgressTable.tableArn,
+      `${agentProgressTable.tableArn}/index/*`
+    ]
+  })
+);
+
+// Add AgentProgress table name to agentProgressFunction environment
+backend.agentProgressFunction.addEnvironment(
+  'AGENT_PROGRESS_TABLE',
+  agentProgressTable.tableName
+);
+
+console.log('✅ Granted agentProgressFunction permissions for AgentProgress table');
+
+// ============================================
+// CloudWatch Alarms for Strands Agent Performance Monitoring
+// Task 11.2: Create CloudWatch alarms for performance degradation
+// ============================================
+
+const strandsAgentAlarms = new StrandsAgentAlarms(backend.stack, 'StrandsAgentAlarms', {
+  // Optional: Add email for alarm notifications
+  // alarmEmail: 'your-email@example.com',
+  enabled: true
+});
+
+console.log('✅ Created CloudWatch alarms for Strands Agent performance monitoring');
 
 // Create AWS Location Service Place Index for reverse geocoding
 const locationService = new LocationServiceConstruct(backend.stack, 'LocationService', {
@@ -85,7 +139,7 @@ backend.auth.resources.authenticatedUserIamRole.attachInlinePolicy(chatArtifacts
 console.log('✅ S3 permissions added for authenticated users to upload chat artifacts');
 
 // Create the renewable demo layer
-const renewableDemoLayer = createRenewableDemoLayer(backend.stack);
+// const renewableDemoLayer = createRenewableDemoLayer(backend.stack); // DISABLED - Python layer build hanging
 
 // Add MCP Server with petrophysical capabilities
 const mcpServer = new McpServerConstruct(backend.stack, 'McpServer', {});
@@ -369,6 +423,134 @@ backend.renewableOrchestrator.addEnvironment(
 );
 
 console.log('✅ Added session context table and Location Service environment variables to orchestrator');
+
+// ============================================
+// Strands Agent System Configuration
+// ============================================
+
+// Task 4: Add provisioned concurrency for Strands Agent (OPTIONAL - for zero cold starts)
+// Enable this to maintain 1 warm instance at all times
+// Cost: ~$0.015/hour = ~$10.80/month for 1 instance
+// Benefit: Zero cold starts, instant response times
+const ENABLE_PROVISIONED_CONCURRENCY = process.env.ENABLE_STRANDS_PROVISIONED_CONCURRENCY === 'true';
+
+if (ENABLE_PROVISIONED_CONCURRENCY) {
+  // Create a version for the Lambda function
+  const lambdaFunction = backend.renewableAgentsFunction.resources.lambda as lambda.Function;
+  const version = lambdaFunction.currentVersion;
+  
+  // Create an alias with provisioned concurrency
+  const alias = new lambda.Alias(backend.stack, 'StrandsAgentProvisionedAlias', {
+    aliasName: 'provisioned',
+    version: version,
+    provisionedConcurrentExecutions: 1, // Keep 1 warm instance
+  });
+  
+  console.log('✅ Provisioned concurrency enabled for Strands Agent (1 warm instance)');
+  console.log('💰 Estimated cost: ~$32.85/month for zero cold starts');
+  console.log('ℹ️  Invoke using alias: provisioned');
+} else {
+  console.log('ℹ️  Provisioned concurrency DISABLED for Strands Agent');
+  console.log('ℹ️  Set ENABLE_STRANDS_PROVISIONED_CONCURRENCY=true to enable');
+  console.log('ℹ️  Cold starts will occur (~2-3 minutes for first request)');
+}
+
+// Grant Strands Agent function Bedrock access
+backend.renewableAgentsFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      'bedrock:InvokeModel',
+      'bedrock:InvokeModelWithResponseStream'
+    ],
+    resources: [
+      // Foundation models
+      `arn:aws:bedrock:*::foundation-model/us.anthropic.claude-3-7-sonnet-20250219-v1:0`,
+      `arn:aws:bedrock:*::foundation-model/anthropic.claude-*`,
+      // Inference profiles (cross-region inference)
+      `arn:aws:bedrock:*:*:inference-profile/us.anthropic.claude-3-7-sonnet-20250219-v1:0`,
+      `arn:aws:bedrock:*:*:inference-profile/anthropic.claude-*`
+    ]
+  })
+);
+
+// Grant Strands Agent function S3 access for artifacts
+backend.renewableAgentsFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      's3:GetObject',
+      's3:PutObject',
+      's3:ListBucket',
+      's3:DeleteObject'
+    ],
+    resources: [
+      backend.storage.resources.bucket.bucketArn,
+      `${backend.storage.resources.bucket.bucketArn}/*`
+    ]
+  })
+);
+
+// Add S3 bucket name to Strands Agent environment
+backend.renewableAgentsFunction.addEnvironment(
+  'RENEWABLE_S3_BUCKET',
+  backend.storage.resources.bucket.bucketName
+);
+
+// Add AgentProgress table name to Strands Agent environment
+backend.renewableAgentsFunction.addEnvironment(
+  'AGENT_PROGRESS_TABLE',
+  agentProgressTable.tableName
+);
+
+// Grant Strands Agent function DynamoDB access for progress tracking
+backend.renewableAgentsFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      'dynamodb:PutItem',
+      'dynamodb:GetItem',
+      'dynamodb:UpdateItem',
+      'dynamodb:Query'
+    ],
+    resources: [
+      agentProgressTable.tableArn,
+      `${agentProgressTable.tableArn}/index/*`
+    ]
+  })
+);
+
+// Task 11.2: Grant Strands Agent function CloudWatch permissions for custom metrics
+backend.renewableAgentsFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      'cloudwatch:PutMetricData'
+    ],
+    resources: ['*'], // CloudWatch metrics don't support resource-level permissions
+    conditions: {
+      StringEquals: {
+        'cloudwatch:namespace': 'StrandsAgent/Performance'
+      }
+    }
+  })
+);
+
+console.log('✅ Granted Strands Agent CloudWatch permissions for custom metrics');
+
+// Add Strands Agent function name to orchestrator so it can invoke it
+backend.renewableOrchestrator.addEnvironment(
+  'RENEWABLE_AGENTS_FUNCTION_NAME',
+  backend.renewableAgentsFunction.resources.lambda.functionName
+);
+
+// Grant orchestrator permission to invoke Strands Agent function
+backend.renewableOrchestrator.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ['lambda:InvokeFunction'],
+    resources: [backend.renewableAgentsFunction.resources.lambda.functionArn]
+  })
+);
+
+console.log('✅ Configured Strands Agent system with Bedrock and S3 permissions');
+console.log('✅ Orchestrator can now invoke Strands Agents');
+console.log('🐳 Docker-based Lambda with py-wake for intelligent layout optimization');
 
 // Grant tool Lambdas permission to access S3
 // CRITICAL FIX: Grant permissions to the actual Amplify storage bucket

@@ -153,6 +153,9 @@ function RootLayoutContent({
     // Save preference to localStorage if available
     if (typeof window !== 'undefined') {
       localStorage.setItem('darkMode', String(newMode));
+      
+      // Dispatch custom event for components to react to theme changes
+      window.dispatchEvent(new Event('themechange'));
     }
   };
   

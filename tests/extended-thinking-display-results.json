@@ -1,0 +1,88 @@
+{
+  "thinking_capture": {
+    "Complex Terrain Analysis": {
+      "status": "failed",
+      "error": "Function not found: arn:aws:lambda:us-east-1:484907533441:function:renewableOrchestrator:$LATEST"
+    },
+    "Multi-Constraint Layout": {
+      "status": "failed",
+      "error": "Function not found: arn:aws:lambda:us-east-1:484907533441:function:renewableOrchestrator:$LATEST"
+    },
+    "Economic Optimization": {
+      "status": "failed",
+      "error": "Function not found: arn:aws:lambda:us-east-1:484907533441:function:renewableOrchestrator:$LATEST"
+    }
+  },
+  "thinking_display": {
+    "Step Parsing": {
+      "status": "success",
+      "steps_found": 1,
+      "types_found": [
+        "analysis"
+      ],
+      "content_length": 319
+    },
+    "Type Detection": {
+      "status": "success",
+      "steps_found": 1,
+      "types_found": [
+        "decision"
+      ],
+      "content_length": 203
+    },
+    "Long Content": {
+      "status": "success",
+      "steps_found": 1,
+      "types_found": [
+        "reasoning"
+      ],
+      "content_length": 5000
+    }
+  },
+  "thinking_parsing": {
+    "Numbered Steps": {
+      "status": "success",
+      "detected_format": "numbered",
+      "steps_extracted": 3,
+      "parseable": true
+    },
+    "Labeled Steps": {
+      "status": "success",
+      "detected_format": "labeled",
+      "steps_extracted": 3,
+      "parseable": true
+    },
+    "Mixed Format": {
+      "status": "success",
+      "detected_format": "mixed",
+      "steps_extracted": 3,
+      "parseable": true
+    },
+    "Unstructured": {
+      "status": "success",
+      "detected_format": "unstructured",
+      "steps_extracted": 1,
+      "parseable": true
+    }
+  },
+  "errors": [
+    {
+      "step": "thinking_capture",
+      "query": "Complex Terrain Analysis",
+      "error": "Function not found: arn:aws:lambda:us-east-1:484907533441:function:renewableOrchestrator:$LATEST",
+      "timestamp": "2025-10-22T14:35:15.470Z"
+    },
+    {
+      "step": "thinking_capture",
+      "query": "Multi-Constraint Layout",
+      "error": "Function not found: arn:aws:lambda:us-east-1:484907533441:function:renewableOrchestrator:$LATEST",
+      "timestamp": "2025-10-22T14:35:15.666Z"
+    },
+    {
+      "step": "thinking_capture",
+      "query": "Economic Optimization",
+      "error": "Function not found: arn:aws:lambda:us-east-1:484907533441:function:renewableOrchestrator:$LATEST",
+      "timestamp": "2025-10-22T14:35:15.835Z"
+    }
+  ]
+}

@@ -5,6 +5,9 @@ import React from 'react';
 import { Message } from '@/../utils/types';
 import { useFileSystem } from '@/contexts/FileSystemContext';
 import { retrieveArtifacts } from '@/../utils/s3ArtifactStorage';
+import { useAgentProgress } from '@/hooks/useAgentProgress';
+import { AgentProgressIndicator } from './renewable/AgentProgressIndicator';
+import { ExtendedThinkingDisplay } from './renewable/ExtendedThinkingDisplay';
 
 // Import all the message components
 import AiMessageComponent from './messageComponents/AiMessageComponent';
@@ -43,6 +46,7 @@ import {
   SimulationChartArtifact, 
   ReportArtifact,
   WindRoseArtifact,
+  WakeAnalysisArtifact,
   ProjectDashboardArtifact
 } from './renewable';
 // Maintenance artifact components
@@ -575,14 +579,12 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                 (parsedArtifact.messageContentType === 'wake_simulation' ||
                  parsedArtifact.data?.messageContentType === 'wake_simulation' ||
                  parsedArtifact.type === 'wake_simulation')) {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering SimulationChartArtifact for wake simulation!');
+                console.log('🌊 Rendering WakeAnalysisArtifact for wake simulation');
                 const artifactData = parsedArtifact.data || parsedArtifact;
-                // Map wake_simulation to wind_farm_simulation format for component
-                artifactData.messageContentType = 'wind_farm_simulation';
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<SimulationChartArtifact 
+                    enhancedComponent={<WakeAnalysisArtifact 
                         data={artifactData} 
                         onFollowUpAction={onSendMessage}
                     />}
@@ -853,6 +855,35 @@ const ChatMessage = (params: {
     // to prevent multiple refreshes for the same message
     const processedMessageRef = useRef<{ [key: string]: boolean }>({});
 
+    // Agent progress tracking
+    const [showProgress, setShowProgress] = useState(false);
+    const [requestId, setRequestId] = useState<string | null>(null);
+
+    // Check if message has a requestId for progress tracking
+    useEffect(() => {
+        const msgRequestId = (message as any).requestId;
+        if (msgRequestId && message.role === 'ai' && !(message as any).responseComplete) {
+            setRequestId(msgRequestId);
+            setShowProgress(true);
+        } else {
+            setShowProgress(false);
+        }
+    }, [message]);
+
+    // Use agent progress hook
+    const { progressData, isPolling } = useAgentProgress({
+        requestId,
+        enabled: showProgress,
+        onComplete: () => {
+            console.log('[ChatMessage] Agent progress complete');
+            setShowProgress(false);
+        },
+        onError: (error) => {
+            console.error('[ChatMessage] Agent progress error:', error);
+            setShowProgress(false);
+        },
+    });
+
     // Effect to handle file operation updates
     useEffect(() => {
         // Skip if we've already processed this message
@@ -896,6 +927,32 @@ const ChatMessage = (params: {
                 artifactsCount: (message as any).artifacts?.length || 0,
                 timestamp: new Date().toISOString()
             });
+
+            // Show agent progress indicator if available
+            const progressSteps = progressData?.steps || [];
+            const currentStep = progressSteps.length > 0 
+                ? progressSteps[progressSteps.length - 1]?.step 
+                : '';
+            const thinkingBlocks = (message as any).thinking || [];
+
+            // Render progress indicator and thinking display
+            const progressComponents = (
+                <>
+                    {showProgress && isPolling && (
+                        <AgentProgressIndicator
+                            steps={progressSteps}
+                            currentStep={currentStep}
+                            isVisible={true}
+                        />
+                    )}
+                    {thinkingBlocks.length > 0 && (
+                        <ExtendedThinkingDisplay
+                            thinking={thinkingBlocks}
+                            defaultExpanded={false}
+                        />
+                    )}
+                </>
+            );
             
             // Check for artifacts in AI message and wrap in enhanced AiMessageComponent
             if ((message as any).artifacts && Array.isArray((message as any).artifacts) && (message as any).artifacts.length > 0) {
@@ -908,12 +965,17 @@ const ChatMessage = (params: {
                 console.log('🔍 ChatMessage: First artifact type:', typeof rawArtifacts[0]);
                 
                 // NEW: Enhanced artifact processing with S3 support
-                return <EnhancedArtifactProcessor 
-                    rawArtifacts={rawArtifacts}
-                    message={message}
-                    theme={theme}
-                    onSendMessage={params.onSendMessage}
-                />;
+                return (
+                    <>
+                        {progressComponents}
+                        <EnhancedArtifactProcessor 
+                            rawArtifacts={rawArtifacts}
+                            message={message}
+                            theme={theme}
+                            onSendMessage={params.onSendMessage}
+                        />
+                    </>
+                );
             } else {
                 console.log('⚠️ ChatMessage: No artifacts found in AI message');
             }
@@ -936,11 +998,16 @@ const ChatMessage = (params: {
 
             // Route professional responses to specialized components
             if (professionalResponse) {
-                return <ProfessionalResponseComponent 
-                    content={message.content} 
-                    theme={theme}
-                    chatSessionId={(message as any).chatSessionId || ''}
-                />;
+                return (
+                    <>
+                        {progressComponents}
+                        <ProfessionalResponseComponent 
+                            content={message.content} 
+                            theme={theme}
+                            chatSessionId={(message as any).chatSessionId || ''}
+                        />
+                    </>
+                );
             }
             
             // Check if message contains actual statistical data that should use interactive visualization
@@ -949,13 +1016,23 @@ const ChatMessage = (params: {
                                      messageText.includes('Standard Deviation:');
             
             if (hasStatisticalData && messageText.length > 200) {
-                return <InteractiveAgentSummaryComponent 
-                    content={message.content} 
-                    theme={theme} 
-                    chatSessionId={(message as any).chatSessionId || ''} 
-                />;
+                return (
+                    <>
+                        {progressComponents}
+                        <InteractiveAgentSummaryComponent 
+                            content={message.content} 
+                            theme={theme} 
+                            chatSessionId={(message as any).chatSessionId || ''} 
+                        />
+                    </>
+                );
             } else {
-                return <AiMessageComponent message={message} theme={theme} />;
+                return (
+                    <>
+                        {progressComponents}
+                        <AiMessageComponent message={message} theme={theme} />
+                    </>
+                );
             }
         case 'professional-response':
             // Handle professional response messages with rich formatting

@@ -67,94 +67,124 @@ export interface ResponseEnhancement {
 }
 
 /**
- * Generate action buttons based on intent type and project status
+ * Generate action buttons based on artifact type and project status
+ * Enhanced to include dashboard access at every step
  */
 export function generateActionButtons(
-  intentType: string,
-  projectName: string,
+  artifactType: string,
+  projectName?: string,
   projectStatus?: ProjectStatus
 ): ActionButton[] {
   const actions: ActionButton[] = [];
   
-  switch (intentType) {
+  // Use project name in queries if available, otherwise use generic queries
+  const projectContext = projectName ? ` for ${projectName}` : '';
+  
+  switch (artifactType) {
     case 'terrain_analysis':
-      // After terrain analysis, suggest layout optimization
+    case 'wind_farm_terrain_analysis':
+      // Primary next step: Layout optimization
       actions.push({
-        label: 'Optimize Turbine Layout',
-        query: `optimize layout for ${projectName}`,
+        label: 'Optimize Layout',
+        query: `optimize turbine layout${projectContext}`,
         icon: 'settings',
         primary: true
       });
+      // Always accessible: Dashboard
       actions.push({
-        label: 'View Project Details',
-        query: `show project ${projectName}`,
-        icon: 'status-info'
+        label: 'View Dashboard',
+        query: projectName ? `show project dashboard for ${projectName}` : 'show project dashboard',
+        icon: 'status-info',
+        primary: false
       });
       break;
       
     case 'layout_optimization':
-      // After layout optimization, suggest wake simulation
+    case 'wind_farm_layout':
+      // Primary next step: Wake simulation
       actions.push({
         label: 'Run Wake Simulation',
-        query: `run wake simulation for ${projectName}`,
+        query: `run wake simulation${projectContext}`,
         icon: 'refresh',
         primary: true
       });
+      // Always accessible: Dashboard
       actions.push({
-        label: 'Adjust Layout',
-        query: `optimize layout for ${projectName} with different spacing`,
-        icon: 'edit'
+        label: 'View Dashboard',
+        query: projectName ? `show project dashboard for ${projectName}` : 'show project dashboard',
+        icon: 'status-info',
+        primary: false
+      });
+      // Optional: Refine layout
+      actions.push({
+        label: 'Refine Layout',
+        query: `optimize turbine layout with different spacing${projectContext}`,
+        icon: 'settings',
+        primary: false
       });
       break;
       
     case 'wake_simulation':
     case 'wind_rose_analysis':
-      // After wake simulation, suggest report generation
+      // Primary next step: Generate report
       actions.push({
         label: 'Generate Report',
-        query: `generate report for ${projectName}`,
+        query: `generate comprehensive executive report${projectContext}`,
         icon: 'file',
         primary: true
       });
+      // Always accessible: Dashboard
       actions.push({
-        label: 'View Performance Dashboard',
-        query: `show performance dashboard for ${projectName}`,
-        icon: 'view-full'
+        label: 'View Dashboard',
+        query: projectName ? `show project dashboard for ${projectName}` : 'show project dashboard',
+        icon: 'status-info',
+        primary: false
+      });
+      // Additional analysis options
+      actions.push({
+        label: 'Financial Analysis',
+        query: `perform financial analysis and ROI calculation${projectContext}`,
+        icon: 'calculator',
+        primary: false
       });
       actions.push({
-        label: 'Compare Scenarios',
-        query: `create alternative layout for ${projectName}`,
-        icon: 'copy'
+        label: 'Optimize Layout',
+        query: `optimize turbine layout to reduce wake losses${projectContext}`,
+        icon: 'settings',
+        primary: false
       });
       break;
       
     case 'report_generation':
-      // After report generation, suggest starting new project or viewing all projects
+    case 'financial_analysis':
+      // Always accessible: Dashboard (primary after report)
       actions.push({
-        label: 'Start New Project',
-        query: 'analyze terrain at [coordinates]',
-        icon: 'add-plus',
+        label: 'View Dashboard',
+        query: projectName ? `show project dashboard for ${projectName}` : 'show project dashboard',
+        icon: 'status-info',
         primary: true
       });
       actions.push({
-        label: 'View All Projects',
-        query: 'list my renewable projects',
-        icon: 'folder'
+        label: 'Export Report',
+        query: `export project report as PDF${projectContext}`,
+        icon: 'download',
+        primary: false
       });
       break;
       
     default:
-      // Generic actions
+      // Generic actions with dashboard access
       actions.push({
-        label: 'View Project Details',
-        query: `show project ${projectName}`,
+        label: 'View Dashboard',
+        query: projectName ? `show project dashboard for ${projectName}` : 'show project dashboard',
         icon: 'status-info',
         primary: true
       });
       actions.push({
         label: 'View All Projects',
         query: 'list my renewable projects',
-        icon: 'folder'
+        icon: 'folder',
+        primary: false
       });
   }
   

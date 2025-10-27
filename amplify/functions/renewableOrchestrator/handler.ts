@@ -1,7 +1,9 @@
 /**
  * Renewable Energy Orchestrator Lambda
  * 
- * Simple orchestration logic that replaces complex multi-agent framework.
+ * NOW USES STRANDS AGENTS for intelligent decision-making!
+ * Falls back to direct tool invocation if Strands Agents unavailable.
+ * 
  * Routes renewable energy queries to appropriate tool Lambdas and aggregates results.
  * Enhanced with validation and fallback capabilities.
  */
@@ -28,9 +30,12 @@ import { ProjectStore } from '../shared/projectStore';
 import { ProjectNameGenerator } from '../shared/projectNameGenerator';
 import { SessionContextManager } from '../shared/sessionContextManager';
 import { ProjectResolver } from '../shared/projectResolver';
-import { ErrorMessageTemplates } from '../shared/errorMessageTemplates';
+import { ErrorMessageTemplates, RENEWABLE_ERROR_MESSAGES, RenewableErrorFormatter } from '../shared/errorMessageTemplates';
 import { generateActionButtons, generateNextStepSuggestion, formatProjectStatusChecklist } from '../shared/actionButtonTypes';
 import { ProjectListHandler } from '../shared/projectListHandler';
+
+// STRANDS AGENT INTEGRATION
+import { handleWithStrandsAgents, isStrandsAgentAvailable } from './strandsAgentHandler';
 
 interface ValidationResult {
   isValid: boolean;
@@ -74,6 +79,90 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     console.log(`📝 Context: ${JSON.stringify(event.context || {}, null, 2)}`);
     console.log(`🔄 Async Mode: ${event.sessionId ? 'YES (will write to DynamoDB)' : 'NO (sync response)'}`);
     console.log('═══════════════════════════════════════════════════════════');
+    
+    // ============================================
+    // STRANDS AGENT ROUTING (NEW!)
+    // ============================================
+    if (isStrandsAgentAvailable()) {
+      console.log('🤖 STRANDS AGENTS AVAILABLE - Using intelligent agent system');
+      
+      try {
+        const agentResponse = await handleWithStrandsAgents({
+          userMessage: event.query,
+          chatSessionId: event.sessionId || requestId,
+          projectContext: event.context || {}
+        });
+        
+        console.log('✅ Strands Agent response received');
+        
+        return {
+          success: agentResponse.success,
+          message: agentResponse.message,
+          artifacts: agentResponse.artifacts,
+          thoughtSteps: agentResponse.thoughtSteps || [],
+          metadata: {
+            ...agentResponse.metadata,
+            executionTime: Date.now() - startTime,
+            requestId
+          }
+        };
+      } catch (agentError: any) {
+        // Check if this is a timeout or throttling error
+        const errorMessage = agentError.message || String(agentError);
+        const isTimeoutError = errorMessage.includes('timeout') || 
+                              errorMessage.includes('Timeout') ||
+                              errorMessage.includes('timed out');
+        const isThrottlingError = agentError.name === 'TooManyRequestsException' ||
+                                 errorMessage.includes('TooManyRequestsException') ||
+                                 errorMessage.includes('Rate exceeded');
+        
+        if (isTimeoutError || isThrottlingError) {
+          console.warn('⚠️  Strands Agent timeout/throttling detected, falling back to direct tool invocation');
+          console.warn(`   Error type: ${isTimeoutError ? 'Timeout' : 'Throttling'}`);
+          console.warn(`   Error message: ${errorMessage}`);
+          
+          // Log fallback event for monitoring
+          console.log('📊 FALLBACK EVENT:', {
+            timestamp: new Date().toISOString(),
+            requestId,
+            errorType: isTimeoutError ? 'timeout' : 'throttling',
+            errorMessage: errorMessage.substring(0, 200),
+            query: event.query.substring(0, 100)
+          });
+          
+          // Fall through to legacy handler with fallback flag
+          thoughtSteps.push({
+            step: thoughtSteps.length + 1,
+            action: 'Fallback to direct tools',
+            reasoning: `Strands Agent ${isTimeoutError ? 'timed out' : 'throttled'}, using direct tool invocation`,
+            status: 'complete',
+            timestamp: new Date().toISOString(),
+            duration: 0,
+            result: 'Switched to basic mode'
+          });
+        } else {
+          // Other errors - log and fall through
+          console.error('❌ Strands Agent error (non-timeout), falling back to direct tool invocation:', agentError);
+          
+          thoughtSteps.push({
+            step: thoughtSteps.length + 1,
+            action: 'Fallback to direct tools',
+            reasoning: 'Strands Agent encountered an error',
+            status: 'complete',
+            timestamp: new Date().toISOString(),
+            duration: 0,
+            result: 'Switched to basic mode'
+          });
+        }
+        // Fall through to legacy handler
+      }
+    } else {
+      console.log('⚠️  Strands Agents not available - using legacy tool invocation');
+    }
+    
+    // ============================================
+    // LEGACY HANDLER (Fallback)
+    // ============================================
     
     // Handle health check requests
     if (event.query === '__health_check__') {
@@ -594,9 +683,17 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         projectName = resolveResult.projectName;
         console.log(`✅ Resolved to existing project: ${projectName}`);
       } else {
-        // No existing project found - check for duplicates if this is terrain analysis
-        if (intent.type === 'terrain_analysis' && intent.params.latitude && intent.params.longitude) {
-          console.log('🔍 Checking for duplicate projects at coordinates...');
+        // No existing project found - check if user wants to create NEW analysis
+        // Skip duplicate check if query explicitly indicates new analysis
+        const isExplicitNewAnalysis = /\b(analyze|create|new|generate|run|perform|do)\b.*\bterrain\b/i.test(event.query) ||
+                                      /\bterrain\b.*\b(analyze|analysis|create|new|generate|run|perform)\b/i.test(event.query);
+        
+        // Check for duplicates ONLY if this is NOT an explicit new analysis request
+        if (intent.type === 'terrain_analysis' && 
+            intent.params.latitude && 
+            intent.params.longitude && 
+            !isExplicitNewAnalysis) {
+          console.log('🔍 Checking for duplicate projects at coordinates (ambiguous query)...');
           
           const { ProjectLifecycleManager } = await import('../shared/projectLifecycleManager');
           const lifecycleManager = new ProjectLifecycleManager(
@@ -638,6 +735,8 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
           }
           
           console.log('✅ No duplicates found, proceeding with new project');
+        } else if (isExplicitNewAnalysis) {
+          console.log('✅ Explicit new analysis request detected - skipping duplicate check');
         }
         
         // No existing project found - generate new project name
@@ -865,7 +964,21 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     }
     
     // Step 5: Call appropriate tool Lambda(s) with fallback
-    const results = await callToolLambdasWithFallback(intentWithDefaults, event.query, event.context, requestId, thoughtSteps);
+    // CRITICAL FIX: Pass full project data as context, not just event.context
+    const toolContext = {
+      ...event.context,
+      // Include loaded project data for parameter auto-fill
+      layout_results: projectData?.layout_results,
+      layoutResults: projectData?.layout_results,  // camelCase for backward compatibility
+      terrain_results: projectData?.terrain_results,
+      terrainResults: projectData?.terrain_results,  // camelCase for backward compatibility
+      simulation_results: projectData?.simulation_results,
+      simulationResults: projectData?.simulation_results,  // camelCase for backward compatibility
+      coordinates: projectData?.coordinates,
+      projectData: projectData  // Full project data for reference
+    };
+    
+    const results = await callToolLambdasWithFallback(intentWithDefaults, event.query, toolContext, requestId, thoughtSteps);
     timings.toolInvocation = Date.now() - toolStartTime;
     toolsUsed.push(intentWithDefaults.type);
     
@@ -1123,53 +1236,202 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
   } catch (error) {
     console.error('Orchestrator error:', error);
     
+    // Use renewable-specific error templates for better user experience
+    // Extract context from error if available
+    const errorContext: any = (error as any).template ? {
+      intentType: (error as any).intentType,
+      projectName: (error as any).projectName,
+      projectId: (error as any).projectId
+    } : {};
+    
+    const errorResult = RenewableErrorFormatter.generateErrorMessage(error, errorContext);
+    
     // Enhanced error handling with specific remediation
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    let userMessage = 'An error occurred during renewable energy analysis.';
-    let remediationSteps: string[] = [];
+    let remediationSteps: string[] = errorResult.template.nextSteps || [];
     
+    // Add deployment-specific remediation if needed
     if (errorMessage.includes('ResourceNotFoundException')) {
-      userMessage = 'Renewable energy tools are not deployed.';
       remediationSteps = [
         'Run: npx ampx sandbox',
         'Verify all Lambda functions are deployed',
-        'Check AWS Lambda console for function existence'
+        'Check AWS Lambda console for function existence',
+        ...remediationSteps
       ];
     } else if (errorMessage.includes('AccessDenied')) {
-      userMessage = 'Permission denied accessing renewable energy tools.';
       remediationSteps = [
         'Check AWS credentials: aws sts get-caller-identity',
         'Verify IAM permissions for Lambda invocation',
-        'Update execution role if necessary'
-      ];
-    } else if (errorMessage.includes('timeout') || errorMessage.includes('Timeout')) {
-      userMessage = 'Renewable energy analysis timed out.';
-      remediationSteps = [
-        'Try again with a smaller analysis area',
-        'Check Lambda function timeout settings',
-        'Verify function is not stuck in processing'
-      ];
-    } else {
-      remediationSteps = [
-        'Check system logs for more details',
-        'Verify all dependencies are available',
-        'Try again in a few moments'
+        'Update execution role if necessary',
+        ...remediationSteps
       ];
     }
     
+    // Add error thought step
+    thoughtSteps.push({
+      step: thoughtSteps.length + 1,
+      action: 'Error occurred',
+      reasoning: errorResult.template.title,
+      status: 'error',
+      timestamp: new Date().toISOString(),
+      duration: 0,
+      error: {
+        message: errorResult.template.message,
+        suggestion: remediationSteps.join('; ')
+      }
+    });
+    
     return {
       success: false,
-      message: userMessage,
+      message: errorResult.formatted,
       artifacts: [],
       thoughtSteps,
       metadata: {
         executionTime: Date.now() - startTime,
         toolsUsed,
+        errorCategory: 'RENEWABLE_WORKFLOW_ERROR',
+        errorTitle: errorResult.template.title,
         error: {
           type: error instanceof Error ? error.name : 'UnknownError',
           message: errorMessage,
           remediationSteps
         }
+      }
+    };
+  }
+}
+
+/**
+ * Fallback to direct tool invocation when Strands Agent fails
+ * Maps agent type to direct tool Lambda and invokes it
+ */
+async function fallbackToDirectTools(
+  agentType: string,
+  query: string,
+  parameters: Record<string, any>,
+  requestId: string
+): Promise<OrchestratorResponse> {
+  console.log('🔄 FALLBACK TO DIRECT TOOLS');
+  console.log(`   Agent type: ${agentType}`);
+  console.log(`   Query: ${query.substring(0, 100)}`);
+  
+  try {
+    // Map agent type to tool Lambda function name
+    let functionName: string | undefined;
+    let toolType: string;
+    
+    switch (agentType) {
+      case 'terrain':
+        functionName = process.env.RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME;
+        toolType = 'terrain_analysis';
+        break;
+      case 'layout':
+        functionName = process.env.RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME;
+        toolType = 'layout_optimization';
+        break;
+      case 'simulation':
+        functionName = process.env.RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME;
+        toolType = 'wake_simulation';
+        break;
+      case 'report':
+        functionName = process.env.RENEWABLE_REPORT_TOOL_FUNCTION_NAME;
+        toolType = 'report_generation';
+        break;
+      default:
+        // For multi-agent or unknown, try to infer from query
+        const intent = await parseIntent(query, parameters);
+        toolType = intent.type;
+        
+        switch (intent.type) {
+          case 'terrain_analysis':
+            functionName = process.env.RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME;
+            break;
+          case 'layout_optimization':
+            functionName = process.env.RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME;
+            break;
+          case 'wake_simulation':
+          case 'wind_rose':
+            functionName = process.env.RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME;
+            break;
+          case 'report_generation':
+            functionName = process.env.RENEWABLE_REPORT_TOOL_FUNCTION_NAME;
+            break;
+        }
+    }
+    
+    if (!functionName) {
+      throw new Error(`No direct tool Lambda configured for agent type: ${agentType}`);
+    }
+    
+    console.log(`✅ Mapped to direct tool: ${functionName}`);
+    
+    // Prepare payload for direct tool invocation
+    const payload = {
+      parameters: {
+        ...parameters,
+        project_id: parameters.project_id || parameters.projectId || `fallback-${Date.now()}`
+      }
+    };
+    
+    // Invoke direct tool Lambda
+    const command = new InvokeCommand({
+      FunctionName: functionName,
+      Payload: JSON.stringify(payload)
+    });
+    
+    const response = await lambdaClient.send(command);
+    
+    if (!response.Payload) {
+      throw new Error('No payload in direct tool response');
+    }
+    
+    const result = JSON.parse(new TextDecoder().decode(response.Payload));
+    
+    // Parse response body if it's a Lambda proxy response
+    let toolResult = result;
+    if (result.body) {
+      toolResult = typeof result.body === 'string' ? JSON.parse(result.body) : result.body;
+    }
+    
+    console.log('✅ Direct tool invocation successful');
+    
+    // Format as orchestrator response with fallbackUsed flag
+    const artifacts = toolResult.data ? [{
+      type: toolType,
+      data: {
+        ...toolResult.data,
+        fallbackUsed: true
+      }
+    }] : [];
+    
+    return {
+      success: true,
+      message: toolResult.message || 'Analysis completed using basic mode',
+      artifacts,
+      thoughtSteps: [],
+      metadata: {
+        executionTime: 0,
+        toolsUsed: [toolType],
+        requestId,
+        fallbackUsed: true,
+        fallbackReason: 'Strands Agent timeout/throttling'
+      }
+    };
+    
+  } catch (error) {
+    console.error('❌ Fallback to direct tools failed:', error);
+    
+    return {
+      success: false,
+      message: `Fallback failed: ${error instanceof Error ? error.message : String(error)}`,
+      artifacts: [],
+      thoughtSteps: [],
+      metadata: {
+        executionTime: 0,
+        toolsUsed: [],
+        requestId,
+        fallbackUsed: true,
+        fallbackFailed: true
       }
     };
   }
@@ -1463,7 +1725,9 @@ async function callToolLambdas(
             area_km2: intent.params.area_km2 || 5.0,
             turbine_spacing_m: intent.params.turbine_spacing_m || 500,
             constraints: context?.terrainFeatures || []
-          }
+          },
+          // Pass project context to layout Lambda for parameter auto-fill
+          project_context: context || {}
         };
         break;
         
@@ -1472,7 +1736,8 @@ async function callToolLambdas(
         functionName = process.env.RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME || 'renewable-simulation-simple';
         
         // Fetch layout data from S3 if not in context
-        let layoutData = context?.layout || context?.layoutResults || intent.params.layout;
+        // Check both snake_case and camelCase for backward compatibility
+        let layoutData = context?.layout || context?.layout_results || context?.layoutResults || intent.params.layout;
         
         if (!layoutData && intent.params.project_id) {
           try {
@@ -1500,10 +1765,19 @@ async function callToolLambdas(
           }
         }
         
-        // If still no layout data, provide helpful error
+        // If still no layout data, log warning but continue with empty layout
+        // The error will be caught and handled by the main handler
         if (!layoutData) {
           console.warn(`⚠️ No layout data available for project ${intent.params.project_id}`);
           console.warn(`   User should run layout optimization first`);
+          
+          // Throw error with renewable-specific template
+          const errorTemplate = RENEWABLE_ERROR_MESSAGES.LAYOUT_MISSING;
+          const error = new Error(errorTemplate.message);
+          (error as any).template = errorTemplate;
+          (error as any).errorCategory = 'MISSING_PREREQUISITE';
+          (error as any).missingData = 'layout';
+          throw error;
         }
         
         payload = {
@@ -1512,7 +1786,9 @@ async function callToolLambdas(
             layout: layoutData,
             wind_speed: intent.params.wind_speed || 8.5,
             wind_direction: intent.params.wind_direction || 270
-          }
+          },
+          // Pass project context to simulation Lambda for parameter auto-fill
+          project_context: context || {}
         };
         break;
         
@@ -1690,22 +1966,54 @@ async function callToolLambdas(
       stack: error instanceof Error ? error.stack : 'No stack trace'
     });
     
-    // Check if it's a function not found error
+    // Use renewable-specific error templates
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorType = RenewableErrorFormatter.detectErrorType(error, intent.type);
+    
+    // Check if it's a function not found error
     if (errorMessage.includes('ResourceNotFoundException') || errorMessage.includes('Function not found')) {
       console.warn(`Lambda function ${functionName} not found. Using mock data for frontend testing.`);
+      
+      // Generate deployment error template
+      const deploymentError = RENEWABLE_ERROR_MESSAGES.DEPLOYMENT_ISSUE(intent.type);
+      console.warn(`Deployment issue: ${deploymentError.message}`);
+      
       const mockResult = generateMockToolResult(intent.type, intent.params, query);
       mockResult.data.deploymentRequired = true;
       mockResult.data.missingComponent = 'Python tool Lambda functions';
       mockResult.data.message = `${mockResult.data.message} (Using mock data - Lambda function not found)`;
+      mockResult.data.errorTemplate = deploymentError;
+      results.push(mockResult);
+    } else if (errorType === 'LAMBDA_TIMEOUT') {
+      // Handle timeout with specific template
+      const timeoutError = RENEWABLE_ERROR_MESSAGES.LAMBDA_TIMEOUT;
+      console.warn(`Lambda timeout: ${timeoutError.message}`);
+      
+      const mockResult = generateMockToolResult(intent.type, intent.params, query);
+      mockResult.data.timeoutOccurred = true;
+      mockResult.data.message = `${timeoutError.message} ${mockResult.data.message} (Using mock data - Lambda timed out)`;
+      mockResult.data.errorTemplate = timeoutError;
+      results.push(mockResult);
+    } else if (errorType === 'S3_RETRIEVAL_FAILED') {
+      // Handle S3 errors with specific template
+      const s3Error = RENEWABLE_ERROR_MESSAGES.S3_RETRIEVAL_FAILED;
+      console.warn(`S3 retrieval failed: ${s3Error.message}`);
+      
+      const mockResult = generateMockToolResult(intent.type, intent.params, query);
+      mockResult.data.s3Error = true;
+      mockResult.data.message = `${s3Error.message} ${mockResult.data.message} (Using mock data - S3 error)`;
+      mockResult.data.errorTemplate = s3Error;
       results.push(mockResult);
     } else {
-      // If Lambda exists but fails (likely due to missing dependencies), provide helpful mock data
-      console.warn(`Lambda ${functionName || 'unknown'} failed with error: ${errorMessage}. Providing mock data for frontend testing.`);
+      // Generic Lambda invocation error
+      const invocationError = (RENEWABLE_ERROR_MESSAGES.LAMBDA_INVOCATION_FAILED as any)(intent.type, errorMessage);
+      console.warn(`Lambda invocation failed: ${invocationError.message}`);
+      
       const mockResult = generateMockToolResult(intent.type, intent.params, query);
       mockResult.data.deploymentRequired = true;
       mockResult.data.executionError = errorMessage;
       mockResult.data.message = `${mockResult.data.message} (Using mock data - Lambda execution failed)`;
+      mockResult.data.errorTemplate = invocationError;
       results.push(mockResult);
     }
   }
@@ -1911,6 +2219,15 @@ async function invokeLambdaWithRetry(
       lastError = error as Error;
       console.error(`Lambda invocation attempt ${attempt + 1} failed:`, error);
       
+      // Check if this is a timeout error
+      const errorMessage = lastError?.message || '';
+      const isTimeout = errorMessage.toLowerCase().includes('timeout') || 
+                       errorMessage.toLowerCase().includes('timed out');
+      
+      if (isTimeout) {
+        console.warn('⚠️ Lambda timeout detected');
+      }
+      
       if (attempt < maxRetries - 1) {
         // Exponential backoff
         await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
@@ -1918,7 +2235,114 @@ async function invokeLambdaWithRetry(
     }
   }
   
+  // Enhanced error with renewable-specific template
+  const errorType = RenewableErrorFormatter.detectErrorType(lastError);
+  if (errorType) {
+    const errorTemplate = errorType === 'LAMBDA_TIMEOUT' 
+      ? RENEWABLE_ERROR_MESSAGES.LAMBDA_TIMEOUT
+      : errorType === 'LAMBDA_INVOCATION_FAILED'
+      ? (RENEWABLE_ERROR_MESSAGES.LAMBDA_INVOCATION_FAILED as any)(functionName, lastError?.message || 'Unknown error')
+      : RENEWABLE_ERROR_MESSAGES.S3_RETRIEVAL_FAILED;
+    
+    throw new Error(RenewableErrorFormatter.formatForUser(errorTemplate));
+  }
+  
   throw new Error(`Lambda invocation failed after ${maxRetries} attempts: ${lastError?.message}`);
+}
+
+/**
+ * Get default title for artifact type
+ */
+function getDefaultTitle(artifactType: string, projectId?: string): string {
+  const titles: Record<string, string> = {
+    'wind_farm_terrain_analysis': 'Terrain Analysis Results',
+    'terrain_analysis': 'Terrain Analysis Results',
+    'wind_farm_layout': 'Wind Farm Layout Optimization',
+    'layout_optimization': 'Wind Farm Layout Optimization',
+    'wake_simulation': 'Wake Simulation Analysis',
+    'wake_analysis': 'Wake Simulation Analysis',
+    'wind_rose_analysis': 'Wind Rose Analysis',
+    'wind_rose': 'Wind Rose Analysis',
+    'wind_farm_report': 'Comprehensive Wind Farm Report',
+    'report_generation': 'Comprehensive Wind Farm Report',
+    'project_dashboard': 'Project Dashboard'
+  };
+  
+  const baseTitle = titles[artifactType] || 'Analysis Results';
+  return projectId ? `${baseTitle} - ${projectId}` : baseTitle;
+}
+
+/**
+ * Get default subtitle for artifact type with coordinates if available
+ */
+function getDefaultSubtitle(artifactType: string, data: any): string {
+  // Extract coordinates from various possible locations
+  const coordinates = data.coordinates || data.location;
+  let coordString = '';
+  
+  if (coordinates) {
+    if (typeof coordinates === 'object') {
+      const lat = coordinates.latitude || coordinates.lat;
+      const lon = coordinates.longitude || coordinates.lon || coordinates.lng;
+      if (lat !== undefined && lon !== undefined) {
+        coordString = `Site: ${Number(lat).toFixed(4)}°, ${Number(lon).toFixed(4)}°`;
+      }
+    }
+  }
+  
+  // Type-specific subtitles
+  switch (artifactType) {
+    case 'wind_farm_terrain_analysis':
+    case 'terrain_analysis':
+      if (data.metrics) {
+        const featureCount = data.metrics.totalFeatures || data.metrics.featureCount;
+        if (featureCount) {
+          return coordString ? `${coordString} • ${featureCount} features analyzed` : `${featureCount} features analyzed`;
+        }
+      }
+      return coordString || 'Site terrain and constraints analysis';
+      
+    case 'wind_farm_layout':
+    case 'layout_optimization':
+      if (data.turbineCount && data.totalCapacity) {
+        const layoutInfo = `${data.turbineCount} turbines, ${data.totalCapacity} MW capacity`;
+        return coordString ? `${coordString} • ${layoutInfo}` : layoutInfo;
+      }
+      return coordString || 'Optimized turbine placement';
+      
+    case 'wake_simulation':
+    case 'wake_analysis':
+      if (data.performanceMetrics?.netAEP) {
+        const aepInfo = `${data.performanceMetrics.netAEP.toFixed(2)} GWh/year`;
+        return coordString ? `${coordString} • ${aepInfo}` : aepInfo;
+      }
+      if (data.turbineMetrics?.count) {
+        const turbineInfo = `${data.turbineMetrics.count} turbines analyzed`;
+        return coordString ? `${coordString} • ${turbineInfo}` : turbineInfo;
+      }
+      return coordString || 'Wake effects and energy production';
+      
+    case 'wind_rose_analysis':
+    case 'wind_rose':
+      if (data.windStatistics) {
+        const avgSpeed = data.windStatistics.averageSpeed || data.windStatistics.mean_speed;
+        if (avgSpeed) {
+          const windInfo = `Average wind speed: ${avgSpeed.toFixed(1)} m/s`;
+          return coordString ? `${coordString} • ${windInfo}` : windInfo;
+        }
+      }
+      return coordString || 'Wind direction and speed distribution';
+      
+    case 'wind_farm_report':
+    case 'report_generation':
+      return coordString || 'Executive summary and recommendations';
+      
+    case 'project_dashboard':
+      return 'All renewable energy projects';
+      
+    default:
+      return coordString || 'Analysis complete';
+  }
 }
 
 /**
@@ -1934,10 +2358,20 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
     
     let artifact: Artifact | null = null;
     
-    // Generate action buttons for this artifact
-    const actions = projectName && intentType 
-      ? generateActionButtons(intentType, projectName, projectStatus)
+    // Generate action buttons for this artifact based on its type
+    // Use result.type (artifact type) instead of intentType for more accurate button generation
+    const artifactType = result.type;
+    const actions = projectName && artifactType
+      ? generateActionButtons(artifactType, projectName, projectStatus)
       : undefined;
+    
+    // Log action button generation
+    if (actions && actions.length > 0) {
+      console.log(`🔘 Generated ${actions.length} action button(s) for ${artifactType}:`, 
+        actions.map(a => a.label).join(', '));
+    } else {
+      console.log(`⚠️  No action buttons generated for ${artifactType} (projectName: ${projectName}, artifactType: ${artifactType})`);
+    }
     
     switch (result.type) {
       case 'terrain_analysis':
@@ -1953,6 +2387,8 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
           type: 'wind_farm_terrain_analysis',
           data: {
             messageContentType: 'wind_farm_terrain_analysis',
+            title: result.data.title || getDefaultTitle('terrain_analysis', result.data.projectId),
+            subtitle: result.data.subtitle || getDefaultSubtitle('terrain_analysis', result.data),
             coordinates: result.data.coordinates,
             projectId: result.data.projectId,
             exclusionZones: result.data.exclusionZones,
@@ -1975,8 +2411,8 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
           type: 'wind_farm_layout',
           data: {
             messageContentType: 'wind_farm_layout',
-            title: `Wind Farm Layout - ${result.data.turbineCount} Turbines`,
-            subtitle: `${result.data.totalCapacity} MW capacity with ${result.data.layoutType || 'optimized'} layout`,
+            title: result.data.title || getDefaultTitle('layout_optimization', result.data.projectId),
+            subtitle: result.data.subtitle || getDefaultSubtitle('layout_optimization', result.data),
             projectId: result.data.projectId,
             layoutType: result.data.layoutType,
             turbineCount: result.data.turbineCount,
@@ -1987,25 +2423,6 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
             mapUrl: result.data.mapUrl,
             spacing: result.data.spacing,
             visualizations: result.data.visualizations,
-            message: result.data.message
-          },
-          actions
-        };
-        break;
-        
-      case 'wake_simulation':
-        artifact = {
-          type: 'wind_farm_simulation',
-          data: {
-            messageContentType: 'wind_farm_simulation',
-            title: result.data.title || `Wake Simulation Results - ${result.data.projectId || result.data.project_id}`,
-            subtitle: result.data.subtitle || `Comprehensive analysis with ${Object.keys(result.data.visualizations || {}).length} visualizations`,
-            projectId: result.data.projectId || result.data.project_id,
-            performanceMetrics: result.data.performanceMetrics,
-            visualizations: result.data.visualizations,
-            mapHtml: result.data.mapHtml,
-            optimizationRecommendations: result.data.optimizationRecommendations,
-            s3Url: result.data.s3Url || result.data.s3_data?.url,
             message: result.data.message
           },
           actions
@@ -2026,8 +2443,8 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
           type: 'wind_rose_analysis',
           data: {
             messageContentType: 'wind_rose_analysis',
-            title: result.data.title || `Wind Rose Analysis - ${result.data.projectId}`,
-            subtitle: result.data.subtitle,
+            title: result.data.title || getDefaultTitle('wind_rose_analysis', result.data.projectId),
+            subtitle: result.data.subtitle || getDefaultSubtitle('wind_rose_analysis', result.data),
             projectId: result.data.projectId,
             coordinates: result.data.coordinates || result.data.location,
             location: result.data.location,
@@ -2054,8 +2471,8 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
           type: 'wake_simulation',
           data: {
             messageContentType: 'wake_simulation',
-            title: `Wake Simulation - ${result.data.projectId}`,
-            subtitle: `${result.data.turbineMetrics?.count || 0} turbines, ${result.data.performanceMetrics?.netAEP?.toFixed(2) || 0} GWh/year`,
+            title: result.data.title || getDefaultTitle('wake_simulation', result.data.projectId),
+            subtitle: result.data.subtitle || getDefaultSubtitle('wake_simulation', result.data),
             projectId: result.data.projectId,
             performanceMetrics: result.data.performanceMetrics,
             turbineMetrics: result.data.turbineMetrics,
@@ -2080,7 +2497,8 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
           type: 'wind_farm_report',
           data: {
             messageContentType: 'wind_farm_report',
-            title: `Wind Farm Report - ${result.data.projectId}`,
+            title: result.data.title || getDefaultTitle('report_generation', result.data.projectId),
+            subtitle: result.data.subtitle || getDefaultSubtitle('report_generation', result.data),
             projectId: result.data.projectId,
             executiveSummary: result.data.executiveSummary,
             recommendations: result.data.recommendations,

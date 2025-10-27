@@ -15,12 +15,23 @@ const lambda = new LambdaClient({
 
 async function findOrchestratorFunction() {
   const { ListFunctionsCommand } = require('@aws-sdk/client-lambda');
-  const response = await lambda.send(new ListFunctionsCommand({}));
-  const orchestrator = response.Functions.find(f => 
-    f.FunctionName.includes('renewableOrchestrator')
+  
+  let allFunctions = [];
+  let marker = undefined;
+  
+  // Handle pagination
+  do {
+    const response = await lambda.send(new ListFunctionsCommand({ Marker: marker }));
+    allFunctions = allFunctions.concat(response.Functions || []);
+    marker = response.NextMarker;
+  } while (marker);
+  
+  const orchestrator = allFunctions.find(f => 
+    f.FunctionName.toLowerCase().includes('renewableorchestrator')
   );
   
   if (!orchestrator) {
+    console.error(`❌ Renewable orchestrator Lambda not found in ${allFunctions.length} functions`);
     throw new Error('Renewable orchestrator Lambda not found');
   }
   

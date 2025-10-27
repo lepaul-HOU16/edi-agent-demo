@@ -45,6 +45,63 @@ except ImportError as e:
     logger.warning(f"⚠️ Pandas not available: {e}")
     PANDAS_AVAILABLE = False
 
+def load_layout_from_s3(project_id: str) -> Optional[Dict[str, Any]]:
+    """
+    Load layout JSON from S3.
+    
+    Args:
+        project_id: Unique project identifier
+        
+    Returns:
+        Layout data dict or None if not found
+        
+    Raises:
+        Exception: If S3 retrieval fails (except for NoSuchKey)
+    """
+    try:
+        s3_client = boto3.client('s3')
+        S3_BUCKET = os.environ.get('S3_BUCKET', os.environ.get('RENEWABLE_S3_BUCKET'))
+        
+        if not S3_BUCKET:
+            logger.warning("⚠️ S3_BUCKET environment variable not configured")
+            return None
+        
+        # Layout is saved at this path by the layout tool
+        layout_s3_key = f"renewable/layout/{project_id}/layout.json"
+        
+        logger.info(f"🔍 Loading layout from S3: s3://{S3_BUCKET}/{layout_s3_key}")
+        
+        # Retrieve layout from S3
+        response = s3_client.get_object(Bucket=S3_BUCKET, Key=layout_s3_key)
+        layout_json = response['Body'].read().decode('utf-8')
+        
+        # Parse JSON and validate it's a dict
+        layout_data = json.loads(layout_json)
+        
+        if not isinstance(layout_data, dict):
+            logger.error(f"❌ Layout data is not a dict: {type(layout_data)}")
+            return None
+        
+        logger.info(f"✅ Successfully loaded layout from S3")
+        logger.info(f"   - Type: {type(layout_data)}")
+        logger.info(f"   - Keys: {list(layout_data.keys())}")
+        logger.info(f"   - Turbines: {len(layout_data.get('turbines', []))}")
+        logger.info(f"   - Algorithm: {layout_data.get('algorithm', 'unknown')}")
+        logger.info(f"   - OSM Features: {len(layout_data.get('features', []))}")
+        
+        return layout_data
+        
+    except s3_client.exceptions.NoSuchKey:
+        logger.warning(f"⚠️ Layout not found in S3: {layout_s3_key}")
+        return None
+    except s3_client.exceptions.NoSuchBucket:
+        logger.warning(f"⚠️ S3 bucket not found: {S3_BUCKET}")
+        return None
+    except Exception as e:
+        # Log error but don't raise - allow fallback to other sources
+        logger.warning(f"⚠️ Error loading layout from S3: {e}")
+        return None
+
 def generate_wake_heat_map_data(layout, wind_speed, prevailing_wind_direction=None):
     """Generate wake heat map data for visualization"""
     try:
@@ -140,6 +197,129 @@ def generate_wake_heat_map_data(layout, wind_speed, prevailing_wind_direction=No
         'interaction_lines': interaction_lines,
         'wind_arrows': wind_arrows
     }
+
+def generate_wake_heat_map(turbine_positions, wake_deficit_data, project_id):
+    """
+    Generate interactive Plotly wake heat map visualization
+    
+    Args:
+        turbine_positions: List of turbine position dicts with 'lat', 'lon', 'id'
+        wake_deficit_data: Dict with 'x_coords', 'y_coords', 'deficit_matrix'
+        project_id: Project identifier for title
+        
+    Returns:
+        HTML string containing interactive Plotly heat map
+    """
+    try:
+        import plotly.graph_objects as go
+        import plotly.io as pio
+    except ImportError:
+        logger.error("Plotly not available, cannot generate wake heat map")
+        return None
+    
+    logger.info(f"Generating Plotly wake heat map for project {project_id}")
+    
+    # Extract wake deficit data
+    x_coords = wake_deficit_data.get('x_coords', [])
+    y_coords = wake_deficit_data.get('y_coords', [])
+    deficit_matrix = wake_deficit_data.get('deficit_matrix', [])
+    
+    if not x_coords or not y_coords or not deficit_matrix:
+        logger.warning("Insufficient wake deficit data for heat map")
+        return None
+    
+    # Create heat map trace
+    fig = go.Figure()
+    
+    # Add heat map layer
+    fig.add_trace(go.Heatmap(
+        x=x_coords,
+        y=y_coords,
+        z=deficit_matrix,
+        colorscale='RdYlGn_r',  # Red (high deficit) to Green (low deficit)
+        colorbar=dict(
+            title=dict(text='Wake Deficit (%)', side='right'),
+            tickmode='linear',
+            tick0=0,
+            dtick=5
+        ),
+        hovertemplate='X: %{x:.0f}m<br>Y: %{y:.0f}m<br>Deficit: %{z:.1f}%<extra></extra>',
+        name='Wake Deficit'
+    ))
+    
+    # Add turbine markers
+    if turbine_positions:
+        turbine_x = [t.get('x', 0) for t in turbine_positions]
+        turbine_y = [t.get('y', 0) for t in turbine_positions]
+        turbine_ids = [t.get('id', f'T{i+1:02d}') for i, t in enumerate(turbine_positions)]
+        
+        fig.add_trace(go.Scatter(
+            x=turbine_x,
+            y=turbine_y,
+            mode='markers+text',
+            marker=dict(
+                size=12,
+                color='blue',
+                symbol='circle',
+                line=dict(color='white', width=2)
+            ),
+            text=turbine_ids,
+            textposition='top center',
+            textfont=dict(size=10, color='white'),
+            name='Turbines',
+            hovertemplate='<b>%{text}</b><br>X: %{x:.0f}m<br>Y: %{y:.0f}m<extra></extra>'
+        ))
+    
+    # Update layout
+    fig.update_layout(
+        title={
+            'text': f'Wake Interaction Heat Map - {project_id}',
+            'x': 0.5,
+            'xanchor': 'center',
+            'font': {'size': 18}
+        },
+        xaxis=dict(
+            title='Distance East-West (m)',
+            showgrid=True,
+            gridcolor='rgba(128,128,128,0.2)'
+        ),
+        yaxis=dict(
+            title='Distance North-South (m)',
+            showgrid=True,
+            gridcolor='rgba(128,128,128,0.2)',
+            scaleanchor='x',
+            scaleratio=1
+        ),
+        width=900,
+        height=700,
+        showlegend=True,
+        legend=dict(
+            x=1.02,
+            y=0.5,
+            xanchor='left',
+            yanchor='middle'
+        ),
+        hovermode='closest',
+        plot_bgcolor='#1a1a1a',
+        paper_bgcolor='#1a1a1a',
+        font=dict(color='white')
+    )
+    
+    # Convert to HTML
+    html_content = pio.to_html(
+        fig,
+        include_plotlyjs='cdn',
+        full_html=True,
+        config={
+            'displayModeBar': True,
+            'displaylogo': False,
+            'modeBarButtonsToRemove': ['lasso2d', 'select2d']
+        }
+    )
+    
+    logger.info(f"✅ Generated wake heat map HTML ({len(html_content)} bytes)")
+    
+    return html_content
 
 def handler(event, context):
     """
@@ -363,14 +543,37 @@ def handler(event, context):
                 ContentType='application/json'
             )
             
-            # Return response with Plotly data and data source metadata
+            # Validate Plotly data is available (REQUIRED for visualization)
+            if not plotly_wind_rose_data:
+                logger.error("❌ Failed to generate Plotly wind rose data")
+                return {
+                    'success': False,
+                    'type': 'wind_rose_analysis',
+                    'error': 'Failed to generate wind rose visualization',
+                    'errorCategory': 'VISUALIZATION_ERROR',
+                    'details': {
+                        'suggestion': 'Check Plotly wind rose generator configuration',
+                        'location': {'latitude': latitude, 'longitude': longitude}
+                    },
+                    'data': {}
+                }
+            
+            # Return response with Plotly data (clean structure, no duplicates)
             response_data = {
                 'messageContentType': 'wind_rose_analysis',
                 'title': f'Wind Rose Analysis - {project_id}',
-                'subtitle': f'Wind analysis for location ({latitude}, {longitude})',
                 'projectId': project_id,
                 'coordinates': {'lat': latitude, 'lng': longitude},
-                'windRoseData': wind_rose_data,
+                # Plotly wind rose data (REQUIRED - primary visualization format)
+                'plotlyWindRose': {
+                    'data': plotly_wind_rose_data['data'],
+                    'layout': plotly_wind_rose_data['layout'],
+                    'statistics': plotly_wind_rose_data['statistics'],
+                    'dataSource': 'NREL Wind Toolkit',
+                    'dataYear': 2023,
+                    'dataQuality': 'high'
+                },
+                # Summary statistics (for display, not visualization)
                 'windStatistics': {
                     'averageSpeed': round(avg_speed, 2),
                     'maxSpeed': round(max_speed, 2),
@@ -378,33 +581,26 @@ def handler(event, context):
                     'totalFrequency': total_frequency,
                     'directionCount': len(wind_rose_data)
                 },
-                's3Data': {
-                    'bucket': S3_BUCKET,
-                    'dataKey': data_key,
-                    'dataUrl': f'https://{S3_BUCKET}.s3.amazonaws.com/{data_key}'
-                },
-                'visualizations': {},
+                # Data source metadata
                 'dataSource': 'NREL Wind Toolkit',
                 'dataYear': 2023,
                 'dataPoints': len(wind_speeds),
                 'reliability': 'high',
-                'message': f'Wind rose analysis complete for ({latitude}, {longitude}) using NREL Wind Toolkit data (2023)'
+                'message': f'Wind rose analysis complete using NREL Wind Toolkit data (2023)',
+                # S3 storage info
+                's3Data': {
+                    'bucket': S3_BUCKET,
+                    'dataKey': data_key,
+                    'dataUrl': f'https://{S3_BUCKET}.s3.amazonaws.com/{data_key}'
+                }
             }
             
-            # Add Plotly wind rose data if available
-            if plotly_wind_rose_data:
-                response_data['plotlyWindRose'] = {
-                    'data': plotly_wind_rose_data['data'],
-                    'layout': plotly_wind_rose_data['layout'],
-                    'statistics': plotly_wind_rose_data['statistics']
-                }
-                logger.info("✅ Added Plotly wind rose data to response")
+            logger.info("✅ Wind rose response prepared with Plotly format")
             
-            # Add matplotlib PNG fallback if available
+            # Add matplotlib PNG fallback ONLY if available (for legacy support)
             if wind_rose_url:
-                response_data['visualizations']['wind_rose'] = wind_rose_url
-                response_data['windRoseUrl'] = wind_rose_url
-                response_data['mapUrl'] = wind_rose_url
+                response_data['fallbackVisualization'] = wind_rose_url
+                logger.info(f"Added fallback PNG visualization: {wind_rose_url}")
             
             return {
                 'success': True,
@@ -420,20 +616,70 @@ def handler(event, context):
         project_context = event.get('project_context', {})
         logger.info(f"Project context available: {bool(project_context)}")
         
-        # Get layout from project context first, then fall back to explicit parameters
+        # Get layout from multiple sources with priority order
         layout = None
+        layout_source = None
         
-        # Priority 1: Check project context for layout
-        if project_context and 'layout_results' in project_context:
-            layout_results = project_context['layout_results']
-            layout = layout_results.get('geojson') or layout_results.get('layout')
-            if layout and layout.get('features'):
-                logger.info(f"✅ Using layout from project context: {len(layout['features'])} turbines")
+        # Priority 1: Load from S3 (most reliable, persisted data)
+        try:
+            logger.info(f"🔍 Attempting to load layout from S3 for project: {project_id}")
+            s3_layout = load_layout_from_s3(project_id)
+            if s3_layout and isinstance(s3_layout, dict):
+                # Convert S3 layout format to GeoJSON format expected by simulation
+                if 'turbines' in s3_layout and isinstance(s3_layout['turbines'], list):
+                    # S3 layout has turbines array, convert to GeoJSON features
+                    features = []
+                    for turbine in s3_layout['turbines']:
+                        # Handle both dict and potential string formats
+                        if isinstance(turbine, dict):
+                            features.append({
+                                'type': 'Feature',
+                                'geometry': {
+                                    'type': 'Point',
+                                    'coordinates': [turbine.get('longitude', 0), turbine.get('latitude', 0)]
+                                },
+                                'properties': {
+                                    'turbine_id': turbine.get('id', turbine.get('turbine_id', 'N/A')),
+                                    'capacity_MW': turbine.get('capacity_MW', 2.5),
+                                    'hub_height': turbine.get('hub_height', 100),
+                                    'rotor_diameter': turbine.get('rotor_diameter', 120)
+                                }
+                            })
+                        else:
+                            logger.warning(f"⚠️ Skipping invalid turbine data: {type(turbine)}")
+                    
+                    if features:
+                        layout = {
+                            'type': 'FeatureCollection',
+                            'features': features
+                        }
+                        layout_source = 'S3'
+                        logger.info(f"✅ Loaded layout from S3: {len(features)} turbines")
+                        logger.info(f"   - Algorithm: {s3_layout.get('algorithm', 'unknown')}")
+                        logger.info(f"   - OSM Features: {len(s3_layout.get('features', []))}")
+                    else:
+                        logger.warning("⚠️ No valid turbine features found in S3 layout")
+                else:
+                    logger.warning(f"⚠️ S3 layout missing 'turbines' array or invalid format")
+            elif s3_layout:
+                logger.warning(f"⚠️ S3 layout is not a dict: {type(s3_layout)}")
+        except Exception as s3_error:
+            logger.warning(f"⚠️ Could not load layout from S3: {s3_error}")
         
-        # Priority 2: Check explicit parameters (backward compatibility)
+        # Priority 2: Check project context for layout (from orchestrator)
+        if not layout or not layout.get('features'):
+            if project_context and 'layout_results' in project_context:
+                layout_results = project_context['layout_results']
+                layout = layout_results.get('geojson') or layout_results.get('layout')
+                if layout and layout.get('features'):
+                    layout_source = 'project_context'
+                    logger.info(f"✅ Using layout from project context: {len(layout['features'])} turbines")
+        
+        # Priority 3: Check explicit parameters (backward compatibility)
         if not layout or not layout.get('features'):
             layout = params.get('layout', {})
             if layout and layout.get('features'):
+                layout_source = 'explicit_parameters'
                 logger.info(f"✅ Using layout from explicit parameters: {len(layout['features'])} turbines")
         
         # Validate required parameters
@@ -441,40 +687,55 @@ def handler(event, context):
             # Get project name if available
             project_name = params.get('project_name', project_id)
             
-            # Generate user-friendly error message
-            error_message = f"No turbine layout found for {project_name}. A layout is required to run wake simulation."
-            suggestion = "Run layout optimization first to establish turbine positions, or provide explicit layout data."
+            # Generate user-friendly error message with clear guidance
+            error_message = "Layout data not found. Please run layout optimization before wake simulation."
+            
+            # Provide specific guidance based on what was checked
+            checked_sources = []
+            if project_id:
+                checked_sources.append(f"S3 storage (s3://bucket/renewable/layout/{project_id}/layout.json)")
+            if project_context:
+                checked_sources.append("Project context from orchestrator")
+            if params.get('layout'):
+                checked_sources.append("Explicit parameters")
+            
+            suggestion = "Run layout optimization first to establish turbine positions and save layout data to S3."
             
             next_steps = [
-                f'Optimize layout: "optimize layout for {project_name}"',
-                f'Or provide layout: "run wake simulation with layout [layout_data]"'
+                f'Optimize layout: "optimize turbine layout for {project_name}"',
+                f'Then run simulation: "run wake simulation for {project_name}"'
             ]
             
             if project_name and project_name != project_id:
                 next_steps.append(f'View project status: "show project {project_name}"')
             
             logger.error(f"❌ Layout validation failed: {error_message}")
-            logger.error(f"Project context: {project_context}")
+            logger.error(f"   Checked sources: {', '.join(checked_sources)}")
+            logger.error(f"   Project ID: {project_id}")
+            logger.error(f"   Project context available: {bool(project_context)}")
             
             return {
                 'success': False,
                 'type': 'wake_simulation',
                 'error': error_message,
-                'errorCategory': 'MISSING_PROJECT_DATA',
+                'errorCategory': 'LAYOUT_MISSING',
                 'details': {
                     'projectId': project_id,
                     'projectName': project_name,
                     'missingData': 'layout',
                     'requiredOperation': 'layout_optimization',
+                    'checkedSources': checked_sources,
                     'hasProjectContext': bool(project_context),
                     'hasLayoutInContext': bool(project_context and 'layout_results' in project_context),
                     'suggestion': suggestion,
-                    'nextSteps': next_steps
+                    'nextSteps': next_steps,
+                    'actionRequired': 'Please run layout optimization first'
                 },
                 'data': {}
             }
         
         logger.info(f"Running wake simulation for project {project_id}")
+        logger.info(f"✅ Layout source: {layout_source}")
         
         # Extract turbine data
         features = layout.get('features', [])
@@ -675,6 +936,51 @@ def handler(event, context):
                     wake_heat_data, layout
                 )
                 
+                # Generate Plotly wake heat map
+                logger.info("Generating Plotly wake heat map")
+                
+                # Prepare turbine positions for heat map
+                turbine_positions_for_heatmap = []
+                for i, feature in enumerate(features):
+                    coords = feature['geometry']['coordinates']
+                    turbine_positions_for_heatmap.append({
+                        'x': i * 500,  # Simplified x position (500m spacing)
+                        'y': 0,  # Simplified y position
+                        'id': feature['properties'].get('turbine_id', f'T{i+1:02d}'),
+                        'lat': coords[1],
+                        'lon': coords[0]
+                    })
+                
+                # Generate wake deficit matrix (simplified model)
+                grid_size = 50
+                x_range = np.linspace(-1000, 1000, grid_size)
+                y_range = np.linspace(-1000, 1000, grid_size)
+                deficit_matrix = np.zeros((grid_size, grid_size))
+                
+                # Calculate wake deficits based on turbine positions
+                for turbine in turbine_positions_for_heatmap:
+                    tx, ty = turbine['x'], turbine['y']
+                    for i, x in enumerate(x_range):
+                        for j, y in enumerate(y_range):
+                            # Distance from turbine
+                            dist = np.sqrt((x - tx)**2 + (y - ty)**2)
+                            # Wake deficit decreases with distance (simplified model)
+                            if dist < 1500:  # Wake effect within 1.5km
+                                deficit = 20 * np.exp(-dist / 500)  # Exponential decay
+                                deficit_matrix[j, i] = max(deficit_matrix[j, i], deficit)
+                
+                wake_deficit_data = {
+                    'x_coords': x_range.tolist(),
+                    'y_coords': y_range.tolist(),
+                    'deficit_matrix': deficit_matrix.tolist()
+                }
+                
+                plotly_wake_heat_map_html = generate_wake_heat_map(
+                    turbine_positions_for_heatmap,
+                    wake_deficit_data,
+                    project_id
+                )
+                
                 # Save visualizations to S3 if configured
                 if viz_generator.s3_client:
                     # Save wind rose
@@ -717,12 +1023,39 @@ def handler(event, context):
                         visualizations['variability_analysis'] = variability_url
                         logger.info(f"Saved variability analysis to S3: {variability_url}")
                     
-                    # Save comprehensive wake analysis map
-                    wake_map_key = config.get_s3_key(project_id, 'wake_heat_map', 'html')
+                    # Save comprehensive wake analysis map (Folium - legacy)
+                    wake_map_key = config.get_s3_key(project_id, 'wake_heat_map_folium', 'html')
                     wake_map_url = viz_generator.save_html_to_s3(wake_analysis_map_html, wake_map_key)
                     if wake_map_url:
-                        visualizations['wake_heat_map'] = wake_map_url
-                        logger.info(f"Saved wake heat map to S3: {wake_map_url}")
+                        visualizations['wake_heat_map_folium'] = wake_map_url
+                        logger.info(f"Saved Folium wake heat map to S3: {wake_map_url}")
+                    
+                    # Save Plotly wake heat map (primary visualization)
+                    if plotly_wake_heat_map_html:
+                        plotly_wake_key = f'projects/{project_id}/visualizations/wake_heat_map.html'
+                        
+                        # Upload to S3
+                        s3_client = boto3.client('s3')
+                        S3_BUCKET = os.environ.get('S3_BUCKET', os.environ.get('RENEWABLE_S3_BUCKET'))
+                        
+                        s3_client.put_object(
+                            Bucket=S3_BUCKET,
+                            Key=plotly_wake_key,
+                            Body=plotly_wake_heat_map_html.encode('utf-8'),
+                            ContentType='text/html',
+                            CacheControl='max-age=3600'
+                        )
+                        
+                        # Generate presigned URL (7-day expiration)
+                        plotly_wake_url = s3_client.generate_presigned_url(
+                            'get_object',
+                            Params={'Bucket': S3_BUCKET, 'Key': plotly_wake_key},
+                            ExpiresIn=604800  # 7 days in seconds
+                        )
+                        
+                        visualizations['wake_heat_map'] = plotly_wake_url
+                        logger.info(f"✅ Saved Plotly wake heat map to S3: s3://{S3_BUCKET}/{plotly_wake_key}")
+                        logger.info(f"   Presigned URL (7-day expiration): {plotly_wake_url[:100]}...")
                     
                     # Create comprehensive report package
                     project_data = {
@@ -734,12 +1067,12 @@ def handler(event, context):
                         'location': f"Wind Farm Analysis"
                     }
                     
-                    # Prepare visualization data for report
+                    # Prepare visualization data for report (no duplicate titles)
                     viz_data = {
-                        'wind_rose': {'type': 'matplotlib_chart', 'image_bytes': wind_rose_bytes, 'title': 'Wind Rose Analysis'},
-                        'wake_heat_map': {'type': 'folium_map', 'html_content': wake_analysis_map_html, 'title': 'Wake Analysis Heat Map'},
-                        'seasonal_analysis': {'type': 'matplotlib_chart', 'image_bytes': seasonal_chart, 'title': 'Seasonal Wind Analysis'},
-                        'variability_analysis': {'type': 'matplotlib_chart', 'image_bytes': variability_chart, 'title': 'Wind Resource Variability'}
+                        'wind_rose': {'type': 'matplotlib_chart', 'image_bytes': wind_rose_bytes},
+                        'wake_heat_map': {'type': 'folium_map', 'html_content': wake_analysis_map_html},
+                        'seasonal_analysis': {'type': 'matplotlib_chart', 'image_bytes': seasonal_chart},
+                        'variability_analysis': {'type': 'matplotlib_chart', 'image_bytes': variability_chart}
                     }
                     
                     # Add performance charts to visualization data
@@ -785,7 +1118,7 @@ def handler(event, context):
         }
         
         # Add wind resource data information if available
-        if 'wind_resource_data' in locals() and wind_resource_data:
+        if 'wind_resource_data' in locals() and wind_resource_data and isinstance(wind_resource_data, dict):
             response_data['windResourceData'] = {
                 'source': 'NREL Wind Toolkit',
                 'dataYear': 2023,
@@ -802,7 +1135,7 @@ def handler(event, context):
             
             if 'error_reason' in wind_resource_data:
                 response_data['windResourceData']['error_reason'] = wind_resource_data['error_reason']
-        elif 'wind_conditions' in locals() and wind_conditions:
+        elif 'wind_conditions' in locals() and wind_conditions and isinstance(wind_conditions, dict):
             # If we have processed wind conditions, add that info
             response_data['windResourceData'] = {
                 'source': 'NREL Wind Toolkit',
@@ -834,9 +1167,13 @@ def handler(event, context):
     except Exception as e:
         logger.error(f"Error in wake simulation Lambda: {str(e)}", exc_info=True)
         return {
-            'statusCode': 500,
-            'body': json.dumps({
-                'success': False,
-                'error': f'Lambda execution error: {str(e)}'
-            })
+            'success': False,
+            'type': 'wake_simulation',
+            'error': f'Lambda execution error: {str(e)}',
+            'errorCategory': 'LAMBDA_ERROR',
+            'details': {
+                'suggestion': 'Check CloudWatch logs for detailed error information',
+                'errorType': type(e).__name__
+            },
+            'data': {}
         }

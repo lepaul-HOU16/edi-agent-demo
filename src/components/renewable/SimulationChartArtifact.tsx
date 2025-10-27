@@ -10,6 +10,7 @@ import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Button, Butt
 import { VisualizationDataParser, VisualizationData, CategorizedVisualizations } from '../../utils/VisualizationDataParser';
 import VisualizationRenderer from './VisualizationRenderer';
 import { SafeVisualizationWrapper } from './VisualizationErrorBoundary';
+import { WorkflowCTAButtons } from './WorkflowCTAButtons';
 
 interface SimulationArtifactProps {
   data: {
@@ -103,10 +104,17 @@ const SimulationChartArtifact: React.FC<SimulationArtifactProps> = ({ data, onFo
       }
     >
       <SpaceBetween size="l">
+        {/* Workflow CTA Buttons - Guide user through workflow */}
+        <WorkflowCTAButtons
+          completedSteps={['terrain', 'layout', 'simulation']}
+          projectId={data.projectId}
+          onAction={handleFollowUpAction}
+        />
+        
         {/* Enhanced Call-to-Actions for Wake Simulation */}
         <Box>
           <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
-            Next Steps in Analysis Workflow
+            Advanced Analysis Options
           </Box>
           <SpaceBetween direction="vertical" size="s">
             <div>

@@ -308,6 +308,14 @@ export class ProjectResolver {
   private extractProjectNameFragments(query: string): string[] {
     const fragments: string[] = [];
 
+    // Skip extraction if query contains coordinates (lat/lon pattern)
+    // This prevents "analyze terrain at 32.7767, -96.797" from matching existing projects
+    const hasCoordinates = /\b\d+\.\d+\s*,\s*-?\d+\.\d+\b/.test(query);
+    if (hasCoordinates) {
+      console.log('[ProjectResolver] Query contains coordinates, skipping fragment extraction');
+      return fragments;
+    }
+
     // Pattern 1: Location names (2-3 words before "wind farm")
     const windFarmPattern = /([a-z\-]+(?:\s+[a-z\-]+){0,2})\s+wind\s+farm/gi;
     let match;
@@ -315,10 +323,14 @@ export class ProjectResolver {
       fragments.push(this.normalizeProjectName(match[1]));
     }
 
-    // Pattern 2: Location names after "in" or "at"
+    // Pattern 2: Location names after "in" or "at" (but NOT coordinates)
     const locationPattern = /(?:in|at)\s+([a-z\-]+(?:\s+[a-z\-]+){0,2})/gi;
     while ((match = locationPattern.exec(query)) !== null) {
-      fragments.push(this.normalizeProjectName(match[1]));
+      const fragment = match[1];
+      // Skip if it looks like a number
+      if (!/^\d/.test(fragment)) {
+        fragments.push(this.normalizeProjectName(fragment));
+      }
     }
 
     // Pattern 3: Capitalized words (potential location names)

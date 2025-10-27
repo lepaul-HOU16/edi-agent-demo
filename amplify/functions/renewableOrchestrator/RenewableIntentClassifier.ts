@@ -15,6 +15,7 @@ export interface RenewableAnalysisType {
   LAYOUT_OPTIMIZATION: 'layout_optimization';
   SITE_SUITABILITY: 'site_suitability';
   COMPREHENSIVE_ASSESSMENT: 'comprehensive_assessment';
+  REPORT_GENERATION: 'report_generation';
   // Project lifecycle management intents
   DELETE_PROJECT: 'delete_project';
   RENAME_PROJECT: 'rename_project';
@@ -32,6 +33,7 @@ export const RenewableAnalysisType: RenewableAnalysisType = {
   LAYOUT_OPTIMIZATION: 'layout_optimization',
   SITE_SUITABILITY: 'site_suitability',
   COMPREHENSIVE_ASSESSMENT: 'comprehensive_assessment',
+  REPORT_GENERATION: 'report_generation',
   // Project lifecycle management intents
   DELETE_PROJECT: 'delete_project',
   RENAME_PROJECT: 'rename_project',
@@ -62,6 +64,46 @@ export interface PatternDefinition {
 
 export class RenewableIntentClassifier {
   private readonly intentPatterns: Record<string, PatternDefinition> = {
+    // CRITICAL: Financial analysis patterns MUST come BEFORE terrain patterns
+    // to prevent "financial analysis" queries from being misclassified as terrain_analysis
+    report_generation: {
+      patterns: [
+        /financial\s+analysis/i,
+        /roi\s+calculation/i,
+        /return\s+on\s+investment/i,
+        /economic\s+analysis/i,
+        /cost\s+benefit/i,
+        /project\s+economics/i,
+        /financial\s+report/i,
+        /generate.*report/i,
+        /create.*report/i,
+        /report.*generation/i,
+        /executive.*summary/i,
+        /project.*report/i,
+        /summary.*report/i,
+        /final.*report/i,
+        /analysis.*report/i,
+        /report.*for/i,
+        /lcoe/i,
+        /levelized.*cost/i,
+        /financial.*metrics/i,
+        /investment.*analysis/i,
+        /payback.*period/i,
+        /net.*present.*value/i,
+        /npv/i,
+        /irr/i,
+        /internal.*rate.*return/i
+      ],
+      exclusions: [
+        /terrain(?!.*financial)/i,  // Allow "terrain" only if not followed by "financial"
+        /wind.*rose(?!.*financial)/i,
+        /wake(?!.*financial)/i,
+        /layout(?!.*financial)/i
+      ],
+      weight: 1.6,  // High weight to prioritize financial analysis
+      keywords: ['financial', 'roi', 'economic', 'cost', 'report', 'lcoe', 'investment', 'payback', 'npv', 'irr', 'analysis', 'summary', 'executive']
+    },
+
     terrain_analysis: {
       patterns: [
         /terrain.*analysis/i,
@@ -79,6 +121,13 @@ export class RenewableIntentClassifier {
         /environmental.*constraints/i
       ],
       exclusions: [
+        /financial/i,  // CRITICAL: Exclude financial keywords
+        /roi/i,
+        /economic/i,
+        /cost.*benefit/i,
+        /investment/i,
+        /lcoe/i,
+        /payback/i,
         /wind.*rose/i,
         /wind.*direction/i,
         /wind.*pattern/i,
@@ -235,28 +284,6 @@ export class RenewableIntentClassifier {
       exclusions: [],
       weight: 0.8,
       keywords: ['comprehensive', 'complete', 'full', 'all analysis', 'end-to-end']
-    },
-
-    report_generation: {
-      patterns: [
-        /generate.*report/i,
-        /create.*report/i,
-        /report.*generation/i,
-        /executive.*summary/i,
-        /project.*report/i,
-        /summary.*report/i,
-        /final.*report/i,
-        /analysis.*report/i,
-        /report.*for/i
-      ],
-      exclusions: [
-        /terrain/i,
-        /wind.*rose/i,
-        /wake/i,
-        /layout/i
-      ],
-      weight: 1.4,
-      keywords: ['report', 'generate', 'summary', 'executive', 'documentation']
     },
 
     // Project Lifecycle Management Intents

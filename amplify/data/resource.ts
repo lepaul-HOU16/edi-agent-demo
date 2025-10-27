@@ -1,5 +1,6 @@
 import { type ClientSchema, a, defineData, defineFunction } from '@aws-amplify/backend';
 import { maintenanceAgentFunction } from '../functions/maintenanceAgent/resource';
+import { agentProgressFunction } from '../functions/agentProgress/resource';
 
 // Main agent function with full routing capabilities (EnhancedStrandsAgent + RenewableProxyAgent)
 export const agentFunction = defineFunction({
@@ -269,6 +270,23 @@ export const schema = a.schema({
     .returns(a.string())
     .handler(a.handler.function(collectionServiceFunction))
     .authorization((allow) => [allow.authenticated()]),
+
+  // Agent Progress Polling (Task 4.3)
+  getAgentProgress: a.query()
+    .arguments({
+      requestId: a.string().required(),
+    })
+    .returns(a.customType({
+      success: a.boolean().required(),
+      requestId: a.string(),
+      steps: a.json().array(),
+      status: a.string(),
+      createdAt: a.float(),
+      updatedAt: a.float(),
+      error: a.string()
+    }))
+    .handler(a.handler.function(agentProgressFunction))
+    .authorization((allow) => [allow.authenticated()]),
 })
   .authorization((allow) => [
     allow.resource(agentFunction).to(["query", "mutate"])
@@ -282,3 +300,6 @@ export const data = defineData({
     defaultAuthorizationMode: 'userPool',
   },
 });
+
+// Export agentProgressFunction for backend configuration
+export { agentProgressFunction };

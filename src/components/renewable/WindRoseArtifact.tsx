@@ -1,12 +1,45 @@
 /**
  * WindRoseArtifact Component
- * Displays wind rose analysis with client-side matplotlib rendering
+ * Displays wind rose analysis with client-side Plotly rendering
  */
 
-import React, { useState } from 'react';
-import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Table, Pagination, Button, ButtonDropdown } from '@cloudscape-design/components';
+import React, { useState, Component, ErrorInfo, ReactNode } from 'react';
+import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Table, Pagination, Button, Alert } from '@cloudscape-design/components';
 import PlotlyWindRose from './PlotlyWindRose';
 import { ActionButtons } from './ActionButtons';
+import { WorkflowCTAButtons } from './WorkflowCTAButtons';
+
+// Error Boundary for Plotly visualization
+class WindRoseErrorBoundary extends Component<
+  { children: ReactNode },
+  { hasError: boolean; error: Error | null }
+> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('WindRose visualization error:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <Alert type="error" header="Visualization Error">
+          Failed to render wind rose chart: {this.state.error?.message || 'Unknown error'}
+          <br />
+          <small>Please try refreshing the analysis or contact support if the issue persists.</small>
+        </Alert>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 interface DirectionDetail {
   direction: string;
@@ -50,6 +83,7 @@ interface WindRoseArtifactProps {
     visualizationUrl?: string;
     windRoseUrl?: string;
     mapUrl?: string;
+    fallbackVisualization?: string;  // PNG fallback for Plotly visualization
     windRoseData: WindRoseData[];
     windStatistics: {
       averageSpeed: number;
@@ -295,58 +329,19 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
       }
     >
       <SpaceBetween size="l">
-        {/* Contextual Action Buttons */}
+        {/* Workflow CTA Buttons - Guide user through workflow */}
+        <WorkflowCTAButtons
+          completedSteps={['terrain', 'layout', 'simulation', 'windrose']}
+          projectId={data.projectId}
+          onAction={handleActionClick}
+        />
+        
+        {/* Legacy Action Buttons (if provided by orchestrator) */}
         {actions && actions.length > 0 && (
           <ActionButtons 
             actions={actions} 
             onActionClick={handleActionClick}
           />
-        )}
-        
-        {/* Data Source Information Banner */}
-        {data.plotlyWindRose && (
-          <Box padding="s" variant="div">
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              padding: '16px',
-              backgroundColor: '#f9f9f9',
-              borderRadius: '8px',
-              border: '1px solid #e9ebed'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{
-                  fontSize: '24px',
-                  padding: '8px',
-                  backgroundColor: '#037f0c',
-                  borderRadius: '6px',
-                  color: '#ffffff'
-                }}>
-                  ✓
-                </div>
-                <div>
-                  <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>
-                    Real Meteorological Data
-                  </div>
-                  <div style={{ fontSize: '14px', color: '#5f6b7a' }}>
-                    Data Source: {data.plotlyWindRose.dataSource || 'NREL Wind Toolkit'} ({data.plotlyWindRose.dataYear || 2023})
-                  </div>
-                </div>
-              </div>
-              <div style={{
-                padding: '8px 16px',
-                backgroundColor: data.plotlyWindRose.dataQuality === 'high' ? '#037f0c' : 
-                                 data.plotlyWindRose.dataQuality === 'medium' ? '#f89406' : '#d91515',
-                color: '#ffffff',
-                borderRadius: '6px',
-                fontSize: '13px',
-                fontWeight: 'bold'
-              }}>
-                {(data.plotlyWindRose.dataQuality || 'high').toUpperCase()} QUALITY DATA
-              </div>
-            </div>
-          </Box>
         )}
 
         {stats && (
@@ -394,26 +389,27 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
             return null;
           })()}
           {data.plotlyWindRose ? (
-            // Use Plotly interactive wind rose (preferred)
-            <PlotlyWindRose
-              data={data.plotlyWindRose.data}
-              layout={data.plotlyWindRose.layout}
-              projectId={data.projectId}
-              statistics={data.plotlyWindRose.statistics}
-              darkBackground={true}
-              dataSource={data.plotlyWindRose.dataSource}
-              dataYear={data.plotlyWindRose.dataYear}
-              dataQuality={data.plotlyWindRose.dataQuality}
-            />
-          ) : (data.visualizationUrl || data.windRoseUrl || data.mapUrl) ? (
+            // Use Plotly interactive wind rose (preferred) - auto-detects theme
+            <WindRoseErrorBoundary>
+              <PlotlyWindRose
+                data={data.plotlyWindRose.data}
+                layout={data.plotlyWindRose.layout}
+                projectId={data.projectId}
+                statistics={data.plotlyWindRose.statistics}
+                dataSource={data.plotlyWindRose.dataSource}
+                dataYear={data.plotlyWindRose.dataYear}
+                dataQuality={data.plotlyWindRose.dataQuality}
+              />
+            </WindRoseErrorBoundary>
+          ) : (data.visualizationUrl || data.windRoseUrl || data.mapUrl || data.fallbackVisualization) ? (
             // Fallback to matplotlib PNG
             <div style={{ width: '100%', minHeight: '500px', border: '1px solid #e9ebed', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#fff' }}>
               <img 
-                src={data.visualizationUrl || data.windRoseUrl || data.mapUrl} 
+                src={data.fallbackVisualization || data.visualizationUrl || data.windRoseUrl || data.mapUrl} 
                 alt="Wind Rose Diagram" 
                 style={{ width: '100%', height: 'auto', display: 'block' }}
                 onError={(e) => {
-                  console.error('Failed to load wind rose image:', data.visualizationUrl || data.windRoseUrl || data.mapUrl);
+                  console.error('Failed to load wind rose image:', data.fallbackVisualization || data.visualizationUrl || data.windRoseUrl || data.mapUrl);
                   (e.target as HTMLImageElement).style.display = 'none';
                   const parent = (e.target as HTMLImageElement).parentElement;
                   if (parent) {

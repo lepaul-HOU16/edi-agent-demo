@@ -10,6 +10,7 @@ export { default as LayoutMapArtifact } from './LayoutMapArtifact';
 export { default as SimulationChartArtifact } from './SimulationChartArtifact';
 export { default as ReportArtifact } from './ReportArtifact';
 export { default as WindRoseArtifact } from './WindRoseArtifact';
+export { default as WakeAnalysisArtifact } from './WakeAnalysisArtifact';
 
 // Workflow Components
 export { default as WorkflowOrchestrator } from './WorkflowOrchestrator';
@@ -55,3 +56,15 @@ export { default as PlotlyWindRose } from './PlotlyWindRose';
 // Project Management Components
 export { ProjectListTable, ProjectDetailsPanel } from './ProjectListTable';
 export { default as ProjectDashboardArtifact } from './ProjectDashboardArtifact';
+
+// Agent Progress Components
+export { AgentProgressIndicator } from './AgentProgressIndicator';
+export type { ProgressStep, AgentProgressIndicatorProps } from './AgentProgressIndicator';
+export { ExtendedThinkingDisplay } from './ExtendedThinkingDisplay';
+export type { ThinkingBlock, ExtendedThinkingDisplayProps } from './ExtendedThinkingDisplay';
+
+// Workflow CTA Components
+export { WorkflowCTAButtons } from './WorkflowCTAButtons';
+export type { WorkflowCTAButton } from './WorkflowCTAButtons';
+export { ActionButtons } from './ActionButtons';
+export type { ActionButton } from './ActionButtons';

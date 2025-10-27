@@ -252,7 +252,7 @@ def handler(event, context):
             }
         }
         
-        # Store layout data in S3
+        # Store layout data in S3 (legacy format for backward compatibility)
         s3_key = f'renewable/layout/{project_id}/layout_results.json'
         s3_client.put_object(
             Bucket=S3_BUCKET,
@@ -262,6 +262,115 @@ def handler(event, context):
         )
         
         print(f"📦 Stored layout data in S3: s3://{S3_BUCKET}/{s3_key}")
+        
+        # CRITICAL: Save complete layout JSON for wake simulation
+        # Wake simulation requires this specific format with turbines array, perimeter, and features
+        try:
+            # Build turbines array with required fields
+            turbines_array = []
+            for turbine in optimized_turbines:
+                coords = turbine['geometry']['coordinates']
+                props = turbine.get('properties', {})
+                turbines_array.append({
+                    'id': props.get('turbine_id', 'unknown'),
+                    'latitude': coords[1],
+                    'longitude': coords[0],
+                    'hub_height': props.get('hub_height_m', 80.0),
+                    'rotor_diameter': props.get('rotor_diameter_m', 100.0)
+                })
+            
+            # Calculate perimeter polygon (bounding box around all turbines)
+            if turbines_array:
+                lats = [t['latitude'] for t in turbines_array]
+                lons = [t['longitude'] for t in turbines_array]
+                
+                # Add buffer around turbines (10% of range)
+                lat_range = max(lats) - min(lats) if len(lats) > 1 else 0.01
+                lon_range = max(lons) - min(lons) if len(lons) > 1 else 0.01
+                lat_buffer = max(lat_range * 0.1, 0.01)  # At least 0.01 degrees
+                lon_buffer = max(lon_range * 0.1, 0.01)
+                
+                # Create perimeter as GeoJSON Polygon
+                perimeter = {
+                    'type': 'Polygon',
+                    'coordinates': [[
+                        [min(lons) - lon_buffer, min(lats) - lat_buffer],
+                        [max(lons) + lon_buffer, min(lats) - lat_buffer],
+                        [max(lons) + lon_buffer, max(lats) + lat_buffer],
+                        [min(lons) - lon_buffer, max(lats) + lat_buffer],
+                        [min(lons) - lon_buffer, min(lats) - lat_buffer]  # Close the polygon
+                    ]]
+                }
+            else:
+                # Fallback perimeter if no turbines
+                perimeter = {
+                    'type': 'Polygon',
+                    'coordinates': [[
+                        [center_lon - 0.05, center_lat - 0.05],
+                        [center_lon + 0.05, center_lat - 0.05],
+                        [center_lon + 0.05, center_lat + 0.05],
+                        [center_lon - 0.05, center_lat + 0.05],
+                        [center_lon - 0.05, center_lat - 0.05]
+                    ]]
+                }
+            
+            # Calculate site area from perimeter
+            if turbines_array and len(turbines_array) > 1:
+                lat_range_km = (max(lats) - min(lats)) * 111.32  # 1 degree lat ≈ 111.32 km
+                lon_range_km = (max(lons) - min(lons)) * 111.32 * math.cos(math.radians(center_lat))
+                site_area_km2 = lat_range_km * lon_range_km
+            else:
+                site_area_km2 = area_km2
+            
+            # Extract OSM features from constraints (if any)
+            osm_features = []
+            for constraint in constraints:
+                if constraint.get('type') == 'Feature':
+                    osm_features.append(constraint)
+            
+            # Prepare complete layout data package per schema
+            complete_layout_data = {
+                'project_id': project_id,
+                'algorithm': 'grid',  # Simple handler uses grid algorithm
+                'turbines': turbines_array,
+                'perimeter': perimeter,
+                'features': osm_features,  # OSM terrain features
+                'metadata': {
+                    'created_at': datetime.now().isoformat(),
+                    'num_turbines': len(turbines_array),
+                    'total_capacity_mw': total_capacity,
+                    'site_area_km2': site_area_km2,
+                    'turbine_model': 'GE 2.5-120',  # Default model
+                    'spacing_d': turbine_spacing_m / 100.0,  # Convert to rotor diameters
+                    'rotor_diameter': 100.0,
+                    'coordinates': {
+                        'latitude': center_lat,
+                        'longitude': center_lon
+                    }
+                }
+            }
+            
+            # Save to S3 at the path wake simulation expects
+            layout_json_key = f"renewable/layout/{project_id}/layout.json"
+            s3_client.put_object(
+                Bucket=S3_BUCKET,
+                Key=layout_json_key,
+                Body=json.dumps(complete_layout_data),
+                ContentType='application/json',
+                CacheControl='max-age=3600'
+            )
+            print(f"✅ Saved complete layout JSON to S3: {layout_json_key}")
+            print(f"   - Turbines: {len(turbines_array)}")
+            print(f"   - OSM Features: {len(osm_features)}")
+            print(f"   - Perimeter: {perimeter['type']}")
+            print(f"   - Algorithm: grid")
+            print(f"   Wake simulation can now access layout data for project {project_id}")
+            
+        except Exception as layout_save_error:
+            print(f"❌ CRITICAL: Failed to save layout JSON to S3: {layout_save_error}")
+            print(f"   Wake simulation will not work without this file!")
+            import traceback
+            traceback.print_exc()
         
         # Generate interactive map HTML
         map_html = create_layout_map_html(optimized_turbines, center_lat, center_lon)
@@ -317,6 +426,7 @@ def handler(event, context):
                     'key': s3_key,
                     'url': f'https://{S3_BUCKET}.s3.amazonaws.com/{s3_key}'
                 },
+                'layoutS3Key': f"renewable/layout/{project_id}/layout.json",  # CRITICAL: S3 key for wake simulation
                 'visualization_available': map_html is not None,
                 'message': f'Generated layout with {len(optimized_turbines)} turbines ({removed_count} removed due to constraints)'
             }

@@ -1,0 +1,6 @@
+{
+  "query": "analyze terrain at 35.067482, -101.395466 for wind farm",
+  "context": {},
+  "chatSessionId": "test-session",
+  "userId": "test-user"
+}

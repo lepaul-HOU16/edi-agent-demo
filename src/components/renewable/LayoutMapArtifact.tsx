@@ -5,10 +5,11 @@
  * Displays interactive Leaflet maps with turbine positions and layout metrics.
  */
 
-import React, { useEffect, useRef } from 'react';
-import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout } from '@cloudscape-design/components';
+import React, { useEffect, useRef, useState } from 'react';
+import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Alert, Button } from '@cloudscape-design/components';
 import 'leaflet/dist/leaflet.css';
 import { ActionButtons } from './ActionButtons';
+import { WorkflowCTAButtons } from './WorkflowCTAButtons';
 
 interface ActionButton {
   label: string;
@@ -60,6 +61,8 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
   const initializingRef = useRef<boolean>(false); // Prevent multiple initializations
+  const [renderError, setRenderError] = useState<string | null>(null);
+  const [hasError, setHasError] = useState<boolean>(false);
 
   // Debug logging to track renders
   console.log('🗺️ LayoutMapArtifact RENDER:', {
@@ -79,15 +82,57 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
       projectId: data.projectId
     });
 
-    if (!mapRef.current) {
-      console.error('[LayoutMap] mapRef.current is null, cannot initialize map');
+    // DEFENSIVE VALIDATION: Check all required data before initialization
+    
+    // Validation 1: Check GeoJSON exists
+    if (!data.geojson) {
+      const errorMsg = 'GeoJSON data is missing - cannot render map';
+      console.error('[LayoutMap] Validation failed:', errorMsg);
+      setRenderError(errorMsg);
       return;
     }
 
-    if (!data.geojson) {
-      console.error('[LayoutMap] data.geojson is missing, cannot initialize map');
+    // Validation 2: Check GeoJSON has features array
+    if (!data.geojson.features || !Array.isArray(data.geojson.features)) {
+      const errorMsg = 'GeoJSON features array is missing or invalid';
+      console.error('[LayoutMap] Validation failed:', errorMsg);
+      setRenderError(errorMsg);
       return;
     }
+
+    // Validation 3: Check features array is not empty
+    if (data.geojson.features.length === 0) {
+      const errorMsg = 'GeoJSON features array is empty - no features to display';
+      console.error('[LayoutMap] Validation failed:', errorMsg);
+      setRenderError(errorMsg);
+      return;
+    }
+
+    // Validation 4: Check map container ref exists
+    if (!mapRef.current) {
+      const errorMsg = 'Map container ref is null - DOM element not ready';
+      console.error('[LayoutMap] Validation failed:', errorMsg);
+      setRenderError(errorMsg);
+      return;
+    }
+
+    // Validation 5: Check container dimensions
+    const rect = mapRef.current.getBoundingClientRect();
+    if (rect.width === 0 || rect.height === 0) {
+      const errorMsg = `Map container has no dimensions (width: ${rect.width}, height: ${rect.height})`;
+      console.error('[LayoutMap] Validation failed:', errorMsg);
+      setRenderError(errorMsg);
+      return;
+    }
+
+    console.log('[LayoutMap] All validations passed:', {
+      featureCount: data.geojson.features.length,
+      containerWidth: rect.width,
+      containerHeight: rect.height
+    });
+
+    // Clear any previous render errors
+    setRenderError(null);
 
     // If map already exists or is being initialized, don't recreate it
     if (mapInstanceRef.current || initializingRef.current) {
@@ -144,21 +189,6 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
         return;
       }
 
-      // Check container dimensions
-      const rect = mapRef.current.getBoundingClientRect();
-      console.log('[LayoutMap] Container dimensions:', {
-        width: rect.width,
-        height: rect.height,
-        top: rect.top,
-        left: rect.left
-      });
-
-      if (rect.width === 0 || rect.height === 0) {
-        console.error('[LayoutMap] Container has no dimensions! Map cannot initialize.');
-        initializingRef.current = false;
-        return;
-      }
-
       // Create map with all interactions enabled
       let map;
       try {
@@ -179,7 +209,9 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
         initializingRef.current = false; // Initialization complete
         console.log('[LayoutMap] Map initialization complete');
       } catch (error) {
+        const errorMsg = `Failed to create Leaflet map: ${error instanceof Error ? error.message : String(error)}`;
         console.error('[LayoutMap] Error creating map:', error);
+        setRenderError(errorMsg);
         initializingRef.current = false;
         return;
       }
@@ -217,9 +249,117 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
         { position: 'topright' }
       ).addTo(map);
 
-      // Add turbine markers using default Leaflet markers (matches Folium/notebook style)
+      // Separate terrain features from turbine features
+      const terrainFeatures = data.geojson.features.filter((f: any) => 
+        f.properties?.type !== 'turbine'
+      );
+      const turbineFeatures = data.geojson.features.filter((f: any) => 
+        f.properties?.type === 'turbine'
+      );
+
+      console.log('[LayoutMap] Feature breakdown:', {
+        total: data.geojson.features.length,
+        terrain: terrainFeatures.length,
+        turbines: turbineFeatures.length
+      });
+
+      // STEP 1: Render terrain features first (perimeter, roads, buildings, water)
+      const terrainLayers: any[] = [];
+      
+      terrainFeatures.forEach((feature: any) => {
+        const featureType = feature.properties?.type || 'unknown';
+        const geometry = feature.geometry;
+        
+        try {
+          if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
+            // Render polygons (buildings, water bodies, perimeter)
+            let style: any = {
+              fillOpacity: 0.3,
+              weight: 2
+            };
+            
+            // Apply feature-specific styling
+            if (featureType === 'building') {
+              style.fillColor = '#ff0000';
+              style.color = '#cc0000';
+              style.fillOpacity = 0.3;
+            } else if (featureType === 'water') {
+              style.fillColor = '#0000ff';
+              style.color = '#0000cc';
+              style.fillOpacity = 0.4;
+            } else if (featureType === 'perimeter') {
+              style.fillColor = 'transparent';
+              style.color = '#00ff00';  // Green color
+              style.weight = 3;
+              style.dashArray = '10, 5';
+              style.fillOpacity = 0;
+            } else {
+              // Default polygon style
+              style.fillColor = '#cccccc';
+              style.color = '#999999';
+              style.fillOpacity = 0.2;
+            }
+            
+            const layer = L.geoJSON(feature, {
+              style: style
+            }).addTo(map);
+            
+            // Add popup with feature info
+            layer.bindPopup(`
+              <div style="padding: 8px; font-family: 'Amazon Ember', Arial, sans-serif;">
+                <div style="font-size: 14px; font-weight: bold; color: #0972d3; margin-bottom: 4px;">
+                  ${featureType.charAt(0).toUpperCase() + featureType.slice(1)}
+                </div>
+                <div style="font-size: 12px; color: #545b64;">
+                  ${feature.properties?.name || 'Terrain feature'}
+                </div>
+              </div>
+            `);
+            
+            terrainLayers.push(layer);
+            
+          } else if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
+            // Render lines (roads)
+            let style: any = {
+              weight: 2,
+              opacity: 0.7
+            };
+            
+            if (featureType === 'road') {
+              style.color = '#666666';
+              style.weight = 3;
+            } else {
+              style.color = '#999999';
+            }
+            
+            const layer = L.geoJSON(feature, {
+              style: style
+            }).addTo(map);
+            
+            // Add popup with feature info
+            layer.bindPopup(`
+              <div style="padding: 8px; font-family: 'Amazon Ember', Arial, sans-serif;">
+                <div style="font-size: 14px; font-weight: bold; color: #0972d3; margin-bottom: 4px;">
+                  ${featureType.charAt(0).toUpperCase() + featureType.slice(1)}
+                </div>
+                <div style="font-size: 12px; color: #545b64;">
+                  ${feature.properties?.name || 'Terrain feature'}
+                </div>
+              </div>
+            `);
+            
+            terrainLayers.push(layer);
+          }
+        } catch (error) {
+          console.error('[LayoutMap] Error rendering terrain feature:', error, feature);
+        }
+      });
+
+      console.log('[LayoutMap] Rendered terrain layers:', terrainLayers.length);
+
+      // STEP 2: Render turbine markers on top of terrain features
       const markers: any[] = [];
-      data.geojson.features.forEach((feature: any, index: number) => {
+      turbineFeatures.forEach((feature: any, index: number) => {
         const coords = feature.geometry.coordinates;
         const props = feature.properties || {};
         
@@ -250,10 +390,62 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
         markers.push(marker);
       });
 
-      // Fit bounds to show all turbines
-      if (markers.length > 0) {
+      // Fit bounds to show all features (terrain + turbines)
+      const allLayers = [...terrainLayers, ...markers];
+      if (allLayers.length > 0) {
+        const group = L.featureGroup(allLayers);
+        map.fitBounds(group.getBounds(), { padding: [50, 50] });
+      } else if (markers.length > 0) {
+        // Fallback: fit to turbines only if no terrain layers
         const group = L.featureGroup(markers);
         map.fitBounds(group.getBounds(), { padding: [50, 50] });
+      }
+
+      // Add legend for terrain features if any exist
+      if (terrainFeatures.length > 0) {
+        const LegendControl = L.Control.extend({
+          options: {
+            position: 'bottomright'
+          },
+          
+          onAdd: function() {
+            const div = L.DomUtil.create('div', 'info legend');
+            div.style.backgroundColor = 'white';
+            div.style.padding = '10px';
+            div.style.borderRadius = '4px';
+            div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+            div.style.fontSize = '12px';
+            div.style.lineHeight = '18px';
+            
+            let html = '<div style="font-weight: bold; margin-bottom: 8px;">Map Legend</div>';
+            
+            // Check which feature types exist
+            const hasBuildings = terrainFeatures.some((f: any) => f.properties?.type === 'building');
+            const hasRoads = terrainFeatures.some((f: any) => f.properties?.type === 'road');
+            const hasWater = terrainFeatures.some((f: any) => f.properties?.type === 'water');
+            const hasPerimeter = terrainFeatures.some((f: any) => f.properties?.type === 'perimeter');
+            
+            if (hasBuildings) {
+              html += '<div style="margin-bottom: 4px;"><span style="display: inline-block; width: 16px; height: 12px; background-color: rgba(255,0,0,0.3); border: 1px solid #cc0000; margin-right: 6px;"></span>Buildings</div>';
+            }
+            if (hasRoads) {
+              html += '<div style="margin-bottom: 4px;"><span style="display: inline-block; width: 16px; height: 2px; background-color: #666666; margin-right: 6px; vertical-align: middle;"></span>Roads</div>';
+            }
+            if (hasWater) {
+              html += '<div style="margin-bottom: 4px;"><span style="display: inline-block; width: 16px; height: 12px; background-color: rgba(0,0,255,0.4); border: 1px solid #0000cc; margin-right: 6px;"></span>Water</div>';
+            }
+            if (hasPerimeter) {
+              html += '<div style="margin-bottom: 4px;"><span style="display: inline-block; width: 16px; height: 12px; border: 2px dashed #333333; margin-right: 6px;"></span>Perimeter</div>';
+            }
+            
+            html += '<div style="margin-top: 8px;"><span style="display: inline-block; width: 16px; height: 16px; margin-right: 6px;">📍</span>Turbines</div>';
+            
+            div.innerHTML = html;
+            return div;
+          }
+        });
+        
+        new LegendControl().addTo(map);
       }
 
       // Invalidate size after a short delay
@@ -280,31 +472,32 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
     };
   }, [data.projectId]); // Only depend on projectId to prevent re-renders
 
-  return (
-    <Container
-      header={
-        <Header
-          variant="h2"
-          description={data.subtitle}
-          actions={
-            <SpaceBetween direction="horizontal" size="xs">
-              <Badge color="blue">{data.turbineCount} Turbines</Badge>
-              <Badge color="green">{data.totalCapacity} MW</Badge>
-            </SpaceBetween>
-          }
-        >
-          {data.title}
-        </Header>
-      }
-    >
-      <SpaceBetween size="l">
-        {/* Contextual Action Buttons */}
-        {actions && actions.length > 0 && (
-          <ActionButtons 
-            actions={actions} 
-            onActionClick={handleActionClick}
-          />
-        )}
+  // Comprehensive error boundary - catch any rendering errors
+  try {
+    return (
+      <Container
+        header={
+          <Header
+            variant="h2"
+            description={data.subtitle}
+            actions={
+              <SpaceBetween direction="horizontal" size="xs">
+                <Badge color="blue">{data.turbineCount} Turbines</Badge>
+                <Badge color="green">{data.totalCapacity} MW</Badge>
+              </SpaceBetween>
+            }
+          >
+            {data.title}
+          </Header>
+        }
+      >
+        <SpaceBetween size="l">
+        {/* Workflow CTA Buttons - Guide user through workflow */}
+        <WorkflowCTAButtons
+          completedSteps={data.completedSteps || ['terrain', 'layout']}
+          projectId={data.projectId}
+          onAction={handleActionClick}
+        />
         
         {/* Layout Information */}
         <ColumnLayout columns={4} variant="text-grid">
@@ -345,13 +538,112 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
           </Box>
         )}
 
+        {/* Terrain Features Summary */}
+        {data.geojson && (() => {
+          const terrainFeatures = data.geojson.features?.filter((f: any) => 
+            f.properties?.type !== 'turbine'
+          ) || [];
+          
+          if (terrainFeatures.length > 0) {
+            const buildings = terrainFeatures.filter((f: any) => f.properties?.type === 'building').length;
+            const roads = terrainFeatures.filter((f: any) => f.properties?.type === 'road').length;
+            const water = terrainFeatures.filter((f: any) => f.properties?.type === 'water').length;
+            const other = terrainFeatures.length - buildings - roads - water;
+            
+            return (
+              <Box>
+                <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
+                  Terrain Features on Map
+                </Box>
+                <ColumnLayout columns={4} variant="text-grid">
+                  {buildings > 0 && (
+                    <div>
+                      <Box variant="small">Buildings</Box>
+                      <div>{buildings}</div>
+                    </div>
+                  )}
+                  {roads > 0 && (
+                    <div>
+                      <Box variant="small">Roads</Box>
+                      <div>{roads}</div>
+                    </div>
+                  )}
+                  {water > 0 && (
+                    <div>
+                      <Box variant="small">Water Bodies</Box>
+                      <div>{water}</div>
+                    </div>
+                  )}
+                  {other > 0 && (
+                    <div>
+                      <Box variant="small">Other Features</Box>
+                      <div>{other}</div>
+                    </div>
+                  )}
+                </ColumnLayout>
+              </Box>
+            );
+          }
+          return null;
+        })()}
+
         {/* Interactive Layout Map */}
         <Box>
           <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
             Wind Farm Layout Map
           </Box>
-          {/* Always use Leaflet map for now (S3 iframe has access issues) */}
-          {data.geojson && data.geojson.features && data.geojson.features.length > 0 ? (
+          
+          {/* Show error alert if rendering failed */}
+          {renderError && (
+            <Alert
+              type="error"
+              header="Map Rendering Error"
+              action={
+                <Button
+                  onClick={() => {
+                    setRenderError(null);
+                    window.location.reload();
+                  }}
+                >
+                  Reload Page
+                </Button>
+              }
+            >
+              <div style={{ marginBottom: '8px' }}>
+                Failed to display layout map: {renderError}
+              </div>
+              <div style={{ fontSize: '12px', color: '#666' }}>
+                This may be due to missing data or a temporary rendering issue. 
+                Try reloading the page or re-running the layout optimization.
+              </div>
+            </Alert>
+          )}
+          
+          {/* Show fallback UI if GeoJSON is missing or empty */}
+          {!renderError && (!data.geojson || !data.geojson.features || data.geojson.features.length === 0) && (
+            <Alert
+              type="warning"
+              header="Map Data Unavailable"
+            >
+              <div style={{ marginBottom: '8px' }}>
+                Layout map cannot be displayed because GeoJSON features are missing.
+              </div>
+              {data.turbineCount > 0 && (
+                <div style={{ fontSize: '12px', color: '#666' }}>
+                  However, {data.turbineCount} turbines were calculated. 
+                  Try re-running the layout optimization to generate map data.
+                </div>
+              )}
+              {data.turbineCount === 0 && (
+                <div style={{ fontSize: '12px', color: '#666' }}>
+                  No turbine positions were calculated. Please run the layout optimization again.
+                </div>
+              )}
+            </Alert>
+          )}
+          
+          {/* Render map only if validations pass and no errors */}
+          {!renderError && data.geojson && data.geojson.features && data.geojson.features.length > 0 && (
             <div
               ref={mapRef}
               style={{
@@ -364,28 +656,6 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
                 cursor: 'grab',
               }}
             />
-          ) : (
-            <div
-              style={{
-                width: '100%',
-                height: '400px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backgroundColor: '#f9f9f9',
-                border: '1px dashed #ccc',
-                borderRadius: '4px',
-              }}
-            >
-              <div style={{ textAlign: 'center', color: '#666' }}>
-                <div style={{ fontSize: '16px', marginBottom: '8px' }}>
-                  📍 Layout Map
-                </div>
-                <div style={{ fontSize: '14px' }}>
-                  No turbine layout data available
-                </div>
-              </div>
-            </div>
           )}
         </Box>
 
@@ -455,6 +725,63 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
       </SpaceBetween>
     </Container>
   );
+  } catch (error) {
+    // Catch any rendering errors and display user-friendly error message
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error('[LayoutMapArtifact] Rendering error:', {
+      error: errorMessage,
+      stack: error instanceof Error ? error.stack : undefined,
+      projectId: data?.projectId,
+      turbineCount: data?.turbineCount,
+      timestamp: new Date().toISOString()
+    });
+
+    // Set error state if not already set
+    if (!hasError) {
+      setHasError(true);
+    }
+
+    return (
+      <Container
+        header={
+          <Header variant="h2">
+            Layout Map Error
+          </Header>
+        }
+      >
+        <Alert
+          type="error"
+          header="Failed to Render Layout Map"
+          action={
+            <Button
+              onClick={() => {
+                console.log('[LayoutMapArtifact] User clicked reload button');
+                setHasError(false);
+                setRenderError(null);
+                window.location.reload();
+              }}
+              iconName="refresh"
+            >
+              Reload Page
+            </Button>
+          }
+        >
+          <SpaceBetween size="s">
+            <Box>
+              An unexpected error occurred while rendering the layout map component.
+            </Box>
+            <Box variant="small" color="text-body-secondary">
+              <strong>Error:</strong> {errorMessage}
+            </Box>
+            <Box variant="small" color="text-body-secondary">
+              This may be a temporary issue. Try reloading the page or re-running the layout optimization.
+              If the problem persists, please contact support with the error details above.
+            </Box>
+          </SpaceBetween>
+        </Alert>
+      </Container>
+    );
+  }
 };
 
 export default LayoutMapArtifact;

@@ -987,6 +987,61 @@
               "attributes": []
             }
           }
+        },
+        "GetAgentProgressReturnType": {
+          "name": "GetAgentProgressReturnType",
+          "fields": {
+            "success": {
+              "name": "success",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "requestId": {
+              "name": "requestId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "steps": {
+              "name": "steps",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "status": {
+              "name": "status",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "error": {
+              "name": "error",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
         }
       },
       "queries": {
@@ -1041,6 +1096,22 @@
               "isArray": false,
               "type": "String",
               "isRequired": false
+            }
+          }
+        },
+        "getAgentProgress": {
+          "name": "getAgentProgress",
+          "isArray": false,
+          "type": {
+            "nonModel": "GetAgentProgressReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "requestId": {
+              "name": "requestId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
             }
           }
         }

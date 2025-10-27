@@ -1,0 +1,18 @@
+#!/bin/bash
+
+echo "🚀 Deploying wake simulation fix..."
+echo ""
+echo "Changes made:"
+echo "  - Fixed 'str' object has no attribute 'get' error"
+echo "  - Added type checking for wind_resource_data"
+echo "  - Added type checking for layout data from S3"
+echo ""
+echo "⚠️  NOTE: This requires restarting the Amplify sandbox"
+echo ""
+echo "To deploy:"
+echo "  1. Stop current sandbox (Ctrl+C in sandbox terminal)"
+echo "  2. Run: npx ampx sandbox"
+echo "  3. Wait for deployment to complete"
+echo "  4. Test with: node tests/debug-wake-simulation.js"
+echo ""
+echo "✅ Code changes are ready for deployment"

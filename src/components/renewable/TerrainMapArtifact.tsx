@@ -9,6 +9,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Table, Pagination, Button, ButtonDropdown } from '@cloudscape-design/components';
 import 'leaflet/dist/leaflet.css';
 import { ActionButtons } from './ActionButtons';
+import { WorkflowCTAButtons } from './WorkflowCTAButtons';
 
 // Custom CSS to hide popup tip and style popups + fix table header padding
 const popupStyles = `
@@ -835,11 +836,18 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
         }
       >
         <SpaceBetween size="l">
-          {/* Contextual Action Buttons */}
+          {/* Workflow CTA Buttons - Guide user through workflow */}
+          <WorkflowCTAButtons
+            completedSteps={['terrain']}
+            projectId={data.projectId}
+            onAction={handleFollowUpAction}
+          />
+          
+          {/* Legacy Action Buttons (if provided by orchestrator) */}
           {actions && actions.length > 0 && (
             <Box>
               <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
-                Next Steps
+                Additional Actions
               </Box>
               <ActionButtons 
                 actions={actions} 

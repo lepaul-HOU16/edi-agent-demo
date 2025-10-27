@@ -1,0 +1,24 @@
+# Exclude unnecessary files from Docker build
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.git/
+.gitignore
+*.md
+.DS_Store
+.vscode/
+.idea/
+*.log
+.env
+.env.local
+node_modules/
+resource.ts
+tsconfig.json
+package.json

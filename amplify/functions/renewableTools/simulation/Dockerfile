@@ -10,8 +10,9 @@ WORKDIR ${LAMBDA_TASK_ROOT}
 COPY simulation/requirements.txt ./
 
 # Install essential packages including scipy for NREL Weibull fitting
-# Updated versions to address security vulnerabilities
-RUN pip3 install --no-cache-dir \
+# Use --prefer-binary to use wheels when available (faster build)
+RUN pip3 install --upgrade pip setuptools wheel && \
+    pip3 install --no-cache-dir --prefer-binary \
     numpy==1.26.4 \
     scipy==1.12.0 \
     pandas==2.2.0 \

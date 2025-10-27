@@ -7,8 +7,10 @@ WORKDIR ${LAMBDA_TASK_ROOT}
 # Copy requirements.txt
 COPY terrain/requirements.txt ./
 
-# Install the specified packages
-RUN pip install -r requirements.txt --no-cache-dir
+# Install build tools and packages
+# Prefer wheels but allow source builds if needed
+RUN pip install --upgrade pip setuptools wheel && \
+    pip install -r requirements.txt --no-cache-dir --prefer-binary
 
 # Copy function code
 COPY terrain/handler.py ./

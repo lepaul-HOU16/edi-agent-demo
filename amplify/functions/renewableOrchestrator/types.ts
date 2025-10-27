@@ -38,7 +38,10 @@ export interface OrchestratorResponse {
     matchCount?: number;
     projectCount?: number;  // For project list queries
     activeProject?: string;  // For project list queries
-    errorCategory?: 'MISSING_PROJECT_DATA' | 'PARAMETER_ERROR' | 'AMBIGUOUS_REFERENCE';
+    errorCategory?: 'MISSING_PROJECT_DATA' | 'PARAMETER_ERROR' | 'AMBIGUOUS_REFERENCE' | 'RENEWABLE_WORKFLOW_ERROR' | 'MISSING_PREREQUISITE';
+    errorTitle?: string;
+    missingData?: string;
+    requiredAction?: string;
     projectStatus?: {
       terrain: boolean;
       layout: boolean;
@@ -107,6 +110,9 @@ export interface OrchestratorResponse {
     searchCriteria?: any;
     projects?: any[];
     duplicateGroups?: any[];
+    fallbackUsed?: boolean;  // Indicates if fallback data was used due to backend unavailability
+    fallbackReason?: string;  // Reason for fallback (e.g., 'Strands Agent timeout/throttling')
+    fallbackFailed?: boolean;  // Indicates if fallback also failed
   };
 }
 
