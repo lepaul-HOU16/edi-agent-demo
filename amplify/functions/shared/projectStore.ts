@@ -33,6 +33,11 @@ const DEFAULT_RETRY_CONFIG: RetryConfig = {
 };
 
 /**
+ * Project status enum
+ */
+export type ProjectStatus = 'not_started' | 'in_progress' | 'completed' | 'failed';
+
+/**
  * Project data structure
  */
 export interface ProjectData {
@@ -40,6 +45,7 @@ export interface ProjectData {
   project_name: string;          // Human-friendly name (kebab-case)
   created_at: string;            // ISO timestamp
   updated_at: string;            // ISO timestamp
+  status?: ProjectStatus;        // Current project status
   coordinates?: {
     latitude: number;
     longitude: number;
@@ -52,6 +58,10 @@ export interface ProjectData {
     turbine_count?: number;
     total_capacity_mw?: number;
     annual_energy_gwh?: number;
+    archived?: boolean;
+    archived_at?: string;
+    imported_at?: string;
+    [key: string]: any; // Allow additional metadata fields
   };
 }
 
@@ -104,12 +114,15 @@ export class ProjectStore {
             // Deep merge for nested objects
             coordinates: data.coordinates || existing.coordinates,
             metadata: { ...existing.metadata, ...data.metadata },
+            // Preserve status if not explicitly updated
+            status: data.status !== undefined ? data.status : existing.status,
           }
         : {
             project_id: data.project_id || this.generateProjectId(),
             project_name: projectName,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
+            status: data.status || 'not_started',
             ...data,
           };
 
@@ -227,15 +240,23 @@ export class ProjectStore {
   }
 
   /**
-   * List all projects
+   * List all projects (including archived)
+   * @param includeArchived - Whether to include archived projects (default: true)
    * @returns Array of project data
    */
-  async list(): Promise<ProjectData[]> {
+  async list(includeArchived: boolean = true): Promise<ProjectData[]> {
     try {
       // Check list cache
       if (this.listCache && (Date.now() - this.listCache.timestamp) < this.cacheTTL) {
         console.log('[ProjectStore] List cache hit');
-        return this.listCache.data;
+        const projects = this.listCache.data;
+        
+        // Filter archived projects if requested
+        if (!includeArchived) {
+          return projects.filter((p) => p.metadata?.archived !== true);
+        }
+        
+        return projects;
       }
 
       if (!this.bucketName) {
@@ -279,6 +300,14 @@ export class ProjectStore {
       };
 
       console.log(`[ProjectStore] Listed ${projects.length} projects`);
+      
+      // Filter archived projects if requested
+      if (!includeArchived) {
+        const activeProjects = projects.filter((p) => p.metadata?.archived !== true);
+        console.log(`[ProjectStore] Filtered to ${activeProjects.length} active projects`);
+        return activeProjects;
+      }
+      
       return projects;
 
     } catch (error) {
@@ -288,7 +317,15 @@ export class ProjectStore {
       if (this.listCache) {
         const age = Date.now() - this.listCache.timestamp;
         console.warn(`[ProjectStore] Using ${age > this.cacheTTL ? 'expired' : 'valid'} list cache due to S3 error (age: ${Math.round(age / 1000)}s)`);
-        return this.listCache.data;
+        
+        const projects = this.listCache.data;
+        
+        // Filter archived projects if requested
+        if (!includeArchived) {
+          return projects.filter((p) => p.metadata?.archived !== true);
+        }
+        
+        return projects;
       }
 
       console.warn('[ProjectStore] No list cache available, returning empty array');
@@ -606,5 +643,122 @@ export class ProjectStore {
       listCacheExists: this.listCache !== null,
       cacheTTL: this.cacheTTL,
     };
+  }
+
+  /**
+   * Archive a project
+   * @param projectName - Project name to archive
+   */
+  async archive(projectName: string): Promise<void> {
+    const project = await this.load(projectName);
+    if (!project) {
+      throw new Error(`Project '${projectName}' not found`);
+    }
+
+    await this.save(projectName, {
+      metadata: {
+        ...project.metadata,
+        archived: true,
+        archived_at: new Date().toISOString(),
+      },
+    });
+
+    console.log(`[ProjectStore] Archived project: ${projectName}`);
+  }
+
+  /**
+   * Unarchive a project
+   * @param projectName - Project name to unarchive
+   */
+  async unarchive(projectName: string): Promise<void> {
+    const project = await this.load(projectName);
+    if (!project) {
+      throw new Error(`Project '${projectName}' not found`);
+    }
+
+    await this.save(projectName, {
+      metadata: {
+        ...project.metadata,
+        archived: false,
+        archived_at: undefined,
+      },
+    });
+
+    console.log(`[ProjectStore] Unarchived project: ${projectName}`);
+  }
+
+  /**
+   * Update project status
+   * @param projectName - Project name
+   * @param status - New status
+   */
+  async updateStatus(projectName: string, status: ProjectStatus): Promise<void> {
+    const project = await this.load(projectName);
+    if (!project) {
+      throw new Error(`Project '${projectName}' not found`);
+    }
+
+    await this.save(projectName, {
+      status,
+    });
+
+    console.log(`[ProjectStore] Updated project ${projectName} status to: ${status}`);
+  }
+
+  /**
+   * Check if project is archived
+   * @param projectName - Project name
+   * @returns True if archived, false otherwise
+   */
+  async isArchived(projectName: string): Promise<boolean> {
+    const project = await this.load(projectName);
+    return project?.metadata?.archived === true;
+  }
+
+  /**
+   * Check if project is in progress
+   * @param projectName - Project name
+   * @returns True if in progress, false otherwise
+   */
+  async isInProgress(projectName: string): Promise<boolean> {
+    const project = await this.load(projectName);
+    return project?.status === 'in_progress';
+  }
+
+  /**
+   * List archived projects
+   * @returns Array of archived projects
+   */
+  async listArchived(): Promise<ProjectData[]> {
+    const allProjects = await this.list(true);
+    return allProjects.filter(p => p.metadata?.archived === true);
+  }
+
+  /**
+   * List active (non-archived) projects
+   * @returns Array of active projects
+   */
+  async listActive(): Promise<ProjectData[]> {
+    return this.list(false);
+  }
+
+  /**
+   * Mark project as imported
+   * @param projectName - Project name
+   */
+  async markAsImported(projectName: string): Promise<void> {
+    const project = await this.load(projectName);
+    if (!project) {
+      throw new Error(`Project '${projectName}' not found`);
+    }
+
+    await this.save(projectName, {
+      metadata: {
+        ...project.metadata,
+        imported_at: new Date().toISOString(),
+      },
+    });
+
+    console.log(`[ProjectStore] Marked project as imported: ${projectName}`);
   }
 }

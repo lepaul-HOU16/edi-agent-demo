@@ -368,11 +368,10 @@ class RenewableVisualizationGenerator:
         wind_speeds = wind_data.get('speeds', [])
         wind_directions = wind_data.get('directions', [])
         
+        # Validate wind data is provided (NO SYNTHETIC FALLBACKS)
         if not wind_speeds or not wind_directions:
-            # Create sample data for demonstration
-            np.random.seed(42)
-            wind_directions = np.random.uniform(0, 360, 1000)
-            wind_speeds = np.random.weibull(2, 1000) * 15  # Weibull distribution for realistic wind speeds
+            logger.error("❌ No wind data provided to create_wind_rose")
+            raise ValueError("Wind data is required. Cannot generate wind rose without real NREL data.")
         
         # Convert directions to radians
         directions_rad = np.radians(wind_directions)

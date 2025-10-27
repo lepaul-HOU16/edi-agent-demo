@@ -9,6 +9,15 @@ export interface OrchestratorRequest {
   context?: {
     previousResults?: any;
     projectId?: string;
+    duplicateCheckResult?: {
+      hasDuplicates: boolean;
+      duplicates: Array<{
+        project: any;
+        distanceKm: number;
+      }>;
+      userPrompt: string;
+      message: string;
+    };
   };
 }
 
@@ -69,6 +78,35 @@ export interface OrchestratorResponse {
         report: string;
       };
     };
+    // Duplicate detection metadata
+    requiresUserChoice?: boolean;
+    duplicateProjects?: Array<{
+      name: string;
+      distance: number;
+    }>;
+    duplicateCheckResult?: {
+      hasDuplicates: boolean;
+      duplicates: Array<{
+        project: any;
+        distanceKm: number;
+      }>;
+      userPrompt: string;
+      message: string;
+    };
+    createNew?: boolean;
+    // Lifecycle operation metadata
+    lifecycleOperation?: string;
+    deletedCount?: number;
+    deletedProjects?: string[];
+    failedProjects?: Array<{ name: string; error: string }>;
+    oldName?: string;
+    newName?: string;
+    mergedProject?: string;
+    archivedProjects?: any[];
+    exportData?: any;
+    searchCriteria?: any;
+    projects?: any[];
+    duplicateGroups?: any[];
   };
 }
 
@@ -100,7 +138,7 @@ export interface ThoughtStep {
 }
 
 export interface RenewableIntent {
-  type: 'terrain_analysis' | 'layout_optimization' | 'wake_simulation' | 'wind_rose' | 'wind_rose_analysis' | 'report_generation' | 'unknown';
+  type: 'terrain_analysis' | 'layout_optimization' | 'wake_simulation' | 'wind_rose' | 'wind_rose_analysis' | 'report_generation' | 'delete_project' | 'rename_project' | 'merge_projects' | 'archive_project' | 'export_project' | 'search_projects' | 'project_dashboard' | 'unknown';
   params: Record<string, any>;
   confidence: number;
 }

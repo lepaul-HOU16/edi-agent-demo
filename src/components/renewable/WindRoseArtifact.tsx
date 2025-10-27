@@ -67,6 +67,9 @@ interface WindRoseArtifactProps {
         prevailing_direction: string;
         prevailing_frequency: number;
       };
+      dataSource?: string;  // Data source (e.g., "NREL Wind Toolkit")
+      dataYear?: number;    // Data year
+      dataQuality?: 'high' | 'medium' | 'low';  // Data quality
     };
     // Legacy format support
     metrics?: {
@@ -77,6 +80,13 @@ interface WindRoseArtifactProps {
     };
     windData?: {
       directions: DirectionDetail[];
+    };
+    // Error information
+    error?: {
+      code: string;
+      message: string;
+      instructions?: string;
+      details?: any;
     };
   };
   actions?: ActionButton[];  // Contextual action buttons from orchestrator
@@ -92,15 +102,6 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
       onFollowUpAction(query);
     }
   };
-
-  // Debug logging to track renders
-  console.log('🌹 WindRoseArtifact RENDER:', {
-    projectId: data.projectId,
-    hasVisualizationUrl: !!(data.visualizationUrl || data.windRoseUrl || data.mapUrl),
-    hasPlotlyData: !!data.plotlyWindRose,
-    visualizationUrl: data.visualizationUrl || data.windRoseUrl || data.mapUrl,
-    timestamp: new Date().toISOString()
-  });
 
   // Export handlers
   const handleExportData = () => {
@@ -128,6 +129,20 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
   const windRoseData = data.windRoseData || [];
   const directions = data.windData?.directions || windRoseData;
   
+  // Debug logging to track renders and visualization path (after windRoseData is defined)
+  console.log('🌹 WindRoseArtifact RENDER:', {
+    projectId: data.projectId,
+    hasPlotlyData: !!data.plotlyWindRose,
+    hasVisualizationUrl: !!(data.visualizationUrl || data.windRoseUrl || data.mapUrl),
+    hasWindRoseData: windRoseData.length > 0,
+    visualizationPath: data.plotlyWindRose ? 'PLOTLY' : 
+                       (data.visualizationUrl || data.windRoseUrl || data.mapUrl) ? 'PNG' :
+                       windRoseData.length > 0 ? 'SVG' : 'NONE',
+    plotlyDataKeys: data.plotlyWindRose ? Object.keys(data.plotlyWindRose) : [],
+    visualizationUrl: data.visualizationUrl || data.windRoseUrl || data.mapUrl,
+    timestamp: new Date().toISOString()
+  });
+  
   // Helper functions to safely access stats
   const getAvgSpeed = () => {
     if (!stats) return 0;
@@ -144,35 +159,138 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
     return 'directionCount' in stats ? stats.directionCount : stats.totalObservations;
   };
 
+  // Check for error state
+  if (data.error) {
+    return (
+      <Container
+        header={
+          <Header
+            variant="h2"
+            description="Wind resource analysis error"
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '20px', fontWeight: 'bold' }}>{data.title}</span>
+              <Badge color="red">Error</Badge>
+            </div>
+          </Header>
+        }
+      >
+        <SpaceBetween size="l">
+          <div style={{
+            padding: '32px',
+            backgroundColor: '#fef6f6',
+            borderRadius: '8px',
+            border: '2px solid #d91515'
+          }}>
+            <div style={{ fontSize: '48px', textAlign: 'center', marginBottom: '16px' }}>⚠️</div>
+            <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#d91515', textAlign: 'center', marginBottom: '12px' }}>
+              {data.error.message}
+            </div>
+            {data.error.instructions && (
+              <div style={{ 
+                fontSize: '14px', 
+                color: '#5f6b7a',
+                textAlign: 'center',
+                marginBottom: '20px'
+              }}>
+                {data.error.instructions}
+              </div>
+            )}
+            
+            {/* NREL-specific error guidance */}
+            {data.error.code === 'NREL_API_KEY_MISSING' && (
+              <div style={{
+                backgroundColor: '#ffffff',
+                padding: '16px',
+                borderRadius: '6px',
+                border: '1px solid #e9ebed',
+                marginTop: '16px'
+              }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '12px' }}>Setup Instructions:</div>
+                <ol style={{ margin: '0', paddingLeft: '20px', fontSize: '14px' }}>
+                  <li>Get a free NREL API key at: <a href="https://developer.nrel.gov/signup/" target="_blank" rel="noopener noreferrer" style={{ color: '#0972d3' }}>developer.nrel.gov/signup</a></li>
+                  <li>Configure NREL_API_KEY environment variable in Lambda</li>
+                  <li>Or set up AWS Secrets Manager with key 'nrel/api_key'</li>
+                  <li>Restart the application and try again</li>
+                </ol>
+              </div>
+            )}
+            
+            {data.error.code === 'NREL_API_RATE_LIMIT' && (
+              <div style={{
+                backgroundColor: '#ffffff',
+                padding: '16px',
+                borderRadius: '6px',
+                border: '1px solid #e9ebed',
+                marginTop: '16px'
+              }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Rate Limit Exceeded</div>
+                <div style={{ fontSize: '14px' }}>
+                  The NREL API has rate limits. Please wait a few minutes and try again.
+                  {data.error.details?.retry_after && (
+                    <div style={{ marginTop: '8px' }}>
+                      Retry after: {data.error.details.retry_after} seconds
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+            
+            {data.error.code === 'INVALID_COORDINATES' && (
+              <div style={{
+                backgroundColor: '#ffffff',
+                padding: '16px',
+                borderRadius: '6px',
+                border: '1px solid #e9ebed',
+                marginTop: '16px'
+              }}>
+                <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Coverage Area</div>
+                <div style={{ fontSize: '14px' }}>
+                  NREL Wind Toolkit data is only available for locations within the continental United States.
+                  Please provide coordinates within the US coverage area.
+                </div>
+              </div>
+            )}
+            
+            {/* No synthetic data message */}
+            <div style={{
+              marginTop: '20px',
+              padding: '12px',
+              backgroundColor: '#037f0c',
+              color: '#ffffff',
+              borderRadius: '6px',
+              textAlign: 'center',
+              fontSize: '13px',
+              fontWeight: 'bold'
+            }}>
+              ✓ NO SYNTHETIC DATA USED - Real NREL data required for accurate analysis
+            </div>
+          </div>
+        </SpaceBetween>
+      </Container>
+    );
+  }
+
   return (
     <Container
       header={
         <Header
           variant="h2"
           description="Professional wind resource analysis with directional frequency distribution"
-          actions={
-            <SpaceBetween direction="horizontal" size="xs">
-              {stats && (
-                <>
-                  <Badge color="blue">
-                    {getAvgSpeed().toFixed(1)} m/s avg
-                  </Badge>
-                  <Badge color="green">
-                    {stats.prevailingDirection} prevailing
-                  </Badge>
-                </>
-              )}
-              <Button
-                iconName="download"
-                variant="normal"
-                onClick={handleExportData}
-              >
-                Export Data
-              </Button>
-            </SpaceBetween>
-          }
         >
-          {data.title}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '20px', fontWeight: 'bold' }}>{data.title}</span>
+            {stats && (
+              <>
+                <Badge color="blue">
+                  {getAvgSpeed().toFixed(1)} m/s avg
+                </Badge>
+                <Badge color="green">
+                  {stats.prevailingDirection} prevailing
+                </Badge>
+              </>
+            )}
+          </div>
         </Header>
       }
     >
@@ -185,6 +303,52 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
           />
         )}
         
+        {/* Data Source Information Banner */}
+        {data.plotlyWindRose && (
+          <Box padding="s" variant="div">
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px',
+              backgroundColor: '#f9f9f9',
+              borderRadius: '8px',
+              border: '1px solid #e9ebed'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                <div style={{
+                  fontSize: '24px',
+                  padding: '8px',
+                  backgroundColor: '#037f0c',
+                  borderRadius: '6px',
+                  color: '#ffffff'
+                }}>
+                  ✓
+                </div>
+                <div>
+                  <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '4px' }}>
+                    Real Meteorological Data
+                  </div>
+                  <div style={{ fontSize: '14px', color: '#5f6b7a' }}>
+                    Data Source: {data.plotlyWindRose.dataSource || 'NREL Wind Toolkit'} ({data.plotlyWindRose.dataYear || 2023})
+                  </div>
+                </div>
+              </div>
+              <div style={{
+                padding: '8px 16px',
+                backgroundColor: data.plotlyWindRose.dataQuality === 'high' ? '#037f0c' : 
+                                 data.plotlyWindRose.dataQuality === 'medium' ? '#f89406' : '#d91515',
+                color: '#ffffff',
+                borderRadius: '6px',
+                fontSize: '13px',
+                fontWeight: 'bold'
+              }}>
+                {(data.plotlyWindRose.dataQuality || 'high').toUpperCase()} QUALITY DATA
+              </div>
+            </div>
+          </Box>
+        )}
+
         {stats && (
           <ColumnLayout columns={4} variant="text-grid">
             <div>
@@ -218,6 +382,17 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
           <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
             Wind Rose Diagram
           </Box>
+          {(() => {
+            // Debug logging
+            console.log('🌹 WindRoseArtifact rendering decision:', {
+              hasPlotlyWindRose: !!data.plotlyWindRose,
+              hasVisualizationUrl: !!(data.visualizationUrl || data.windRoseUrl || data.mapUrl),
+              hasWindRoseData: windRoseData.length > 0,
+              plotlyDataType: data.plotlyWindRose ? typeof data.plotlyWindRose : 'undefined',
+              plotlyDataKeys: data.plotlyWindRose ? Object.keys(data.plotlyWindRose) : []
+            });
+            return null;
+          })()}
           {data.plotlyWindRose ? (
             // Use Plotly interactive wind rose (preferred)
             <PlotlyWindRose
@@ -226,6 +401,9 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
               projectId={data.projectId}
               statistics={data.plotlyWindRose.statistics}
               darkBackground={true}
+              dataSource={data.plotlyWindRose.dataSource}
+              dataYear={data.plotlyWindRose.dataYear}
+              dataQuality={data.plotlyWindRose.dataQuality}
             />
           ) : (data.visualizationUrl || data.windRoseUrl || data.mapUrl) ? (
             // Fallback to matplotlib PNG
@@ -372,9 +550,18 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
           </Box>
         )}
 
-        <Box variant="small" color="text-body-secondary">
-          Project ID: {data.projectId}
-        </Box>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '16px' }}>
+          <Box variant="small" color="text-body-secondary">
+            Project ID: {data.projectId}
+          </Box>
+          <Button
+            iconName="download"
+            variant="primary"
+            onClick={handleExportData}
+          >
+            Export Data
+          </Button>
+        </div>
       </SpaceBetween>
     </Container>
   );

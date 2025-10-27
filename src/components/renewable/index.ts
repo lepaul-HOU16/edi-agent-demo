@@ -54,3 +54,4 @@ export { default as PlotlyWindRose } from './PlotlyWindRose';
 
 // Project Management Components
 export { ProjectListTable, ProjectDetailsPanel } from './ProjectListTable';
+export { default as ProjectDashboardArtifact } from './ProjectDashboardArtifact';

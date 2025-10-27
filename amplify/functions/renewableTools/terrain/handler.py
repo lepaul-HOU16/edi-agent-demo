@@ -10,6 +10,24 @@ import logging
 import sys
 import os
 from datetime import datetime
+import hashlib
+
+# TERRAIN MAP VERSION - Increment this to force cache invalidation
+# 
+# IMPORTANT: Change this version string whenever you modify:
+# - HTML generation logic (map styling, popups, etc.)
+# - Buffer widths or corridor calculations
+# - Feature styling or colors
+# - Any visual aspect of the terrain map
+#
+# This ensures users see the updated map immediately instead of cached versions.
+# The version is hashed and included in the S3 key, so new versions create new files.
+#
+# Version History:
+# - v1.0: Initial implementation
+# - v2.0: Added buffer polygons for infrastructure
+# - v3.0: Realistic corridor widths based on real-world standards
+TERRAIN_MAP_VERSION = "v3.0-realistic-corridors"
 
 # Configure logging first
 logging.basicConfig(level=logging.INFO)
@@ -30,6 +48,15 @@ try:
 except ImportError as e:
     logger.warning(f"⚠️ Visualization modules not available: {e}")
     VISUALIZATIONS_AVAILABLE = False
+
+# Import NREL Wind Client for real wind data
+try:
+    from nrel_wind_client import NRELWindClient, get_wind_conditions
+    NREL_CLIENT_AVAILABLE = True
+    logger.info("✅ NREL Wind Client loaded successfully")
+except ImportError as e:
+    logger.warning(f"⚠️ NREL Wind Client not available: {e}")
+    NREL_CLIENT_AVAILABLE = False
 
 def validate_map_html(html_content: str) -> dict:
     """Validate that the generated HTML contains all required elements"""
@@ -309,6 +336,74 @@ def _get_polyline_style_config(feature_type):
     
     return style_configs.get(feature_type, default_style)
 
+def generate_perimeter_feature(center_lat, center_lon, radius_km):
+    """
+    Generate a circular perimeter polygon around the site
+    
+    Args:
+        center_lat: Center latitude
+        center_lon: Center longitude
+        radius_km: Radius in kilometers
+        
+    Returns:
+        GeoJSON Feature representing the site perimeter
+    """
+    import math
+    
+    logger.info(f"🎯 Generating perimeter feature at ({center_lat}, {center_lon}) with radius {radius_km}km")
+    
+    # Calculate perimeter circle coordinates
+    # Use 36 points for smooth circle (10 degree increments)
+    num_points = 36
+    coordinates = []
+    
+    # Convert radius from km to degrees (approximate)
+    # 1 degree latitude ≈ 111 km
+    # 1 degree longitude ≈ 111 km * cos(latitude)
+    lat_degree_km = 111.32
+    lon_degree_km = 111.32 * math.cos(math.radians(center_lat))
+    
+    radius_lat = radius_km / lat_degree_km
+    radius_lon = radius_km / lon_degree_km
+    
+    # Generate circle points
+    for i in range(num_points + 1):  # +1 to close the polygon
+        angle = (i * 360 / num_points) * math.pi / 180  # Convert to radians
+        
+        # Calculate point on circle
+        lat = center_lat + radius_lat * math.sin(angle)
+        lon = center_lon + radius_lon * math.cos(angle)
+        
+        coordinates.append([lon, lat])  # GeoJSON uses [lon, lat] order
+    
+    # Calculate area in km²
+    area_km2 = math.pi * radius_km * radius_km
+    
+    # Create GeoJSON feature
+    perimeter_feature = {
+        'type': 'Feature',
+        'geometry': {
+            'type': 'Polygon',
+            'coordinates': [coordinates]  # Polygon requires array of rings
+        },
+        'properties': {
+            'type': 'perimeter',
+            'feature_type': 'perimeter',
+            'name': 'Site Perimeter',
+            'radius_km': radius_km,
+            'area_km2': round(area_km2, 2),
+            'description': f'Analysis boundary with {radius_km}km radius',
+            'data_source': 'generated',
+            'reliability': 'high',
+            'wind_impact': 'boundary_marker',
+            'required_setback_m': 0
+        }
+    }
+    
+    logger.info(f"✅ Generated perimeter feature: {num_points} points, area={area_km2:.2f} km²")
+    
+    return perimeter_feature
+
 def create_fallback_terrain_data(latitude, longitude, radius_km, error_reason):
     """Create clearly labeled synthetic terrain data as fallback"""
     logger.info(f"🔄 Creating synthetic fallback terrain data due to: {error_reason}")
@@ -380,6 +475,11 @@ def create_fallback_terrain_data(latitude, longitude, radius_km, error_reason):
             }
         }
     ]
+    
+    # Add perimeter feature to synthetic data
+    perimeter_feature = generate_perimeter_feature(latitude, longitude, radius_km)
+    features.append(perimeter_feature)
+    logger.info(f"✅ Added perimeter feature to synthetic fallback data")
     
     return {
         'type': 'FeatureCollection',
@@ -689,14 +789,56 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
             }});
 
             
+            // Add analysis area perimeter circle (CRITICAL: Shows boundary of analysis)
+            var radiusMeters = {geojson.get('metadata', {}).get('radius_km', 5.0)} * 1000;
+            var perimeterCircle = L.circle([{center_lat}, {center_lon}], {{
+                radius: radiusMeters,
+                color: '#2ecc71',  // Green to indicate analysis boundary
+                fillColor: '#2ecc71',
+                fillOpacity: 0.03,  // Very subtle fill
+                weight: 2,
+                opacity: 0.6,  // More subtle
+                dashArray: '8, 8'  // Clearer dashed pattern
+            }}).bindPopup(
+                '<div style="text-align: center;">' +
+                '<strong style="color: #2ecc71;">🎯 Analysis Boundary</strong><br>' +
+                '<span style="font-size: 0.9em;">Search Radius: ' + (radiusMeters / 1000).toFixed(1) + ' km</span><br>' +
+                '<span style="font-size: 0.85em; color: #7f8c8d;">All terrain features within this area</span>' +
+                '</div>', 
+                {{
+                    className: 'terrain-feature-popup'
+                }}
+            ).addTo(map);
+            
+            // Add perimeter to bounds calculation
+            allLayers.push(perimeterCircle);
+            
             // Add overlays (polygons and polylines) with enhanced styling
             overlays.forEach(function(overlay) {{
                 var style = overlay.style_config || getDefaultOverlayStyle(overlay.feature_type);
                 var layer;
+                var bufferLayer; // For polyline buffer effect
                 
                 if (overlay.type === 'polygon') {{
                     layer = L.polygon(overlay.coordinates, style);
                 }} else if (overlay.type === 'polyline') {{
+                    // CRITICAL: Create buffer polygon behind polyline for thickness effect
+                    // This creates a semi-transparent corridor around the line
+                    var bufferWidth = getBufferWidth(overlay.feature_type);
+                    var bufferStyle = {{
+                        fillColor: style.color,
+                        fillOpacity: 0.15,  // Semi-transparent tint
+                        color: style.color,
+                        weight: bufferWidth,
+                        opacity: 0.3
+                    }};
+                    
+                    // Create buffer as a thick polyline underneath
+                    bufferLayer = L.polyline(overlay.coordinates, bufferStyle);
+                    bufferLayer.addTo(map);
+                    allLayers.push(bufferLayer);
+                    
+                    // Create the main line on top
                     layer = L.polyline(overlay.coordinates, style);
                 }}
                 
@@ -708,6 +850,14 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
                         className: 'terrain-feature-popup'
                     }});
                     
+                    // Add popup to buffer layer too if it exists
+                    if (bufferLayer) {{
+                        bufferLayer.bindPopup(popupContent, {{
+                            maxWidth: 300,
+                            className: 'terrain-feature-popup'
+                        }});
+                    }}
+                    
                     // Add hover effects
                     layer.on('mouseover', function(e) {{
                         var hoverStyle = Object.assign({{}}, style);
@@ -717,10 +867,26 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
                         hoverStyle.opacity = Math.min(1.0, (hoverStyle.opacity || 0.8) + 0.2);
                         hoverStyle.weight = (hoverStyle.weight || 2) + 1;
                         layer.setStyle(hoverStyle);
+                        
+                        // Highlight buffer too
+                        if (bufferLayer) {{
+                            bufferLayer.setStyle({{
+                                fillOpacity: 0.25,
+                                opacity: 0.5
+                            }});
+                        }}
                     }});
                     
                     layer.on('mouseout', function(e) {{
                         layer.setStyle(style);
+                        
+                        // Reset buffer
+                        if (bufferLayer) {{
+                            bufferLayer.setStyle({{
+                                fillOpacity: 0.15,
+                                opacity: 0.3
+                            }});
+                        }}
                     }});
                     
                     layer.addTo(map);
@@ -729,6 +895,35 @@ def create_basic_terrain_map(geojson, center_lat, center_lon):
                     allLayers.push(layer);
                 }}
             }});
+            
+            // Helper function to determine buffer width based on feature type
+            // Based on real-world infrastructure corridor standards
+            function getBufferWidth(featureType) {{
+                switch (featureType) {{
+                    case 'major_highway':
+                    case 'motorway':
+                        return 25;  // 50m total width (25m radius) - major highway right-of-way
+                    case 'highway':
+                    case 'trunk':
+                        return 18;  // 36m total width - highway corridor
+                    case 'railway':
+                        return 15;  // 30m total width - railway corridor with safety buffer
+                    case 'power_infrastructure':
+                    case 'power':
+                        return 30;  // 60m total width - high voltage transmission line corridor
+                    case 'waterway':
+                    case 'river':
+                        return 12;  // 24m total width - waterway buffer zone
+                    case 'residential':
+                    case 'secondary':
+                        return 8;   // 16m total width - residential road
+                    case 'tertiary':
+                    case 'unclassified':
+                        return 6;   // 12m total width - minor road
+                    default:
+                        return 5;   // 10m total width - default corridor
+                }}
+            }}
         
         // Enhanced style function for overlays with feature-specific styling
         function getDefaultOverlayStyle(featureType) {{
@@ -1195,26 +1390,55 @@ def handler(event, context):
             
             # Process and enhance features
             processed_features = []
-            for feature in geojson.get('features', []):
-                # Add data source information
-                feature['properties']['data_source'] = 'openstreetmap_real'
-                feature['properties']['reliability'] = 'high'
-                
-                # Add wind farm specific analysis
-                feature_type = feature['properties'].get('feature_type', 'other')
-                feature['properties']['wind_impact'] = get_wind_impact_assessment(feature_type)
-                feature['properties']['setback_distance_m'] = get_required_setback(feature_type)
-                
-                # Validate geometry
-                if validate_feature_geometry(feature):
-                    processed_features.append(feature)
-                else:
-                    logger.warning(f"⚠️ Invalid geometry for feature {feature['properties'].get('osm_id')}")
+            invalid_geometry_count = 0
+            
+            logger.info(f"🔄 Processing {len(geojson.get('features', []))} OSM features")
+            
+            for idx, feature in enumerate(geojson.get('features', [])):
+                try:
+                    # Add data source information
+                    feature['properties']['data_source'] = 'openstreetmap_real'
+                    feature['properties']['reliability'] = 'high'
+                    
+                    # Add wind farm specific analysis
+                    feature_type = feature['properties'].get('feature_type', 'other')
+                    feature['properties']['wind_impact'] = get_wind_impact_assessment(feature_type)
+                    feature['properties']['setback_distance_m'] = get_required_setback(feature_type)
+                    
+                    # Validate geometry
+                    if validate_feature_geometry(feature):
+                        processed_features.append(feature)
+                        logger.debug(f"  ✅ Feature {idx}: {feature_type} - valid geometry")
+                    else:
+                        invalid_geometry_count += 1
+                        logger.warning(f"  ⚠️ Feature {idx}: {feature_type} - invalid geometry (OSM ID: {feature['properties'].get('osm_id')})")
+                except Exception as feature_error:
+                    invalid_geometry_count += 1
+                    logger.warning(f"  ❌ Feature {idx}: Error processing - {feature_error}")
+            
+            logger.info(f"📊 Feature processing complete: {len(processed_features)} valid, {invalid_geometry_count} invalid")
+            
+            # Generate and add perimeter feature
+            perimeter_feature = generate_perimeter_feature(latitude, longitude, radius_km)
+            processed_features.append(perimeter_feature)
+            logger.info(f"✅ Added perimeter feature to GeoJSON")
+            logger.info(f"📦 Total features in response: {len(processed_features)} (OSM: {len(processed_features)-1}, Perimeter: 1)")
             
             # Update geojson with processed features
             geojson['features'] = processed_features
             geojson['metadata']['processed_feature_count'] = len(processed_features)
+            geojson['metadata']['osm_feature_count'] = len(processed_features) - 1
+            geojson['metadata']['perimeter_feature_count'] = 1
+            geojson['metadata']['invalid_geometry_count'] = invalid_geometry_count
             geojson['metadata']['validation_result'] = validation_result
+            geojson['metadata']['includes_perimeter'] = True
+            
+            # CRITICAL: Log final feature breakdown for debugging
+            feature_type_counts = {}
+            for f in processed_features:
+                ftype = f['properties'].get('feature_type', 'unknown')
+                feature_type_counts[ftype] = feature_type_counts.get(ftype, 0) + 1
+            logger.info(f"📊 Final feature breakdown: {feature_type_counts}")
             
         except ImportError as import_error:
             logger.error(f"❌ OSM client import error: {import_error}")
@@ -1255,6 +1479,69 @@ def handler(event, context):
             logger.warning("🔄 Falling back to synthetic terrain data due to unexpected error")
             logger.warning(f"🚨 REGRESSION ALERT: Using synthetic data instead of real OSM data")
             geojson = create_fallback_terrain_data(latitude, longitude, radius_km, f"Unexpected error: {error_type}: {str(general_error)}")
+        
+        # Fetch real wind data from NREL Wind Toolkit API
+        wind_data = None
+        wind_data_error = None
+        
+        if NREL_CLIENT_AVAILABLE:
+            try:
+                logger.info(f"🌬️ Fetching real wind data from NREL Wind Toolkit API for ({latitude}, {longitude})")
+                wind_data = get_wind_conditions(latitude, longitude, year=2023)
+                logger.info(f"✅ Successfully fetched NREL wind data: mean_speed={wind_data.get('mean_wind_speed'):.2f} m/s")
+                logger.info(f"📊 Wind data source: {wind_data.get('data_source')}, reliability: {wind_data.get('reliability')}")
+            except ValueError as api_key_error:
+                # API key not configured - return clear error
+                error_msg = str(api_key_error)
+                logger.error(f"❌ NREL API key error: {error_msg}")
+                wind_data_error = {
+                    'error': 'NREL_API_KEY_MISSING',
+                    'message': 'NREL API key not configured',
+                    'instructions': 'Set NREL_API_KEY environment variable or configure in AWS Secrets Manager',
+                    'signup_url': 'https://developer.nrel.gov/signup/',
+                    'details': error_msg
+                }
+            except Exception as nrel_error:
+                # Other NREL API errors - return clear error (NO SYNTHETIC FALLBACK)
+                error_msg = str(nrel_error)
+                logger.error(f"❌ NREL API error: {error_msg}")
+                
+                # Determine error type
+                if 'timeout' in error_msg.lower():
+                    wind_data_error = {
+                        'error': 'NREL_API_TIMEOUT',
+                        'message': 'NREL API request timed out',
+                        'instructions': 'Please try again. If problem persists, check NREL API status',
+                        'retry_after': 60
+                    }
+                elif 'rate limit' in error_msg.lower():
+                    wind_data_error = {
+                        'error': 'NREL_API_RATE_LIMIT',
+                        'message': 'NREL API rate limit exceeded',
+                        'instructions': 'Please wait a few minutes and try again',
+                        'retry_after': 300
+                    }
+                elif 'Status: 4' in error_msg:
+                    wind_data_error = {
+                        'error': 'NREL_API_REQUEST_FAILED',
+                        'message': 'NREL API request failed',
+                        'instructions': 'Please check coordinates and try again',
+                        'details': error_msg
+                    }
+                else:
+                    wind_data_error = {
+                        'error': 'NREL_API_ERROR',
+                        'message': 'Failed to fetch wind data from NREL API',
+                        'instructions': 'Please try again later',
+                        'details': error_msg
+                    }
+        else:
+            logger.warning("⚠️ NREL Wind Client not available - wind data will not be included")
+            wind_data_error = {
+                'error': 'NREL_CLIENT_UNAVAILABLE',
+                'message': 'NREL Wind Client module not available',
+                'instructions': 'Contact system administrator to enable NREL integration'
+            }
         
         # Save geojson to S3 for frontend access
         geojson_s3_key = None
@@ -1317,7 +1604,9 @@ def handler(event, context):
                     s3_bucket = os.environ.get('RENEWABLE_S3_BUCKET')
                     if s3_bucket:
                         s3_client = boto3.client('s3')
-                        s3_key = f"renewable/terrain/{project_id}/terrain_map.html"
+                        # Include version in S3 key to force cache invalidation on code changes
+                        version_hash = hashlib.md5(TERRAIN_MAP_VERSION.encode()).hexdigest()[:8]
+                        s3_key = f"renewable/terrain/{project_id}/terrain_map_{version_hash}.html"
                         s3_client.put_object(
                             Bucket=s3_bucket,
                             Key=s3_key,
@@ -1395,8 +1684,9 @@ def handler(event, context):
                 
                 # Save visualizations to S3 if configured
                 if viz_generator.s3_client:
-                    # Save terrain map
-                    s3_key = config.get_s3_key(project_id, 'terrain_map', 'html')
+                    # Save terrain map with version hash to force cache invalidation
+                    version_hash = hashlib.md5(TERRAIN_MAP_VERSION.encode()).hexdigest()[:8]
+                    s3_key = f"renewable/terrain/{project_id}/terrain_map_{version_hash}.html"
                     map_url = viz_generator.save_html_to_s3(map_html, s3_key)
                     if map_url:
                         visualizations['interactive_map'] = map_url
@@ -1474,6 +1764,20 @@ def handler(event, context):
             'message': f'Found {len(features)} terrain features',
             'debug': debug_info
         }
+        
+        # Add wind data to response if available
+        if wind_data:
+            response_data['windData'] = wind_data
+            response_data['windDataSource'] = wind_data.get('data_source', 'NREL Wind Toolkit')
+            response_data['windDataYear'] = wind_data.get('data_year', 2023)
+            response_data['windDataReliability'] = wind_data.get('reliability', 'high')
+            logger.info(f"✅ Including NREL wind data in response (source: {wind_data.get('data_source')})")
+        elif wind_data_error:
+            # Include error information but don't fail the entire request
+            response_data['windDataError'] = wind_data_error
+            logger.warning(f"⚠️ Wind data not available: {wind_data_error.get('error')}")
+            # Update message to indicate wind data unavailable
+            response_data['message'] = f"Found {len(features)} terrain features (wind data unavailable: {wind_data_error.get('message')})"
         
         # Add visualization data if available
         logger.info("📦 Preparing response data...")

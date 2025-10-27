@@ -15,6 +15,14 @@ export interface RenewableAnalysisType {
   LAYOUT_OPTIMIZATION: 'layout_optimization';
   SITE_SUITABILITY: 'site_suitability';
   COMPREHENSIVE_ASSESSMENT: 'comprehensive_assessment';
+  // Project lifecycle management intents
+  DELETE_PROJECT: 'delete_project';
+  RENAME_PROJECT: 'rename_project';
+  MERGE_PROJECTS: 'merge_projects';
+  ARCHIVE_PROJECT: 'archive_project';
+  EXPORT_PROJECT: 'export_project';
+  SEARCH_PROJECTS: 'search_projects';
+  PROJECT_DASHBOARD: 'project_dashboard';
 }
 
 export const RenewableAnalysisType: RenewableAnalysisType = {
@@ -23,7 +31,15 @@ export const RenewableAnalysisType: RenewableAnalysisType = {
   WAKE_ANALYSIS: 'wake_analysis',
   LAYOUT_OPTIMIZATION: 'layout_optimization',
   SITE_SUITABILITY: 'site_suitability',
-  COMPREHENSIVE_ASSESSMENT: 'comprehensive_assessment'
+  COMPREHENSIVE_ASSESSMENT: 'comprehensive_assessment',
+  // Project lifecycle management intents
+  DELETE_PROJECT: 'delete_project',
+  RENAME_PROJECT: 'rename_project',
+  MERGE_PROJECTS: 'merge_projects',
+  ARCHIVE_PROJECT: 'archive_project',
+  EXPORT_PROJECT: 'export_project',
+  SEARCH_PROJECTS: 'search_projects',
+  PROJECT_DASHBOARD: 'project_dashboard'
 };
 
 export interface IntentClassificationResult {
@@ -241,6 +257,175 @@ export class RenewableIntentClassifier {
       ],
       weight: 1.4,
       keywords: ['report', 'generate', 'summary', 'executive', 'documentation']
+    },
+
+    // Project Lifecycle Management Intents
+    delete_project: {
+      patterns: [
+        /delete.*project/i,
+        /remove.*project/i,
+        /get.*rid.*of.*project/i,
+        /trash.*project/i,
+        /delete.*all.*projects/i,
+        /remove.*all.*projects/i,
+        /delete.*projects.*matching/i,
+        /delete.*projects.*except/i,
+        /clean.*up.*projects/i,
+        /purge.*projects/i
+      ],
+      exclusions: [
+        /rename/i,
+        /merge/i,
+        /archive/i,
+        /export/i,
+        /list/i,
+        /show/i,
+        /search/i
+      ],
+      weight: 1.6,
+      keywords: ['delete', 'remove', 'trash', 'get rid of', 'clean up', 'purge']
+    },
+
+    rename_project: {
+      patterns: [
+        /rename.*project/i,
+        /change.*name.*project/i,
+        /call.*it/i,
+        /rename.*to/i,
+        /change.*project.*name/i,
+        /update.*project.*name/i,
+        /project.*name.*to/i
+      ],
+      exclusions: [
+        /delete/i,
+        /remove/i,
+        /merge/i,
+        /archive/i,
+        /export/i
+      ],
+      weight: 1.6,
+      keywords: ['rename', 'change name', 'call it', 'update name']
+    },
+
+    merge_projects: {
+      patterns: [
+        /merge.*projects/i,
+        /combine.*projects/i,
+        /merge.*project.*with/i,
+        /combine.*project.*with/i,
+        /consolidate.*projects/i,
+        /join.*projects/i,
+        /merge.*into/i
+      ],
+      exclusions: [
+        /delete/i,
+        /remove/i,
+        /rename/i,
+        /archive/i,
+        /export/i,
+        /list/i,
+        /show/i
+      ],
+      weight: 1.6,
+      keywords: ['merge', 'combine', 'consolidate', 'join']
+    },
+
+    archive_project: {
+      patterns: [
+        /archive.*project/i,
+        /unarchive.*project/i,
+        /restore.*project/i,
+        /archived.*projects/i,
+        /list.*archived/i,
+        /show.*archived/i,
+        /move.*to.*archive/i
+      ],
+      exclusions: [
+        /delete/i,
+        /remove/i,
+        /rename/i,
+        /merge/i,
+        /export/i
+      ],
+      weight: 1.5,
+      keywords: ['archive', 'unarchive', 'restore', 'archived']
+    },
+
+    export_project: {
+      patterns: [
+        /export.*project/i,
+        /import.*project/i,
+        /download.*project/i,
+        /save.*project/i,
+        /backup.*project/i,
+        /export.*data/i,
+        /import.*from/i
+      ],
+      exclusions: [
+        /delete/i,
+        /remove/i,
+        /rename/i,
+        /merge/i,
+        /archive/i
+      ],
+      weight: 1.5,
+      keywords: ['export', 'import', 'download', 'save', 'backup']
+    },
+
+    search_projects: {
+      patterns: [
+        /search.*projects/i,
+        /find.*projects/i,
+        /filter.*projects/i,
+        /projects.*in/i,
+        /projects.*at/i,
+        /projects.*created/i,
+        /incomplete.*projects/i,
+        /show.*duplicates/i,
+        /find.*duplicates/i,
+        /duplicate.*projects/i,
+        /projects.*near/i,
+        /projects.*within/i
+      ],
+      exclusions: [
+        /delete/i,
+        /remove/i,
+        /rename/i,
+        /merge/i,
+        /archive/i,
+        /export/i
+      ],
+      weight: 1.4,
+      keywords: ['search', 'find', 'filter', 'duplicates', 'incomplete', 'near', 'within']
+    },
+
+    project_dashboard: {
+      patterns: [
+        /show.*project.*dashboard/i,
+        /project.*dashboard/i,
+        /dashboard/i,
+        /show.*all.*projects/i,
+        /list.*all.*projects/i,
+        /project.*overview/i,
+        /project.*summary/i,
+        /show.*projects/i,
+        /view.*projects/i,
+        /my.*projects/i,
+        /all.*projects/i
+      ],
+      exclusions: [
+        /delete/i,
+        /remove/i,
+        /rename/i,
+        /merge/i,
+        /archive/i,
+        /export/i,
+        /search/i,
+        /find/i,
+        /filter/i
+      ],
+      weight: 1.6,
+      keywords: ['dashboard', 'overview', 'summary', 'all', 'show', 'list', 'view']
     }
   };
 

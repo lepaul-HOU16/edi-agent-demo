@@ -78,12 +78,10 @@ class MatplotlibChartGenerator:
         wind_speeds = wind_data.get('speeds', [])
         wind_directions = wind_data.get('directions', [])
         
-        # Generate sample data if none provided
+        # Validate wind data is provided (NO SYNTHETIC FALLBACKS)
         if not wind_speeds or not wind_directions:
-            logger.info("No wind data provided, generating sample data")
-            np.random.seed(42)
-            wind_directions = np.random.uniform(0, 360, 1000)
-            wind_speeds = np.random.weibull(2, 1000) * 15  # Weibull distribution for realistic wind speeds
+            logger.error("❌ No wind data provided to create_wind_rose")
+            raise ValueError("Wind data is required. Cannot generate wind rose without real NREL data.")
         
         # Convert directions to radians
         directions_rad = np.radians(wind_directions)
@@ -584,8 +582,13 @@ class MatplotlibChartGenerator:
         
         for i, season in enumerate(seasons):
             season_data = seasonal_wind_data.get(season.lower(), {})
-            directions = season_data.get('directions', np.random.uniform(0, 360, 100))
-            speeds = season_data.get('speeds', np.random.weibull(2, 100) * 10)
+            # Get real seasonal data (NO SYNTHETIC FALLBACKS)
+            directions = season_data.get('directions')
+            speeds = season_data.get('speeds')
+            
+            if directions is None or speeds is None:
+                logger.error(f"❌ Missing seasonal data for {season}")
+                raise ValueError(f"Seasonal wind data for {season} not available. Cannot proceed without real NREL data.")
             
             # Create wind rose for each season
             dir_bins = np.arange(0, 361, 30)
@@ -632,7 +635,11 @@ class MatplotlibChartGenerator:
         
         for i, season in enumerate(seasons):
             season_data = seasonal_wind_data.get(season.lower(), {})
-            directions = season_data.get('directions', np.random.uniform(0, 360, 100))
+            directions = season_data.get('directions')
+            
+            if directions is None:
+                logger.error(f"❌ Missing seasonal directions for {season}")
+                raise ValueError(f"Seasonal wind directions for {season} not available. Cannot proceed without real NREL data.")
             
             # Calculate frequency for each direction bin
             dir_freq = []
@@ -729,13 +736,12 @@ class MatplotlibChartGenerator:
         ax1.legend()
         
         # Chart 2: Wind Speed Distribution by Year
-        if 'speed_distributions' in variability_data:
-            distributions = variability_data['speed_distributions']
-        else:
-            # Generate wind speed distributions for recent years
-            distributions = {}
-            for year in years[-5:]:  # Last 5 years
-                distributions[str(year)] = np.random.weibull(2, 1000) * 12
+        # Get real speed distributions (NO SYNTHETIC FALLBACKS)
+        if 'speed_distributions' not in variability_data:
+            logger.error("❌ Speed distributions not available in variability data")
+            raise ValueError("Speed distribution data not available. Cannot proceed without real NREL data.")
+        
+        distributions = variability_data['speed_distributions']
         
         colors = plt.cm.viridis(np.linspace(0, 1, len(distributions)))
         for i, (year, speeds) in enumerate(distributions.items()):

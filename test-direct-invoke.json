@@ -1,0 +1,9 @@
+{
+  "action": "wind_rose",
+  "parameters": {
+    "project_id": "test-direct-invoke",
+    "latitude": 35.067482,
+    "longitude": -101.395466,
+    "wind_speed": 8.5
+  }
+}

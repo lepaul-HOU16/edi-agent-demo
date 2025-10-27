@@ -253,6 +253,42 @@ export class ErrorMessageTemplates {
   }
 
   /**
+   * Format missing context error with intent-specific guidance
+   * Used when validation fails due to missing project context
+   */
+  static formatMissingContextError(
+    intentType: string,
+    missingParams: string[],
+    activeProject?: string
+  ): string {
+    const suggestions: Record<string, string> = {
+      layout_optimization: 
+        "To optimize layout, either:\n" +
+        "• Provide coordinates: 'optimize layout at 35.067482, -101.395466'\n" +
+        "• Run terrain analysis first: 'analyze terrain at 35.067482, -101.395466'",
+      
+      wake_simulation:
+        "To run wake simulation, first:\n" +
+        "• Create a layout: 'optimize layout'\n" +
+        "• Or specify a project: 'run wake simulation for project-name'",
+      
+      report_generation:
+        "To generate a report, first:\n" +
+        "• Complete terrain analysis and layout optimization\n" +
+        "• Or specify a project: 'generate report for project-name'"
+    };
+    
+    let message = `Missing required information: ${missingParams.join(', ')}.\n\n`;
+    message += suggestions[intentType] || 'Please provide the required parameters.';
+    
+    if (activeProject) {
+      message += `\n\nActive project: ${activeProject}`;
+    }
+    
+    return message;
+  }
+
+  /**
    * Generate workflow status message
    * Shows what's complete and what's needed
    */

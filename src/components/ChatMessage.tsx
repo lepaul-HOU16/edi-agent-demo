@@ -42,7 +42,8 @@ import {
   LayoutMapArtifact, 
   SimulationChartArtifact, 
   ReportArtifact,
-  WindRoseArtifact
+  WindRoseArtifact,
+  ProjectDashboardArtifact
 } from './renewable';
 // Maintenance artifact components
 import {
@@ -52,6 +53,8 @@ import {
   InspectionReportArtifact,
   AssetLifecycleArtifact
 } from './maintenance';
+// Confirmation dialog component
+import { ConfirmationMessageComponent } from './messageComponents/ConfirmationMessageComponent';
 
 // Enhanced artifact processor component with S3 support - STABLE VERSION
 const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, onSendMessage }: {
@@ -566,6 +569,26 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                 />;
             }
             
+            // NEW: Check for wake simulation
+            // CRITICAL FIX: Check both top-level and nested messageContentType
+            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'wake_simulation' ||
+                 parsedArtifact.data?.messageContentType === 'wake_simulation' ||
+                 parsedArtifact.type === 'wake_simulation')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering SimulationChartArtifact for wake simulation!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                // Map wake_simulation to wind_farm_simulation format for component
+                artifactData.messageContentType = 'wind_farm_simulation';
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<SimulationChartArtifact 
+                        data={artifactData} 
+                        onFollowUpAction={onSendMessage}
+                    />}
+                />;
+            }
+            
             // NEW: Check for wake analysis
             // CRITICAL FIX: Check both top-level and nested messageContentType
             if (parsedArtifact && typeof parsedArtifact === 'object' && 
@@ -680,6 +703,131 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                     message={message} 
                     theme={theme} 
                     enhancedComponent={<AssetLifecycleArtifact data={artifactData} />}
+                />;
+            }
+
+            // Check for project dashboard artifact
+            if (parsedArtifact && typeof parsedArtifact === 'object' &&
+                (parsedArtifact.messageContentType === 'project_dashboard' ||
+                 parsedArtifact.data?.messageContentType === 'project_dashboard' ||
+                 parsedArtifact.type === 'project_dashboard')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering ProjectDashboardArtifact!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={
+                        <ProjectDashboardArtifact 
+                            data={artifactData}
+                            darkMode={theme.palette.mode === 'dark'}
+                            onAction={(action: string, projectName: string) => {
+                                console.log(`[ChatMessage] Dashboard action: ${action} on project: ${projectName}`);
+                                
+                                // Handle different dashboard actions
+                                if (onSendMessage) {
+                                    switch (action) {
+                                        case 'view':
+                                            // Send query to show project details
+                                            onSendMessage(`show project ${projectName}`);
+                                            break;
+                                        case 'continue':
+                                            // Set as active and suggest next step
+                                            onSendMessage(`continue with project ${projectName}`);
+                                            break;
+                                        case 'rename':
+                                            // Prompt for new name
+                                            onSendMessage(`rename project ${projectName}`);
+                                            break;
+                                        case 'delete':
+                                            // Confirm deletion
+                                            onSendMessage(`delete project ${projectName}`);
+                                            break;
+                                        case 'bulk-delete':
+                                            // Handle bulk delete - projectName contains JSON array of names
+                                            try {
+                                                const projectNames = JSON.parse(projectName);
+                                                if (Array.isArray(projectNames) && projectNames.length > 0) {
+                                                    // Send individual confirmed delete commands
+                                                    projectNames.forEach(name => {
+                                                        onSendMessage(`delete project ${name} confirmed`);
+                                                    });
+                                                }
+                                            } catch (e) {
+                                                console.error('[ChatMessage] Failed to parse bulk delete project names:', e);
+                                            }
+                                            break;
+                                        case 'refresh':
+                                            // Refresh dashboard
+                                            onSendMessage('show my project dashboard');
+                                            break;
+                                        case 'create':
+                                            // Start new project
+                                            onSendMessage('analyze terrain at a new location');
+                                            break;
+                                        default:
+                                            console.warn(`[ChatMessage] Unknown dashboard action: ${action}`);
+                                    }
+                                } else {
+                                    console.warn('[ChatMessage] onSendMessage callback not available');
+                                }
+                            }}
+                        />
+                    }
+                />;
+            }
+
+            // Check for confirmation request artifact
+            if (parsedArtifact && typeof parsedArtifact === 'object' &&
+                (parsedArtifact.messageContentType === 'confirmation_required' ||
+                 parsedArtifact.data?.messageContentType === 'confirmation_required' ||
+                 parsedArtifact.type === 'confirmation_required' ||
+                 parsedArtifact.requiresConfirmation === true)) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering ConfirmationMessageComponent!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                
+                // Extract confirmation details
+                const confirmationMessage = artifactData.message || parsedArtifact.message || 'Confirmation required';
+                const confirmationPrompt = artifactData.confirmationPrompt || parsedArtifact.confirmationPrompt;
+                const options = artifactData.options || parsedArtifact.options;
+                const projectList = artifactData.projectList || parsedArtifact.projectList || artifactData.matches;
+                const action = artifactData.action || parsedArtifact.action || 'confirm';
+                const metadata = artifactData.metadata || parsedArtifact.metadata;
+                
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={
+                        <ConfirmationMessageComponent
+                            message={confirmationMessage}
+                            confirmationPrompt={confirmationPrompt}
+                            options={options}
+                            projectList={projectList}
+                            action={action}
+                            metadata={metadata}
+                            onConfirm={(value) => {
+                                console.log('✅ User confirmed action:', value);
+                                // Send confirmation response back through chat
+                                if (onSendMessage) {
+                                    // Generate follow-up message based on action
+                                    let followUpMessage = '';
+                                    if (action === 'delete' || action === 'bulk_delete') {
+                                        followUpMessage = `yes`;
+                                    } else if (action === 'merge') {
+                                        followUpMessage = value;
+                                    } else {
+                                        followUpMessage = value;
+                                    }
+                                    onSendMessage(followUpMessage);
+                                }
+                            }}
+                            onCancel={() => {
+                                console.log('❌ User cancelled action');
+                                if (onSendMessage) {
+                                    onSendMessage('cancel');
+                                }
+                            }}
+                        />
+                    }
                 />;
             }
         }

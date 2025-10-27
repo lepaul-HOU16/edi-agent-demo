@@ -9,18 +9,21 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export const renewableSimulationTool = defineFunction((scope: Construct) => {
-  // Use ZIP deployment - returns data for client-side matplotlib rendering
+  // Use Docker deployment with full visualization libraries (numpy, matplotlib, plotly)
+  // Build context is parent directory to include shared modules
+  const parentDir = dirname(__dirname);
   
-  const func = new lambda.Function(scope, 'RenewableSimulationTool', {
-    runtime: lambda.Runtime.PYTHON_3_12,
-    handler: 'simple_handler.handler',
-    code: lambda.Code.fromAsset(join(__dirname)),
-    timeout: Duration.seconds(90),
-    memorySize: 2048,
+  const func = new lambda.DockerImageFunction(scope, 'RenewableSimulationTool', {
+    code: lambda.DockerImageCode.fromImageAsset(parentDir, {
+      file: 'simulation/Dockerfile',
+    }),
+    timeout: Duration.seconds(300),
+    memorySize: 3008,
+    architecture: lambda.Architecture.X86_64,
     environment: {
       LOG_LEVEL: 'INFO'
     },
-    description: 'Wake simulation tool - returns data for client-side visualization'
+    description: 'Wake simulation and wind rose tool with Plotly visualization generation'
   });
   
   return func;

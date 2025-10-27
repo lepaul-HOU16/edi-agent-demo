@@ -3,18 +3,18 @@ Enhanced Wake Simulation Tool Lambda
 Simplified simulation handler with rich visualizations
 """
 import json
-import sys
 import os
 import logging
 import numpy as np
+import boto3
+from datetime import datetime
+from typing import Dict, List, Optional, Any
 
 # Configure logging first
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Add the parent directory to the path to import visualization modules
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
+# Import visualization modules with comprehensive error handling
 try:
     from visualization_generator import RenewableVisualizationGenerator
     from folium_generator import FoliumMapGenerator
@@ -22,12 +22,30 @@ try:
     from plotly_wind_rose_generator import PlotlyWindRoseGenerator, generate_plotly_wind_rose
     from visualization_config import config
     VISUALIZATIONS_AVAILABLE = True
-    logger.info("Visualization modules loaded successfully")
+    logger.info("✅ Visualization modules loaded successfully")
 except ImportError as e:
-    logger.warning(f"Visualization modules not available: {e}")
+    logger.error(f"❌ Visualization modules not available: {e}")
     VISUALIZATIONS_AVAILABLE = False
 
-def generate_wake_heat_map_data(layout, wind_speed):
+# Import NREL wind client (NO SYNTHETIC FALLBACKS)
+try:
+    from nrel_wind_client import NRELWindClient
+    WIND_CLIENT_AVAILABLE = True
+    logger.info("✅ NREL wind client loaded successfully")
+except ImportError as e:
+    logger.error(f"❌ NREL wind client not available: {e}")
+    WIND_CLIENT_AVAILABLE = False
+
+# Import pandas for data processing
+try:
+    import pandas as pd
+    PANDAS_AVAILABLE = True
+    logger.info("✅ Pandas loaded successfully")
+except ImportError as e:
+    logger.warning(f"⚠️ Pandas not available: {e}")
+    PANDAS_AVAILABLE = False
+
+def generate_wake_heat_map_data(layout, wind_speed, prevailing_wind_direction=None):
     """Generate wake heat map data for visualization"""
     try:
         import numpy as np
@@ -75,10 +93,13 @@ def generate_wake_heat_map_data(layout, wind_speed):
             zone_coords.append([center_lon + lon_offset, center_lat + lat_offset])
         zone_coords.append(zone_coords[0])  # Close polygon
         
+        # Use prevailing wind direction from NREL data if available
+        wind_dir = prevailing_wind_direction if prevailing_wind_direction is not None else 180.0  # Default to south if not provided
+        
         heat_zones.append({
             'deficit': deficit,
             'affected_turbines': f'T{i+1:02d}',
-            'wind_direction': np.random.uniform(0, 360),
+            'wind_direction': wind_dir,
             'geometry': {
                 'type': 'Polygon',
                 'coordinates': [zone_coords]
@@ -152,53 +173,99 @@ def handler(event, context):
             
             latitude = params.get('latitude')
             longitude = params.get('longitude')
-            wind_speed = params.get('wind_speed', 8.5)
             
             if latitude is None or longitude is None:
                 return {
                     'success': False,
                     'type': 'wind_rose_analysis',
                     'error': 'Missing latitude or longitude for wind rose analysis',
+                    'errorCategory': 'MISSING_PARAMETERS',
+                    'details': {
+                        'missingParameters': ['latitude', 'longitude'],
+                        'suggestion': 'Provide valid coordinates for wind rose analysis'
+                    },
                     'data': {}
                 }
             
-            # Generate wind rose data (simplified for now)
+            # Check if NREL client is available
+            if not WIND_CLIENT_AVAILABLE:
+                return {
+                    'success': False,
+                    'type': 'wind_rose_analysis',
+                    'error': 'NREL wind client not available. Cannot proceed without real wind data.',
+                    'errorCategory': 'NREL_CLIENT_UNAVAILABLE',
+                    'details': {
+                        'suggestion': 'Ensure NREL wind client is properly installed and configured',
+                        'noSyntheticData': True
+                    },
+                    'data': {}
+                }
+            
+            # Fetch real NREL wind data (NO SYNTHETIC FALLBACKS)
+            try:
+                logger.info(f"🌬️ Fetching real NREL wind data for ({latitude}, {longitude})")
+                
+                nrel_client = NRELWindClient()
+                wind_conditions = nrel_client.get_wind_conditions(latitude, longitude, year=2023)
+                
+                # Extract real wind data arrays (NOT Weibull parameters)
+                wind_speeds = np.array(wind_conditions['wind_speeds'])
+                wind_directions = np.array(wind_conditions['wind_directions'])
+                mean_wind_speed = wind_conditions.get('mean_wind_speed', np.mean(wind_speeds))
+                prevailing_direction = wind_conditions.get('prevailing_wind_direction', 180.0)
+                
+                logger.info(f"✅ Retrieved NREL data: {len(wind_speeds)} data points, mean speed: {mean_wind_speed:.2f} m/s")
+                
+                # Process wind data into directional bins for wind rose
+                directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
+                              'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+                wind_rose_data = []
+                
+                for i, direction in enumerate(directions):
+                    angle = i * 22.5
+                    angle_min = angle - 11.25
+                    angle_max = angle + 11.25
+                    
+                    # Filter wind data for this direction bin
+                    mask = ((wind_directions >= angle_min) & (wind_directions < angle_max))
+                    bin_speeds = wind_speeds[mask]
+                    
+                    if len(bin_speeds) > 0:
+                        frequency = (len(bin_speeds) / len(wind_speeds)) * 100
+                        avg_speed = np.mean(bin_speeds)
+                        max_speed = np.max(bin_speeds)
+                    else:
+                        frequency = 0.0
+                        avg_speed = 0.0
+                        max_speed = 0.0
+                    
+                    wind_rose_data.append({
+                        'direction': direction,
+                        'angle': angle,
+                        'frequency': round(frequency, 2),
+                        'avg_speed': round(avg_speed, 2),
+                        'max_speed': round(max_speed, 2)
+                    })
+                
+            except Exception as e:
+                logger.error(f"❌ Error fetching NREL wind data: {e}", exc_info=True)
+                return {
+                    'success': False,
+                    'type': 'wind_rose_analysis',
+                    'error': f'Failed to fetch NREL wind data: {str(e)}',
+                    'errorCategory': 'NREL_API_ERROR',
+                    'details': {
+                        'location': {'latitude': latitude, 'longitude': longitude},
+                        'suggestion': 'Check NREL API key configuration and try again',
+                        'noSyntheticData': True
+                    },
+                    'data': {}
+                }
+            
+            # Initialize S3 client
             import boto3
             s3_client = boto3.client('s3')
             S3_BUCKET = os.environ.get('S3_BUCKET', os.environ.get('RENEWABLE_S3_BUCKET'))
-            
-            # Generate sample wind data
-            directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 
-                          'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
-            wind_rose_data = []
-            wind_speeds = []
-            wind_directions = []
-            
-            for i, direction in enumerate(directions):
-                angle = i * 22.5
-                base_frequency = 5.0
-                if 180 <= angle <= 315:  # SW to NW (prevailing westerlies)
-                    frequency = base_frequency + 3.0
-                else:
-                    frequency = base_frequency - 1.0
-                frequency += (hash(f"{latitude}{longitude}{i}") % 100) / 50.0
-                
-                avg_speed = wind_speed + (hash(f"{i}") % 20) / 10.0
-                max_speed = avg_speed * 1.5 + (hash(f"{i}") % 30) / 10.0
-                
-                wind_rose_data.append({
-                    'direction': direction,
-                    'angle': angle,
-                    'frequency': round(frequency, 2),
-                    'avg_speed': round(avg_speed, 2),
-                    'max_speed': round(max_speed, 2)
-                })
-                
-                # Prepare data for matplotlib
-                count = int(frequency * 10)
-                for _ in range(count):
-                    wind_speeds.append(avg_speed)
-                    wind_directions.append(angle)
             
             # Generate Plotly wind rose data if available
             plotly_wind_rose_data = None
@@ -264,8 +331,11 @@ def handler(event, context):
             
             # Calculate statistics
             total_frequency = sum([d['frequency'] for d in wind_rose_data])
-            avg_speed = sum([d['avg_speed'] for d in wind_rose_data]) / len(wind_rose_data)
+            avg_speed = mean_wind_speed  # Use real NREL mean wind speed
             max_speed = max([d['max_speed'] for d in wind_rose_data])
+            
+            # Determine prevailing direction name
+            prevailing_dir_name = directions[int((prevailing_direction % 360) / 22.5)]
             
             # Save data to S3
             wind_rose_result = {
@@ -276,9 +346,13 @@ def handler(event, context):
                     'total_frequency': total_frequency,
                     'average_wind_speed': round(avg_speed, 2),
                     'max_wind_speed': round(max_speed, 2),
-                    'prevailing_direction': 'W',
+                    'prevailing_direction': prevailing_dir_name,
                     'direction_count': len(wind_rose_data)
-                }
+                },
+                'data_source': 'NREL Wind Toolkit',
+                'data_year': 2023,
+                'data_points': len(wind_speeds),
+                'reliability': 'high'
             }
             
             data_key = f'renewable/wind_rose/{project_id}/wind_rose_data.json'
@@ -289,7 +363,7 @@ def handler(event, context):
                 ContentType='application/json'
             )
             
-            # Return response with Plotly data
+            # Return response with Plotly data and data source metadata
             response_data = {
                 'messageContentType': 'wind_rose_analysis',
                 'title': f'Wind Rose Analysis - {project_id}',
@@ -300,7 +374,7 @@ def handler(event, context):
                 'windStatistics': {
                     'averageSpeed': round(avg_speed, 2),
                     'maxSpeed': round(max_speed, 2),
-                    'predominantDirection': 'W',
+                    'predominantDirection': prevailing_dir_name,
                     'totalFrequency': total_frequency,
                     'directionCount': len(wind_rose_data)
                 },
@@ -310,7 +384,11 @@ def handler(event, context):
                     'dataUrl': f'https://{S3_BUCKET}.s3.amazonaws.com/{data_key}'
                 },
                 'visualizations': {},
-                'message': f'Wind rose analysis complete for ({latitude}, {longitude})'
+                'dataSource': 'NREL Wind Toolkit',
+                'dataYear': 2023,
+                'dataPoints': len(wind_speeds),
+                'reliability': 'high',
+                'message': f'Wind rose analysis complete for ({latitude}, {longitude}) using NREL Wind Toolkit data (2023)'
             }
             
             # Add Plotly wind rose data if available
@@ -474,55 +552,38 @@ def handler(event, context):
                 viz_generator = RenewableVisualizationGenerator()
                 matplotlib_generator = MatplotlibChartGenerator()
                 
-                # Get real wind resource data
-                logger.info("🌬️ Retrieving real wind resource data")
-                try:
-                    from wind_client import get_wind_resource_data_with_fallback
-                    
-                    # Extract location from layout
-                    features = layout.get('features', [])
-                    if features:
-                        # Use first turbine location as representative
-                        coords = features[0]['geometry']['coordinates']
-                        wind_resource_data = get_wind_resource_data_with_fallback(coords[1], coords[0], 3)
-                        
-                        # Use real wind data for analysis
-                        wind_data = {
-                            'speeds': wind_resource_data['wind_speeds'],
-                            'directions': wind_resource_data['wind_directions']
-                        }
-                        
-                        # Log data source information
-                        data_source = wind_resource_data.get('source', 'unknown')
-                        reliability = wind_resource_data.get('reliability', 'unknown')
-                        logger.info(f"✅ Using {data_source} wind data (reliability: {reliability})")
-                        
-                        if 'warning' in wind_resource_data:
-                            logger.warning(f"⚠️ Wind data warning: {wind_resource_data['warning']}")
-                    
-                    else:
-                        logger.warning("⚠️ No turbine locations available, using synthetic wind data")
-                        wind_data = {
-                            'speeds': np.random.weibull(2, 1000) * 15,
-                            'directions': np.random.uniform(0, 360, 1000)
-                        }
-                        wind_resource_data = {'source': 'synthetic_fallback', 'reliability': 'low'}
+                # Get real NREL wind resource data (NO SYNTHETIC FALLBACKS)
+                logger.info("🌬️ Retrieving real NREL wind resource data")
                 
-                except ImportError as e:
-                    logger.error(f"❌ Wind client import error: {e}")
-                    wind_data = {
-                        'speeds': np.random.weibull(2, 1000) * 15,
-                        'directions': np.random.uniform(0, 360, 1000)
-                    }
-                    wind_resource_data = {'source': 'synthetic_fallback', 'reliability': 'low'}
+                if not WIND_CLIENT_AVAILABLE:
+                    raise Exception("NREL wind client not available. Cannot proceed without real wind data.")
                 
-                except Exception as e:
-                    logger.error(f"❌ Error retrieving wind data: {e}")
-                    wind_data = {
-                        'speeds': np.random.weibull(2, 1000) * 15,
-                        'directions': np.random.uniform(0, 360, 1000)
-                    }
-                    wind_resource_data = {'source': 'synthetic_fallback', 'reliability': 'low'}
+                # Extract location from layout
+                features = layout.get('features', [])
+                if not features:
+                    raise Exception("No turbine locations available in layout. Cannot fetch wind data.")
+                
+                # Use first turbine location as representative
+                coords = features[0]['geometry']['coordinates']
+                lon, lat = coords[0], coords[1]
+                
+                # Fetch real NREL wind data
+                nrel_client = NRELWindClient()
+                wind_resource_data = nrel_client.fetch_wind_data(lat, lon, year=2023)
+                
+                # Process wind data
+                wind_conditions = nrel_client.process_wind_data(wind_resource_data)
+                
+                # Use real wind data for analysis
+                wind_data = {
+                    'speeds': wind_conditions['wind_speeds'],
+                    'directions': wind_conditions['wind_directions']
+                }
+                
+                # Log data source information
+                logger.info(f"✅ Using NREL Wind Toolkit data (year: 2023)")
+                logger.info(f"   Mean wind speed: {wind_conditions.get('mean_wind_speed', 'N/A')} m/s")
+                logger.info(f"   Data points: {wind_conditions.get('total_hours', 'N/A')}")
                 
                 # Generate wind rose with real data
                 wind_rose_bytes = matplotlib_generator.create_wind_rose(wind_data, f"Wind Rose - {project_id}")
@@ -539,27 +600,10 @@ def handler(event, context):
                         'monthly_min': monthly_data.get('min_speeds', [5.9, 6.4, 6.8, 6.6, 6.1, 5.2, 4.7, 5.0, 5.6, 6.2, 6.5, 6.1])
                     })
                 
-                # Ensure we have seasonal data (fallback if not available)
+                # Verify we have seasonal data (NO SYNTHETIC FALLBACKS)
                 if not seasonal_wind_data or len(seasonal_wind_data) < 4:
-                    logger.warning("⚠️ Limited seasonal data, using representative patterns")
-                    seasonal_wind_data.update({
-                        'spring': {
-                            'directions': np.random.normal(225, 45, 500) % 360,
-                            'speeds': np.random.weibull(2, 500) * 12
-                        },
-                        'summer': {
-                            'directions': np.random.normal(270, 30, 500) % 360,
-                            'speeds': np.random.weibull(2, 500) * 8
-                        },
-                        'fall': {
-                            'directions': np.random.normal(315, 60, 500) % 360,
-                            'speeds': np.random.weibull(2, 500) * 14
-                        },
-                        'winter': {
-                            'directions': np.random.normal(0, 45, 500) % 360,
-                            'speeds': np.random.weibull(2, 500) * 16
-                        }
-                    })
+                    logger.error("❌ Insufficient seasonal wind data from NREL")
+                    raise Exception("Seasonal wind data not available. Cannot proceed without real NREL data.")
                 
                 # Generate wind resource variability data
                 variability_data = {
@@ -576,8 +620,9 @@ def handler(event, context):
                     }
                 }
                 
-                # Generate wake heat map data
-                wake_heat_data = generate_wake_heat_map_data(layout, wind_speed)
+                # Generate wake heat map data with prevailing wind direction from NREL
+                prevailing_wind_dir = wind_conditions.get('prevailing_wind_direction', 180.0)
+                wake_heat_data = generate_wake_heat_map_data(layout, wind_speed, prevailing_wind_dir)
                 
                 # Generate performance charts
                 performance_data = {
@@ -734,17 +779,21 @@ def handler(event, context):
             },
             'monthlyProduction': monthly_production,
             'chartImages': {},  # For backward compatibility
-            'message': f'Simulation completed for {num_turbines} turbines'
+            'dataSource': 'NREL Wind Toolkit',
+            'dataYear': 2023,
+            'message': f'Simulation completed for {num_turbines} turbines using NREL Wind Toolkit data (2023)'
         }
         
         # Add wind resource data information if available
-        if 'wind_resource_data' in locals():
+        if 'wind_resource_data' in locals() and wind_resource_data:
             response_data['windResourceData'] = {
-                'source': wind_resource_data.get('source', 'unknown'),
-                'reliability': wind_resource_data.get('reliability', 'unknown'),
+                'source': 'NREL Wind Toolkit',
+                'dataYear': 2023,
+                'reliability': 'high',
                 'dataQuality': wind_resource_data.get('data_quality', {}),
                 'location': wind_resource_data.get('location', {}),
-                'hubHeight': wind_resource_data.get('hub_height', 100)
+                'hubHeight': wind_resource_data.get('hub_height', 100),
+                'dataPoints': wind_resource_data.get('total_hours', 8760)
             }
             
             # Add warnings if present
@@ -753,6 +802,16 @@ def handler(event, context):
             
             if 'error_reason' in wind_resource_data:
                 response_data['windResourceData']['error_reason'] = wind_resource_data['error_reason']
+        elif 'wind_conditions' in locals() and wind_conditions:
+            # If we have processed wind conditions, add that info
+            response_data['windResourceData'] = {
+                'source': 'NREL Wind Toolkit',
+                'dataYear': 2023,
+                'reliability': 'high',
+                'meanWindSpeed': wind_conditions.get('mean_wind_speed'),
+                'prevailingDirection': wind_conditions.get('prevailing_wind_direction'),
+                'dataPoints': wind_conditions.get('total_hours', 8760)
+            }
         
         # Add visualization data if available
         if visualizations:

@@ -78,6 +78,40 @@ NEXT_PUBLIC_RENEWABLE_ENABLED=true
 aws s3 mb s3://your-renewable-assets-bucket --region us-west-2
 ```
 
+#### NREL API Key Configuration
+
+**CRITICAL**: The simulation and terrain tools require a valid NREL API key to fetch real wind data from the NREL Wind Toolkit API. **NO SYNTHETIC DATA** is used.
+
+The NREL API key is configured directly in `amplify/backend.ts`:
+
+```typescript
+// Add NREL API key to simulation and terrain tool Lambdas for real wind data integration
+// CRITICAL: This is required for NREL Wind Toolkit API access (NO SYNTHETIC DATA)
+const nrelApiKey = 'Fkh6pFT1SPsn9SBw8TDMSl7EnjEe';
+backend.renewableSimulationTool.addEnvironment('NREL_API_KEY', nrelApiKey);
+backend.renewableTerrainTool.addEnvironment('NREL_API_KEY', nrelApiKey);
+```
+
+**To get your own NREL API key** (optional, for production use):
+
+1. Visit: https://developer.nrel.gov/signup/
+2. Sign up for a free API key
+3. Replace the key in `amplify/backend.ts`
+4. Redeploy: `npx ampx sandbox`
+
+**API Key Features**:
+- Free tier: 1,000 requests per hour
+- No credit card required
+- Instant activation
+- Access to NREL Wind Toolkit (2007-2023 data)
+
+**Important Notes**:
+- The provided API key is for development/demo purposes
+- For production deployments, obtain your own API key
+- The key is set as an environment variable in Lambda functions
+- If the API key is invalid or missing, wind data requests will fail with clear error messages
+- **NO SYNTHETIC DATA FALLBACK** - Real NREL data only
+
 ### Step 3: Update Amplify Backend Configuration
 
 Edit `amplify/backend.ts` to register all Lambda functions:

@@ -4,7 +4,7 @@
  * Defines TypeScript interfaces and JSON schema validation for project data
  */
 
-import { ProjectData } from './projectStore';
+import { ProjectData, ProjectStatus } from './projectStore';
 
 /**
  * JSON Schema for ProjectData validation
@@ -34,6 +34,11 @@ export const ProjectDataSchema = {
       type: 'string',
       format: 'date-time',
       description: 'ISO 8601 timestamp of last update',
+    },
+    status: {
+      type: 'string',
+      enum: ['not_started', 'in_progress', 'completed', 'failed'],
+      description: 'Current status of the project',
     },
     coordinates: {
       type: 'object',
@@ -88,6 +93,25 @@ export const ProjectDataSchema = {
           minimum: 0,
           description: 'Annual energy production in gigawatt-hours',
         },
+        archived: {
+          type: 'boolean',
+          description: 'Whether the project is archived',
+        },
+        archived_at: {
+          type: 'string',
+          format: 'date-time',
+          description: 'ISO 8601 timestamp when project was archived',
+        },
+        imported_at: {
+          type: 'string',
+          format: 'date-time',
+          description: 'ISO 8601 timestamp when project was imported',
+        },
+        status: {
+          type: 'string',
+          enum: ['not_started', 'in_progress', 'completed', 'failed'],
+          description: 'Current status of the project',
+        },
       },
       additionalProperties: true,
     },
@@ -140,6 +164,16 @@ export function validateProjectData(data: any): ValidationResult {
     errors.push('updated_at must be a valid ISO 8601 date-time string');
   }
 
+  // Optional status validation
+  if (data.status !== undefined) {
+    const validStatuses: ProjectStatus[] = ['not_started', 'in_progress', 'completed', 'failed'];
+    if (typeof data.status !== 'string') {
+      errors.push('status must be a string');
+    } else if (!validStatuses.includes(data.status as ProjectStatus)) {
+      errors.push(`status must be one of: ${validStatuses.join(', ')}`);
+    }
+  }
+
   // Optional coordinates validation
   if (data.coordinates) {
     if (typeof data.coordinates !== 'object') {
@@ -187,6 +221,33 @@ export function validateProjectData(data: any): ValidationResult {
           errors.push('metadata.annual_energy_gwh must be non-negative');
         }
       }
+
+      if (data.metadata.archived !== undefined) {
+        if (typeof data.metadata.archived !== 'boolean') {
+          errors.push('metadata.archived must be a boolean');
+        }
+      }
+
+      if (data.metadata.archived_at !== undefined) {
+        if (!isValidISODate(data.metadata.archived_at)) {
+          errors.push('metadata.archived_at must be a valid ISO 8601 date-time string');
+        }
+      }
+
+      if (data.metadata.imported_at !== undefined) {
+        if (!isValidISODate(data.metadata.imported_at)) {
+          errors.push('metadata.imported_at must be a valid ISO 8601 date-time string');
+        }
+      }
+
+      if (data.metadata.status !== undefined) {
+        const validStatuses = ['not_started', 'in_progress', 'completed', 'failed'];
+        if (typeof data.metadata.status !== 'string') {
+          errors.push('metadata.status must be a string');
+        } else if (!validStatuses.includes(data.metadata.status)) {
+          errors.push(`metadata.status must be one of: ${validStatuses.join(', ')}`);
+        }
+      }
     }
   }
 
@@ -227,6 +288,15 @@ export function validatePartialProjectData(data: any): ValidationResult {
 
   if (data.updated_at !== undefined && !isValidISODate(data.updated_at)) {
     errors.push('updated_at must be a valid ISO 8601 date-time string');
+  }
+
+  if (data.status !== undefined) {
+    const validStatuses: ProjectStatus[] = ['not_started', 'in_progress', 'completed', 'failed'];
+    if (typeof data.status !== 'string') {
+      errors.push('status must be a string');
+    } else if (!validStatuses.includes(data.status as ProjectStatus)) {
+      errors.push(`status must be one of: ${validStatuses.join(', ')}`);
+    }
   }
 
   if (data.coordinates !== undefined) {
@@ -276,6 +346,33 @@ export function validatePartialProjectData(data: any): ValidationResult {
           errors.push('metadata.annual_energy_gwh must be a number');
         } else if (data.metadata.annual_energy_gwh < 0) {
           errors.push('metadata.annual_energy_gwh must be non-negative');
+        }
+      }
+
+      if (data.metadata.archived !== undefined) {
+        if (typeof data.metadata.archived !== 'boolean') {
+          errors.push('metadata.archived must be a boolean');
+        }
+      }
+
+      if (data.metadata.archived_at !== undefined) {
+        if (!isValidISODate(data.metadata.archived_at)) {
+          errors.push('metadata.archived_at must be a valid ISO 8601 date-time string');
+        }
+      }
+
+      if (data.metadata.imported_at !== undefined) {
+        if (!isValidISODate(data.metadata.imported_at)) {
+          errors.push('metadata.imported_at must be a valid ISO 8601 date-time string');
+        }
+      }
+
+      if (data.metadata.status !== undefined) {
+        const validStatuses = ['not_started', 'in_progress', 'completed', 'failed'];
+        if (typeof data.metadata.status !== 'string') {
+          errors.push('metadata.status must be a string');
+        } else if (!validStatuses.includes(data.metadata.status)) {
+          errors.push(`metadata.status must be one of: ${validStatuses.join(', ')}`);
         }
       }
     }
@@ -415,4 +512,70 @@ export function getMissingDataMessage(project: ProjectData, operation: 'layout' 
     default:
       return `Unknown operation: ${operation}`;
   }
+}
+
+/**
+ * Check if project is archived
+ */
+export function isProjectArchived(project: ProjectData): boolean {
+  return project.metadata?.archived === true;
+}
+
+/**
+ * Check if project is in progress
+ */
+export function isProjectInProgress(project: ProjectData): boolean {
+  return project.status === 'in_progress';
+}
+
+/**
+ * Check if project was imported
+ */
+export function isProjectImported(project: ProjectData): boolean {
+  return !!project.metadata?.imported_at;
+}
+
+/**
+ * Get project completion percentage
+ */
+export function getProjectCompletionPercentage(project: ProjectData): number {
+  let completed = 0;
+  let total = 4; // terrain, layout, simulation, report
+  
+  if (project.terrain_results) completed++;
+  if (project.layout_results) completed++;
+  if (project.simulation_results) completed++;
+  if (project.report_results) completed++;
+  
+  return Math.round((completed / total) * 100);
+}
+
+/**
+ * Get project status display string
+ */
+export function getProjectStatusDisplay(project: ProjectData): string {
+  if (project.status === 'in_progress') {
+    return 'In Progress';
+  } else if (project.status === 'completed') {
+    return 'Completed';
+  } else if (project.status === 'failed') {
+    return 'Failed';
+  } else {
+    return 'Not Started';
+  }
+}
+
+/**
+ * Get archived status display string
+ */
+export function getArchivedStatusDisplay(project: ProjectData): string {
+  if (isProjectArchived(project)) {
+    const archivedAt = project.metadata?.archived_at;
+    if (archivedAt) {
+      const date = new Date(archivedAt);
+      return `Archived on ${date.toLocaleDateString()}`;
+    }
+    return 'Archived';
+  }
+  return 'Active';
 }

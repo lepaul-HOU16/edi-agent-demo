@@ -447,4 +447,11 @@ const actualS3BucketName = backend.storage.resources.bucket.bucketName;
   // Note: AWS_REGION is automatically set by Lambda runtime, don't set it manually
 });
 
+// Add NREL API key to simulation and terrain tool Lambdas for real wind data integration
+// CRITICAL: This is required for NREL Wind Toolkit API access (NO SYNTHETIC DATA)
+const nrelApiKey = 'bhLwyK7XgOAQdYJi4j4Rp0QTWB8ZMCfZ3dUh0vsx';
+backend.renewableSimulationTool.addEnvironment('NREL_API_KEY', nrelApiKey);
+backend.renewableTerrainTool.addEnvironment('NREL_API_KEY', nrelApiKey);
+
+console.log('✅ NREL API key configured for simulation and terrain tools');
 console.log('✅ Renewable Energy Lambda functions registered successfully');

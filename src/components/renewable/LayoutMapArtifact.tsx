@@ -389,24 +389,6 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
           )}
         </Box>
 
-        {/* Turbine Positions Summary - REMOVED OLD SECTION */}
-        {data.turbinePositions && data.turbinePositions.length > 0 && (
-          <Box>
-            <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
-              Turbine Positions
-            </Box>
-            <div style={{ fontSize: '12px', color: '#666' }}>
-              {data.turbinePositions.length} turbine positions calculated
-              <span>
-                {' '}
-                (First: {data.turbinePositions[0].lat.toFixed(6)}, {data.turbinePositions[0].lng.toFixed(6)})
-              </span>
-            </div>
-          </Box>
-        )}
-
-
-
         {/* Turbine Positions Summary */}
         {data.turbinePositions && data.turbinePositions.length > 0 && (
           <Box>

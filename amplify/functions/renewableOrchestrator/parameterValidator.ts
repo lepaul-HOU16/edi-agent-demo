@@ -7,12 +7,29 @@
 
 import type { RenewableIntent } from './types';
 
+/**
+ * Project context interface for parameter validation
+ */
+export interface ProjectContext {
+  projectName?: string;
+  coordinates?: {
+    latitude: number;
+    longitude: number;
+  };
+  terrain_results?: any;
+  layout_results?: any;
+  simulation_results?: any;
+  report_results?: any;
+}
+
 export interface ParameterValidationResult {
   isValid: boolean;
   errors: string[];
   warnings: string[];
   missingRequired: string[];
   invalidValues: string[];
+  satisfiedByContext: string[]; // Parameters satisfied by project context
+  contextUsed: boolean; // Whether context was used in validation
 }
 
 /**
@@ -22,6 +39,7 @@ const REQUIRED_PARAMETERS: Record<string, string[]> = {
   terrain_analysis: ['latitude', 'longitude'],
   layout_optimization: ['latitude', 'longitude'], // capacity is optional, will default to 30MW
   wake_simulation: ['project_id'],
+  wind_rose_analysis: ['latitude', 'longitude'], // Wind rose needs coordinates
   report_generation: ['project_id']
 };
 
@@ -43,7 +61,28 @@ const OPTIONAL_PARAMETERS: Record<string, Record<string, any>> = {
   wake_simulation: {
     wind_speed: 8.5
   },
+  wind_rose_analysis: {
+    project_id: null // Will be generated if not provided
+  },
   report_generation: {}
+};
+
+/**
+ * Parameters that can be satisfied by project context
+ * Maps intent types to context sources and the parameters they can satisfy
+ */
+const CONTEXT_SATISFIABLE_PARAMS: Record<string, Record<string, string[]>> = {
+  layout_optimization: {
+    coordinates: ['latitude', 'longitude'],
+    terrain: ['terrain_results']
+  },
+  wake_simulation: {
+    layout: ['layout_results'],
+    coordinates: ['latitude', 'longitude']
+  },
+  report_generation: {
+    all_results: ['terrain_results', 'layout_results']
+  }
 };
 
 /**
@@ -147,13 +186,59 @@ const PARAMETER_CONSTRAINTS: Record<string, (value: any) => { valid: boolean; er
 };
 
 /**
+ * Check if a parameter can be satisfied from project context
+ */
+export function canSatisfyFromContext(
+  param: string,
+  intentType: string,
+  projectContext?: ProjectContext
+): boolean {
+  if (!projectContext) {
+    return false;
+  }
+  
+  const satisfiable = CONTEXT_SATISFIABLE_PARAMS[intentType];
+  if (!satisfiable) {
+    return false;
+  }
+  
+  // Check if this parameter can be satisfied by context
+  for (const [contextKey, params] of Object.entries(satisfiable)) {
+    if (params.includes(param)) {
+      // Check if context has the required data
+      if (contextKey === 'coordinates' && projectContext.coordinates) {
+        return true;
+      }
+      if (contextKey === 'terrain' && projectContext.terrain_results) {
+        return true;
+      }
+      if (contextKey === 'layout' && projectContext.layout_results) {
+        return true;
+      }
+      if (contextKey === 'all_results' && 
+          projectContext.terrain_results && 
+          projectContext.layout_results) {
+        return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+/**
  * Validate parameters for a given intent
  */
-export function validateParameters(intent: RenewableIntent): ParameterValidationResult {
+export function validateParameters(
+  intent: RenewableIntent,
+  projectContext?: ProjectContext
+): ParameterValidationResult {
   const errors: string[] = [];
   const warnings: string[] = [];
   const missingRequired: string[] = [];
   const invalidValues: string[] = [];
+  const satisfiedByContext: string[] = [];
+  let contextUsed = false;
   
   const requiredParams = REQUIRED_PARAMETERS[intent.type] || [];
   const optionalParams = OPTIONAL_PARAMETERS[intent.type] || {};
@@ -165,11 +250,32 @@ export function validateParameters(intent: RenewableIntent): ParameterValidation
   console.log(`📋 Required Parameters: ${requiredParams.join(', ')}`);
   console.log(`📦 Provided Parameters: ${JSON.stringify(intent.params, null, 2)}`);
   
+  if (projectContext) {
+    console.log(`🗂️  Project Context Available:`);
+    console.log(`   - Project Name: ${projectContext.projectName || 'N/A'}`);
+    console.log(`   - Has Coordinates: ${!!projectContext.coordinates}`);
+    console.log(`   - Has Terrain Results: ${!!projectContext.terrain_results}`);
+    console.log(`   - Has Layout Results: ${!!projectContext.layout_results}`);
+    console.log(`   - Has Simulation Results: ${!!projectContext.simulation_results}`);
+  }
+  
   // Check for required parameters
   for (const param of requiredParams) {
-    if (!(param in intent.params) || intent.params[param] === undefined || intent.params[param] === null) {
-      missingRequired.push(param);
-      errors.push(`Missing required parameter: ${param}`);
+    const hasParam = (param in intent.params) && 
+                     intent.params[param] !== undefined && 
+                     intent.params[param] !== null;
+    
+    if (!hasParam) {
+      // Check if parameter can be satisfied from context
+      if (canSatisfyFromContext(param, intent.type, projectContext)) {
+        satisfiedByContext.push(param);
+        contextUsed = true;
+        warnings.push(`Using ${param} from active project context`);
+        console.log(`✅ Parameter '${param}' satisfied by project context`);
+      } else {
+        missingRequired.push(param);
+        errors.push(`Missing required parameter: ${param}`);
+      }
     }
   }
   
@@ -205,6 +311,9 @@ export function validateParameters(intent: RenewableIntent): ParameterValidation
   if (warnings.length > 0) {
     console.log(`⚠️  Warnings: ${warnings.join(', ')}`);
   }
+  if (satisfiedByContext.length > 0) {
+    console.log(`🗂️  Satisfied by Context: ${satisfiedByContext.join(', ')}`);
+  }
   console.log('───────────────────────────────────────────────────────────');
   
   return {
@@ -212,7 +321,9 @@ export function validateParameters(intent: RenewableIntent): ParameterValidation
     errors,
     warnings,
     missingRequired,
-    invalidValues
+    invalidValues,
+    satisfiedByContext,
+    contextUsed
   };
 }
 
@@ -243,30 +354,87 @@ export function applyDefaultParameters(intent: RenewableIntent): RenewableIntent
 }
 
 /**
- * Format validation errors into user-friendly message
+ * Format validation errors into user-friendly message with context awareness
  */
-export function formatValidationError(validation: ParameterValidationResult, intentType: string): string {
+export function formatValidationError(
+  validation: ParameterValidationResult, 
+  intentType: string,
+  projectContext?: ProjectContext
+): string {
   if (validation.isValid) {
     return '';
   }
   
   const parts: string[] = [];
   
+  // Check if missing parameters could have been satisfied by context
+  const couldUsedContext = validation.missingRequired.some(param => 
+    canSatisfyFromContext(param, intentType, projectContext)
+  );
+  
   if (validation.missingRequired.length > 0) {
-    parts.push(`Missing required parameters: ${validation.missingRequired.join(', ')}`);
+    // Use context-aware error messages if context could have helped
+    if (couldUsedContext || projectContext) {
+      const contextMessage = formatMissingContextError(
+        intentType,
+        validation.missingRequired,
+        projectContext?.projectName
+      );
+      parts.push(contextMessage);
+    } else {
+      parts.push(`Missing required parameters: ${validation.missingRequired.join(', ')}`);
+    }
   }
   
   if (validation.invalidValues.length > 0) {
     parts.push(`Invalid parameter values: ${validation.invalidValues.join(', ')}`);
   }
   
-  // Add specific guidance based on intent type
-  const guidance = getParameterGuidance(intentType);
-  if (guidance) {
-    parts.push(`\n\n${guidance}`);
+  // Add specific guidance based on intent type (fallback for non-context errors)
+  if (!couldUsedContext && !projectContext && validation.missingRequired.length > 0) {
+    const guidance = getParameterGuidance(intentType);
+    if (guidance) {
+      parts.push(`\n\n${guidance}`);
+    }
   }
   
-  return parts.join('. ');
+  return parts.join('\n\n');
+}
+
+/**
+ * Format missing context error with intent-specific guidance
+ * Used when validation fails due to missing project context
+ */
+function formatMissingContextError(
+  intentType: string,
+  missingParams: string[],
+  activeProject?: string
+): string {
+  const suggestions: Record<string, string> = {
+    layout_optimization: 
+      "To optimize layout, either:\n" +
+      "• Provide coordinates: 'optimize layout at 35.067482, -101.395466'\n" +
+      "• Run terrain analysis first: 'analyze terrain at 35.067482, -101.395466'",
+    
+    wake_simulation:
+      "To run wake simulation, first:\n" +
+      "• Create a layout: 'optimize layout'\n" +
+      "• Or specify a project: 'run wake simulation for project-name'",
+    
+    report_generation:
+      "To generate a report, first:\n" +
+      "• Complete terrain analysis and layout optimization\n" +
+      "• Or specify a project: 'generate report for project-name'"
+  };
+  
+  let message = `Missing required information: ${missingParams.join(', ')}.\n\n`;
+  message += suggestions[intentType] || 'Please provide the required parameters.';
+  
+  if (activeProject) {
+    message += `\n\nActive project: ${activeProject}`;
+  }
+  
+  return message;
 }
 
 /**
@@ -289,7 +457,8 @@ function getParameterGuidance(intentType: string): string {
 export function logValidationFailure(
   validation: ParameterValidationResult,
   intent: RenewableIntent,
-  requestId: string
+  requestId: string,
+  projectContext?: ProjectContext
 ): void {
   console.error(JSON.stringify({
     level: 'ERROR',
@@ -300,7 +469,51 @@ export function logValidationFailure(
       isValid: validation.isValid,
       missingRequired: validation.missingRequired,
       invalidValues: validation.invalidValues,
-      errors: validation.errors
+      errors: validation.errors,
+      satisfiedByContext: validation.satisfiedByContext,
+      contextUsed: validation.contextUsed
+    },
+    projectContext: {
+      hasActiveProject: !!projectContext?.projectName,
+      projectName: projectContext?.projectName,
+      hasCoordinates: !!projectContext?.coordinates,
+      hasTerrainResults: !!projectContext?.terrain_results,
+      hasLayoutResults: !!projectContext?.layout_results,
+      hasSimulationResults: !!projectContext?.simulation_results
+    },
+    providedParameters: intent.params,
+    timestamp: new Date().toISOString()
+  }, null, 2));
+}
+
+/**
+ * Log validation success to CloudWatch with structured format
+ * Useful for monitoring context usage and debugging parameter auto-fill
+ */
+export function logValidationSuccess(
+  validation: ParameterValidationResult,
+  intent: RenewableIntent,
+  requestId: string,
+  projectContext?: ProjectContext
+): void {
+  console.log(JSON.stringify({
+    level: 'INFO',
+    category: 'PARAMETER_VALIDATION',
+    requestId,
+    intentType: intent.type,
+    validation: {
+      isValid: validation.isValid,
+      warnings: validation.warnings,
+      satisfiedByContext: validation.satisfiedByContext,
+      contextUsed: validation.contextUsed
+    },
+    projectContext: {
+      hasActiveProject: !!projectContext?.projectName,
+      projectName: projectContext?.projectName,
+      hasCoordinates: !!projectContext?.coordinates,
+      hasTerrainResults: !!projectContext?.terrain_results,
+      hasLayoutResults: !!projectContext?.layout_results,
+      hasSimulationResults: !!projectContext?.simulation_results
     },
     providedParameters: intent.params,
     timestamp: new Date().toISOString()

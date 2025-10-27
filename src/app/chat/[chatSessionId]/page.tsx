@@ -473,22 +473,20 @@ function Page({
                                 }}
                                 onSelectionChange={({ detail }) => {
                                     // Use React's proper state update mechanism to avoid render warnings
-                                    React.startTransition(() => {
-                                        setSelectedItems(detail?.selectedItems ?? []);
-                                        setUserInput(detail?.selectedItems[0]?.prompt || '');
-                                        
-                                        // Auto-select agent if prompt has agentType specified
-                                        const selectedPrompt = detail?.selectedItems[0];
-                                        if (selectedPrompt && (selectedPrompt as any).agentType) {
-                                            const agentType = (selectedPrompt as any).agentType;
-                                            console.log('Auto-selecting agent based on prompt:', agentType);
-                                            setSelectedAgent(agentType);
-                                            // Store in sessionStorage for persistence
-                                            if (typeof window !== 'undefined') {
-                                                sessionStorage.setItem('selectedAgent', agentType);
-                                            }
+                                    setSelectedItems(detail?.selectedItems ?? []);
+                                    setUserInput(detail?.selectedItems[0]?.prompt || '');
+                                    
+                                    // Auto-select agent if prompt has agentType specified
+                                    const selectedPrompt = detail?.selectedItems[0];
+                                    if (selectedPrompt && (selectedPrompt as any).agentType) {
+                                        const agentType = (selectedPrompt as any).agentType;
+                                        console.log('Auto-selecting agent based on prompt:', agentType);
+                                        setSelectedAgent(agentType);
+                                        // Store in sessionStorage for persistence
+                                        if (typeof window !== 'undefined') {
+                                            sessionStorage.setItem('selectedAgent', agentType);
                                         }
-                                    });
+                                    }
                                 }}
                                 selectedItems={selectedItems}
                                 items={[

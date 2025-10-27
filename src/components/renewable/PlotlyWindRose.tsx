@@ -37,6 +37,9 @@ interface PlotlyWindRoseProps {
     prevailing_frequency: number;
   };
   darkBackground?: boolean;
+  dataSource?: string;  // Data source label (e.g., "NREL Wind Toolkit")
+  dataYear?: number;    // Data year
+  dataQuality?: 'high' | 'medium' | 'low';  // Data quality indicator
 }
 
 const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
@@ -44,7 +47,10 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
   layout: providedLayout,
   projectId,
   statistics,
-  darkBackground = true
+  darkBackground = true,
+  dataSource = 'NREL Wind Toolkit',
+  dataYear = 2023,
+  dataQuality = 'high'
 }) => {
   // Default layout configuration matching design spec
   const defaultLayout = useMemo(() => {
@@ -262,34 +268,128 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
           border: `1px solid ${darkBackground ? '#444' : '#e9ebed'}`
         }}>
           <div style={{ fontSize: '48px', marginBottom: '16px' }}>🌬️</div>
-          <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px' }}>
-            No Wind Data Available
+          <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '8px', color: '#d91515' }}>
+            Unable to Fetch Wind Data from NREL API
           </div>
-          <div style={{ fontSize: '14px' }}>
-            Wind rose visualization requires wind speed and direction data
+          <div style={{ fontSize: '14px', marginBottom: '16px' }}>
+            Wind rose visualization requires real meteorological data from NREL Wind Toolkit
+          </div>
+          <div style={{ 
+            fontSize: '13px', 
+            padding: '12px', 
+            backgroundColor: darkBackground ? '#2a2a2a' : '#ffffff',
+            borderRadius: '6px',
+            border: `1px solid ${darkBackground ? '#444' : '#e9ebed'}`,
+            textAlign: 'left',
+            maxWidth: '500px',
+            margin: '0 auto'
+          }}>
+            <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Possible causes:</div>
+            <ul style={{ margin: '0', paddingLeft: '20px' }}>
+              <li>NREL API key not configured</li>
+              <li>API rate limit exceeded</li>
+              <li>Coordinates outside NREL coverage area (US only)</li>
+              <li>Network connectivity issues</li>
+            </ul>
+            <div style={{ fontWeight: 'bold', marginTop: '12px', marginBottom: '8px' }}>Next steps:</div>
+            <ol style={{ margin: '0', paddingLeft: '20px' }}>
+              <li>Configure NREL_API_KEY environment variable</li>
+              <li>Get a free API key at: <a href="https://developer.nrel.gov/signup/" target="_blank" rel="noopener noreferrer" style={{ color: '#0972d3' }}>developer.nrel.gov/signup</a></li>
+              <li>Ensure coordinates are within continental US</li>
+            </ol>
+          </div>
+          <div style={{ 
+            marginTop: '16px', 
+            padding: '8px 12px', 
+            backgroundColor: '#037f0c',
+            color: '#ffffff',
+            borderRadius: '4px',
+            fontSize: '12px',
+            fontWeight: 'bold',
+            display: 'inline-block'
+          }}>
+            ✓ NO SYNTHETIC DATA USED - Real NREL data required
           </div>
         </div>
       </Box>
     );
   }
 
+  // Data quality badge color
+  const qualityColor = dataQuality === 'high' ? '#037f0c' : dataQuality === 'medium' ? '#f89406' : '#d91515';
+  const qualityIcon = dataQuality === 'high' ? '✓' : dataQuality === 'medium' ? '⚠' : '✗';
+
   return (
     <div style={{ 
       width: '100%', 
-      height: '600px',
-      border: `1px solid ${darkBackground ? '#444' : '#e9ebed'}`,
-      borderRadius: '8px',
-      backgroundColor: darkBackground ? '#1a1a1a' : '#ffffff',
-      padding: '8px',
-      overflow: 'hidden'
+      position: 'relative'
     }}>
-      <Plot
-        data={data}
-        layout={layoutWithStats}
-        config={config}
-        style={{ width: '100%', height: '100%' }}
-        useResizeHandler={true}
-      />
+      {/* Data Source Label */}
+      <div style={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '12px 16px',
+        backgroundColor: darkBackground ? '#2a2a2a' : '#f9f9f9',
+        borderRadius: '8px 8px 0 0',
+        border: `1px solid ${darkBackground ? '#444' : '#e9ebed'}`,
+        borderBottom: 'none'
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '12px'
+        }}>
+          <span style={{
+            fontSize: '14px',
+            fontWeight: 'bold',
+            color: darkBackground ? '#ffffff' : '#000000'
+          }}>
+            Data Source:
+          </span>
+          <span style={{
+            fontSize: '14px',
+            color: darkBackground ? '#aaaaaa' : '#5f6b7a'
+          }}>
+            {dataSource} ({dataYear})
+          </span>
+        </div>
+        
+        {/* Data Quality Badge */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '6px',
+          padding: '4px 12px',
+          backgroundColor: qualityColor,
+          color: '#ffffff',
+          borderRadius: '4px',
+          fontSize: '12px',
+          fontWeight: 'bold'
+        }}>
+          <span>{qualityIcon}</span>
+          <span>{dataQuality.toUpperCase()} QUALITY</span>
+        </div>
+      </div>
+
+      {/* Wind Rose Plot */}
+      <div style={{ 
+        width: '100%', 
+        height: '600px',
+        border: `1px solid ${darkBackground ? '#444' : '#e9ebed'}`,
+        borderRadius: '0 0 8px 8px',
+        backgroundColor: darkBackground ? '#1a1a1a' : '#ffffff',
+        padding: '8px',
+        overflow: 'hidden'
+      }}>
+        <Plot
+          data={data}
+          layout={layoutWithStats}
+          config={config}
+          style={{ width: '100%', height: '100%' }}
+          useResizeHandler={true}
+        />
+      </div>
     </div>
   );
 };

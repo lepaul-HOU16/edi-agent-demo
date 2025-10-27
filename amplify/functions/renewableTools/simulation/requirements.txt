@@ -5,6 +5,7 @@ pandas==2.1.4
 
 # Visualization libraries
 matplotlib==3.8.2
+plotly==5.18.0
 folium==0.15.1
 branca==0.7.0
 

@@ -443,38 +443,325 @@ export class ProjectListHandler {
   }
 
   /**
+   * Generate dashboard artifact for UI rendering
+   * Requirements: 2.1, 2.2, 2.5
+   */
+  async generateDashboardArtifact(sessionId?: string): Promise<{
+    success: boolean;
+    message: string;
+    artifacts: any[];
+    projectCount: number;
+  }> {
+    try {
+      console.log('[ProjectListHandler] Generating dashboard artifact');
+      
+      // Get all projects from ProjectStore
+      const allProjects = await this.projectStore.list();
+      
+      // Even if no projects, still generate dashboard artifact (empty dashboard)
+      const hasProjects = allProjects.length > 0;
+
+      // Get active project from SessionContextManager
+      let activeProjectName: string | undefined;
+      if (sessionId && hasProjects) {
+        try {
+          activeProjectName = await this.sessionContextManager.getActiveProject(sessionId);
+          console.log('[ProjectListHandler] Active project:', activeProjectName);
+        } catch (error) {
+          console.warn('[ProjectListHandler] Could not get active project:', error);
+        }
+      }
+
+      // Detect duplicates (projects within 1km radius)
+      const duplicateGroups = hasProjects ? this.detectDuplicates(allProjects) : [];
+      console.log('[ProjectListHandler] Found', duplicateGroups.length, 'duplicate groups');
+
+      // Create dashboard data with all required fields
+      const dashboardData = {
+        projects: allProjects.map(project => ({
+          name: project.project_name,
+          location: this.formatLocation(project.coordinates),
+          completionPercentage: this.calculateCompletionPercentage(project),
+          lastUpdated: project.updated_at,
+          isActive: project.project_name === activeProjectName,
+          isDuplicate: this.isProjectDuplicate(project, duplicateGroups),
+          status: this.getProjectStatusLabel(project)
+        })),
+        totalProjects: allProjects.length,
+        activeProject: activeProjectName || null,
+        duplicateGroups: duplicateGroups.map(group => ({
+          location: this.formatLocation(group.coordinates),
+          count: group.projects.length,
+          projects: group.projects.map(p => ({
+            project_name: p.project_name,
+            coordinates: p.coordinates
+          }))
+        }))
+      };
+
+      // Create artifact structure
+      const artifact = {
+        type: 'project_dashboard',
+        title: 'Renewable Energy Projects Dashboard',
+        data: dashboardData
+      };
+
+      console.log('[ProjectListHandler] Dashboard artifact generated successfully');
+
+      const message = hasProjects 
+        ? `Found ${allProjects.length} renewable energy project${allProjects.length !== 1 ? 's' : ''}.`
+        : 'You don\'t have any renewable energy projects yet.';
+
+      return {
+        success: true,
+        message,
+        artifacts: [artifact],
+        projectCount: allProjects.length
+      };
+
+    } catch (error) {
+      console.error('[ProjectListHandler] Error generating dashboard artifact:', error);
+      return {
+        success: false,
+        message: 'Failed to load project dashboard.',
+        artifacts: [],
+        projectCount: 0
+      };
+    }
+  }
+
+  /**
+   * Detect duplicate projects within 1km radius
+   * Requirements: 2.3
+   */
+  private detectDuplicates(projects: ProjectData[]): Array<{
+    coordinates: { latitude: number; longitude: number };
+    projects: ProjectData[];
+  }> {
+    const duplicateGroups: Array<{
+      coordinates: { latitude: number; longitude: number };
+      projects: ProjectData[];
+    }> = [];
+    
+    const processed = new Set<string>();
+
+    for (const project of projects) {
+      // Skip if no coordinates or already processed
+      if (!project.coordinates || processed.has(project.project_name)) {
+        continue;
+      }
+
+      // Find all projects within 1km
+      const nearby = projects.filter(p => {
+        if (!p.coordinates || p.project_name === project.project_name) {
+          return false;
+        }
+
+        const distance = this.calculateDistance(
+          project.coordinates.latitude,
+          project.coordinates.longitude,
+          p.coordinates.latitude,
+          p.coordinates.longitude
+        );
+
+        return distance <= 1.0; // 1km radius
+      });
+
+      if (nearby.length > 0) {
+        // Found duplicates - create group
+        const group = [project, ...nearby];
+        duplicateGroups.push({
+          coordinates: project.coordinates,
+          projects: group
+        });
+
+        // Mark all as processed
+        group.forEach(p => processed.add(p.project_name));
+      }
+    }
+
+    return duplicateGroups;
+  }
+
+  /**
+   * Calculate distance between two coordinates in km using Haversine formula
+   * Requirements: 5.5
+   */
+  private calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Earth's radius in km
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  /**
+   * Format location for display
+   * Requirements: 5.1
+   */
+  private formatLocation(coordinates?: { latitude: number; longitude: number }): string {
+    if (!coordinates) return 'Unknown';
+    return `${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)}`;
+  }
+
+  /**
+   * Calculate completion percentage for a project
+   * Requirements: 5.2
+   */
+  private calculateCompletionPercentage(project: ProjectData): number {
+    const steps = [
+      !!project.terrain_results,
+      !!project.layout_results,
+      !!project.simulation_results,
+      !!project.report_results
+    ];
+    const completed = steps.filter(Boolean).length;
+    return Math.round((completed / 4) * 100);
+  }
+
+  /**
+   * Check if project is in duplicate groups
+   * Requirements: 5.3
+   */
+  private isProjectDuplicate(
+    project: ProjectData,
+    duplicateGroups: Array<{ projects: ProjectData[] }>
+  ): boolean {
+    return duplicateGroups.some(group =>
+      group.projects.some(p => p.project_name === project.project_name)
+    );
+  }
+
+  /**
+   * Get project status label
+   * Requirements: 5.4
+   */
+  private getProjectStatusLabel(project: ProjectData): string {
+    if (project.report_results) return 'Complete';
+    if (project.simulation_results) return 'Simulation Complete';
+    if (project.layout_results) return 'Layout Complete';
+    if (project.terrain_results) return 'Terrain Complete';
+    return 'Not Started';
+  }
+
+  /**
+   * Check if query is a dashboard request (requires UI artifact)
+   * Requirements: 1.1, 1.2, 1.3, 1.4
+   */
+  static isProjectDashboardQuery(query: string): boolean {
+    console.log('[ProjectListHandler] Testing dashboard query:', query);
+    
+    // Dashboard-specific patterns
+    const dashboardPatterns = [
+      /\bshow\b.*\bproject\b.*\bdashboard\b/i,
+      /\bproject\b.*\bdashboard\b/i,
+      /\bdashboard\b/i,
+      /\bview\b.*\bdashboard\b/i,
+      /\bopen\b.*\bdashboard\b/i,
+      /\bmy\b.*\bdashboard\b/i
+    ];
+
+    // Exclusion patterns - queries that should NOT trigger dashboard
+    const exclusionPatterns = [
+      /\blist\b/i,                          // Any "list" query should be text-only
+      /\banalyze\b/i,                       // Action verbs should not trigger dashboard
+      /\boptimize\b/i,
+      /\bsimulate\b/i,
+      /\bgenerate\b/i,
+      /\bcreate\b/i,
+      /\brun\b/i,
+      /\bperform\b/i
+    ];
+
+    // First check exclusions - if any match, reject immediately
+    for (let i = 0; i < exclusionPatterns.length; i++) {
+      if (exclusionPatterns[i].test(query)) {
+        console.log(`[ProjectListHandler] ❌ Dashboard rejected: Matched exclusion pattern ${i + 1}`);
+        return false;
+      }
+    }
+
+    // Then check dashboard patterns
+    for (let i = 0; i < dashboardPatterns.length; i++) {
+      if (dashboardPatterns[i].test(query)) {
+        console.log(`[ProjectListHandler] ✅ Dashboard matched pattern ${i + 1}:`, dashboardPatterns[i].source);
+        return true;
+      }
+    }
+    
+    console.log('[ProjectListHandler] ❌ No dashboard patterns matched');
+    return false;
+  }
+
+  /**
    * Check if query is a project list request
    */
   static isProjectListQuery(query: string): boolean {
+    console.log('[ProjectListHandler] Testing query:', query);
+    
+    // Use word boundaries to ensure exact word matches
     const patterns = [
-      /list.*my.*projects?/i,
-      /show.*my.*projects?/i,
-      /what.*projects?.*do.*i.*have/i,
-      /my.*renewable.*projects?/i,
-      /all.*my.*projects?/i,
-      /view.*projects?/i,
-      /see.*my.*projects?/i
+      /\blist\b.*\bmy\b.*\bprojects?\b/i,
+      /\bshow\b.*\bmy\b.*\bprojects?\b/i,
+      /\bwhat\b.*\bprojects?\b.*\bdo\b.*\bi\b.*\bhave\b/i,
+      /\bmy\b.*\brenewable\b.*\bprojects?\b/i,
+      /\ball\b.*\bmy\b.*\bprojects?\b/i,
+      /\bview\b.*\bprojects?\b/i,
+      /\bsee\b.*\bmy\b.*\bprojects?\b/i
     ];
 
-    return patterns.some(pattern => pattern.test(query));
+    // Additional safety check: reject if query contains action verbs
+    const actionVerbs = ['analyze', 'optimize', 'simulate', 'generate', 'create', 'run', 'perform'];
+    const lowerQuery = query.toLowerCase();
+    const hasActionVerb = actionVerbs.some(verb => lowerQuery.includes(verb));
+    
+    if (hasActionVerb) {
+      console.log('[ProjectListHandler] ❌ Rejected: Query contains action verb');
+      return false;
+    }
+
+    // Test each pattern individually for debugging
+    for (let i = 0; i < patterns.length; i++) {
+      if (patterns[i].test(query)) {
+        console.log(`[ProjectListHandler] ✅ Matched pattern ${i + 1}:`, patterns[i].source);
+        return true;
+      }
+    }
+    
+    console.log('[ProjectListHandler] ❌ No patterns matched');
+    return false;
   }
 
   /**
    * Check if query is a project details request
    */
   static isProjectDetailsQuery(query: string): { isMatch: boolean; projectName?: string } {
+    console.log('[ProjectListHandler] Testing project details query:', query);
+    
+    // Additional safety check: must explicitly mention "project"
+    if (!query.toLowerCase().includes('project')) {
+      console.log('[ProjectListHandler] ❌ No "project" keyword found');
+      return { isMatch: false };
+    }
+
+    // Use word boundaries to ensure exact word matches
     const patterns = [
-      /show.*project\s+([a-z0-9-]+)/i,
-      /details.*for.*project\s+([a-z0-9-]+)/i,
-      /project\s+([a-z0-9-]+).*details/i,
-      /view.*project\s+([a-z0-9-]+)/i,
-      /info.*about.*project\s+([a-z0-9-]+)/i,
-      /status.*of.*project\s+([a-z0-9-]+)/i
+      /\bshow\b.*\bproject\b\s+([a-z0-9-]+)/i,
+      /\bdetails\b.*\bfor\b.*\bproject\b\s+([a-z0-9-]+)/i,
+      /\bproject\b\s+([a-z0-9-]+).*\bdetails\b/i,
+      /\bview\b.*\bproject\b\s+([a-z0-9-]+)/i,
+      /\binfo\b.*\babout\b.*\bproject\b\s+([a-z0-9-]+)/i,
+      /\bstatus\b.*\bof\b.*\bproject\b\s+([a-z0-9-]+)/i
     ];
 
-    for (const pattern of patterns) {
-      const match = query.match(pattern);
+    for (let i = 0; i < patterns.length; i++) {
+      const match = query.match(patterns[i]);
       if (match && match[1]) {
+        console.log(`[ProjectListHandler] ✅ Matched pattern ${i + 1}, extracted project name:`, match[1]);
         return {
           isMatch: true,
           projectName: match[1]
@@ -482,6 +769,7 @@ export class ProjectListHandler {
       }
     }
 
+    console.log('[ProjectListHandler] ❌ No project details patterns matched');
     return { isMatch: false };
   }
 }

@@ -344,7 +344,9 @@ describe('Parameter Validation', () => {
         errors: ['Missing required parameter: latitude', 'Missing required parameter: longitude'],
         warnings: [],
         missingRequired: ['latitude', 'longitude'],
-        invalidValues: []
+        invalidValues: [],
+        satisfiedByContext: [],
+        contextUsed: false
       };
       
       const message = formatValidationError(validation, 'terrain_analysis');
@@ -359,7 +361,9 @@ describe('Parameter Validation', () => {
         errors: ['Invalid latitude: Latitude must be between -90 and 90'],
         warnings: [],
         missingRequired: [],
-        invalidValues: ['latitude']
+        invalidValues: ['latitude'],
+        satisfiedByContext: [],
+        contextUsed: false
       };
       
       const message = formatValidationError(validation, 'terrain_analysis');
@@ -373,7 +377,9 @@ describe('Parameter Validation', () => {
         errors: ['Missing required parameter: latitude'],
         warnings: [],
         missingRequired: ['latitude'],
-        invalidValues: []
+        invalidValues: [],
+        satisfiedByContext: [],
+        contextUsed: false
       };
       
       const message = formatValidationError(validation, 'layout_optimization');

@@ -203,7 +203,14 @@ export class IntentRouter {
       'layout_optimization': 'layout_optimization',
       'site_suitability': 'report_generation', // Maps to report tool for comprehensive assessment
       'comprehensive_assessment': 'report_generation', // Maps to report tool
-      'report_generation': 'report_generation' // Direct mapping
+      'report_generation': 'report_generation', // Direct mapping
+      // Project lifecycle management intents - keep original names
+      'delete_project': 'delete_project',
+      'rename_project': 'rename_project',
+      'merge_projects': 'merge_projects',
+      'archive_project': 'archive_project',
+      'export_project': 'export_project',
+      'search_projects': 'search_projects'
     };
     
     const mappedType = intentTypeMapping[classification.intent] || 'terrain_analysis';
