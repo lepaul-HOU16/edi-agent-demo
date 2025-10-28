@@ -1,0 +1,41 @@
+default_agent: edicraft
+agents:
+  edicraft:
+    name: edicraft
+    entrypoint: /Users/lepaul/Dev/prototypes/edi-agent-demo/edicraft-agent/agent.py
+    platform: linux/arm64
+    container_runtime: docker
+    source_path: /Users/lepaul/Dev/prototypes/edi-agent-demo/edicraft-agent
+    aws:
+      execution_role: arn:aws:iam::484907533441:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-e947ba7ac5
+      execution_role_auto_create: false
+      account: '484907533441'
+      region: us-east-1
+      ecr_repository: 484907533441.dkr.ecr.us-east-1.amazonaws.com/bedrock-agentcore-edicraft
+      ecr_auto_create: false
+      network_configuration:
+        network_mode: PUBLIC
+        network_mode_config: null
+      protocol_configuration:
+        server_protocol: HTTP
+      observability:
+        enabled: false
+    bedrock_agentcore:
+      agent_id: edicraft-kl1b6iGNug
+      agent_arn: arn:aws:bedrock-agentcore:us-east-1:484907533441:runtime/edicraft-kl1b6iGNug
+      agent_session_id: 9aecbd78-278e-4b6a-9ed5-70b2017c2cd6
+    codebuild:
+      project_name: bedrock-agentcore-edicraft-builder
+      execution_role: arn:aws:iam::484907533441:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-e947ba7ac5
+      source_bucket: bedrock-agentcore-codebuild-sources-484907533441-us-east-1
+    memory:
+      mode: STM_ONLY
+      memory_id: edicraft_mem-FVpihQAaoe
+      memory_arn: arn:aws:bedrock-agentcore:us-east-1:484907533441:memory/edicraft_mem-FVpihQAaoe
+      memory_name: edicraft_mem
+      event_expiry_days: 30
+      first_invoke_memory_check_done: true
+      was_created_by_toolkit: false
+    authorizer_configuration: null
+    request_header_configuration: null
+    oauth_configuration: null

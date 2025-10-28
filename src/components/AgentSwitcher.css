@@ -1,5 +1,57 @@
 /* Agent Switcher Styles */
 
+/* Base container styles */
+.agent-switcher-container {
+  display: inline-block;
+}
+
+/* Panel variant positioning */
+.agent-switcher-panel {
+  margin-right: 20px;
+}
+
+/* Input variant - fixed 28px height to match input initial state */
+.agent-switcher-input [class*="awsui-button-dropdown"] {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+}
+
+.agent-switcher-input [class*="awsui-button-dropdown"] button {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding: 0 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  line-height: 1 !important;
+}
+
+/* Fix icon alignment in input variant */
+.agent-switcher-input [class*="awsui-button-dropdown"] [class*="awsui-icon"] {
+  display: flex !important;
+  align-items: center !important;
+  height: 16px !important;
+  width: 16px !important;
+}
+
+/* Fix text alignment in input variant */
+.agent-switcher-input [class*="awsui-button-dropdown"] [class*="awsui-button-dropdown__text"],
+.agent-switcher-input [class*="awsui-button-dropdown"] span {
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  font-size: 14px !important;
+}
+
+/* Ensure dropdown trigger icon is properly aligned */
+.agent-switcher-input [class*="awsui-button-dropdown"] [class*="awsui-button-dropdown__trigger"] {
+  display: flex !important;
+  align-items: center !important;
+  height: 28px !important;
+}
+
 /* Target menu items that have a check icon (selected items) */
 .agent-switcher-container [role="menuitem"]:has([class*="icon"]) {
   background-color: #0972d3 !important;

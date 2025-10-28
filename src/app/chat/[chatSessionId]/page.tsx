@@ -34,6 +34,7 @@ import EditableTextBox from '@/components/EditableTextBox';
 import { withAuth } from '@/components/WithAuth';
 import FileDrawer from '@/components/FileDrawer';
 import AgentSwitcher from '@/components/AgentSwitcher';
+import AgentLandingPage from '@/components/AgentLandingPage';
 import { sendMessage } from '../../../../utils/amplifyUtils';
 import zIndex from '@mui/material/styles/zIndex';
 
@@ -52,11 +53,11 @@ function Page({
     const router = useRouter();
     const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
     
-    // Agent selection state
-    const [selectedAgent, setSelectedAgent] = useState<'auto' | 'petrophysics' | 'maintenance' | 'renewable'>('auto');
+    // Agent selection state - updated to include 'edicraft'
+    const [selectedAgent, setSelectedAgent] = useState<'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft'>('auto');
     
-    // Handler for agent change
-    const handleAgentChange = (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable') => {
+    // Handler for agent change - updated to include 'edicraft'
+    const handleAgentChange = (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft') => {
         console.log('Agent selection changed to:', agent);
         setSelectedAgent(agent);
         // Store in sessionStorage for persistence
@@ -65,12 +66,12 @@ function Page({
         }
     };
     
-    // Restore agent selection from sessionStorage on page load
+    // Restore agent selection from sessionStorage on page load - updated to include 'edicraft'
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const storedAgent = sessionStorage.getItem('selectedAgent');
-            if (storedAgent && ['auto', 'petrophysics', 'maintenance', 'renewable'].includes(storedAgent)) {
-                setSelectedAgent(storedAgent as 'auto' | 'petrophysics' | 'maintenance' | 'renewable');
+            if (storedAgent && ['auto', 'petrophysics', 'maintenance', 'renewable', 'edicraft'].includes(storedAgent)) {
+                setSelectedAgent(storedAgent as 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft');
                 console.log('Restored agent selection from sessionStorage:', storedAgent);
             }
         }
@@ -384,7 +385,12 @@ function Page({
                     disableGutters
                     gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
                 >
-                    <div className='panel-header'>
+                    <div className='panel-header' style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <AgentSwitcher
+                            selectedAgent={selectedAgent}
+                            onAgentChange={handleAgentChange}
+                            variant="panel"
+                        />
                         <SegmentedControl
                             selectedId={selectedId}
                             onChange={({ detail }) =>
@@ -438,6 +444,15 @@ function Page({
                 gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
             >
                 {selectedId === "seg-1" ? (
+                    <div className='panel'>
+                        <AgentLandingPage
+                            selectedAgent={selectedAgent}
+                            onWorkflowSelect={(prompt: string) => {
+                                setUserInput(prompt);
+                            }}
+                        />
+                    </div>
+                ) : selectedId === "seg-1-old" ? (
                     <div className='panel'>
                         <Container
                             footer=""

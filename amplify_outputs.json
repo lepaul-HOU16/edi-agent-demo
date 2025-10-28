@@ -988,6 +988,48 @@
             }
           }
         },
+        "InvokeEDIcraftAgentReturnType": {
+          "name": "InvokeEDIcraftAgentReturnType",
+          "fields": {
+            "success": {
+              "name": "success",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "artifacts": {
+              "name": "artifacts",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "thoughtSteps": {
+              "name": "thoughtSteps",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "connectionStatus": {
+              "name": "connectionStatus",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
         "GetAgentProgressReturnType": {
           "name": "GetAgentProgressReturnType",
           "fields": {
@@ -1190,6 +1232,40 @@
           "isArray": false,
           "type": {
             "nonModel": "InvokeMaintenanceAgentReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "chatSessionId": {
+              "name": "chatSessionId",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "foundationModelId": {
+              "name": "foundationModelId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "userId": {
+              "name": "userId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            }
+          }
+        },
+        "invokeEDIcraftAgent": {
+          "name": "invokeEDIcraftAgent",
+          "isArray": false,
+          "type": {
+            "nonModel": "InvokeEDIcraftAgentReturnType"
           },
           "isRequired": false,
           "arguments": {

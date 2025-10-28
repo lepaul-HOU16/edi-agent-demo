@@ -8,6 +8,7 @@ import { GeneralKnowledgeAgent } from './generalKnowledgeAgent';
 import { EnhancedStrandsAgent } from './enhancedStrandsAgent';
 import { RenewableProxyAgent } from './renewableProxyAgent';
 import { MaintenanceStrandsAgent } from '../maintenanceAgent/maintenanceStrandsAgent';
+import { EDIcraftAgent } from './edicraftAgent';
 import { getRenewableConfig } from '../shared/renewableConfig';
 import { 
   ThoughtStep, 
@@ -29,6 +30,7 @@ export class AgentRouter {
   private generalAgent: GeneralKnowledgeAgent;
   private petrophysicsAgent: EnhancedStrandsAgent;
   private maintenanceAgent: MaintenanceStrandsAgent;
+  private edicraftAgent: EDIcraftAgent;
   private renewableAgent: RenewableProxyAgent | null = null;
   private renewableEnabled: boolean = false;
 
@@ -36,7 +38,9 @@ export class AgentRouter {
     this.generalAgent = new GeneralKnowledgeAgent();
     this.petrophysicsAgent = new EnhancedStrandsAgent(foundationModelId, s3Bucket);
     this.maintenanceAgent = new MaintenanceStrandsAgent(foundationModelId, s3Bucket);
+    this.edicraftAgent = new EDIcraftAgent();
     console.log('✅ AgentRouter: Maintenance agent initialized');
+    console.log('✅ AgentRouter: EDIcraft agent initialized');
     
     // Initialize renewable agent (always enabled unless explicitly disabled)
     try {
@@ -74,25 +78,28 @@ export class AgentRouter {
     sessionContext?: { 
       chatSessionId?: string; 
       userId?: string;
-      selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable';
+      selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft';
     }
   ): Promise<RouterResponse> {
     console.log('🔀 AgentRouter: Routing query:', message.substring(0, 100) + '...');
     console.log('🔀 AgentRouter: Conversation history provided:', !!conversationHistory, 'messages:', conversationHistory?.length || 0);
-    console.log('🔀 AgentRouter: Session context:', sessionContext);
+    console.log('🔀 AgentRouter: Session context:', JSON.stringify(sessionContext, null, 2));
     
     try {
       // Check for explicit agent selection
-      let agentType: 'general' | 'petrophysics' | 'catalog' | 'renewable' | 'maintenance';
+      let agentType: 'general' | 'petrophysics' | 'catalog' | 'renewable' | 'maintenance' | 'edicraft';
       
       // If agent is explicitly selected (not 'auto'), use it directly
       if (sessionContext?.selectedAgent && sessionContext.selectedAgent !== 'auto') {
         agentType = sessionContext.selectedAgent;
         console.log('✅ AgentRouter: Explicit agent selection (bypassing intent detection):', agentType);
+        console.log('✅ AgentRouter: Selected agent value:', sessionContext.selectedAgent);
+        console.log('✅ AgentRouter: Selected agent type:', typeof sessionContext.selectedAgent);
       } else {
         // Auto mode: Determine which agent should handle this query based on content
         agentType = this.determineAgentType(message);
         console.log('🎯 AgentRouter: Auto-detected agent based on message content:', agentType);
+        console.log('🎯 AgentRouter: selectedAgent was:', sessionContext?.selectedAgent);
       }
 
       let result;
@@ -130,6 +137,41 @@ export class AgentRouter {
               message: `Maintenance agent error: ${error instanceof Error ? error.message : 'Unknown error'}`,
               agentUsed: 'maintenance_error',
               artifacts: []
+            };
+          }
+
+        case 'edicraft':
+          console.log('🎮 Routing to EDIcraft Agent');
+          console.log('🎮 Message:', message);
+          console.log('🎮 Session context:', sessionContext);
+          try {
+            result = await this.edicraftAgent.processMessage(message);
+            console.log('🎮 EDIcraft agent result:', {
+              success: result.success,
+              messageLength: result.message?.length,
+              hasArtifacts: !!result.artifacts,
+              connectionStatus: result.connectionStatus
+            });
+            return {
+              ...result,
+              agentUsed: 'edicraft'
+            };
+          } catch (error) {
+            console.error('❌ EDIcraft agent error:', error);
+            console.error('❌ Error stack:', error instanceof Error ? error.stack : 'No stack');
+            return {
+              success: false,
+              message: `EDIcraft agent error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+              agentUsed: 'edicraft_error',
+              artifacts: [],
+              thoughtSteps: [{
+                id: 'edicraft_error',
+                type: 'error',
+                timestamp: Date.now(),
+                title: 'EDIcraft Agent Error',
+                summary: error instanceof Error ? error.message : 'Unknown error occurred',
+                status: 'error'
+              }]
             };
           }
 
@@ -196,10 +238,44 @@ export class AgentRouter {
   /**
    * Determine which agent should handle the query
    */
-  private determineAgentType(message: string): 'general' | 'petrophysics' | 'catalog' | 'renewable' | 'maintenance' {
+  private determineAgentType(message: string): 'general' | 'petrophysics' | 'catalog' | 'renewable' | 'maintenance' | 'edicraft' {
     const lowerMessage = message.toLowerCase();
     
-    // Priority 1: Maintenance patterns (HIGHEST PRIORITY for equipment-related queries)
+    // Priority 1: EDIcraft patterns (HIGHEST PRIORITY for Minecraft/OSDU visualization)
+    const edicraftPatterns = [
+      // Core Minecraft patterns
+      /minecraft/i,
+      
+      // Wellbore trajectory patterns
+      /wellbore.*trajectory|trajectory.*wellbore/i,
+      /build.*wellbore|wellbore.*build/i,
+      /osdu.*wellbore/i,
+      /3d.*wellbore|wellbore.*path/i,
+      
+      // Horizon surface patterns
+      /horizon.*surface|surface.*horizon/i,
+      /build.*horizon|render.*surface/i,
+      /osdu.*horizon/i,
+      /geological.*surface/i,
+      
+      // Coordinate and position patterns
+      /player.*position/i,
+      /coordinate.*tracking/i,
+      /transform.*coordinates/i,
+      /utm.*minecraft/i,
+      
+      // Visualization patterns
+      /minecraft.*visualization/i,
+      /visualize.*minecraft/i,
+      /subsurface.*visualization/i,
+      /show.*in.*minecraft|display.*in.*minecraft|render.*in.*minecraft/i,
+      
+      // Combined patterns - well log + minecraft (priority over petrophysics)
+      /well.*log.*minecraft|log.*minecraft/i,
+      /well.*log.*and.*minecraft|minecraft.*and.*well.*log/i
+    ];
+    
+    // Priority 2: Maintenance patterns (HIGHEST PRIORITY for equipment-related queries)
     const maintenancePatterns = [
       /equipment.*failure|failure.*equipment/,
       /preventive.*maintenance|preventative.*maintenance/,
@@ -334,8 +410,16 @@ export class AgentRouter {
       /reservoir.*quality|completion.*target|net.*pay/
     ];
 
-    // Test patterns in priority order - MAINTENANCE FIRST, then WEATHER, then RENEWABLE!
+    // Test patterns in priority order - EDICRAFT FIRST, then MAINTENANCE, then WEATHER, then RENEWABLE!
     console.log('🔍 AgentRouter: Testing patterns for message:', lowerMessage.substring(0, 100));
+    
+    // Check EDIcraft patterns with detailed logging
+    const matchedEDIcraftPatterns = edicraftPatterns.filter(pattern => pattern.test(lowerMessage));
+    if (matchedEDIcraftPatterns.length > 0) {
+      console.log('🎮 AgentRouter: EDIcraft pattern matched');
+      console.log('🎮 AgentRouter: Matched patterns:', matchedEDIcraftPatterns.map(p => p.source).join(', '));
+      return 'edicraft';
+    }
     
     if (maintenancePatterns.some(pattern => pattern.test(lowerMessage))) {
       console.log('🔧 AgentRouter: Maintenance pattern matched');
@@ -486,5 +570,19 @@ export class AgentRouter {
       console.error('Error in catalog integration:', error);
       return null;
     }
+  }
+
+  /**
+   * Check if message contains EDIcraft/Minecraft terms
+   */
+  private containsEDIcraftTerms(message: string): boolean {
+    const edicraftTerms = [
+      'minecraft', 'wellbore trajectory', 'horizon surface', 'build wellbore',
+      'osdu wellbore', 'osdu horizon', 'player position', 'coordinate tracking',
+      'transform coordinates', 'utm minecraft', 'subsurface visualization',
+      '3d wellbore', 'geological surface', 'minecraft visualization'
+    ];
+
+    return edicraftTerms.some(term => message.includes(term));
   }
 }

@@ -1,95 +1,162 @@
-# Task 13: WakeAnalysisArtifact - Quick Reference
+# Task 13: Integration Tests - Quick Reference
 
-## ✅ COMPLETE
+## Test File
+`tests/integration/test-edicraft-integration.test.ts`
 
-Created comprehensive wake simulation artifact component with heat map visualization and performance metrics.
+## Run Tests
 
-## What Was Built
-
-**Component**: `src/components/renewable/WakeAnalysisArtifact.tsx`
-
-Displays wake simulation results with:
-- 📊 Performance metrics (AEP: 45.5 GWh, CF: 35%, Wake Loss: 5.6%)
-- 🗺️ Interactive wake heat map (Folium)
-- 📈 Monthly production chart (Plotly)
-- 📉 Analysis charts (wake deficit, performance, seasonal)
-- 🔧 Turbine configuration details
-- 🌬️ NREL Wind Toolkit data source info
-- 🎯 Follow-up action buttons
-
-## Quick Test
-
+### Run Integration Tests
 ```bash
-# Verify component
-npx tsx tests/verify-wake-analysis-artifact.ts
+npx jest tests/integration/test-edicraft-integration.test.ts --verbose
 ```
 
-Expected: ✅ ALL CHECKS PASSED
-
-## Usage
-
-User query:
-```
-"run wake simulation for project wind-farm-001"
+### Run All EDIcraft Tests
+```bash
+npx jest --testPathPattern="edicraft" --verbose
 ```
 
-Result:
-1. Orchestrator creates `wake_simulation` artifact
-2. ArtifactRenderer routes to WakeAnalysisArtifact
-3. Component displays wake analysis with visualizations
+## Test Coverage
 
-## Key Features
+### 38 Integration Tests
+- ✅ 6 Complete Flow Tests
+- ✅ 5 Error Scenario Tests
+- ✅ 4 Thought Step Extraction Tests
+- ✅ 6 Response Format Tests
+- ✅ 3 Multiple Query Scenario Tests
+- ✅ 4 Environment Configuration Tests
+- ✅ 7 Edge Case Tests
+- ✅ 3 Requirements Verification Tests
 
-### Performance Metrics
-- **AEP**: Net annual energy production (GWh/year)
-- **CF**: Capacity factor (%)
-- **Wake Loss**: Energy loss due to wake effects (%)
-- **Wake Efficiency**: Effective energy capture (%)
+## Key Test Scenarios
 
-### Wake Loss Severity
-- 🟢 Low (< 5%)
-- 🔵 Moderate (5-8%)
-- ⚪ High (8-12%)
-- 🔴 Very High (> 12%)
+### Successful Workflows
+```typescript
+// Wellbore visualization
+const query = 'Build wellbore trajectory for wellbore-123 in Minecraft';
+const traces = [rationale, actionInvocation, observation, minecraftAction, minecraftObservation];
+const response = await simulator.processQuery(query, traces);
+// ✅ response.success === true
+// ✅ response.thoughtSteps.length > 0
+// ✅ response.artifacts === []
+```
 
-### Visualizations
-- **Overview**: Monthly production chart, performance summary
-- **Wake Heat Map**: Interactive map with wake zones
-- **Analysis Charts**: Wake deficit, performance, seasonal, variability
+### Error Scenarios
+```typescript
+// Missing environment variables
+const invalidConfig = { ...config, bedrockAgentId: '' };
+const response = await simulator.processQuery(query, traces);
+// ✅ response.success === false
+// ✅ response.error === 'INVALID_CONFIG'
+// ✅ response.connectionStatus === 'error'
+```
 
-### Actions
-- Generate comprehensive report
-- Optimize layout to reduce wake losses
-- Perform financial analysis
-- Compare scenarios
+### Thought Step Extraction
+```typescript
+// Extract from traces
+const traces = [rationale, actionInvocation, observation];
+const response = await simulator.processQuery(query, traces);
+// ✅ Has analysis steps (from rationale)
+// ✅ Has processing steps (from actions/observations)
+// ✅ Has completion step (added automatically)
+```
 
-## Files
+## Mock Bedrock Traces
 
-**Created**:
-- `src/components/renewable/WakeAnalysisArtifact.tsx`
-- `tests/unit/test-wake-analysis-artifact.test.tsx`
-- `tests/integration/test-wake-analysis-artifact-integration.test.ts`
-- `tests/verify-wake-analysis-artifact.ts`
-- `tests/WAKE_ANALYSIS_ARTIFACT_TEST_GUIDE.md`
+### Rationale (Analysis)
+```typescript
+{
+  orchestrationTrace: {
+    rationale: {
+      text: 'I need to fetch wellbore data and build in Minecraft'
+    }
+  }
+}
+```
 
-**Modified**:
-- `src/components/renewable/index.ts` (added export)
-- `src/components/ArtifactRenderer.tsx` (added wake_simulation case)
+### Action Invocation (Processing)
+```typescript
+{
+  orchestrationTrace: {
+    invocationInput: {
+      actionGroupInvocationInput: {
+        actionGroupName: 'OSDU_Tools',
+        function: 'get_wellbore_trajectory',
+        parameters: [{ name: 'wellbore_id', value: 'wellbore-123' }]
+      }
+    }
+  }
+}
+```
 
-## Validation
+### Observation (Processing)
+```typescript
+{
+  orchestrationTrace: {
+    observation: {
+      actionGroupInvocationOutput: {
+        text: 'Successfully retrieved wellbore trajectory'
+      }
+    }
+  }
+}
+```
 
-✅ Component exists
-✅ Exported from index
-✅ Registered in ArtifactRenderer
-✅ No TypeScript errors
-✅ Heat map visualization
-✅ Performance metrics display
-✅ Handles missing data gracefully
+### Failure (Error)
+```typescript
+{
+  failureTrace: {
+    failureReason: 'Connection to Minecraft server failed',
+    traceId: 'trace-123'
+  }
+}
+```
 
-## Next Task
+## Response Format
 
-**Task 14**: Test wake simulation workflow end-to-end
+### Success Response
+```typescript
+{
+  success: true,
+  message: 'Wellbore built successfully at coordinates (100, 64, 200)',
+  artifacts: [], // Always empty for EDIcraft
+  thoughtSteps: [
+    { id: 'step-0', type: 'analysis', ... },
+    { id: 'step-1', type: 'processing', ... },
+    { id: 'step-2', type: 'completion', ... }
+  ],
+  connectionStatus: 'connected'
+}
+```
 
----
+### Error Response
+```typescript
+{
+  success: false,
+  message: 'Configuration error: Missing bedrockAgentId',
+  artifacts: [],
+  thoughtSteps: [],
+  connectionStatus: 'error',
+  error: 'INVALID_CONFIG'
+}
+```
 
-**Status**: ✅ COMPLETE | **Date**: 2025-01-15
+## Test Results
+
+```
+Test Suites: 1 passed, 1 total
+Tests:       38 passed, 38 total
+Time:        0.591 s
+```
+
+## Requirements Satisfied
+
+✅ **Requirement 6.5**: Integration Testing
+- Complete flow from query to response
+- Error scenarios (missing env vars, connection failures)
+- Thought step extraction from mock traces
+- Response format compatibility
+
+## Next Tasks
+
+- **Task 14**: Manual Testing and Validation
+- **Task 15**: Update Documentation

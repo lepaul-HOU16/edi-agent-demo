@@ -2,20 +2,23 @@
 
 import React from 'react';
 import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
-import Icon from '@cloudscape-design/components/icon';
+
+export type AgentType = 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft';
 
 export interface AgentSwitcherProps {
-  selectedAgent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable';
-  onAgentChange: (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable') => void;
+  selectedAgent: AgentType;
+  onAgentChange: (agent: AgentType) => void;
   disabled?: boolean;
+  variant?: 'panel' | 'input';
 }
 
 const AgentSwitcher: React.FC<AgentSwitcherProps> = ({
   selectedAgent,
   onAgentChange,
-  disabled = false
+  disabled = false,
+  variant = 'input'
 }) => {
-  const items = [
+  const items: any[] = [
     { 
       id: 'auto', 
       text: 'Auto',
@@ -35,20 +38,28 @@ const AgentSwitcher: React.FC<AgentSwitcherProps> = ({
       id: 'renewable', 
       text: 'Renewable Energy',
       iconName: selectedAgent === 'renewable' ? 'check' : undefined
+    },
+    { 
+      id: 'edicraft', 
+      text: 'EDIcraft',
+      iconName: selectedAgent === 'edicraft' ? 'check' : undefined
     }
   ];
 
   return (
-    <div className="agent-switcher-container">
+    <div 
+      className={`agent-switcher-container agent-switcher-${variant}`}
+      role="navigation"
+      aria-label={`${variant === 'panel' ? 'Panel' : 'Input'} agent selector`}
+    >
       <ButtonDropdown
         items={items}
         onItemClick={({ detail }) => {
-          onAgentChange(detail.id as 'auto' | 'petrophysics' | 'maintenance' | 'renewable');
+          onAgentChange(detail.id as AgentType);
         }}
         disabled={disabled}
         expandToViewport={true}
-        iconName="contact"
-        ariaLabel="Select agent"
+        ariaLabel={`Select AI agent for query processing. Currently selected: ${selectedAgent}`}
       />
     </div>
   );

@@ -1,5 +1,6 @@
 import { type ClientSchema, a, defineData, defineFunction } from '@aws-amplify/backend';
 import { maintenanceAgentFunction } from '../functions/maintenanceAgent/resource';
+import { edicraftAgentFunction } from '../functions/edicraftAgent/resource';
 import { agentProgressFunction } from '../functions/agentProgress/resource';
 
 // Main agent function with full routing capabilities (EnhancedStrandsAgent + RenewableProxyAgent)
@@ -229,6 +230,24 @@ export const schema = a.schema({
       auditTrail: a.json()
     }))
     .handler(a.handler.function(maintenanceAgentFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  // NEW: EDIcraft Agent mutation
+  invokeEDIcraftAgent: a.mutation()
+    .arguments({
+      chatSessionId: a.id().required(),
+      message: a.string().required(),
+      foundationModelId: a.string(),
+      userId: a.string(),
+    })
+    .returns(a.customType({
+      success: a.boolean().required(),
+      message: a.string().required(),
+      artifacts: a.json().array(),
+      thoughtSteps: a.json().array(),
+      connectionStatus: a.string()
+    }))
+    .handler(a.handler.function(edicraftAgentFunction))
     .authorization((allow) => [allow.authenticated()]),
 
   // invokeReActAgent has been deprecated - use invokeLightweightAgent instead

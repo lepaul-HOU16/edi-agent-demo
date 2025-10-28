@@ -205,7 +205,7 @@ const createMessageWithRetry = async (
 export const sendMessage = async (props: {
   chatSessionId: string,
   newMessage: Schema['ChatMessage']['createType'],
-  agentType?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable'
+  agentType?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft'
 }) => {
   console.log('=== AMPLIFY UTILS DEBUG: sendMessage called ===');
   console.log('Props:', props);

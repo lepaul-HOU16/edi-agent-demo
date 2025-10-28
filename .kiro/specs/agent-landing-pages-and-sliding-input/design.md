@@ -2,761 +2,875 @@
 
 ## Overview
 
-This design implements five complementary UI enhancements for the chat interface: agent-specific landing pages, sliding input mechanism, instant input clearing, immediate chain-of-thought display, and improved scrolling. The key insight is that visual feedback must happen immediately on user action, creating a real-time, responsive feel.
+This design implements agent-specific landing pages that replace the AI-recommended workflows panel, along with a synchronized agent switcher positioned above the panel. The system supports five agents (Auto, Petrophysics, Maintenance, Renewable Energy, and EDIcraft), each with a custom landing page featuring unique visualizations. The EDIcraft agent integrates with an MCP server to enable Minecraft-based subsurface data visualization.
 
 ## Architecture
 
-### High-Level Component Structure
+### Component Hierarchy
 
 ```
-ChatPage
-├── AgentLandingPanel (NEW)
-│   ├── DuplicateAgentSelector (NEW)
-│   ├── SegmentedController (existing)
-│   └── LandingPageContent (NEW)
-│       ├── AutoAgentLanding
-│       ├── RenewableEnergyLanding
-│       ├── MaintenanceLanding
-│       └── DefaultLanding
-├── ConversationArea (.convo)
-│   ├── ChatMessages
-│   └── ExtendedThinkingDisplay (ENHANCED)
-│       ├── Immediate loading state
-│       ├── Real-time content streaming
-│       └── Smart auto-scroll
-└── SlidingChatInput (ENHANCED)
-    ├── AgentSwitcher (existing)
-    ├── MessageInput (ENHANCED - instant clear)
-    └── RevealButton (NEW)
+ChatPage (src/app/chat/[chatSessionId]/page.tsx)
+├── Panel Header
+│   ├── AgentSwitcher (new, positioned 20px left of SegmentedControl)
+│   └── SegmentedControl (existing)
+├── .panel div (existing container)
+│   ├── WHEN selectedId === "seg-1":
+│   │   └── AgentLandingPage (new, replaces AI-recommended workflows Container)
+│   │       ├── AutoAgentLanding
+│   │       ├── PetrophysicsAgentLanding
+│   │       ├── MaintenanceAgentLanding
+│   │       ├── RenewableAgentLanding
+│   │       └── EDIcraftAgentLanding
+│   └── WHEN selectedId === "seg-2":
+│       └── ChainOfThought (existing)
+└── .convo div (existing container)
+    └── ChatBox
+        └── AgentSwitcher (existing, in input area)
 ```
 
-### Timing Sequence for Message Send
+### State Management
 
-**Improved Flow (Instant & Real-time):**
+```typescript
+// Shared state between both agent switchers
+const [selectedAgent, setSelectedAgent] = useState<'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft'>('auto');
+
+// Handler ensures both switchers stay synchronized
+const handleAgentChange = (agent: AgentType) => {
+  setSelectedAgent(agent);
+  sessionStorage.setItem('selectedAgent', agent);
+};
 ```
-User hits Enter (0ms) →
-  Chain of thought appears with loading state (50ms) →
-  Input clears (50ms) →
-  Prompt bubble appears (100ms) →
-  Chain of thought starts streaming (200ms) →
-  Content updates in real-time (continuous)
+
+### Data Flow
+
 ```
-
-### State Management Flow
-
-```mermaid
-stateDiagram-v2
-    [*] --> DefaultState
-    DefaultState --> AgentSelected: User selects agent
-    AgentSelected --> LandingPageDisplayed: Update panel content
-    LandingPageDisplayed --> AgentSelected: User changes agent
-    
-    state "Input Visible" as InputVisible
-    state "Input Hidden" as InputHidden
-    
-    [*] --> InputVisible
-    InputVisible --> InputHidden: User scrolls .convo
-    InputHidden --> InputVisible: User clicks reveal button
+User selects agent from panel switcher
+    ↓
+handleAgentChange updates state
+    ↓
+State change triggers re-render
+    ↓
+Both switchers reflect new selection
+    ↓
+Panel displays corresponding landing page
+    ↓
+ChatBox uses selected agent for message routing
 ```
 
 ## Components and Interfaces
 
-### 1. AgentLandingPanel Component
+### 1. AgentLandingPage Component
 
-**Purpose**: Container component that manages the panel area, including the duplicate selector and landing page content.
+**Location:** `src/components/AgentLandingPage.tsx`
 
-**Props**:
+**Purpose:** Container component that renders the appropriate landing panel content based on selected agent. This component replaces the AI-recommended workflows content within the `.panel` div.
+
+**Interface:**
 ```typescript
-interface AgentLandingPanelProps {
-  selectedAgent: AgentType;
-  onAgentChange: (agent: AgentType) => void;
+interface AgentLandingPageProps {
+  selectedAgent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft';
+  onWorkflowSelect?: (prompt: string) => void;
 }
-```
 
-**State**:
-```typescript
-interface AgentLandingPanelState {
-  currentAgent: AgentType;
-  isTransitioning: boolean;
-}
-```
-
-**Responsibilities**:
-- Render duplicate agent selector
-- Display agent-specific landing page content
-- Coordinate with segmented controller positioning
-- Handle agent selection changes from duplicate selector
-
-### 2. DuplicateAgentSelector Component
-
-**Purpose**: Icon button selector positioned 20px left of segmented controller, synchronized with input switcher.
-
-**Props**:
-```typescript
-interface DuplicateAgentSelectorProps {
-  selectedAgent: AgentType;
-  availableAgents: AgentOption[];
-  onAgentChange: (agent: AgentType) => void;
-  className?: string;
-}
-```
-
-**Design**:
-- Icon button with dropdown menu
-- Same agent options as input switcher
-- Positioned absolutely or with flexbox gap
-- Uses existing Cloudscape or MUI icon button component
-- Dropdown menu shows agent icons and names
-
-### 3. LandingPageContent Component
-
-**Purpose**: Renders agent-specific landing page content in the panel area.
-
-**Props**:
-```typescript
-interface LandingPageContentProps {
-  agent: AgentType;
-  className?: string;
-}
-```
-
-**Content Structure** (per agent):
-```typescript
-interface AgentLandingContent {
-  title: string;
-  description: string;
-  capabilities: string[];
-  quickStartTips?: string[];
-  icon: ReactNode;
-}
-```
-
-**Agent-Specific Content**:
-
-- **Auto Agent**:
-  - Title: "Auto Agent Selection"
-  - Description: "Intelligent agent routing based on your query"
-  - Capabilities: 
-    - Automatically detects intent from your message
-    - Routes to the most appropriate specialized agent
-    - Handles multi-domain queries seamlessly
-    - Falls back to general assistance when needed
-  - How It Works: "Simply type your question naturally. The system analyzes your intent and automatically selects the best agent to help you—whether it's renewable energy analysis, maintenance planning, or general assistance."
-  - Icon: Magic wand, sparkles, or auto-routing icon
-
-- **Renewable Energy Agent**:
-  - Title: "Renewable Energy Site Design"
-  - Description: "AI-powered wind farm analysis and optimization"
-  - Capabilities: Terrain analysis, Layout optimization, Wake simulation, Performance analysis, Financial modeling
-  - Icon: Wind turbine or renewable energy icon
-
-- **Maintenance Agent**:
-  - Title: "Equipment Maintenance & Monitoring"
-  - Description: "Predictive maintenance and asset health monitoring"
-  - Capabilities: Equipment status, Failure prediction, Maintenance scheduling, Inspection reports, Asset lifecycle
-  - Icon: Wrench or maintenance icon
-
-- **Default (No Agent)**:
-  - Current "AI-Powered Workflow Recommendations" content
-
-### 4. SlidingChatInput Component (Enhanced)
-
-**Purpose**: Existing chat input enhanced with sliding behavior on scroll.
-
-**Props**:
-```typescript
-interface SlidingChatInputProps {
-  selectedAgent: AgentType;
-  onAgentChange: (agent: AgentType) => void;
-  onMessageSend: (message: string) => void;
-  // ... existing props
-}
-```
-
-**State**:
-```typescript
-interface SlidingChatInputState {
-  isVisible: boolean;
-  isAnimating: boolean;
-  scrollPosition: number;
-}
-```
-
-**Behavior**:
-- Monitor `.convo` scroll events
-- Slide right with CSS transform on scroll
-- Show reveal button when hidden
-- Slide back on reveal button click
-
-### 5. RevealButton Component
-
-**Purpose**: Icon button that appears in right margin when input is hidden.
-
-**Props**:
-```typescript
-interface RevealButtonProps {
-  onClick: () => void;
-  position: { top: number; right: number };
-  isVisible: boolean;
-}
-```
-
-**Design**:
-- Fixed position in right margin
-- Circular icon button with chat/message icon
-- Fade in/out animation
-- Positioned at original input vertical location
-
-### 6. Enhanced ChatInput with Instant Clear
-
-**Purpose**: Clear input instantly on send, before any async operations.
-
-**Current Behavior (SLOW)**:
-```typescript
-// ❌ Waits for API
-const handleSend = async () => {
-  const response = await sendMessage(input);
-  setInput(''); // Clears AFTER response
+const AgentLandingPage: React.FC<AgentLandingPageProps> = ({
+  selectedAgent,
+  onWorkflowSelect
+}) => {
+  // Render appropriate landing panel content
+  // This replaces the AI-recommended workflows Container within the .panel div
+  switch (selectedAgent) {
+    case 'auto':
+      return <AutoAgentLanding onWorkflowSelect={onWorkflowSelect} />;
+    case 'petrophysics':
+      return <PetrophysicsAgentLanding onWorkflowSelect={onWorkflowSelect} />;
+    case 'maintenance':
+      return <MaintenanceAgentLanding onWorkflowSelect={onWorkflowSelect} />;
+    case 'renewable':
+      return <RenewableAgentLanding onWorkflowSelect={onWorkflowSelect} />;
+    case 'edicraft':
+      return <EDIcraftAgentLanding onWorkflowSelect={onWorkflowSelect} />;
+  }
 };
 ```
 
-**Improved Behavior (FAST)**:
+### 2. Individual Landing Panel Components
+
+**Location:** `src/components/agent-landing-pages/`
+
+Each landing panel component renders content within the `.panel` container and follows a consistent structure:
+
 ```typescript
-// ✅ Clears immediately
-const handleSend = async () => {
-  const messageToSend = input;
-  setInput(''); // Clear IMMEDIATELY (synchronous)
-  sendMessage(messageToSend); // Then send async
+interface AgentLandingProps {
+  onWorkflowSelect?: (prompt: string) => void;
+}
+
+const AutoAgentLanding: React.FC<AgentLandingProps> = ({ onWorkflowSelect }) => {
+  // This component renders inside the .panel div, replacing the AI-recommended workflows
+  return (
+    <Container header="Auto Agent">
+      <SpaceBetween direction="vertical" size="l">
+        {/* Agent Icon/Visualization */}
+        <Box textAlign="center">
+          <AgentVisualization type="auto" />
+        </Box>
+        
+        {/* Bio/Introduction */}
+        <Box variant="h2">Intelligent Query Routing</Box>
+        <Box>
+          The Auto Agent automatically analyzes your queries and routes them to the most 
+          appropriate specialized agent...
+        </Box>
+        
+        {/* Capabilities */}
+        <ColumnLayout columns={2}>
+          <Box>
+            <Icon name="check" /> Intent Detection
+          </Box>
+          <Box>
+            <Icon name="check" /> Smart Routing
+          </Box>
+        </ColumnLayout>
+        
+        {/* Specialized Agents List */}
+        <Box variant="h3">Routes to:</Box>
+        <SpaceBetween direction="vertical" size="s">
+          <Badge color="blue">Petrophysics Agent</Badge>
+          <Badge color="green">Maintenance Agent</Badge>
+          <Badge color="purple">Renewable Energy Agent</Badge>
+          <Badge color="orange">EDIcraft Agent</Badge>
+        </SpaceBetween>
+        
+        {/* Example Queries */}
+        <ExpandableSection headerText="Example Queries">
+          <Cards items={exampleQueries} />
+        </ExpandableSection>
+      </SpaceBetween>
+    </Container>
+  );
 };
 ```
 
-**Implementation**:
-- Clear input synchronously before any async calls
-- Store message content in local variable before clearing
-- Maintain focus on input after clearing
+### 3. AgentVisualization Component
 
-### 7. Enhanced ExtendedThinkingDisplay
+**Location:** `src/components/agent-landing-pages/AgentVisualization.tsx`
 
-**Purpose**: Show immediate processing state and stream content in real-time.
+**Purpose:** Renders custom SVG illustrations for each agent.
 
-**State Interface**:
+**Interface:**
 ```typescript
-interface ExtendedThinkingState {
-  status: 'idle' | 'initializing' | 'processing' | 'streaming' | 'complete';
-  content: ThinkingStep[];
-  isVisible: boolean;
-  isAutoScrolling: boolean;
-  hasUserScrolled: boolean;
+interface AgentVisualizationProps {
+  type: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft';
+  size?: 'small' | 'medium' | 'large';
 }
 
-interface ThinkingStep {
-  id: string;
-  text: string;
-  timestamp: number;
-  isComplete: boolean;
-}
-```
-
-**Immediate Display Logic**:
-```typescript
-// Show immediately on send (within 50ms)
-const handleMessageSend = () => {
-  setThinkingState({
-    status: 'initializing',
-    isVisible: true,
-    content: []
-  });
-  // Visual indicators appear instantly
-};
-```
-
-**Streaming Content Logic**:
-```typescript
-// Update as chunks arrive
-const handleStreamChunk = (chunk: string) => {
-  setThinkingState(prev => ({
-    ...prev,
-    status: 'streaming',
-    content: [...prev.content, {
-      id: generateId(),
-      text: chunk,
-      timestamp: Date.now(),
-      isComplete: false
-    }]
-  }));
-};
-```
-
-### 8. Smart Auto-Scroll System
-
-**Purpose**: Scroll to show new content while respecting user scroll position.
-
-**Scroll State**:
-```typescript
-interface ScrollState {
-  isAutoScrollEnabled: boolean;
-  isNearBottom: boolean;
-  lastScrollTop: number;
-  scrollThreshold: number; // 50px from bottom
-}
-```
-
-**Auto-Scroll Logic**:
-```typescript
-const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
-  const element = e.currentTarget;
-  const isNearBottom = 
-    element.scrollHeight - element.scrollTop - element.clientHeight < 50;
+const AgentVisualization: React.FC<AgentVisualizationProps> = ({ type, size = 'medium' }) => {
+  const dimensions = {
+    small: { width: 120, height: 120 },
+    medium: { width: 200, height: 200 },
+    large: { width: 300, height: 300 }
+  };
   
-  setScrollState(prev => ({
-    ...prev,
-    isNearBottom,
-    isAutoScrollEnabled: isNearBottom
-  }));
+  return (
+    <svg 
+      width={dimensions[size].width} 
+      height={dimensions[size].height}
+      viewBox="0 0 200 200"
+      aria-label={`${type} agent visualization`}
+    >
+      {renderVisualization(type)}
+    </svg>
+  );
 };
+```
 
-const scrollToBottom = () => {
-  if (scrollState.isAutoScrollEnabled) {
-    scrollContainerRef.current?.scrollTo({
-      top: scrollContainerRef.current.scrollHeight,
-      behavior: 'smooth'
+### 4. Updated AgentSwitcher Component
+
+**Location:** `src/components/AgentSwitcher.tsx`
+
+**Updates:**
+```typescript
+export interface AgentSwitcherProps {
+  selectedAgent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft'; // Added 'edicraft'
+  onAgentChange: (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft') => void;
+  disabled?: boolean;
+  variant?: 'panel' | 'input'; // New prop to distinguish between the two instances
+}
+
+const AgentSwitcher: React.FC<AgentSwitcherProps> = ({
+  selectedAgent,
+  onAgentChange,
+  disabled = false,
+  variant = 'input'
+}) => {
+  const items = [
+    { id: 'auto', text: 'Auto', iconName: selectedAgent === 'auto' ? 'check' : undefined },
+    { id: 'petrophysics', text: 'Petrophysics', iconName: selectedAgent === 'petrophysics' ? 'check' : undefined },
+    { id: 'maintenance', text: 'Maintenance', iconName: selectedAgent === 'maintenance' ? 'check' : undefined },
+    { id: 'renewable', text: 'Renewable Energy', iconName: selectedAgent === 'renewable' ? 'check' : undefined },
+    { id: 'edicraft', text: 'EDIcraft', iconName: selectedAgent === 'edicraft' ? 'check' : undefined } // New option
+  ];
+
+  return (
+    <div className={`agent-switcher-container agent-switcher-${variant}`}>
+      <ButtonDropdown
+        items={items}
+        onItemClick={({ detail }) => {
+          onAgentChange(detail.id as AgentType);
+        }}
+        disabled={disabled}
+        expandToViewport={true}
+        iconName="contact"
+        ariaLabel="Select agent"
+      />
+    </div>
+  );
+};
+```
+
+### 5. EDIcraft MCP Integration
+
+**Location:** `amplify/functions/agents/edicraft/handler.ts`
+
+**Purpose:** Route EDIcraft agent requests to the MCP server.
+
+```typescript
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+
+export const handler = async (event: any) => {
+  const { message, chatSessionId } = event;
+  
+  try {
+    // Invoke MCP server for EDIcraft
+    const mcpResponse = await invokeMCPServer({
+      server: 'edicraft',
+      tool: 'process_query',
+      parameters: {
+        prompt: message,
+        minecraft_host: process.env.MINECRAFT_HOST,
+        minecraft_port: process.env.MINECRAFT_PORT,
+        rcon_password: process.env.RCON_PASSWORD
+      }
     });
+    
+    return {
+      statusCode: 200,
+      body: JSON.stringify({
+        message: mcpResponse.response,
+        thoughtSteps: mcpResponse.thoughtSteps,
+        artifacts: [] // No visual artifacts, just text feedback
+      })
+    };
+  } catch (error) {
+    console.error('EDIcraft agent error:', error);
+    return {
+      statusCode: 500,
+      body: JSON.stringify({
+        message: 'Failed to connect to Minecraft server. Please check server status.',
+        error: error.message
+      })
+    };
   }
 };
 
-// Scroll on new content
-useEffect(() => {
-  if (thinkingState.content.length > 0) {
-    scrollToBottom();
-  }
-}, [thinkingState.content]);
-```
-
-### 9. Visual Activity Indicators
-
-**Purpose**: Show immediate visual feedback that processing has started.
-
-**Loading States**:
-```typescript
-const LoadingIndicator = ({ status }: { status: ExtendedThinkingState['status'] }) => {
-  switch (status) {
-    case 'initializing':
-      return <PulsingDots text="Initializing..." />;
-    case 'processing':
-      return <SpinnerWithText text="Processing..." />;
-    case 'streaming':
-      return <FlowingAnimation text="Thinking..." />;
-    default:
-      return null;
-  }
-};
-```
-
-**Animation Components**:
-```typescript
-// Pulsing dots for immediate feedback
-const PulsingDots = () => (
-  <div className="flex gap-1">
-    <span className="animate-pulse-fast">●</span>
-    <span className="animate-pulse-fast delay-100">●</span>
-    <span className="animate-pulse-fast delay-200">●</span>
-  </div>
-);
+async function invokeMCPServer(params: any) {
+  // MCP server invocation logic
+  // This will call the EDIcraft agent.py via MCP protocol
+  const response = await fetch(`${process.env.MCP_SERVER_URL}/invoke`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params)
+  });
+  
+  return await response.json();
+}
 ```
 
 ## Data Models
 
-### AgentType Enum
+### Agent Type
+
 ```typescript
-enum AgentType {
-  AUTO = 'auto',
-  RENEWABLE_ENERGY = 'renewable_energy',
-  MAINTENANCE = 'maintenance',
-  DEFAULT = 'default'
-}
+type AgentType = 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft';
 ```
 
-### AgentOption Interface
+### Agent Configuration
+
 ```typescript
-interface AgentOption {
-  type: AgentType;
-  label: string;
-  icon: ReactNode;
+interface AgentConfig {
+  id: AgentType;
+  name: string;
   description: string;
+  icon: string;
+  color: string;
+  capabilities: string[];
+  exampleQueries: string[];
+  mcpServer?: string; // Optional MCP server identifier
+}
+
+const AGENT_CONFIGS: Record<AgentType, AgentConfig> = {
+  auto: {
+    id: 'auto',
+    name: 'Auto Agent',
+    description: 'Intelligent query routing to specialized agents',
+    icon: 'gen-ai',
+    color: 'blue',
+    capabilities: [
+      'Intent Detection',
+      'Smart Routing',
+      'Multi-Agent Coordination',
+      'Context Awareness'
+    ],
+    exampleQueries: [
+      'Analyze well data for WELL-001',
+      'Check equipment health for PUMP-001',
+      'Design a wind farm layout',
+      'Visualize wellbore trajectory in Minecraft'
+    ]
+  },
+  petrophysics: {
+    id: 'petrophysics',
+    name: 'Petrophysics Agent',
+    description: 'Well log analysis and reservoir characterization',
+    icon: 'folder',
+    color: 'blue',
+    capabilities: [
+      'Porosity Calculation',
+      'Shale Volume Analysis',
+      'Multi-Well Correlation',
+      'Data Quality Assessment'
+    ],
+    exampleQueries: [
+      'Calculate porosity for WELL-001',
+      'Perform shale analysis',
+      'Correlate wells 001-005'
+    ]
+  },
+  maintenance: {
+    id: 'maintenance',
+    name: 'Maintenance Agent',
+    description: 'Equipment monitoring and predictive maintenance',
+    icon: 'settings',
+    color: 'green',
+    capabilities: [
+      'Health Assessment',
+      'Failure Prediction',
+      'Maintenance Planning',
+      'Inspection Scheduling'
+    ],
+    exampleQueries: [
+      'Assess health of PUMP-001',
+      'Predict failures for COMPRESSOR-001',
+      'Generate maintenance schedule'
+    ]
+  },
+  renewable: {
+    id: 'renewable',
+    name: 'Renewable Energy Agent',
+    description: 'Wind farm site design and optimization',
+    icon: 'status-positive',
+    color: 'purple',
+    capabilities: [
+      'Terrain Analysis',
+      'Layout Optimization',
+      'Wind Rose Generation',
+      'Energy Production Modeling'
+    ],
+    exampleQueries: [
+      'Analyze terrain for wind farm',
+      'Optimize turbine layout',
+      'Generate wind rose visualization'
+    ]
+  },
+  edicraft: {
+    id: 'edicraft',
+    name: 'EDIcraft Agent',
+    description: 'Minecraft-based subsurface data visualization',
+    icon: 'view-full',
+    color: 'orange',
+    capabilities: [
+      'Wellbore Trajectory Visualization',
+      'Horizon Surface Rendering',
+      'OSDU Data Integration',
+      'Real-time 3D Building'
+    ],
+    exampleQueries: [
+      'Build wellbore trajectory in Minecraft',
+      'Visualize horizon surface',
+      'Search OSDU for wellbores',
+      'Transform coordinates to Minecraft'
+    ],
+    mcpServer: 'edicraft'
+  }
+};
+```
+
+### MCP Server Configuration
+
+```typescript
+interface MCPServerConfig {
+  name: string;
+  host: string;
+  port: number;
+  protocol: 'http' | 'https';
+  authentication?: {
+    type: 'rcon' | 'token' | 'basic';
+    credentials: Record<string, string>;
+  };
+}
+
+const MCP_SERVERS: Record<string, MCPServerConfig> = {
+  edicraft: {
+    name: 'EDIcraft MCP Server',
+    host: 'edicraft.nigelgardiner.com',
+    port: 49000,
+    protocol: 'https',
+    authentication: {
+      type: 'rcon',
+      credentials: {
+        password: process.env.MINECRAFT_RCON_PASSWORD || ''
+      }
+    }
+  }
+};
+```
+
+## Visualization Designs
+
+### Auto Agent Visualization
+
+**Concept:** Interconnected nodes representing intelligent routing
+
+```svg
+<svg viewBox="0 0 200 200">
+  <!-- Central AI node -->
+  <circle cx="100" cy="100" r="20" fill="#0972D3" />
+  <text x="100" y="105" text-anchor="middle" fill="white" font-size="12">AI</text>
+  
+  <!-- Specialized agent nodes -->
+  <circle cx="50" cy="50" r="15" fill="#037F0C" />
+  <circle cx="150" cy="50" r="15" fill="#5F6B7A" />
+  <circle cx="50" cy="150" r="15" fill="#8B46FF" />
+  <circle cx="150" cy="150" r="15" fill="#FF6B00" />
+  
+  <!-- Connection lines -->
+  <line x1="100" y1="100" x2="50" y2="50" stroke="#0972D3" stroke-width="2" />
+  <line x1="100" y1="100" x2="150" y2="50" stroke="#0972D3" stroke-width="2" />
+  <line x1="100" y1="100" x2="50" y2="150" stroke="#0972D3" stroke-width="2" />
+  <line x1="100" y1="100" x2="150" y2="150" stroke="#0972D3" stroke-width="2" />
+</svg>
+```
+
+### Petrophysics Agent Visualization
+
+**Concept:** Well log curves and depth tracks
+
+```svg
+<svg viewBox="0 0 200 200">
+  <!-- Depth track -->
+  <rect x="20" y="20" width="30" height="160" fill="#F0F0F0" stroke="#5F6B7A" />
+  
+  <!-- GR curve -->
+  <path d="M 60 20 Q 80 60, 70 100 T 60 180" fill="none" stroke="#037F0C" stroke-width="2" />
+  
+  <!-- Resistivity curve -->
+  <path d="M 100 20 Q 120 80, 110 120 T 100 180" fill="none" stroke="#0972D3" stroke-width="2" />
+  
+  <!-- Porosity curve -->
+  <path d="M 140 20 Q 160 50, 150 90 T 140 180" fill="none" stroke="#8B46FF" stroke-width="2" />
+  
+  <!-- Labels -->
+  <text x="60" y="15" font-size="10" fill="#037F0C">GR</text>
+  <text x="100" y="15" font-size="10" fill="#0972D3">RES</text>
+  <text x="140" y="15" font-size="10" fill="#8B46FF">PHI</text>
+</svg>
+```
+
+### Maintenance Agent Visualization
+
+**Concept:** Equipment with health indicators
+
+```svg
+<svg viewBox="0 0 200 200">
+  <!-- Equipment outline (pump) -->
+  <rect x="70" y="80" width="60" height="40" fill="#5F6B7A" stroke="#000" />
+  <circle cx="100" cy="100" r="15" fill="#0972D3" />
+  
+  <!-- Health indicators -->
+  <circle cx="50" cy="50" r="8" fill="#037F0C" />
+  <text x="50" y="40" text-anchor="middle" font-size="10">✓</text>
+  
+  <circle cx="100" cy="50" r="8" fill="#FF9900" />
+  <text x="100" y="40" text-anchor="middle" font-size="10">!</text>
+  
+  <circle cx="150" cy="50" r="8" fill="#D91515" />
+  <text x="150" y="40" text-anchor="middle" font-size="10">✗</text>
+  
+  <!-- Sensor lines -->
+  <line x1="50" y1="58" x2="85" y2="85" stroke="#037F0C" stroke-width="1" stroke-dasharray="2,2" />
+  <line x1="100" y1="58" x2="100" y2="85" stroke="#FF9900" stroke-width="1" stroke-dasharray="2,2" />
+  <line x1="150" y1="58" x2="115" y2="85" stroke="#D91515" stroke-width="1" stroke-dasharray="2,2" />
+</svg>
+```
+
+### Renewable Energy Agent Visualization
+
+**Concept:** Wind turbines on terrain
+
+```svg
+<svg viewBox="0 0 200 200">
+  <!-- Terrain -->
+  <path d="M 0 150 Q 50 130, 100 140 T 200 150 L 200 200 L 0 200 Z" fill="#E9ECEF" />
+  
+  <!-- Wind turbines -->
+  <g transform="translate(50, 120)">
+    <line x1="0" y1="0" x2="0" y2="-40" stroke="#5F6B7A" stroke-width="2" />
+    <ellipse cx="0" cy="-40" rx="15" ry="2" fill="#0972D3" />
+  </g>
+  
+  <g transform="translate(100, 110)">
+    <line x1="0" y1="0" x2="0" y2="-50" stroke="#5F6B7A" stroke-width="2" />
+    <ellipse cx="0" cy="-50" rx="18" ry="2" fill="#0972D3" />
+  </g>
+  
+  <g transform="translate(150, 125)">
+    <line x1="0" y1="0" x2="0" y2="-45" stroke="#5F6B7A" stroke-width="2" />
+    <ellipse cx="0" cy="-45" rx="16" ry="2" fill="#0972D3" />
+  </g>
+  
+  <!-- Wind direction arrows -->
+  <path d="M 20 40 L 40 40 L 35 35 M 40 40 L 35 45" stroke="#0972D3" stroke-width="1" fill="none" />
+</svg>
+```
+
+### EDIcraft Agent Visualization
+
+**Concept:** Minecraft blocks forming a wellbore
+
+```svg
+<svg viewBox="0 0 200 200">
+  <!-- Minecraft-style blocks (pixelated) -->
+  <!-- Surface blocks -->
+  <rect x="40" y="60" width="20" height="20" fill="#8B7355" stroke="#000" stroke-width="1" />
+  <rect x="60" y="60" width="20" height="20" fill="#7A6A4F" stroke="#000" stroke-width="1" />
+  <rect x="80" y="60" width="20" height="20" fill="#8B7355" stroke="#000" stroke-width="1" />
+  <rect x="100" y="60" width="20" height="20" fill="#7A6A4F" stroke="#000" stroke-width="1" />
+  <rect x="120" y="60" width="20" height="20" fill="#8B7355" stroke="#000" stroke-width="1" />
+  <rect x="140" y="60" width="20" height="20" fill="#7A6A4F" stroke="#000" stroke-width="1" />
+  
+  <!-- Wellbore blocks (vertical) -->
+  <rect x="90" y="80" width="20" height="20" fill="#FF6B00" stroke="#000" stroke-width="1" />
+  <rect x="90" y="100" width="20" height="20" fill="#FF8533" stroke="#000" stroke-width="1" />
+  <rect x="90" y="120" width="20" height="20" fill="#FF6B00" stroke="#000" stroke-width="1" />
+  <rect x="90" y="140" width="20" height="20" fill="#FF8533" stroke="#000" stroke-width="1" />
+  
+  <!-- Subsurface layers -->
+  <rect x="40" y="160" width="120" height="10" fill="#5F6B7A" stroke="#000" stroke-width="1" />
+  <rect x="40" y="170" width="120" height="10" fill="#4A5568" stroke="#000" stroke-width="1" />
+  
+  <!-- Coordinate indicator -->
+  <text x="100" y="30" text-anchor="middle" font-size="10" fill="#0972D3">Y=100</text>
+  <text x="100" y="195" text-anchor="middle" font-size="10" fill="#0972D3">Y=50</text>
+</svg>
+```
+
+## Layout and Styling
+
+### Panel Header Layout
+
+```scss
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 16px;
+  
+  .agent-switcher-panel {
+    // Positioned 20px to the left of SegmentedControl
+    margin-right: 20px;
+  }
 }
 ```
 
-### InputVisibilityState
-```typescript
-interface InputVisibilityState {
-  isVisible: boolean;
-  lastScrollPosition: number;
-  scrollThreshold: number; // pixels scrolled before hiding
-}
-```
+### Agent Landing Panel Content Styling
 
-### Message Send Event
-```typescript
-interface MessageSendEvent {
-  messageId: string;
-  content: string;
-  timestamp: number;
-  agentType: AgentType;
-}
-```
-
-### Streaming Response
-```typescript
-interface StreamingResponse {
-  messageId: string;
-  chunks: StreamChunk[];
-  isComplete: boolean;
-}
-
-interface StreamChunk {
-  type: 'thinking' | 'content' | 'metadata';
-  data: string;
-  timestamp: number;
-  sequence: number;
+```scss
+// These styles apply to content rendered within the existing .panel div
+.agent-landing-content {
+  .agent-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 24px;
+    
+    .agent-icon {
+      width: 48px;
+      height: 48px;
+    }
+    
+    .agent-title {
+      font-size: 24px;
+      font-weight: 600;
+    }
+  }
+  
+  .agent-bio {
+    font-size: 16px;
+    line-height: 1.6;
+    color: var(--color-text-body-secondary);
+    margin-bottom: 24px;
+  }
+  
+  .agent-visualization {
+    display: flex;
+    justify-content: center;
+    margin: 32px 0;
+    
+    svg {
+      max-width: 100%;
+      height: auto;
+    }
+  }
+  
+  .agent-capabilities {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+  }
+  
+  .agent-examples {
+    margin-top: 24px;
+  }
 }
 ```
 
 ## Error Handling
 
-### Agent Selection Errors
-- **Invalid Agent Type**: Fall back to default landing page
-- **Missing Landing Content**: Display generic "Agent information unavailable" message
-- **Synchronization Failure**: Log error, maintain last valid state
+### MCP Connection Errors
 
-### Sliding Input Errors
-- **Animation Failure**: Ensure input remains accessible (don't hide permanently)
-- **Scroll Event Listener Failure**: Keep input visible by default
-
-### Input Clearing Failures
-- **State Update Failure**: Use synchronous state update with fallback to direct DOM manipulation
-- **Fallback**: `inputRef.current.value = ''`
-
-### Chain of Thought Display Failures
-- **Component Doesn't Appear**: Set initial state synchronously before any async operations
-- **Fallback**: Show generic "Processing..." message
-
-### Streaming Failures
-- **Out of Order Chunks**: Use sequence numbers, buffer and reorder if needed
-- **Dropped Chunks**: Display available content, show warning for gaps
-
-### Scroll Failures
-- **Auto-scroll Doesn't Work**: Debounce scroll events, use requestAnimationFrame
-- **Fallback**: Disable auto-scroll, show "scroll to bottom" button
-- **Position Calculation Error**: Use fallback fixed positioning
-
-## Implementation Notes
-
-### CSS Animations for Real-time Feel
-
-**Pulsing Dots**:
-```css
-@keyframes pulse-fast {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.3; }
-}
-
-.animate-pulse-fast {
-  animation: pulse-fast 0.8s ease-in-out infinite;
-}
-
-.delay-100 { animation-delay: 0.1s; }
-.delay-200 { animation-delay: 0.2s; }
-```
-
-**Flowing Animation**:
-```css
-@keyframes flow {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(100%); }
-}
-
-.animate-flow {
-  animation: flow 1.5s ease-in-out infinite;
-}
-```
-
-**Chain of Thought Container**:
-```css
-.chain-of-thought-container {
-  scroll-behavior: smooth;
-  overflow-y: auto;
-  max-height: 300px;
-  min-height: 150px; /* Show at least 5 lines */
-}
-```
-
-### Performance Optimizations
-
-**Debounced Scroll Handling**:
 ```typescript
-const debouncedScrollHandler = useMemo(
-  () => debounce(handleScroll, 100),
-  []
-);
-```
-
-**Memoized Content Rendering**:
-```typescript
-const MemoizedThinkingStep = React.memo(ThinkingStep, (prev, next) => {
-  return prev.id === next.id && prev.isComplete === next.isComplete;
-});
-```
-
-**RequestAnimationFrame for Scroll**:
-```typescript
-const scrollToBottomRAF = () => {
-  requestAnimationFrame(() => {
-    scrollContainerRef.current?.scrollTo({
-      top: scrollContainerRef.current.scrollHeight,
-      behavior: 'smooth'
-    });
-  });
-};
-```
-
-### Optimistic UI Updates Strategy
-
-**Immediate State Updates**:
-```typescript
-const handleSend = async (message: string) => {
-  // 1. Clear input (synchronous - 0ms)
-  setInput('');
-  
-  // 2. Show chain of thought (synchronous - 50ms)
-  setThinkingState({ status: 'initializing', isVisible: true });
-  
-  // 3. Add prompt bubble (synchronous - 100ms)
-  addMessage({ role: 'user', content: message });
-  
-  // 4. Send to backend (asynchronous)
-  try {
-    const response = await sendMessage(message);
-    handleStreamingResponse(response);
-  } catch (error) {
-    handleError(error);
+try {
+  const response = await invokeMCPServer(params);
+  return response;
+} catch (error) {
+  if (error.code === 'ECONNREFUSED') {
+    return {
+      message: 'Unable to connect to Minecraft server. Please verify the server is running at edicraft.nigelgardiner.com:49000',
+      error: 'CONNECTION_REFUSED'
+    };
+  } else if (error.code === 'ETIMEDOUT') {
+    return {
+      message: 'Connection to Minecraft server timed out. Please check network connectivity.',
+      error: 'TIMEOUT'
+    };
+  } else if (error.code === 'EAUTH') {
+    return {
+      message: 'Authentication failed. Please verify RCON password is correct.',
+      error: 'AUTH_FAILED'
+    };
+  } else {
+    return {
+      message: 'An unexpected error occurred while communicating with the Minecraft server.',
+      error: error.message
+    };
   }
-};
+}
 ```
 
-**Streaming State Updates**:
+### Agent Selection Validation
+
 ```typescript
-const handleStreamingResponse = (stream: ReadableStream) => {
-  const reader = stream.getReader();
-  
-  const processChunk = async () => {
-    const { done, value } = await reader.read();
-    
-    if (!done) {
-      // Update immediately on each chunk
-      setThinkingState(prev => ({
-        ...prev,
-        status: 'streaming',
-        content: [...prev.content, parseChunk(value)]
-      }));
-      
-      processChunk(); // Continue reading
-    } else {
-      setThinkingState(prev => ({ ...prev, status: 'complete' }));
-    }
-  };
-  
-  processChunk();
+const isValidAgent = (agent: string): agent is AgentType => {
+  return ['auto', 'petrophysics', 'maintenance', 'renewable', 'edicraft'].includes(agent);
+};
+
+const handleAgentChange = (agent: string) => {
+  if (!isValidAgent(agent)) {
+    console.error(`Invalid agent type: ${agent}`);
+    return;
+  }
+  setSelectedAgent(agent);
+  sessionStorage.setItem('selectedAgent', agent);
 };
 ```
-
-### Graceful Degradation
-- If animations not supported: Use instant show/hide
-- If positioning fails: Keep input in default position
-- If agent content missing: Show default content
 
 ## Testing Strategy
 
 ### Unit Tests
 
-**AgentLandingPanel**:
-- Renders correct landing content for each agent type
-- Updates content when agent changes
-- Positions duplicate selector correctly
+1. **AgentSwitcher Component**
+   - Renders all 5 agent options
+   - Shows checkmark for selected agent
+   - Calls onAgentChange with correct agent ID
+   - Synchronizes between panel and input variants
 
-**DuplicateAgentSelector**:
-- Displays current agent selection
-- Triggers onAgentChange callback
-- Synchronizes with input switcher
+2. **AgentLandingPage Component**
+   - Renders correct landing panel content for each agent
+   - Passes onWorkflowSelect callback correctly
+   - Handles agent switching without errors
+   - Properly replaces AI-recommended workflows within .panel div
 
-**SlidingChatInput**:
-- Hides on scroll event
-- Shows reveal button when hidden
-- Reveals on button click
-- Maintains scroll position
-
-**RevealButton**:
-- Renders at correct position
-- Triggers reveal callback
-- Animates visibility correctly
+3. **Individual Landing Panel Components**
+   - Renders all required sections (bio, capabilities, examples)
+   - Displays custom visualization
+   - Handles workflow selection
+   - Renders correctly within .panel container
 
 ### Integration Tests
 
-**Agent Selection Synchronization**:
-- Change agent in input switcher → duplicate selector updates
-- Change agent in duplicate selector → input switcher updates
-- Both changes → landing page updates
+1. **Agent Synchronization**
+   - Changing panel switcher updates input switcher
+   - Changing input switcher updates panel switcher
+   - SessionStorage persists selection across page reloads
 
-**Sliding Input Flow**:
-- Scroll .convo → input slides out → reveal button appears
-- Click reveal button → input slides in → reveal button disappears
-- Multiple scroll/reveal cycles work correctly
+2. **EDIcraft MCP Integration**
+   - Successfully connects to MCP server
+   - Sends correct parameters
+   - Handles responses correctly
+   - Displays error messages on failure
 
-**State Persistence**:
-- Agent selection persists across interactions
-- Input visibility state maintained during session
-- State resets appropriately on navigation
+### End-to-End Tests
 
-### E2E Tests
+1. **User Workflow**
+   - User selects agent from panel switcher
+   - Panel content updates immediately to show agent landing
+   - Input switcher reflects selection
+   - User sends message with selected agent
+   - Response displays correctly
 
-**Complete User Workflows**:
-1. User selects agent from input switcher → sees landing page → selects from duplicate selector → landing page updates
-2. User scrolls conversation → input hides → clicks reveal → input shows → scrolls again → input hides
-3. User switches agents while input is hidden → landing page updates → reveals input → agent selection synchronized
+2. **EDIcraft Workflow**
+   - User selects EDIcraft agent
+   - Panel content shows EDIcraft landing with Minecraft visualization
+   - User sends "Build wellbore for WELL-001"
+   - System connects to MCP server
+   - Minecraft commands execute
+   - Feedback displays in chat
+   - Chain of thought shows reasoning
 
-### Visual Regression Tests
-- Landing page layouts for each agent
-- Duplicate selector positioning
-- Input sliding animations
-- Reveal button positioning
+## Accessibility Considerations
 
-## Implementation Notes
+### Keyboard Navigation
 
-### CSS Considerations
+- Both agent switchers are fully keyboard accessible (Tab, Enter, Arrow keys)
+- Landing panel content follows logical tab order
+- All interactive elements have visible focus indicators
+- Focus management when switching between agents
 
-**Sliding Animation**:
-```css
-.sliding-input {
-  transition: transform 300ms ease-in-out;
-  transform: translateX(0);
-}
+### Screen Reader Support
 
-.sliding-input.hidden {
-  transform: translateX(100%);
-}
+```typescript
+<ButtonDropdown
+  items={items}
+  ariaLabel="Select AI agent for query processing"
+  expandToViewport={true}
+/>
+
+<svg 
+  role="img" 
+  aria-label="Auto agent visualization showing intelligent routing between specialized agents"
+>
+  <title>Auto Agent Routing Diagram</title>
+  <desc>Central AI node connected to four specialized agent nodes</desc>
+  {/* SVG content */}
+</svg>
 ```
 
-**Reveal Button Positioning**:
-```css
-.reveal-button {
-  position: fixed;
-  right: 20px;
-  /* top calculated dynamically based on input position */
-  z-index: 1000;
-  opacity: 0;
-  transition: opacity 200ms ease-in-out;
-}
+### Color Contrast
 
-.reveal-button.visible {
-  opacity: 1;
-}
+- All text meets WCAG AA standards (4.5:1 for normal text, 3:1 for large text)
+- Interactive elements have sufficient contrast in all states
+- Visualizations use patterns in addition to color for differentiation
+
+## Performance Considerations
+
+### SVG Optimization
+
+- Use inline SVG for small visualizations (< 5KB)
+- Lazy load complex visualizations
+- Minimize SVG path complexity
+- Use CSS for styling instead of inline attributes
+
+### State Management
+
+- Use React.memo for landing page components to prevent unnecessary re-renders
+- Debounce agent selection changes if needed
+- Cache MCP server responses when appropriate
+
+### Bundle Size
+
+- Code-split landing panel components
+- Lazy load visualizations on demand
+- Use dynamic imports for agent-specific code
+
+```typescript
+const AutoAgentLanding = lazy(() => import('./agent-landing-pages/AutoAgentLanding'));
+const PetrophysicsAgentLanding = lazy(() => import('./agent-landing-pages/PetrophysicsAgentLanding'));
+// ... etc
+
+// In ChatPage component:
+<div className='panel'>
+  <Suspense fallback={<Spinner />}>
+    <AgentLandingPage selectedAgent={selectedAgent} onWorkflowSelect={handleWorkflowSelect} />
+  </Suspense>
+</div>
 ```
 
-**Duplicate Selector Positioning**:
-```css
-.duplicate-selector {
-  margin-right: 20px;
-  /* positioned relative to segmented controller */
-}
+## Deployment Considerations
+
+### Environment Variables
+
+```bash
+# EDIcraft MCP Server Configuration
+MINECRAFT_HOST=edicraft.nigelgardiner.com
+MINECRAFT_PORT=49000
+MINECRAFT_RCON_PASSWORD=<secure_password>
+
+# OSDU Platform Configuration (for EDIcraft)
+EDI_PLATFORM_URL=<osdu_platform_url>
+EDI_USERNAME=<username>
+EDI_PASSWORD=<password>
+EDI_CLIENT_ID=<client_id>
+EDI_CLIENT_SECRET=<client_secret>
+EDI_PARTITION=<partition_name>
+
+# MCP Server URL
+MCP_SERVER_URL=https://edicraft.nigelgardiner.com:49000
 ```
 
-### Performance Considerations
+### MCP Server Deployment
 
-**Scroll Event Optimization**:
-- Use `requestAnimationFrame` for scroll handling
-- Debounce scroll events (100ms threshold)
-- Only trigger hide after scroll threshold exceeded (e.g., 50px)
+The EDIcraft MCP server (agent.py) should be deployed as:
+1. A containerized service accessible at edicraft.nigelgardiner.com:49000
+2. With proper RCON access to the Minecraft server
+3. With OSDU platform credentials configured
+4. With health check endpoints for monitoring
 
-**Animation Performance**:
-- Use CSS transforms (GPU-accelerated)
-- Avoid layout thrashing
-- Use `will-change` property for animated elements
+### Security Considerations
 
-**State Updates**:
-- Batch state updates where possible
-- Avoid unnecessary re-renders
-- Use React.memo for landing page content components
+- Store RCON password in AWS Secrets Manager
+- Use HTTPS for MCP server communication
+- Validate all user inputs before sending to MCP server
+- Implement rate limiting for MCP requests
+- Log all MCP interactions for audit purposes
 
-### Accessibility
+## Future Enhancements
 
-**Keyboard Navigation**:
-- Duplicate selector accessible via Tab key
-- Reveal button accessible via Tab key
-- Agent selection via keyboard (Enter/Space)
-- Input reveal via keyboard (Enter/Space)
+1. **Agent Analytics**
+   - Track which agents are used most frequently
+   - Monitor agent performance and response times
+   - Collect user feedback on agent responses
 
-**Screen Readers**:
-- Announce agent selection changes
-- Announce input visibility changes
-- Label reveal button clearly ("Show chat input")
-- Provide ARIA labels for all interactive elements
+2. **Custom Agent Configurations**
+   - Allow users to customize agent behavior
+   - Save preferred agents per project
+   - Create custom agent combinations
 
-**Focus Management**:
-- Maintain focus on duplicate selector after selection
-- Move focus to input when revealed
-- Ensure focus visible indicators
+3. **Enhanced Visualizations**
+   - Animated SVG illustrations
+   - Interactive 3D visualizations
+   - Real-time Minecraft server preview (if feasible)
 
-### Browser Compatibility
-- CSS transforms supported in all modern browsers
-- Fallback to display: none for older browsers
-- Test in Chrome, Firefox, Safari, Edge
-- Mobile browser considerations (touch events)
-
-## Dependencies
-
-### Existing Components
-- `AgentSwitcher` (src/components/AgentSwitcher.tsx)
-- Chat page layout (src/app/chat/[chatSessionId]/page.tsx)
-- Cloudscape/MUI components for UI consistency
-
-### New Dependencies
-- None required (use existing React, CSS, TypeScript)
-
-### Styling
-- Tailwind CSS for utility classes
-- CSS modules or styled-components for component-specific styles
-- Existing design system tokens for colors, spacing, typography
-
-## Migration Strategy
-
-### Phase 1: Agent Landing Pages
-1. Create `AgentLandingPanel` component
-2. Create `DuplicateAgentSelector` component
-3. Create `LandingPageContent` component with agent-specific content
-4. Integrate into chat page layout
-5. Implement synchronization logic
-6. Test agent selection flow
-
-### Phase 2: Sliding Input
-1. Enhance existing chat input with sliding behavior
-2. Create `RevealButton` component
-3. Implement scroll detection logic
-4. Add slide animations
-5. Test scroll/reveal flow
-6. Optimize performance
-
-### Phase 3: Integration & Polish
-1. Test both features together
-2. Refine animations and transitions
-3. Accessibility audit and fixes
-4. Performance optimization
-5. Cross-browser testing
-6. User acceptance testing
-
-## Open Questions
-
-1. **Scroll Threshold**: How many pixels should user scroll before input hides? (Suggested: 50px)
-2. **Animation Duration**: Is 300ms appropriate for sliding animation? (Can adjust based on user feedback)
-3. **Reveal Button Icon**: Which icon best represents "show input"? (Suggested: chat bubble or chevron left)
-4. **Landing Page Content**: Should we include example prompts or quick actions in landing pages?
-5. **Mobile Behavior**: Should sliding input work differently on mobile devices?
-6. **State Persistence**: Should agent selection persist across browser sessions (localStorage)?
+4. **Multi-Agent Collaboration**
+   - Allow multiple agents to work together on complex queries
+   - Show collaboration flow in chain of thought
+   - Coordinate responses from multiple specialized agents

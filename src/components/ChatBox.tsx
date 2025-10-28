@@ -26,8 +26,8 @@ const ChatBox = (params: {
   userInput: string,
   messages?: Message[],
   setMessages?: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void,
-  selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable',
-  onAgentChange?: (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable') => void
+  selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft',
+  onAgentChange?: (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft') => void
 }) => {
   const { chatSessionId, showChainOfThought } = params
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -692,6 +692,7 @@ const ChatBox = (params: {
               <AgentSwitcher
                 selectedAgent={params.selectedAgent}
                 onAgentChange={params.onAgentChange}
+                variant="input"
               />
             </>
           )}

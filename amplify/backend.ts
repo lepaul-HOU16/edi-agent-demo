@@ -21,6 +21,9 @@ import { renewableReportTool } from './functions/renewableTools/report/resource'
 // Import Maintenance Agent
 import { maintenanceAgentFunction } from './functions/maintenanceAgent/resource';
 
+// Import EDIcraft Agent
+import { edicraftAgentFunction } from './functions/edicraftAgent/resource';
+
 // Import Strands Agent System
 import { renewableAgentsFunction } from './functions/renewableAgents/resource';
 
@@ -42,6 +45,8 @@ const backend = defineBackend({
   renewableReportTool,
   // Maintenance Agent
   maintenanceAgentFunction,
+  // EDIcraft Agent
+  edicraftAgentFunction,
   // Strands Agent System (COMPLETE AGENT ARCHITECTURE)
   renewableAgentsFunction // ✅ ENABLED - Intelligent layout optimization with py-wake
 });
@@ -202,6 +207,111 @@ backend.maintenanceAgentFunction.resources.lambda.addToRolePolicy(
 
 // Add S3_BUCKET environment variable to Maintenance Agent
 backend.maintenanceAgentFunction.addEnvironment('S3_BUCKET', backend.storage.resources.bucket.bucketName);
+
+// Add Bedrock permissions to EDIcraft Agent
+backend.edicraftAgentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: ["bedrock:InvokeModel*"],
+    resources: [
+      `arn:aws:bedrock:us-*::foundation-model/*`,
+      `arn:aws:bedrock:us-*:${backend.stack.account}:inference-profile/*`,
+    ],
+  })
+);
+
+// Add Bedrock Agent Runtime permissions for EDIcraft Agent
+// This allows the Lambda to invoke Bedrock agents via the Agent Runtime API
+backend.edicraftAgentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "bedrock-agent-runtime:InvokeAgent",
+      "bedrock-agent:GetAgent",
+      "bedrock-agent:GetAgentAlias",
+    ],
+    resources: [
+      `arn:aws:bedrock:*:${backend.stack.account}:agent/*`,
+      `arn:aws:bedrock:*:${backend.stack.account}:agent-alias/*/*`,
+    ],
+  })
+);
+
+// Add CloudWatch Logs permissions for EDIcraft Agent (explicit for clarity)
+// Note: Lambda functions automatically get basic CloudWatch Logs permissions,
+// but we add this explicitly to ensure full logging capabilities
+backend.edicraftAgentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ],
+    resources: [
+      `arn:aws:logs:${backend.stack.region}:${backend.stack.account}:log-group:/aws/lambda/*`,
+    ],
+  })
+);
+
+// Configure EDIcraft Agent environment variables
+// Bedrock AgentCore configuration
+backend.edicraftAgentFunction.addEnvironment(
+  'BEDROCK_AGENT_ID',
+  process.env.BEDROCK_AGENT_ID || ''
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'BEDROCK_AGENT_ALIAS_ID',
+  process.env.BEDROCK_AGENT_ALIAS_ID || ''
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'BEDROCK_REGION',
+  process.env.BEDROCK_REGION || 'us-east-1'
+);
+
+// Minecraft Server configuration
+backend.edicraftAgentFunction.addEnvironment(
+  'MINECRAFT_HOST',
+  process.env.MINECRAFT_HOST || 'edicraft.nigelgardiner.com'
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'MINECRAFT_PORT',
+  process.env.MINECRAFT_PORT || '49000'
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'MINECRAFT_RCON_PORT',
+  process.env.MINECRAFT_RCON_PORT || '49001'
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'MINECRAFT_RCON_PASSWORD',
+  process.env.MINECRAFT_RCON_PASSWORD || ''
+);
+
+// OSDU Platform configuration
+backend.edicraftAgentFunction.addEnvironment(
+  'EDI_USERNAME',
+  process.env.EDI_USERNAME || ''
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'EDI_PASSWORD',
+  process.env.EDI_PASSWORD || ''
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'EDI_CLIENT_ID',
+  process.env.EDI_CLIENT_ID || ''
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'EDI_CLIENT_SECRET',
+  process.env.EDI_CLIENT_SECRET || ''
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'EDI_PARTITION',
+  process.env.EDI_PARTITION || ''
+);
+backend.edicraftAgentFunction.addEnvironment(
+  'EDI_PLATFORM_URL',
+  process.env.EDI_PLATFORM_URL || ''
+);
+
+console.log('✅ EDIcraft Agent configured with Bedrock and Lambda invoke permissions');
+console.log('✅ EDIcraft Agent environment variables configured (Bedrock, Minecraft, OSDU)');
 
 // Add S3 permissions to MCP Server for petrophysical analysis
 mcpServer.lambdaFunction.addToRolePolicy(
@@ -699,6 +809,12 @@ new CfnOutput(backend.stack, 'MaintenanceAgentFunctionName', {
   value: backend.maintenanceAgentFunction.resources.lambda.functionName,
   description: 'Maintenance Agent Lambda function name',
   exportName: 'MaintenanceAgentFunctionName'
+});
+
+new CfnOutput(backend.stack, 'EDIcraftAgentFunctionName', {
+  value: backend.edicraftAgentFunction.resources.lambda.functionName,
+  description: 'EDIcraft Agent Lambda function name',
+  exportName: 'EDIcraftAgentFunctionName'
 });
 
 new CfnOutput(backend.stack, 'AgentProgressFunctionName', {

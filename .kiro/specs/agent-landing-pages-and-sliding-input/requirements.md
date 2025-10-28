@@ -2,150 +2,202 @@
 
 ## Introduction
 
-This specification defines five platform-level UI enhancements for the chat interface that improve the agent selection experience, optimize screen real estate during conversation scrolling, and create a real-time, responsive interaction feel.
+This feature introduces agent-specific landing pages that replace the current AI-recommended workflows panel. Each agent (Auto, Petrophysics, Maintenance, Renewable Energy, and EDIcraft) will have a dedicated landing page with a bio/introduction and custom visualization. A synchronized agent switcher will be added above the panel (20px left of the SegmentedControl) that mirrors the existing agent switcher in the chat input, ensuring both dropdowns stay in sync. The EDIcraft Agent integrates with an MCP server to visualize subsurface data in a Minecraft environment at edicraft.nigelgardiner.com:49000.
 
 ## Glossary
 
-- **Agent Switcher**: The dropdown component in the chat input area that allows users to select different AI agents (Renewable Energy, Maintenance, etc.)
-- **Panel**: The DOM element with class `.panel` that currently displays "AI-Powered Workflow Recommendations"
-- **Convo**: The DOM element with class `.convo` containing the chat message history
-- **Segmented Controller**: The UI component positioned above the `.panel` area
-- **Chat Input**: The message input area at the bottom of the chat interface containing the agent switcher
-- **Landing Page Content**: Agent-specific informational content displayed in the `.panel` when an agent is selected
-- **Sliding Input**: The behavior where the chat input slides off-screen during scroll and is replaced by a reveal button
-- **Input Field**: The text input area where users type their prompts
-- **Prompt Bubble**: The user message bubble that appears in the conversation after sending a message
-- **Chain of Thought**: The extended thinking display that shows the AI's reasoning process
-- **Extended Thinking Display**: The UI component that renders chain-of-thought content
-- **Message Send**: The action triggered when user presses Enter or clicks send button
-- **Real-time Processing**: Updates that occur immediately without waiting for backend responses
+- **Agent Switcher**: A dropdown component that allows users to select between different AI agents (Auto, Petrophysics, Maintenance, Renewable Energy, EDIcraft)
+- **Landing Page**: An introductory page displayed in the panel area that provides information about the selected agent
+- **Panel**: The left-side container (`.panel` class) in the chat interface that currently displays AI-recommended workflows
+- **SegmentedControl**: The Cloudscape component that switches between "AI Workflows" and "Chain of Thought" views
+- **Synchronized State**: Both agent switchers (panel and input) reflect the same selected agent at all times
+- **Bio/Introduction**: A description of the agent's capabilities, specializations, and use cases
+- **Custom Visualization**: A unique visual representation or illustration for each agent
+- **MCP Server**: Model Context Protocol server that enables communication between the platform and external services
+- **EDIcraft**: A Minecraft-based subsurface data visualization system that renders wellbores, horizons, and geological data in 3D
+- **RCON**: Remote Console protocol used to send commands to the Minecraft server
 
 ## Requirements
 
-### Requirement 1: Agent-Specific Landing Pages
+### Requirement 1: Panel Agent Switcher
 
-**User Story:** As a user, I want to see relevant information about the selected agent in the panel area, so that I understand the agent's capabilities before starting a conversation.
-
-#### Acceptance Criteria
-
-1. WHEN a user selects an agent from the input switcher, THE System SHALL update the `.panel` content to display agent-specific landing page content
-2. WHEN a user selects an agent from the duplicate selector above the panel, THE System SHALL update the `.panel` content to display the same agent-specific landing page content
-3. WHEN the landing page content is displayed, THE System SHALL replace the current "AI-Powered Workflow Recommendations" content
-4. WHEN an agent is selected, THE System SHALL maintain the selection state across both switcher components
-5. WHERE the duplicate selector is rendered, THE System SHALL position it 20 pixels to the left of the segmented controller component
-
-### Requirement 2: Duplicate Agent Selector Synchronization
-
-**User Story:** As a user, I want the agent selector above the panel to stay synchronized with the input switcher, so that I have a consistent experience when switching agents.
+**User Story:** As a user, I want to see an agent switcher above the panel so that I can quickly change agents without scrolling to the input area.
 
 #### Acceptance Criteria
 
-1. WHEN a user changes the agent in the input switcher, THE System SHALL update the duplicate selector to reflect the same selection
-2. WHEN a user changes the agent in the duplicate selector, THE System SHALL update the input switcher to reflect the same selection
-3. WHEN either selector is changed, THE System SHALL trigger the landing page content update in the `.panel`
-4. THE duplicate selector SHALL be rendered as an icon button with the same agent options as the input switcher
-5. THE duplicate selector SHALL maintain visual consistency with the existing UI design system
+1. WHEN the chat interface loads, THE System SHALL display an agent switcher dropdown 20 pixels to the left of the SegmentedControl component
+2. WHEN the user clicks the agent switcher, THE System SHALL display a dropdown menu with options for Auto, Petrophysics, Maintenance, Renewable Energy, and EDIcraft agents
+3. WHEN the user selects an agent from the panel switcher, THE System SHALL update both the panel switcher and the input switcher to reflect the same selection
+4. THE System SHALL use the same visual design (icon, styling) as the existing agent switcher in the chat input area
+5. THE System SHALL display a checkmark icon next to the currently selected agent in the dropdown menu
 
-### Requirement 3: Sliding Input on Scroll
+### Requirement 2: Synchronized Agent Selection
 
-**User Story:** As a user, I want the chat input to slide out of view when I scroll through conversation history, so that I have more screen space to read messages.
-
-#### Acceptance Criteria
-
-1. WHEN content in `.convo` is scrolled, THE System SHALL slide the chat input to the right off the canvas
-2. WHEN the chat input slides off-screen, THE System SHALL display an icon button in the right margin at the input's original vertical position
-3. WHEN a user clicks the reveal icon button, THE System SHALL slide the chat input back into view from the right
-4. WHEN the chat input slides back into view, THE System SHALL hide the reveal icon button
-5. THE sliding animation SHALL complete within 300 milliseconds for smooth user experience
-6. THE reveal icon button SHALL remain visible and accessible while the input is hidden
-7. WHEN the user stops scrolling, THE System SHALL maintain the current input state (hidden or visible) without automatic reveal
-
-### Requirement 4: Landing Page Content Structure
-
-**User Story:** As a user, I want each agent's landing page to provide clear, relevant information, so that I can quickly understand what the agent can help me with.
+**User Story:** As a user, I want both agent switchers to stay in sync so that I always know which agent is active regardless of where I change it.
 
 #### Acceptance Criteria
 
-1. THE System SHALL provide unique landing page content for each available agent type
-2. WHEN no agent is selected or default state is active, THE System SHALL display the current "AI-Powered Workflow Recommendations" content
-3. THE landing page content SHALL include agent name, description, and key capabilities
-4. THE landing page content SHALL use consistent formatting and styling across all agents
-5. THE landing page content SHALL be responsive and adapt to the `.panel` container dimensions
+1. WHEN the user changes the agent from the panel switcher, THE System SHALL update the input switcher to match the selection
+2. WHEN the user changes the agent from the input switcher, THE System SHALL update the panel switcher to match the selection
+3. WHEN the page loads, THE System SHALL restore the previously selected agent from sessionStorage and apply it to both switchers
+4. THE System SHALL maintain agent selection state across component re-renders
+5. THE System SHALL persist agent selection in sessionStorage when either switcher is used
 
-### Requirement 5: State Persistence
+### Requirement 3: Agent Landing Pages
 
-**User Story:** As a user, I want my agent selection and input visibility preferences to persist during my session, so that I don't have to reconfigure my workspace repeatedly.
-
-#### Acceptance Criteria
-
-1. WHEN a user selects an agent, THE System SHALL maintain that selection until explicitly changed
-2. WHEN a user hides the input by scrolling, THE System SHALL keep it hidden until the reveal button is clicked
-3. WHEN a user reveals the input, THE System SHALL keep it visible until the user scrolls again
-4. THE System SHALL maintain agent selection state across page navigation within the same chat session
-5. THE System SHALL reset input visibility state when navigating to a new chat session
-
-### Requirement 6: Instant Input Clearing
-
-**User Story:** As a user, I want the input field to clear immediately when I send a message, so that I can start typing my next question without delay.
+**User Story:** As a user, I want to see a dedicated landing page for each agent so that I understand what each agent specializes in and how it can help me.
 
 #### Acceptance Criteria
 
-1. WHEN a user presses Enter or clicks send on a prompt, THE System SHALL clear the input field within 50 milliseconds
-2. THE input clearing SHALL occur before the prompt bubble appears in the conversation
-3. WHEN the input is cleared, THE System SHALL maintain focus on the input field for immediate typing
-4. THE input clearing SHALL occur synchronously without waiting for backend API calls
-5. THE System SHALL preserve the sent message content for display in the prompt bubble
+1. WHEN the user selects an agent, THE System SHALL display the corresponding landing page in the panel area
+2. WHEN the "AI Workflows" segment is selected, THE System SHALL show the agent landing page instead of the AI-recommended workflows
+3. THE System SHALL display a unique landing page for each of the five agents: Auto, Petrophysics, Maintenance, Renewable Energy, and EDIcraft
+4. EACH landing page SHALL include a header with the agent name and icon
+5. EACH landing page SHALL include a bio/introduction section describing the agent's capabilities and specializations
 
-### Requirement 7: Immediate Chain of Thought Display
+### Requirement 4: Auto Agent Landing Page
 
-**User Story:** As a user, I want to see the chain-of-thought display start processing immediately when I send a message, so that I feel the AI is actively working on my request.
-
-#### Acceptance Criteria
-
-1. WHEN a user sends a prompt, THE System SHALL display the chain-of-thought component within 100 milliseconds
-2. THE chain-of-thought display SHALL appear before the input field is cleared
-3. WHEN the chain-of-thought appears, THE System SHALL show a loading or processing state immediately with visual activity indicators
-4. THE System SHALL show a "flurry of activity" with animated indicators (spinner, pulse, animated dots)
-5. THE System SHALL begin populating chain-of-thought content as soon as streaming data arrives from the backend
-6. THE chain-of-thought SHALL NOT wait for the complete response before displaying initial content
-7. WHEN chain-of-thought data streams from the backend, THE System SHALL update the display within 50 milliseconds of receiving each chunk
-
-### Requirement 8: Real-time Chain of Thought Updates
-
-**User Story:** As a user, I want to see the chain-of-thought content populate in real-time as the AI thinks, so that I can follow the reasoning process as it happens.
+**User Story:** As a user, I want to see an informative landing page for the Auto agent so that I understand how it intelligently routes my queries.
 
 #### Acceptance Criteria
 
-1. THE System SHALL append new chain-of-thought content incrementally without replacing existing content
-2. WHEN new content is added, THE System SHALL maintain smooth rendering without flickering
-3. THE System SHALL display thinking steps as they occur, not after completion
-4. THE chain-of-thought SHALL show rapid updates creating a "flurry of activity" when processing begins
-5. THE System SHALL maintain 60fps animation performance during all updates
+1. THE Auto Agent landing page SHALL display the title "Auto Agent"
+2. THE Auto Agent landing page SHALL include a description explaining that it automatically detects user intent and routes queries to the appropriate specialized agent
+3. THE Auto Agent landing page SHALL include a custom visualization representing intelligent routing or decision-making
+4. THE Auto Agent landing page SHALL list the specialized agents it can route to (Petrophysics, Maintenance, Renewable Energy, EDIcraft)
+5. THE Auto Agent landing page SHALL include example use cases or query types
 
-### Requirement 9: Improved Chain of Thought Scrolling
+### Requirement 5: Petrophysics Agent Landing Page
 
-**User Story:** As a user, I want the chain-of-thought display to scroll properly so I can see all the reasoning steps, not just the end result.
-
-#### Acceptance Criteria
-
-1. WHEN chain-of-thought content is added, THE System SHALL auto-scroll to show the latest content
-2. THE System SHALL scroll smoothly without jumping to the end abruptly
-3. WHEN the user manually scrolls up to read earlier content, THE System SHALL pause auto-scrolling
-4. WHEN the user scrolls back to the bottom, THE System SHALL resume auto-scrolling for new content
-5. THE scroll container SHALL be properly sized to show multiple lines of content (minimum 5 lines visible)
-6. THE System SHALL display a scroll indicator when content extends beyond the visible area
-7. WHEN content is shorter than the container, THE System SHALL NOT show unnecessary scrollbars
-8. THE scrolling SHALL show the progression of thinking, not just the final result
-
-### Requirement 10: Timing and Performance
-
-**User Story:** As a user, I want all interactions to feel instant and responsive, so that the interface doesn't feel sluggish.
+**User Story:** As a user, I want to see an informative landing page for the Petrophysics agent so that I understand its well data analysis capabilities.
 
 #### Acceptance Criteria
 
-1. THE input clearing SHALL complete within 50 milliseconds of send action
-2. THE chain-of-thought display SHALL appear within 100 milliseconds of send action
-3. THE prompt bubble SHALL appear within 200 milliseconds of send action
-4. THE first chain-of-thought content SHALL display within 500 milliseconds of backend response start
-5. THE System SHALL maintain 60fps animation performance during all updates
-6. THE System SHALL handle rapid successive updates without lag or queuing delays
+1. THE Petrophysics Agent landing page SHALL display the title "Petrophysics Agent"
+2. THE Petrophysics Agent landing page SHALL include a description of its specialization in well log analysis, porosity calculations, and reservoir characterization
+3. THE Petrophysics Agent landing page SHALL include a custom visualization representing subsurface data or well logs
+4. THE Petrophysics Agent landing page SHALL list key capabilities (e.g., shale volume analysis, porosity calculation, multi-well correlation)
+5. THE Petrophysics Agent landing page SHALL include example workflows or analysis types
+
+### Requirement 6: Maintenance Agent Landing Page
+
+**User Story:** As a user, I want to see an informative landing page for the Maintenance agent so that I understand its equipment monitoring and predictive capabilities.
+
+#### Acceptance Criteria
+
+1. THE Maintenance Agent landing page SHALL display the title "Maintenance Agent"
+2. THE Maintenance Agent landing page SHALL include a description of its specialization in equipment health monitoring, failure prediction, and maintenance planning
+3. THE Maintenance Agent landing page SHALL include a custom visualization representing equipment monitoring or predictive analytics
+4. THE Maintenance Agent landing page SHALL list key capabilities (e.g., health assessment, failure prediction, inspection scheduling)
+5. THE Maintenance Agent landing page SHALL include example use cases or equipment types
+
+### Requirement 7: Renewable Energy Agent Landing Page
+
+**User Story:** As a user, I want to see an informative landing page for the Renewable Energy agent so that I understand its wind farm analysis capabilities.
+
+#### Acceptance Criteria
+
+1. THE Renewable Energy Agent landing page SHALL display the title "Renewable Energy Agent"
+2. THE Renewable Energy Agent landing page SHALL include a description of its specialization in wind farm site design, layout optimization, and energy analysis
+3. THE Renewable Energy Agent landing page SHALL include a custom visualization representing wind turbines, terrain analysis, or energy production
+4. THE Renewable Energy Agent landing page SHALL list key capabilities (e.g., terrain analysis, layout optimization, wind rose generation)
+5. THE Renewable Energy Agent landing page SHALL include example workflows or analysis types
+
+### Requirement 8: Visual Design and Illustrations
+
+**User Story:** As a user, I want each agent landing page to have a unique and visually appealing design so that I can quickly identify different agents and feel engaged with the interface.
+
+#### Acceptance Criteria
+
+1. EACH agent landing page SHALL include a custom illustration or visualization that represents the agent's domain
+2. THE System SHALL use SVG-based illustrations for scalability and performance
+3. THE illustrations SHALL follow the AWS Cloudscape Design System color palette and styling guidelines
+4. THE illustrations SHALL be responsive and adapt to different screen sizes
+5. THE System SHALL use appropriate icons from the Cloudscape icon library where applicable
+
+### Requirement 9: Layout and Positioning
+
+**User Story:** As a user, I want the agent switcher and landing pages to be properly positioned and styled so that the interface feels cohesive and professional.
+
+#### Acceptance Criteria
+
+1. THE panel agent switcher SHALL be positioned 20 pixels to the left of the SegmentedControl component
+2. THE panel agent switcher SHALL be vertically aligned with the SegmentedControl component
+3. THE landing page content SHALL replace the current AI-recommended workflows container
+4. THE landing page SHALL use the same Container component styling as the current workflows panel
+5. THE landing page SHALL maintain proper spacing and padding consistent with the Cloudscape Design System
+
+### Requirement 10: Accessibility and Usability
+
+**User Story:** As a user with accessibility needs, I want the agent switcher and landing pages to be fully accessible so that I can navigate and understand the interface using assistive technologies.
+
+#### Acceptance Criteria
+
+1. THE panel agent switcher SHALL include proper ARIA labels for screen readers
+2. THE panel agent switcher SHALL be keyboard navigable (Tab, Enter, Arrow keys)
+3. EACH landing page SHALL include proper heading hierarchy (h1, h2, h3)
+4. THE illustrations SHALL include descriptive alt text or ARIA labels
+5. THE System SHALL maintain sufficient color contrast ratios for text and interactive elements
+
+
+### Requirement 11: EDIcraft Agent Landing Page
+
+**User Story:** As a user, I want to see an informative landing page for the EDIcraft agent so that I understand its Minecraft-based subsurface data visualization capabilities.
+
+#### Acceptance Criteria
+
+1. THE EDIcraft Agent landing page SHALL display the title "EDIcraft Agent"
+2. THE EDIcraft Agent landing page SHALL include a description of its specialization in visualizing subsurface data (wellbores, horizons, geological surfaces) in a Minecraft environment
+3. THE EDIcraft Agent landing page SHALL include a custom visualization representing Minecraft blocks, subsurface geology, or 3D wellbore visualization
+4. THE EDIcraft Agent landing page SHALL list key capabilities (e.g., wellbore trajectory visualization, horizon surface rendering, OSDU data integration, real-time Minecraft building)
+5. THE EDIcraft Agent landing page SHALL include example workflows or visualization types
+6. THE EDIcraft Agent landing page SHALL indicate the Minecraft server connection status (edicraft.nigelgardiner.com:49000)
+
+### Requirement 12: EDIcraft Agent MCP Integration
+
+**User Story:** As a user, I want the EDIcraft agent to connect to the Minecraft server via MCP so that I can visualize subsurface data in a 3D Minecraft environment.
+
+#### Acceptance Criteria
+
+1. WHEN the user selects the EDIcraft agent, THE System SHALL establish a connection to the MCP server configured for EDIcraft
+2. WHEN the user sends a message with the EDIcraft agent selected, THE System SHALL route the message to the EDIcraft MCP server at edicraft.nigelgardiner.com:49000
+3. THE System SHALL send the user's input text to the EDIcraft agent for processing
+4. THE EDIcraft agent SHALL execute appropriate Minecraft RCON commands to visualize data in the Minecraft environment
+5. THE System SHALL return feedback to the user describing what actions were performed in the Minecraft environment
+
+### Requirement 13: EDIcraft Agent Response Handling
+
+**User Story:** As a user, I want to receive clear feedback about what the EDIcraft agent has done in Minecraft so that I understand the visualization results.
+
+#### Acceptance Criteria
+
+1. WHEN the EDIcraft agent completes an action, THE System SHALL display a text response describing what was built or visualized in Minecraft
+2. THE System SHALL display chain of thought information showing the agent's reasoning process for EDIcraft operations
+3. THE System SHALL NOT attempt to display Minecraft environment visuals in the chat interface (visualization occurs in the external Minecraft server)
+4. THE System SHALL indicate successful connection and command execution status
+5. IF the Minecraft server connection fails, THE System SHALL display an error message with troubleshooting information
+
+### Requirement 14: EDIcraft Agent Capabilities
+
+**User Story:** As a user, I want the EDIcraft agent to support various subsurface data visualization workflows so that I can explore geological data in 3D.
+
+#### Acceptance Criteria
+
+1. THE EDIcraft agent SHALL support wellbore trajectory visualization using OSDU data
+2. THE EDIcraft agent SHALL support horizon surface rendering in Minecraft
+3. THE EDIcraft agent SHALL support coordinate transformation from UTM to Minecraft coordinates
+4. THE EDIcraft agent SHALL support player position tracking and coordinate system setup
+5. THE EDIcraft agent SHALL support searching and retrieving data from the OSDU platform
+6. THE EDIcraft agent SHALL execute all visualization commands automatically without requiring manual RCON command input from the user
+
+### Requirement 15: MCP Server Configuration
+
+**User Story:** As a developer, I want the EDIcraft MCP server to be properly configured in the platform so that the agent can communicate with the Minecraft server.
+
+#### Acceptance Criteria
+
+1. THE System SHALL include MCP server configuration for EDIcraft in the platform's MCP settings
+2. THE MCP configuration SHALL specify the connection details for edicraft.nigelgardiner.com:49000
+3. THE MCP configuration SHALL include necessary authentication credentials for the Minecraft RCON connection
+4. THE MCP configuration SHALL include OSDU platform credentials for data retrieval
+5. THE System SHALL validate MCP server connectivity when the EDIcraft agent is selected
