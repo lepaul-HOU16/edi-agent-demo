@@ -1,5 +1,15 @@
 @import '@cloudscape-design/global-styles/index.css';
 
+/* Fix tab text wrapping - prevent "Overview" from becoming "Overvie w" */
+.awsui-tabs-tab-label {
+  white-space: nowrap !important;
+  overflow: visible !important;
+}
+
+.awsui-tabs-tab {
+  white-space: nowrap !important;
+}
+
 /* Leaflet map interaction fixes */
 .leaflet-container {
   cursor: grab !important;

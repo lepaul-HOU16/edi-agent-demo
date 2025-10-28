@@ -321,6 +321,12 @@ export class IntentRouter {
         functionName: process.env.RENEWABLE_COMPREHENSIVE_TOOL_FUNCTION_NAME || '',
         description: 'Comprehensive renewable energy assessment',
         capabilities: ['end-to-end analysis', 'integrated reporting', 'stakeholder presentations']
+      },
+      'report_generation': {
+        type: 'report_generation',
+        functionName: process.env.RENEWABLE_REPORT_TOOL_FUNCTION_NAME || '',
+        description: 'Financial analysis and report generation',
+        capabilities: ['ROI calculation', 'financial metrics', 'economic analysis', 'executive reports']
       }
     };
   }

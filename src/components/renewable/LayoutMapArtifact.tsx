@@ -331,7 +331,46 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
         
         try {
           if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
-            // Render polygons (buildings, water bodies, perimeter)
+            // STEP 1: Render buffer zone (safety threshold) around buildings/water
+            // Safety margin: 0.001 degrees (~100m) per intelligent_placement.py
+            if (featureType === 'building' || featureType === 'water') {
+              const bufferStyle = {
+                fillColor: featureType === 'building' ? '#ff0000' : '#0000ff',
+                color: featureType === 'building' ? '#ff6666' : '#6666ff',
+                fillOpacity: 0.15,  // Light tint for buffer zone
+                weight: 2,
+                dashArray: '5, 5',  // Dashed to show it's a threshold
+                interactive: false
+              };
+              
+              // Create buffer by scaling coordinates outward by ~100m (0.001 deg)
+              const bufferedFeature = JSON.parse(JSON.stringify(feature));
+              if (bufferedFeature.geometry.coordinates && bufferedFeature.geometry.coordinates[0]) {
+                const coords = bufferedFeature.geometry.coordinates[0];
+                const centerLat = coords.reduce((sum: number, c: number[]) => sum + c[1], 0) / coords.length;
+                const centerLon = coords.reduce((sum: number, c: number[]) => sum + c[0], 0) / coords.length;
+                
+                // Scale each point outward from center by buffer distance
+                bufferedFeature.geometry.coordinates[0] = coords.map((c: number[]) => {
+                  const latDiff = c[1] - centerLat;
+                  const lonDiff = c[0] - centerLon;
+                  const distance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
+                  const scale = distance > 0 ? (distance + 0.001) / distance : 1.001;
+                  return [
+                    centerLon + lonDiff * scale,
+                    centerLat + latDiff * scale
+                  ];
+                });
+              }
+              
+              const bufferLayer = L.geoJSON(bufferedFeature, {
+                style: bufferStyle
+              }).addTo(map);
+              
+              terrainLayers.push(bufferLayer);
+            }
+            
+            // STEP 2: Render actual polygon feature on top
             let style: any = {
               fillOpacity: 0.3,
               weight: 2
@@ -341,11 +380,13 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
             if (featureType === 'building') {
               style.fillColor = '#ff0000';
               style.color = '#cc0000';
-              style.fillOpacity = 0.3;
+              style.fillOpacity = 0.4;
+              style.weight = 2;
             } else if (featureType === 'water') {
               style.fillColor = '#0000ff';
               style.color = '#0000cc';
-              style.fillOpacity = 0.4;
+              style.fillOpacity = 0.5;
+              style.weight = 2;
             } else if (featureType === 'perimeter') {
               style.fillColor = 'transparent';
               style.color = '#00ff00';  // Green color
@@ -358,6 +399,7 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
               style.fillColor = '#cccccc';
               style.color = '#999999';
               style.fillOpacity = 0.2;
+              style.weight = 2;
             }
             
             const layer = L.geoJSON(feature, {
@@ -381,7 +423,7 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
             terrainLayers.push(layer);
             
           } else if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
-            // Render lines (roads)
+            // Render lines (roads) with background stroke for visibility
             let style: any = {
               weight: 2,
               opacity: 0.7
@@ -389,11 +431,29 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
             
             if (featureType === 'road') {
               style.color = '#666666';
-              style.weight = 3;
+              style.weight = 6;  // Thicker for visibility
+              style.opacity = 0.8;
             } else {
               style.color = '#999999';
+              style.weight = 4;
             }
             
+            // Create background stroke layer (wider, lighter)
+            const backgroundStyle = {
+              color: featureType === 'road' ? '#999999' : '#cccccc',
+              weight: (style.weight || 4) + 4,  // 4px wider than main line
+              opacity: 0.4,
+              interactive: false
+            };
+            
+            // Add background stroke first
+            const backgroundLayer = L.geoJSON(feature, {
+              style: backgroundStyle
+            }).addTo(map);
+            
+            terrainLayers.push(backgroundLayer);
+            
+            // Add main line on top
             const layer = L.geoJSON(feature, {
               style: style
             }).addTo(map);

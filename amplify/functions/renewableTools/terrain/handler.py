@@ -1291,7 +1291,7 @@ def generate_topographic_analysis_data(latitude, longitude, radius_km):
 
 def handler(event, context):
     """
-    Simplified terrain analysis using OSM Overpass API
+    Simplified terrain analysis using OSM Overpass API with timeout protection
     """
     try:
         logger.info(f"Terrain analysis Lambda invoked")
@@ -1303,6 +1303,12 @@ def handler(event, context):
         project_id = params.get('project_id') or f'terrain-{int(datetime.now().timestamp() * 1000)}'
         radius_km = params.get('radius_km', 5.0)  # 5km radius provides ~150 features in typical areas
         
+        # CRITICAL: Reduce radius to prevent timeout
+        # OSM queries can be slow for large areas
+        if radius_km > 3.0:
+            logger.warning(f"⚠️ Reducing radius from {radius_km}km to 3.0km to prevent timeout")
+            radius_km = 3.0
+        
         if latitude is None or longitude is None:
             return {
                 'statusCode': 400,
@@ -1312,7 +1318,7 @@ def handler(event, context):
                 })
             }
         
-        logger.info(f"Analyzing terrain at ({latitude}, {longitude})")
+        logger.info(f"Analyzing terrain at ({latitude}, {longitude}) with radius {radius_km}km")
         
         # Query real terrain data from OpenStreetMap
         logger.info("🌍 Querying real terrain data from OpenStreetMap")
@@ -1747,11 +1753,45 @@ def handler(event, context):
         # The frontend Leaflet map requires geojson data to render
         # Size optimization is handled by S3 storage, not by removing data
         
+        # CRITICAL FIX: Structure exclusionZones for intelligent placement
+        # Layout handler expects: { buildings: [], roads: [], waterBodies: [] }
+        # OSM features use 'feature_type' not 'type' and have different naming
+        structured_exclusion_zones = {
+            'buildings': [],
+            'roads': [],
+            'waterBodies': []
+        }
+        
+        for feature in features:
+            props = feature.get('properties', {})
+            feature_type = props.get('feature_type', props.get('type', ''))
+            
+            # Buildings - direct match
+            if feature_type == 'building':
+                structured_exclusion_zones['buildings'].append(feature)
+            
+            # Roads - match highway, railway, major_highway
+            elif feature_type in ['highway', 'major_highway', 'railway', 'road']:
+                structured_exclusion_zones['roads'].append(feature)
+            
+            # Water - match water, waterway
+            elif feature_type in ['water', 'waterway']:
+                structured_exclusion_zones['waterBodies'].append(feature)
+            
+            # Also include power infrastructure and industrial as buildings (obstacles)
+            elif feature_type in ['power_infrastructure', 'industrial']:
+                structured_exclusion_zones['buildings'].append(feature)
+        
+        logger.info(f"📊 Structured exclusion zones: {len(structured_exclusion_zones['buildings'])} buildings, "
+                   f"{len(structured_exclusion_zones['roads'])} roads, "
+                   f"{len(structured_exclusion_zones['waterBodies'])} water bodies")
+        
         # Prepare response data
         response_data = {
             'coordinates': {'lat': latitude, 'lng': longitude},
             'projectId': project_id,
-            'exclusionZones': features,  # Include ALL features for table display
+            'exclusionZones': structured_exclusion_zones,  # STRUCTURED for intelligent placement
+            'allFeatures': features,  # Include ALL features for table display
             'metrics': {
                 'totalFeatures': len(features),
                 'featuresByType': feature_counts,

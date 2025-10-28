@@ -646,9 +646,23 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       console.log(`🔗 Session ID: ${sessionId}`);
       console.log(`📝 Active Project: ${sessionContext.active_project || 'none'}`);
       console.log(`📚 Project History: ${sessionContext.project_history.join(', ') || 'empty'}`);
+      console.log(`📦 Context project_name: ${event.context?.project_name || 'none'}`);
       
-      // Try to resolve existing project reference
-      const resolveResult = await projectResolver.resolve(event.query, sessionContext);
+      // CRITICAL FIX: Check for explicit project_name in context FIRST
+      // This ensures that when a project name is explicitly provided, we use it
+      // instead of trying to resolve from the query (which may generate a different name)
+      let resolveResult: any;
+      if (event.context?.project_name) {
+        console.log(`✅ Using explicit project_name from context: ${event.context.project_name}`);
+        resolveResult = {
+          projectName: event.context.project_name,
+          isAmbiguous: false,
+          confidence: 'explicit'
+        };
+      } else {
+        // Try to resolve existing project reference from query
+        resolveResult = await projectResolver.resolve(event.query, sessionContext);
+      }
       
       console.log(`🔍 Resolution Result: ${JSON.stringify(resolveResult, null, 2)}`);
       
@@ -766,6 +780,21 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
             console.log(`📐 Has Layout Results: ${!!projectData.layout_results}`);
             console.log(`💨 Has Simulation Results: ${!!projectData.simulation_results}`);
             console.log(`📄 Has Report Results: ${!!projectData.report_results}`);
+            
+            // DIAGNOSTIC: Log terrain results structure if present
+            if (projectData.terrain_results) {
+              console.log(`📦 Terrain Results Keys: ${Object.keys(projectData.terrain_results).join(', ')}`);
+              if (projectData.terrain_results.exclusionZones) {
+                const ez = projectData.terrain_results.exclusionZones;
+                console.log(`🚫 Exclusion Zones in Loaded Data:`, {
+                  buildings: ez.buildings?.length || 0,
+                  roads: ez.roads?.length || 0,
+                  waterBodies: ez.waterBodies?.length || 0
+                });
+              } else {
+                console.log(`⚠️  WARNING: Loaded terrain_results has no exclusionZones!`);
+              }
+            }
             console.log('───────────────────────────────────────────────────────────');
             
             // Create project context for validation
@@ -978,6 +1007,31 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       projectData: projectData  // Full project data for reference
     };
     
+    // DIAGNOSTIC: Log toolContext structure before calling tool Lambdas
+    console.log('───────────────────────────────────────────────────────────');
+    console.log('🔧 TOOL CONTEXT PREPARATION');
+    console.log('───────────────────────────────────────────────────────────');
+    console.log(`📋 Request ID: ${requestId}`);
+    console.log(`🎯 Intent Type: ${intentWithDefaults.type}`);
+    console.log(`📦 Tool Context Keys: ${Object.keys(toolContext).join(', ')}`);
+    console.log(`🗺️  Has terrain_results: ${!!toolContext.terrain_results}`);
+    if (toolContext.terrain_results) {
+      console.log(`📦 Terrain Results Keys: ${Object.keys(toolContext.terrain_results).join(', ')}`);
+      if (toolContext.terrain_results.exclusionZones) {
+        const ez = toolContext.terrain_results.exclusionZones;
+        console.log(`🚫 Exclusion Zones in Tool Context:`, {
+          buildings: ez.buildings?.length || 0,
+          roads: ez.roads?.length || 0,
+          waterBodies: ez.waterBodies?.length || 0
+        });
+      } else {
+        console.log(`⚠️  WARNING: terrain_results in toolContext has no exclusionZones!`);
+      }
+    } else {
+      console.log(`⚠️  WARNING: No terrain_results in toolContext!`);
+    }
+    console.log('───────────────────────────────────────────────────────────');
+    
     const results = await callToolLambdasWithFallback(intentWithDefaults, event.query, toolContext, requestId, thoughtSteps);
     timings.toolInvocation = Date.now() - toolStartTime;
     toolsUsed.push(intentWithDefaults.type);
@@ -1059,6 +1113,28 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         // Add results based on intent type
         if (intentWithDefaults.type === 'terrain_analysis' && resultsByType.terrain_analysis) {
           projectDataUpdate.terrain_results = resultsByType.terrain_analysis;
+          
+          // DIAGNOSTIC: Log terrain results structure being saved
+          console.log('───────────────────────────────────────────────────────────');
+          console.log('💾 SAVING TERRAIN RESULTS TO CONTEXT');
+          console.log('───────────────────────────────────────────────────────────');
+          console.log(`📋 Request ID: ${requestId}`);
+          console.log(`🆔 Project Name: ${projectName}`);
+          console.log(`📦 Terrain Results Keys: ${Object.keys(resultsByType.terrain_analysis).join(', ')}`);
+          if (resultsByType.terrain_analysis.exclusionZones) {
+            const ez = resultsByType.terrain_analysis.exclusionZones;
+            console.log(`🚫 Exclusion Zones:`, {
+              buildings: ez.buildings?.length || 0,
+              roads: ez.roads?.length || 0,
+              waterBodies: ez.waterBodies?.length || 0
+            });
+          } else {
+            console.log(`⚠️  WARNING: No exclusionZones in terrain results!`);
+          }
+          if (resultsByType.terrain_analysis.geojson) {
+            console.log(`🗺️  GeoJSON Features: ${resultsByType.terrain_analysis.geojson.features?.length || 0}`);
+          }
+          console.log('───────────────────────────────────────────────────────────');
         } else if (intentWithDefaults.type === 'layout_optimization' && resultsByType.layout_optimization) {
           projectDataUpdate.layout_results = resultsByType.layout_optimization;
           
@@ -1649,39 +1725,8 @@ async function callToolLambdasWithFallback(
   requestId: string,
   thoughtSteps: ThoughtStep[]
 ): Promise<ToolResult[]> {
-  try {
-    // Try the normal flow first
-    return await callToolLambdas(intent, query, context, requestId, thoughtSteps);
-  } catch (error) {
-    console.warn('Tool Lambda failed, using fallback:', error);
-    
-    // Update NREL thought step with error if it exists
-    const nrelThoughtStepIndex = thoughtSteps.findIndex(step => 
-      step.action.includes('NREL Wind Toolkit API')
-    );
-    if (nrelThoughtStepIndex !== -1) {
-      thoughtSteps[nrelThoughtStepIndex] = {
-        ...thoughtSteps[nrelThoughtStepIndex],
-        status: 'error',
-        duration: Date.now() - new Date(thoughtSteps[nrelThoughtStepIndex].timestamp).getTime(),
-        error: {
-          message: 'Failed to fetch NREL data',
-          suggestion: 'Using fallback data'
-        }
-      };
-    }
-    
-    // Return fallback result with clear messaging
-    return [{
-      success: true,
-      type: intent.type,
-      data: {
-        ...generateMockToolResult(intent.type, intent.params, query).data,
-        fallbackUsed: true,
-        message: `${generateMockToolResult(intent.type, intent.params, query).data.message} (Fallback data used due to backend unavailability)`
-      }
-    }];
-  }
+  // NEVER use fallback mock data - let errors surface
+  return await callToolLambdas(intent, query, context, requestId, thoughtSteps);
 }
 
 /**
@@ -1717,6 +1762,53 @@ async function callToolLambdas(
       case 'layout_optimization':
         // Use lightweight layout Lambda
         functionName = process.env.RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME || 'renewable-layout-simple';
+        
+        // DIAGNOSTIC: Log context structure before passing to layout
+        console.log('───────────────────────────────────────────────────────────');
+        console.log('🔍 LAYOUT INVOCATION - Context Diagnostic');
+        console.log('───────────────────────────────────────────────────────────');
+        console.log(`📋 Request ID: ${requestId}`);
+        console.log(`📦 Context Keys: ${Object.keys(context || {}).join(', ')}`);
+        console.log(`🗺️  Has terrain_results: ${!!context?.terrain_results}`);
+        console.log(`🗺️  Has terrainResults (camelCase): ${!!context?.terrainResults}`);
+        
+        if (context?.terrain_results) {
+          console.log(`📦 Terrain Results Keys: ${Object.keys(context.terrain_results).join(', ')}`);
+          console.log(`🚫 Has exclusionZones: ${!!context.terrain_results.exclusionZones}`);
+          
+          if (context.terrain_results.exclusionZones) {
+            const ez = context.terrain_results.exclusionZones;
+            console.log(`🚫 Exclusion Zones Being Passed to Layout:`, {
+              buildings: ez.buildings?.length || 0,
+              roads: ez.roads?.length || 0,
+              waterBodies: ez.waterBodies?.length || 0,
+              totalFeatures: (ez.buildings?.length || 0) + (ez.roads?.length || 0) + (ez.waterBodies?.length || 0)
+            });
+            
+            // Log sample of each type if available
+            if (ez.buildings && ez.buildings.length > 0) {
+              console.log(`   Sample building:`, JSON.stringify(ez.buildings[0]).substring(0, 200));
+            }
+            if (ez.roads && ez.roads.length > 0) {
+              console.log(`   Sample road:`, JSON.stringify(ez.roads[0]).substring(0, 200));
+            }
+            if (ez.waterBodies && ez.waterBodies.length > 0) {
+              console.log(`   Sample water body:`, JSON.stringify(ez.waterBodies[0]).substring(0, 200));
+            }
+          } else {
+            console.log(`⚠️  WARNING: terrain_results exists but has NO exclusionZones!`);
+            console.log(`   This means intelligent placement will fall back to grid pattern`);
+          }
+          
+          if (context.terrain_results.geojson) {
+            console.log(`🗺️  GeoJSON Features: ${context.terrain_results.geojson.features?.length || 0}`);
+          }
+        } else {
+          console.log(`⚠️  WARNING: No terrain_results in context!`);
+          console.log(`   Layout will use grid pattern instead of intelligent placement`);
+        }
+        console.log('───────────────────────────────────────────────────────────');
+        
         payload = {
           parameters: {
             project_id: intent.params.project_id,
@@ -1727,8 +1819,27 @@ async function callToolLambdas(
             constraints: context?.terrainFeatures || []
           },
           // Pass project context to layout Lambda for parameter auto-fill
+          // CRITICAL: This must include terrain_results with exclusionZones
           project_context: context || {}
         };
+        
+        // DIAGNOSTIC: Log the actual payload being sent
+        console.log('───────────────────────────────────────────────────────────');
+        console.log('📤 LAYOUT LAMBDA PAYLOAD');
+        console.log('───────────────────────────────────────────────────────────');
+        console.log(`📋 Request ID: ${requestId}`);
+        console.log(`📦 Payload Keys: ${Object.keys(payload).join(', ')}`);
+        console.log(`📦 project_context Keys: ${Object.keys(payload.project_context || {}).join(', ')}`);
+        console.log(`🗺️  project_context has terrain_results: ${!!payload.project_context?.terrain_results}`);
+        if (payload.project_context?.terrain_results?.exclusionZones) {
+          const ez = payload.project_context.terrain_results.exclusionZones;
+          console.log(`🚫 Exclusion Zones in Payload:`, {
+            buildings: ez.buildings?.length || 0,
+            roads: ez.roads?.length || 0,
+            waterBodies: ez.waterBodies?.length || 0
+          });
+        }
+        console.log('───────────────────────────────────────────────────────────');
         break;
         
       case 'wake_simulation':
@@ -1833,15 +1944,8 @@ async function callToolLambdas(
         RENEWABLE_REPORT_TOOL_FUNCTION_NAME: process.env.RENEWABLE_REPORT_TOOL_FUNCTION_NAME
       });
       
-      // Provide helpful fallback with mock data
-      console.warn(`Using fallback mock data for ${intent.type} due to missing Lambda function`);
-      const mockResult = generateMockToolResult(intent.type, intent.params, query);
-      mockResult.data.deploymentRequired = true;
-      mockResult.data.missingComponent = `${intent.type} Python Lambda function`;
-      mockResult.data.message = `${mockResult.data.message} (Using mock data - Python Lambda tools not deployed)`;
-      
-      results.push(mockResult);
-      return results;
+      // NEVER return mock data - throw error for missing Lambda
+      throw new Error(`Lambda function not configured for ${intent.type}. Function name: ${functionName}. Check environment variables.`);
     }
     
     // Enhanced tool Lambda invocation logging
@@ -1959,200 +2063,42 @@ async function callToolLambdas(
     results.push(result);
     
   } catch (error) {
-    console.error('Error calling tool Lambda:', error);
+    console.error('❌ Error calling tool Lambda:', error);
     console.error('Error details:', {
       name: error instanceof Error ? error.name : 'Unknown',
       message: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : 'No stack trace'
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      functionName,
+      intentType: intent.type,
+      params: intent.params
     });
     
     // Use renewable-specific error templates
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     const errorType = RenewableErrorFormatter.detectErrorType(error, intent.type);
     
+    // NEVER return mock data - throw the real error
     // Check if it's a function not found error
     if (errorMessage.includes('ResourceNotFoundException') || errorMessage.includes('Function not found')) {
-      console.warn(`Lambda function ${functionName} not found. Using mock data for frontend testing.`);
-      
-      // Generate deployment error template
       const deploymentError = RENEWABLE_ERROR_MESSAGES.DEPLOYMENT_ISSUE(intent.type);
-      console.warn(`Deployment issue: ${deploymentError.message}`);
-      
-      const mockResult = generateMockToolResult(intent.type, intent.params, query);
-      mockResult.data.deploymentRequired = true;
-      mockResult.data.missingComponent = 'Python tool Lambda functions';
-      mockResult.data.message = `${mockResult.data.message} (Using mock data - Lambda function not found)`;
-      mockResult.data.errorTemplate = deploymentError;
-      results.push(mockResult);
+      throw new Error(`Lambda function ${functionName} not found. ${deploymentError.message}`);
     } else if (errorType === 'LAMBDA_TIMEOUT') {
-      // Handle timeout with specific template
       const timeoutError = RENEWABLE_ERROR_MESSAGES.LAMBDA_TIMEOUT;
-      console.warn(`Lambda timeout: ${timeoutError.message}`);
-      
-      const mockResult = generateMockToolResult(intent.type, intent.params, query);
-      mockResult.data.timeoutOccurred = true;
-      mockResult.data.message = `${timeoutError.message} ${mockResult.data.message} (Using mock data - Lambda timed out)`;
-      mockResult.data.errorTemplate = timeoutError;
-      results.push(mockResult);
+      throw new Error(`Lambda timeout for ${intent.type}: ${timeoutError.message}`);
     } else if (errorType === 'S3_RETRIEVAL_FAILED') {
-      // Handle S3 errors with specific template
       const s3Error = RENEWABLE_ERROR_MESSAGES.S3_RETRIEVAL_FAILED;
-      console.warn(`S3 retrieval failed: ${s3Error.message}`);
-      
-      const mockResult = generateMockToolResult(intent.type, intent.params, query);
-      mockResult.data.s3Error = true;
-      mockResult.data.message = `${s3Error.message} ${mockResult.data.message} (Using mock data - S3 error)`;
-      mockResult.data.errorTemplate = s3Error;
-      results.push(mockResult);
+      throw new Error(`S3 retrieval failed for ${intent.type}: ${s3Error.message}`);
     } else {
-      // Generic Lambda invocation error
-      const invocationError = (RENEWABLE_ERROR_MESSAGES.LAMBDA_INVOCATION_FAILED as any)(intent.type, errorMessage);
-      console.warn(`Lambda invocation failed: ${invocationError.message}`);
-      
-      const mockResult = generateMockToolResult(intent.type, intent.params, query);
-      mockResult.data.deploymentRequired = true;
-      mockResult.data.executionError = errorMessage;
-      mockResult.data.message = `${mockResult.data.message} (Using mock data - Lambda execution failed)`;
-      mockResult.data.errorTemplate = invocationError;
-      results.push(mockResult);
+      // Generic Lambda invocation error - throw it
+      throw new Error(`Lambda execution failed for ${intent.type}: ${errorMessage}`);
     }
   }
   
   return results;
 }
 
-/**
- * Generate mock tool result for testing when tools aren't deployed
- */
-function generateMockToolResult(intentType: string, params: any, query: string): ToolResult {
-  const projectId = params.project_id || `mock-${Date.now()}`;
-  
-  switch (intentType) {
-    case 'terrain_analysis':
-      return {
-        success: true,
-        type: 'terrain_analysis',
-        data: {
-          messageContentType: 'wind_farm_terrain_analysis',
-          title: `Terrain Analysis - ${projectId}`,
-          subtitle: 'Mock terrain analysis for testing visualization components',
-          projectId,
-          coordinates: {
-            lat: params.center_lat || 35.067482,
-            lng: params.center_lon || -101.395466
-          },
-          exclusionZones: [
-            { type: 'water', area: 0.5, description: 'Small water body' },
-            { type: 'road', length: 2.3, description: 'County road' }
-          ],
-          metrics: {
-            totalFeatures: 12,
-            radiusKm: 5,
-            featuresByType: { water: 2, roads: 4, buildings: 6 }
-          },
-          mapHtml: '<div style="padding: 20px; text-align: center; border: 2px dashed #ccc; background: #f9f9f9;">Mock Interactive Map<br/>Terrain analysis visualization would appear here</div>',
-          visualizations: {
-            elevation_profile: 'https://via.placeholder.com/800x400/4CAF50/white?text=Elevation+Profile',
-            accessibility_analysis: 'https://via.placeholder.com/800x400/2196F3/white?text=Accessibility+Analysis',
-            topographic_map: 'https://via.placeholder.com/800x400/FF9800/white?text=Topographic+Map'
-          },
-          message: 'Mock terrain analysis completed successfully. This is test data for frontend development.'
-        }
-      };
-      
-    case 'layout_optimization':
-      return {
-        success: true,
-        type: 'layout_optimization',
-        data: {
-          messageContentType: 'wind_farm_layout',
-          title: `Wind Farm Layout - ${projectId}`,
-          subtitle: 'Mock layout optimization for testing visualization components',
-          projectId,
-          turbineCount: params.num_turbines || 15,
-          totalCapacity: (params.num_turbines || 15) * 2.5,
-          turbinePositions: Array.from({ length: params.num_turbines || 15 }, (_, i) => ({
-            lat: (params.center_lat || 35.067482) + (Math.random() - 0.5) * 0.01,
-            lng: (params.center_lon || -101.395466) + (Math.random() - 0.5) * 0.01,
-            id: `T${i + 1}`
-          })),
-          mapHtml: '<div style="padding: 20px; text-align: center; border: 2px dashed #ccc; background: #f9f9f9;">Mock Interactive Map<br/>Wind farm layout would appear here</div>',
-          visualizations: {
-            interactive_map: 'https://via.placeholder.com/800x600/4CAF50/white?text=Interactive+Layout+Map',
-            validation_chart: 'https://via.placeholder.com/800x400/2196F3/white?text=Layout+Validation',
-            spacing_analysis: 'https://via.placeholder.com/800x400/FF9800/white?text=Spacing+Analysis'
-          },
-          message: 'Mock layout optimization completed successfully. This is test data for frontend development.'
-        }
-      };
-      
-    case 'wake_simulation':
-      return {
-        success: true,
-        type: 'wake_simulation',
-        data: {
-          messageContentType: 'wind_farm_simulation',
-          title: `Wake Simulation Results - ${projectId}`,
-          subtitle: 'Mock wake simulation for testing visualization components',
-          projectId,
-          performanceMetrics: {
-            annualEnergyProduction: 125000,
-            capacityFactor: 0.42,
-            wakeLosses: 0.08,
-            wakeEfficiency: 0.92,
-            grossAEP: 135000,
-            netAEP: 125000
-          },
-          visualizations: {
-            wind_rose: 'https://via.placeholder.com/600x600/4CAF50/white?text=Wind+Rose+Diagram',
-            wake_analysis: 'https://via.placeholder.com/800x600/2196F3/white?text=Wake+Analysis+Chart',
-            performance_charts: [
-              'https://via.placeholder.com/800x400/FF9800/white?text=Performance+Chart+1',
-              'https://via.placeholder.com/800x400/9C27B0/white?text=Performance+Chart+2'
-            ],
-            monthly_production: 'https://via.placeholder.com/800x400/607D8B/white?text=Monthly+Production',
-            wake_heat_map: '<div style="padding: 20px; text-align: center; border: 2px dashed #ccc; background: #f9f9f9;">Mock Wake Heat Map<br/>Interactive wake visualization would appear here</div>'
-          },
-          mapHtml: '<div style="padding: 20px; text-align: center; border: 2px dashed #ccc; background: #f9f9f9;">Mock Interactive Map<br/>Wake simulation visualization would appear here</div>',
-          optimizationRecommendations: [
-            'Consider repositioning turbines to reduce wake losses from 8% to ~6%',
-            'Optimize turbine spacing to improve capacity factor from 42%',
-            'Implement advanced wake steering control systems for 2-3% additional gains'
-          ],
-          message: 'Mock wake simulation completed successfully. This is test data for frontend development.'
-        }
-      };
-      
-    case 'report_generation':
-      return {
-        success: true,
-        type: 'report_generation',
-        data: {
-          messageContentType: 'renewable_report',
-          title: `Renewable Energy Report - ${projectId}`,
-          subtitle: 'Mock report generation for testing',
-          projectId,
-          reportUrl: 'https://via.placeholder.com/800x1000/4CAF50/white?text=Mock+PDF+Report',
-          reportType: 'comprehensive',
-          sections: ['Executive Summary', 'Terrain Analysis', 'Layout Design', 'Performance Analysis'],
-          visualizations: {
-            complete_report: 'https://via.placeholder.com/800x1000/4CAF50/white?text=Complete+Report+PDF'
-          },
-          message: 'Mock report generated successfully. This is test data for frontend development.'
-        }
-      };
-      
-    default:
-      return {
-        success: false,
-        type: intentType,
-        data: {
-          message: `Mock data not available for ${intentType}`
-        },
-        error: 'Unknown intent type'
-      };
-  }
-}
+// REMOVED: generateMockToolResult function
+// We NEVER return mock data. All errors must surface as real errors.
 
 /**
  * Invoke Lambda with retry logic
@@ -2217,37 +2163,45 @@ async function invokeLambdaWithRetry(
       
     } catch (error) {
       lastError = error as Error;
-      console.error(`Lambda invocation attempt ${attempt + 1} failed:`, error);
+      const errorMessage = lastError?.message || String(error);
+      
+      console.error(`❌ Lambda invocation attempt ${attempt + 1}/${maxRetries} failed`);
+      console.error(`   Function: ${functionName}`);
+      console.error(`   Error: ${errorMessage.substring(0, 500)}`); // Limit error message length
       
       // Check if this is a timeout error
-      const errorMessage = lastError?.message || '';
       const isTimeout = errorMessage.toLowerCase().includes('timeout') || 
                        errorMessage.toLowerCase().includes('timed out');
       
       if (isTimeout) {
-        console.warn('⚠️ Lambda timeout detected');
+        console.warn('⚠️ Lambda timeout detected - function exceeded time limit');
+      }
+      
+      // Check for function error (error in the Lambda code itself)
+      if (errorMessage.includes('FunctionError')) {
+        console.error('⚠️ Function error detected - Lambda code threw an exception');
       }
       
       if (attempt < maxRetries - 1) {
-        // Exponential backoff
-        await new Promise(resolve => setTimeout(resolve, Math.pow(2, attempt) * 1000));
+        const backoffMs = Math.pow(2, attempt) * 1000;
+        console.log(`   Retrying in ${backoffMs}ms...`);
+        await new Promise(resolve => setTimeout(resolve, backoffMs));
       }
     }
   }
   
-  // Enhanced error with renewable-specific template
-  const errorType = RenewableErrorFormatter.detectErrorType(lastError);
-  if (errorType) {
-    const errorTemplate = errorType === 'LAMBDA_TIMEOUT' 
-      ? RENEWABLE_ERROR_MESSAGES.LAMBDA_TIMEOUT
-      : errorType === 'LAMBDA_INVOCATION_FAILED'
-      ? (RENEWABLE_ERROR_MESSAGES.LAMBDA_INVOCATION_FAILED as any)(functionName, lastError?.message || 'Unknown error')
-      : RENEWABLE_ERROR_MESSAGES.S3_RETRIEVAL_FAILED;
-    
-    throw new Error(RenewableErrorFormatter.formatForUser(errorTemplate));
-  }
+  // Log final failure with clear error message
+  console.error('═══════════════════════════════════════════════════════════');
+  console.error('❌ LAMBDA INVOCATION FAILED AFTER ALL RETRIES');
+  console.error('═══════════════════════════════════════════════════════════');
+  console.error(`Function: ${functionName}`);
+  console.error(`Attempts: ${maxRetries}`);
+  console.error(`Final Error: ${lastError?.message?.substring(0, 1000) || 'Unknown error'}`);
+  console.error('═══════════════════════════════════════════════════════════');
   
-  throw new Error(`Lambda invocation failed after ${maxRetries} attempts: ${lastError?.message}`);
+  // Return a clear, non-repetitive error message
+  const rootCause = lastError?.message?.split(':')[0] || 'Unknown error';
+  throw new Error(`Layout optimization failed: ${rootCause}. Check CloudWatch logs for details.`);
 }
 
 /**
@@ -2423,7 +2377,8 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
             mapUrl: result.data.mapUrl,
             spacing: result.data.spacing,
             visualizations: result.data.visualizations,
-            message: result.data.message
+            message: result.data.message,
+            metadata: result.data.metadata
           },
           actions
         };

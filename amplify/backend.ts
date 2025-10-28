@@ -328,6 +328,18 @@ backend.agentFunction.addEnvironment(
   backend.renewableOrchestrator.resources.lambda.functionName
 );
 
+// Add S3 bucket name (was hardcoded in data/resource.ts, now dynamic)
+backend.agentFunction.addEnvironment(
+  'S3_BUCKET',
+  backend.storage.resources.bucket.bucketName
+);
+
+// Add renewable S3 bucket name for frontend (same as main bucket)
+backend.agentFunction.addEnvironment(
+  'NEXT_PUBLIC_RENEWABLE_S3_BUCKET',
+  backend.storage.resources.bucket.bucketName
+);
+
 // ============================================
 // NEW: Lambda-Based Renewable Energy Configuration
 // ============================================
@@ -637,3 +649,81 @@ backend.renewableTerrainTool.addEnvironment('NREL_API_KEY', nrelApiKey);
 
 console.log('✅ NREL API key configured for simulation and terrain tools');
 console.log('✅ Renewable Energy Lambda functions registered successfully');
+
+// ============================================
+// CRITICAL: Export Function Names as Outputs
+// ============================================
+// Without these outputs, the frontend cannot access the deployed function names
+// This is why changes never reach the frontend - the frontend is using hardcoded names!
+
+import { CfnOutput } from 'aws-cdk-lib';
+
+// Export all renewable energy function names
+new CfnOutput(backend.stack, 'RenewableOrchestratorFunctionName', {
+  value: backend.renewableOrchestrator.resources.lambda.functionName,
+  description: 'Renewable Orchestrator Lambda function name',
+  exportName: 'RenewableOrchestratorFunctionName'
+});
+
+new CfnOutput(backend.stack, 'RenewableTerrainToolFunctionName', {
+  value: backend.renewableTerrainTool.resources.lambda.functionName,
+  description: 'Renewable Terrain Tool Lambda function name',
+  exportName: 'RenewableTerrainToolFunctionName'
+});
+
+new CfnOutput(backend.stack, 'RenewableLayoutToolFunctionName', {
+  value: backend.renewableLayoutTool.resources.lambda.functionName,
+  description: 'Renewable Layout Tool Lambda function name',
+  exportName: 'RenewableLayoutToolFunctionName'
+});
+
+new CfnOutput(backend.stack, 'RenewableSimulationToolFunctionName', {
+  value: backend.renewableSimulationTool.resources.lambda.functionName,
+  description: 'Renewable Simulation Tool Lambda function name',
+  exportName: 'RenewableSimulationToolFunctionName'
+});
+
+new CfnOutput(backend.stack, 'RenewableReportToolFunctionName', {
+  value: backend.renewableReportTool.resources.lambda.functionName,
+  description: 'Renewable Report Tool Lambda function name',
+  exportName: 'RenewableReportToolFunctionName'
+});
+
+new CfnOutput(backend.stack, 'RenewableAgentsFunctionName', {
+  value: backend.renewableAgentsFunction.resources.lambda.functionName,
+  description: 'Renewable Strands Agents Lambda function name',
+  exportName: 'RenewableAgentsFunctionName'
+});
+
+new CfnOutput(backend.stack, 'MaintenanceAgentFunctionName', {
+  value: backend.maintenanceAgentFunction.resources.lambda.functionName,
+  description: 'Maintenance Agent Lambda function name',
+  exportName: 'MaintenanceAgentFunctionName'
+});
+
+new CfnOutput(backend.stack, 'AgentProgressFunctionName', {
+  value: backend.agentProgressFunction.resources.lambda.functionName,
+  description: 'Agent Progress Lambda function name',
+  exportName: 'AgentProgressFunctionName'
+});
+
+new CfnOutput(backend.stack, 'RenewableS3BucketName', {
+  value: backend.storage.resources.bucket.bucketName,
+  description: 'S3 bucket for renewable energy artifacts',
+  exportName: 'RenewableS3BucketName'
+});
+
+new CfnOutput(backend.stack, 'SessionContextTableName', {
+  value: sessionContextTable.tableName,
+  description: 'DynamoDB table for session context',
+  exportName: 'SessionContextTableName'
+});
+
+new CfnOutput(backend.stack, 'AgentProgressTableName', {
+  value: agentProgressTable.tableName,
+  description: 'DynamoDB table for agent progress tracking',
+  exportName: 'AgentProgressTableName'
+});
+
+console.log('✅ Exported all function names and resource names as CloudFormation outputs');
+console.log('✅ Frontend can now access actual deployed function names via amplify_outputs.json');

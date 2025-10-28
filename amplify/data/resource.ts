@@ -3,6 +3,8 @@ import { maintenanceAgentFunction } from '../functions/maintenanceAgent/resource
 import { agentProgressFunction } from '../functions/agentProgress/resource';
 
 // Main agent function with full routing capabilities (EnhancedStrandsAgent + RenewableProxyAgent)
+// NOTE: Dynamic environment variables (function names, bucket names) are set in backend.ts
+// after all resources are created. Only static config goes here.
 export const agentFunction = defineFunction({
   name: 'agent',
   entry: '../functions/agents/handler.ts',
@@ -14,16 +16,17 @@ export const agentFunction = defineFunction({
     TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
     TEXT_TO_TABLE_CONCURRENCY: '5',
     ORIGIN_BASE_PATH: process.env.ORIGIN_BASE_PATH || '',
-    S3_BUCKET: 'amplify-digitalassistant--workshopstoragebucketd9b-1kur1xycq1xq',
     AMPLIFY_BRANCH: process.env.AMPLIFY_BRANCH || 'main',
     AMPLIFY_APP_ID: process.env.AMPLIFY_APP_ID || 'unknown',
     // Renewable energy integration configuration
     RENEWABLE_ENABLED: 'true',
-    RENEWABLE_ORCHESTRATOR_FUNCTION_NAME: 'amplify-digitalassistant--renewableOrchestratorlam-jBcrYHDFlPXd',
     NEXT_PUBLIC_RENEWABLE_ENABLED: process.env.NEXT_PUBLIC_RENEWABLE_ENABLED || 'false',
     NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT: process.env.NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT || '',
-    NEXT_PUBLIC_RENEWABLE_S3_BUCKET: process.env.NEXT_PUBLIC_RENEWABLE_S3_BUCKET || 'renewable-energy-artifacts-484907533441',
     NEXT_PUBLIC_RENEWABLE_AWS_REGION: process.env.NEXT_PUBLIC_RENEWABLE_AWS_REGION || 'us-west-2'
+    // REMOVED HARDCODED VALUES - These are now set dynamically in backend.ts:
+    // - S3_BUCKET (set from backend.storage.resources.bucket.bucketName)
+    // - RENEWABLE_ORCHESTRATOR_FUNCTION_NAME (set from backend.renewableOrchestrator)
+    // - NEXT_PUBLIC_RENEWABLE_S3_BUCKET (set from backend.storage.resources.bucket.bucketName)
   }
 });
 

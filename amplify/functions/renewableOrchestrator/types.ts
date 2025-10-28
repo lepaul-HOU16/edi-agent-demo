@@ -9,6 +9,7 @@ export interface OrchestratorRequest {
   context?: {
     previousResults?: any;
     projectId?: string;
+    project_name?: string;  // Explicit project name to use (takes precedence over resolution)
     duplicateCheckResult?: {
       hasDuplicates: boolean;
       duplicates: Array<{

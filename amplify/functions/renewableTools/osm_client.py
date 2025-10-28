@@ -41,8 +41,10 @@ class OSMOverpassClient:
             "https://overpass.kumi.systems/api/interpreter",
             "https://overpass.openstreetmap.ru/api/interpreter"
         ]
-        self.timeout = 30
-        self.retry_config = RetryConfig(max_attempts=3, backoff_factor=2.0)
+        # CRITICAL: Reduce timeout to prevent Lambda timeout
+        # Lambda has limited execution time, so we need to fail fast
+        self.timeout = 15  # Reduced from 30 to 15 seconds
+        self.retry_config = RetryConfig(max_attempts=2, backoff_factor=1.5)  # Reduced retries
         self.headers = {'User-Agent': 'RenewableEnergyAnalysis/1.0'}
     
     def query_terrain_features(self, lat: float, lon: float, radius_km: float) -> Dict:
@@ -60,9 +62,10 @@ class OSMOverpassClient:
         logger.info(f"🌍 Querying real OSM data at ({lat}, {lon}) within {radius_km}km")
         
         # Build comprehensive Overpass QL query
+        # CRITICAL: Reduced timeout and result limit to prevent Lambda timeout
         radius_m = radius_km * 1000
         query = f"""
-        [out:json][timeout:25][maxsize:536870912];
+        [out:json][timeout:12][maxsize:536870912];
         (
           // Buildings - ALL buildings that affect wind flow
           way["building"](around:{radius_m},{lat},{lon});
@@ -98,7 +101,7 @@ class OSMOverpassClient:
           way["leisure"](around:{radius_m},{lat},{lon});
           way["amenity"](around:{radius_m},{lat},{lon});
         );
-        out geom 1000;
+        out geom 500;
         """
         
         try:

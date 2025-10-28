@@ -182,7 +182,7 @@ This plan fixes 6 critical UI issues in the renewable energy workflow by impleme
   - Verify financial analysis query generates report
   - _Requirements: All requirements_
 
-- [ ] 20. User acceptance testing
+- [x] 20. User acceptance testing
   - Have user test complete workflow in deployed environment
   - Verify all 6 reported issues are resolved
   - Collect feedback on workflow flow and button placement

@@ -232,7 +232,11 @@ export class RenewableIntentClassifier {
         /design.*wind.*farm/i,
         /create.*turbine.*layout/i,
         /plan.*turbine.*placement/i,
-        /design.*turbine.*array/i
+        /design.*turbine.*array/i,
+        /optimize.*wind.*farm/i,  // CRITICAL: Match "optimize wind farm"
+        /optimize.*layout/i,
+        /optimize.*turbine/i,
+        /wind.*farm.*optimization/i
       ],
       exclusions: [
         /terrain.*analysis/i,
