@@ -255,11 +255,11 @@ backend.edicraftAgentFunction.resources.lambda.addToRolePolicy(
 // Bedrock AgentCore configuration
 backend.edicraftAgentFunction.addEnvironment(
   'BEDROCK_AGENT_ID',
-  process.env.BEDROCK_AGENT_ID || ''
+  process.env.BEDROCK_AGENT_ID || 'edicraft-kl1b6iGNug'
 );
 backend.edicraftAgentFunction.addEnvironment(
   'BEDROCK_AGENT_ALIAS_ID',
-  process.env.BEDROCK_AGENT_ALIAS_ID || ''
+  process.env.BEDROCK_AGENT_ALIAS_ID || 'TSTALIASID'
 );
 backend.edicraftAgentFunction.addEnvironment(
   'BEDROCK_REGION',
@@ -273,7 +273,7 @@ backend.edicraftAgentFunction.addEnvironment(
 );
 backend.edicraftAgentFunction.addEnvironment(
   'MINECRAFT_PORT',
-  process.env.MINECRAFT_PORT || '49000'
+  process.env.MINECRAFT_PORT || '49001'
 );
 backend.edicraftAgentFunction.addEnvironment(
   'MINECRAFT_RCON_PORT',
@@ -281,37 +281,55 @@ backend.edicraftAgentFunction.addEnvironment(
 );
 backend.edicraftAgentFunction.addEnvironment(
   'MINECRAFT_RCON_PASSWORD',
-  process.env.MINECRAFT_RCON_PASSWORD || ''
+  process.env.MINECRAFT_RCON_PASSWORD || 'ediagents@OSDU2025demo'
 );
 
 // OSDU Platform configuration
 backend.edicraftAgentFunction.addEnvironment(
   'EDI_USERNAME',
-  process.env.EDI_USERNAME || ''
+  process.env.EDI_USERNAME || 'edi-user'
 );
 backend.edicraftAgentFunction.addEnvironment(
   'EDI_PASSWORD',
-  process.env.EDI_PASSWORD || ''
+  process.env.EDI_PASSWORD || 'Asd!1edi'
 );
 backend.edicraftAgentFunction.addEnvironment(
   'EDI_CLIENT_ID',
-  process.env.EDI_CLIENT_ID || ''
+  process.env.EDI_CLIENT_ID || '7se4hblptk74h59ghbb694ovj4'
 );
 backend.edicraftAgentFunction.addEnvironment(
   'EDI_CLIENT_SECRET',
-  process.env.EDI_CLIENT_SECRET || ''
+  process.env.EDI_CLIENT_SECRET || 'k7iq7mnm4k0rp5hmve7ceb8dajkj9vulavetg90epn7an5sekfi'
 );
 backend.edicraftAgentFunction.addEnvironment(
   'EDI_PARTITION',
-  process.env.EDI_PARTITION || ''
+  process.env.EDI_PARTITION || 'osdu'
 );
 backend.edicraftAgentFunction.addEnvironment(
   'EDI_PLATFORM_URL',
-  process.env.EDI_PLATFORM_URL || ''
+  process.env.EDI_PLATFORM_URL || 'https://osdu.vavourak.people.aws.dev'
 );
 
 console.log('✅ EDIcraft Agent configured with Bedrock and Lambda invoke permissions');
 console.log('✅ EDIcraft Agent environment variables configured (Bedrock, Minecraft, OSDU)');
+
+// CRITICAL: Also add EDIcraft environment variables to the main agent Lambda
+// since the EDIcraft handler code runs in the main agent Lambda context
+backend.agentFunction.addEnvironment('BEDROCK_AGENT_ID', process.env.BEDROCK_AGENT_ID || '');
+backend.agentFunction.addEnvironment('BEDROCK_AGENT_ALIAS_ID', process.env.BEDROCK_AGENT_ALIAS_ID || '');
+backend.agentFunction.addEnvironment('BEDROCK_REGION', process.env.BEDROCK_REGION || 'us-east-1');
+backend.agentFunction.addEnvironment('MINECRAFT_HOST', process.env.MINECRAFT_HOST || 'edicraft.nigelgardiner.com');
+backend.agentFunction.addEnvironment('MINECRAFT_PORT', process.env.MINECRAFT_PORT || '49000');
+backend.agentFunction.addEnvironment('MINECRAFT_RCON_PORT', process.env.MINECRAFT_RCON_PORT || '49001');
+backend.agentFunction.addEnvironment('MINECRAFT_RCON_PASSWORD', process.env.MINECRAFT_RCON_PASSWORD || '');
+backend.agentFunction.addEnvironment('EDI_USERNAME', process.env.EDI_USERNAME || '');
+backend.agentFunction.addEnvironment('EDI_PASSWORD', process.env.EDI_PASSWORD || '');
+backend.agentFunction.addEnvironment('EDI_CLIENT_ID', process.env.EDI_CLIENT_ID || '');
+backend.agentFunction.addEnvironment('EDI_CLIENT_SECRET', process.env.EDI_CLIENT_SECRET || '');
+backend.agentFunction.addEnvironment('EDI_PARTITION', process.env.EDI_PARTITION || '');
+backend.agentFunction.addEnvironment('EDI_PLATFORM_URL', process.env.EDI_PLATFORM_URL || '');
+
+console.log('✅ EDIcraft environment variables also added to main agent Lambda');
 
 // Add S3 permissions to MCP Server for petrophysical analysis
 mcpServer.lambdaFunction.addToRolePolicy(

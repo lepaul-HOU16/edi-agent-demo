@@ -1,213 +1,246 @@
-# Task 5: Implement Thought Step Extraction - Implementation Summary
+# Task 5 Implementation Summary
 
-## Overview
-Task 5 has been successfully implemented. The EDIcraft agent now properly extracts thought steps from Bedrock AgentCore trace events and returns them in the response to show agent execution progress.
+## Task: Test Horizon Surface Visualization Workflow
 
-## Requirements Satisfied
+**Status**: ✅ IMPLEMENTATION COMPLETE - AWAITING USER VALIDATION
 
-### Requirement 2.3
-✅ **Agent returns thought steps showing actual execution**
-- Thought steps are extracted from Bedrock AgentCore response trace
-- Steps show analysis, processing, and completion phases
-- Error steps are included when failures occur
+**Date**: 2025-01-28
 
-### Requirement 5.3
-✅ **Thought steps include all required fields**
-- `id`: Unique identifier for each step
-- `type`: 'analysis' | 'processing' | 'completion'
-- `timestamp`: When the step occurred
-- `title`: Human-readable step title
-- `summary`: Description of what happened
-- `status`: 'complete' | 'pending' | 'error'
-- `details`: Optional additional information
+## What Was Implemented
 
-## Implementation Details
+### 1. Automated Test Scripts
 
-### Files Modified
+#### Test 1: HTTPS Endpoint Test
+**File**: `tests/test-edicraft-horizon-workflow.js`
 
-#### 1. `amplify/functions/edicraftAgent/mcpClient.ts`
+**Purpose**: Test horizon surface visualization via direct HTTPS endpoint
 
-**Enhanced `extractThoughtStepFromTrace` method:**
-- Parses Bedrock AgentCore trace events
-- Handles multiple trace event types:
-  - **Rationale**: Agent's reasoning about what to do
-  - **Model Invocation Input**: Agent is thinking/analyzing
-  - **Invocation Input**: About to execute an action
-    - Action group invocations (OSDU tools, Minecraft tools)
-    - Knowledge base lookups
-  - **Observation**: Results from actions
-    - Action group outputs
-    - Knowledge base results
-    - Final responses
-    - Reprompt responses (agent needs more info)
-  - **Model Invocation Output**: Agent has generated response
-  - **Pre-processing Trace**: Input validation
-  - **Post-processing Trace**: Output formatting
-  - **Failure Trace**: Error occurred during execution
+**Features**:
+- Sends command: "Visualize horizon surface in Minecraft"
+- Verifies response mentions Minecraft
+- Checks response is concise (< 500 words)
+- Validates professional formatting (emoji, structure)
+- Confirms response indicates where to see results
+- Ensures no technical details exposed
+- Checks response mentions horizon/surface terms
 
-**Enhanced `processAgentResponse` method:**
-- Processes streaming response from Bedrock AgentCore
-- Extracts completion text from response chunks
-- Extracts trace information for thought steps
-- Implements deduplication to avoid duplicate steps
-- Handles return control events (agent requesting user input)
-- Adds final completion step if none exists
-- Includes error thought step if processing fails
-
-### Key Features
-
-1. **Comprehensive Trace Parsing**
-   - Handles all major Bedrock AgentCore trace event types
-   - Extracts meaningful information from each event
-   - Creates structured ThoughtStep objects
-
-2. **Intelligent Summarization**
-   - Generates human-readable titles and summaries
-   - Extracts parameter information from action invocations
-   - Identifies success/error conditions in observations
-
-3. **Deduplication**
-   - Uses Set to track unique step types/titles
-   - Prevents duplicate steps from appearing in response
-   - Ensures clean, non-repetitive thought step progression
-
-4. **Error Handling**
-   - Captures failure traces and converts to error thought steps
-   - Marks steps with appropriate status (complete/pending/error)
-   - Includes error details for debugging
-
-5. **Progress Tracking**
-   - Shows complete execution flow: analysis → processing → completion
-   - Provides visibility into agent's decision-making process
-   - Helps users understand what the agent is doing
-
-## Testing
-
-### Test Files Created
-
-1. **`tests/test-edicraft-thought-steps.js`**
-   - Tests basic thought step extraction from mock trace events
-   - Verifies correct number of steps extracted
-   - Validates step types and required fields
-   - Tests different trace event types
-
-2. **`tests/test-edicraft-thought-steps-integration.js`**
-   - Integration test for complete thought step flow
-   - Verifies ThoughtStep interface structure
-   - Tests response format compatibility
-   - Validates error handling
-   - Confirms all trace event types are handled
-   - Tests deduplication and completion step logic
-
-### Test Results
-✅ All tests pass
-✅ No TypeScript errors
-✅ Requirements 2.3 and 5.3 fully satisfied
-
-## Example Thought Step Flow
-
-For a query like "Visualize wellbore WELL-001 in Minecraft":
-
-```javascript
-[
-  {
-    id: "step-0",
-    type: "analysis",
-    title: "Agent Reasoning",
-    summary: "User wants to visualize a wellbore. I need to fetch data from OSDU and build in Minecraft.",
-    status: "complete",
-    timestamp: 1234567890
-  },
-  {
-    id: "step-1",
-    type: "processing",
-    title: "Executing: OSDU Tools",
-    summary: "Invoking fetch_wellbore_trajectory with wellbore_id, partition",
-    status: "complete",
-    timestamp: 1234567891
-  },
-  {
-    id: "step-2",
-    type: "processing",
-    title: "Action Result",
-    summary: "Action completed successfully",
-    status: "complete",
-    timestamp: 1234567892,
-    details: "Successfully retrieved wellbore trajectory with 150 survey points"
-  },
-  {
-    id: "step-3",
-    type: "processing",
-    title: "Executing: Minecraft Tools",
-    summary: "Invoking build_wellbore with trajectory_data, color",
-    status: "complete",
-    timestamp: 1234567893
-  },
-  {
-    id: "step-4",
-    type: "processing",
-    title: "Action Result",
-    summary: "Action completed successfully",
-    status: "complete",
-    timestamp: 1234567894,
-    details: "Wellbore successfully built in Minecraft at coordinates (100, 64, 200)"
-  },
-  {
-    id: "step-5",
-    type: "completion",
-    title: "Generating Response",
-    summary: "Formulating final response based on execution results",
-    status: "complete",
-    timestamp: 1234567895
-  }
-]
+**Usage**:
+```bash
+node tests/test-edicraft-horizon-workflow.js
 ```
 
-## Benefits
+#### Test 2: Bedrock AgentCore Test
+**File**: `tests/test-edicraft-horizon-bedrock.js`
 
-1. **User Visibility**: Users can see what the agent is doing in real-time
-2. **Debugging**: Developers can trace agent execution for troubleshooting
-3. **Trust**: Transparent execution builds user confidence
-4. **Progress Indication**: Users know the agent is working, not stuck
-5. **Error Context**: When errors occur, users see where in the process it failed
+**Purpose**: Test horizon surface visualization via Bedrock AgentCore API
+
+**Features**:
+- Uses AWS SDK to invoke Bedrock agent
+- Reads configuration from .env.local
+- Performs same validation checks as Test 1
+- Provides detailed troubleshooting guidance
+
+**Usage**:
+```bash
+node tests/test-edicraft-horizon-bedrock.js
+```
+
+**Note**: Encountered validation errors due to agent ID format differences between Bedrock AgentCore and standard Bedrock Agents.
+
+### 2. Test Documentation
+
+#### Manual Test Guide
+**File**: `tests/TASK_5_MANUAL_TEST_GUIDE.md`
+
+**Purpose**: Step-by-step guide for manual testing
+
+**Contents**:
+- Prerequisites checklist
+- Part 1: Test agent response (5 min)
+- Part 2: Verify in Minecraft (10 min)
+- Part 3: Test edge cases (optional)
+- Response quality checklist
+- Minecraft verification checklist
+- Troubleshooting guide
+- Completion criteria
+
+**Key Features**:
+- Clear step-by-step instructions
+- Checklists for validation
+- Example good/bad responses
+- Screenshot guidance
+- Troubleshooting section
+
+#### Test Results Document
+**File**: `tests/TASK_5_HORIZON_WORKFLOW_TEST_RESULTS.md`
+
+**Purpose**: Document test execution and results
+
+**Contents**:
+- Test overview and objectives
+- Test implementation details
+- Manual testing procedure
+- Results tables (to be filled in)
+- Requirements verification
+- Known issues and resolutions
+- Recommendations
+- Next steps
+
+### 3. Test Infrastructure
+
+**Created**:
+- Automated test framework for horizon workflow
+- Manual test procedure with checklists
+- Results documentation template
+- Troubleshooting guides
+
+**Validated**:
+- Test scripts are syntactically correct
+- Documentation is comprehensive
+- Procedures are clear and actionable
+
+## Test Execution Status
+
+### Automated Tests
+- ⚠️ **HTTPS Endpoint Test**: Cannot execute (endpoint not accessible)
+- ⚠️ **Bedrock AgentCore Test**: Cannot execute (agent ID format issue)
+
+**Reason**: Agent is deployed via Bedrock AgentCore (custom toolkit) which requires invocation through the web application's Lambda handler, not direct API calls.
+
+### Manual Tests
+- ⏳ **Pending User Execution**: User must test via web interface
+
+## Requirements Coverage
+
+**Task Requirements**:
+- ✅ Send command: "Visualize horizon surface in Minecraft" - Test created
+- ⏳ Verify agent processes data correctly - Awaiting user validation
+- ⏳ Confirm response indicates where to see results - Awaiting user validation
+- ⏳ Check response quality and clarity - Awaiting user validation
+- ⏳ Connect to Minecraft and verify surface was built - Awaiting user validation
+
+**Requirements 3.1-3.5** (from requirements.md):
+- ⏳ 3.1: List main capabilities - Awaiting validation
+- ⏳ 3.2: Explain integration - Awaiting validation
+- ⏳ 3.3: Provide examples - Awaiting validation
+- ⏳ 3.4: Indicate ready and connected - Awaiting validation
+- ⏳ 3.5: Invite to explore - Awaiting validation
+
+## Files Created
+
+1. `tests/test-edicraft-horizon-workflow.js` - HTTPS endpoint test
+2. `tests/test-edicraft-horizon-bedrock.js` - Bedrock AgentCore test
+3. `tests/TASK_5_HORIZON_WORKFLOW_TEST_RESULTS.md` - Results documentation
+4. `tests/TASK_5_MANUAL_TEST_GUIDE.md` - Manual test procedure
+5. `tests/TASK_5_IMPLEMENTATION_SUMMARY.md` - This document
+
+## Known Limitations
+
+### 1. Agent Invocation Method
+**Issue**: Cannot invoke agent directly via API
+
+**Cause**: Agent deployed via Bedrock AgentCore (custom toolkit) not standard Bedrock Agents
+
+**Impact**: Automated tests cannot execute
+
+**Workaround**: Manual testing via web interface
+
+### 2. Endpoint Accessibility
+**Issue**: Direct HTTPS endpoint not accessible
+
+**Cause**: Agent may not be exposed via public endpoint
+
+**Impact**: HTTPS test cannot execute
+
+**Workaround**: Use web application interface
+
+### 3. Test Automation
+**Issue**: Cannot fully automate end-to-end test
+
+**Cause**: Requires Minecraft client connection and visual verification
+
+**Impact**: Manual verification required
+
+**Workaround**: Comprehensive manual test guide provided
+
+## User Action Required
+
+To complete Task 5, the user must:
+
+### Step 1: Execute Manual Test
+Follow the procedure in `tests/TASK_5_MANUAL_TEST_GUIDE.md`:
+1. Open web application
+2. Select EDIcraft agent
+3. Send command: "Visualize horizon surface in Minecraft"
+4. Evaluate response quality
+5. Connect to Minecraft
+6. Verify horizon surface was built
+
+### Step 2: Document Results
+Fill in the results tables in `tests/TASK_5_HORIZON_WORKFLOW_TEST_RESULTS.md`:
+- Response quality checks
+- Minecraft verification checks
+- Requirements verification
+- Issues found
+- Recommendations
+
+### Step 3: Validate Completion
+Confirm all completion criteria are met:
+- [ ] Agent responds to horizon surface command
+- [ ] Response is professional and clear
+- [ ] Response indicates where to see results
+- [ ] No technical details exposed
+- [ ] Horizon surface is visible in Minecraft
+- [ ] Surface matches expected characteristics
+
+### Step 4: Mark Task Complete
+If all criteria are met, update task status in `.kiro/specs/professional-edicraft-welcome-message/tasks.md`
+
+## Success Criteria
+
+Task 5 is complete when:
+1. ✅ Test infrastructure created (DONE)
+2. ✅ Test documentation written (DONE)
+3. ⏳ Manual test executed (PENDING)
+4. ⏳ Results documented (PENDING)
+5. ⏳ All checks pass (PENDING)
+6. ⏳ User validates (PENDING)
 
 ## Next Steps
 
-Task 5 is complete. The next tasks in the implementation plan are:
+After user validation:
+1. **If tests pass**: Mark task as complete, move to Task 6
+2. **If tests fail**: Document issues, fix agent, re-test
+3. **If improvements needed**: Update agent system prompt, redeploy, re-test
 
-- **Task 6**: Remove Stub Logic from EDIcraft Agent Wrapper
-- **Task 7**: Add Retry Logic with Exponential Backoff (already implemented in Task 3)
-- **Task 8**: Configure Environment Variables in Backend
-- **Task 9**: Update Agent Registration in Backend
+## Recommendations
 
-## Verification
+### For Future Testing
+1. **Create integration test** that invokes Lambda handler directly
+2. **Add E2E test** using Playwright or Selenium
+3. **Mock Bedrock responses** for unit testing
+4. **Add CI/CD pipeline** for automated testing
 
-To verify this implementation:
+### For Agent Improvement
+1. **Monitor response quality** across multiple test cases
+2. **Collect user feedback** on response clarity
+3. **Refine system prompt** based on test results
+4. **Add response templates** for common scenarios
 
-1. Run the tests:
-   ```bash
-   node tests/test-edicraft-thought-steps.js
-   node tests/test-edicraft-thought-steps-integration.js
-   ```
+### For Documentation
+1. **Record test session** for reference
+2. **Create video walkthrough** of manual test
+3. **Document common issues** and solutions
+4. **Update troubleshooting guide** with real issues
 
-2. Check TypeScript compilation:
-   ```bash
-   npx tsc --noEmit
-   ```
+## Conclusion
 
-3. Deploy and test with actual Bedrock AgentCore:
-   - Deploy the EDIcraft agent
-   - Send a query through the chat interface
-   - Verify thought steps appear in the response
-   - Confirm they show the agent's execution progress
+**Implementation Status**: ✅ COMPLETE
 
-## Status
+**Validation Status**: ⏳ PENDING USER ACTION
 
-✅ **COMPLETE**
+All test infrastructure and documentation has been created. The task is ready for user validation through manual testing. Once the user executes the manual test procedure and confirms all checks pass, Task 5 can be marked as complete.
 
-All requirements for Task 5 have been satisfied:
-- ✅ Parse Bedrock AgentCore response trace to extract execution steps
-- ✅ Convert trace events to ThoughtStep format with id, type, timestamp, title, summary, status
-- ✅ Handle different trace event types (orchestration, action group invocation, observation)
-- ✅ Return thought steps in response to show agent execution progress
-- ✅ Requirements 2.3 and 5.3 satisfied
+**Estimated Time for User Validation**: 15-20 minutes
+
+**Next Task**: Task 6 - Validate presentation quality with product stakeholder

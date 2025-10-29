@@ -1,24 +1,5 @@
 {
   "mcpServers": {
-    "petrophysical-analysis": {
-      "command": "/Users/lepaul/Dev/prototypes/edi-agent-demo/start_mcp_server.sh",
-      "args": [],
-      "env": {},
-      "disabled": false,
-      "autoApprove": [
-        "list_wells",
-        "get_well_info",
-        "get_curve_data",
-        "calculate_statistics",
-        "calculate_porosity",
-        "calculate_shale_volume",
-        "calculate_saturation",
-        "assess_curve_quality",
-        "calculate_data_completeness",
-        "validate_environmental_corrections",
-        "assess_well_data_quality"
-      ]
-    },
     "fetch": {
       "command": "/Users/lepaul/.local/bin/uvx",
       "args": ["mcp-server-fetch"],
@@ -26,44 +7,6 @@
       "disabled": false,
       "autoApprove": [
         "fetch"
-      ]
-    },
-    "edicraft": {
-      "command": "python",
-      "args": ["EDIcraft-main/agent.py"],
-      "env": {
-        "MINECRAFT_HOST": "edicraft.nigelgardiner.com",
-        "MINECRAFT_RCON_PORT": "49000",
-        "MINECRAFT_RCON_PASSWORD": "${MINECRAFT_RCON_PASSWORD}",
-        "EDI_USERNAME": "${EDI_USERNAME}",
-        "EDI_PASSWORD": "${EDI_PASSWORD}",
-        "EDI_CLIENT_ID": "${EDI_CLIENT_ID}",
-        "EDI_CLIENT_SECRET": "${EDI_CLIENT_SECRET}",
-        "EDI_PARTITION": "${EDI_PARTITION}",
-        "EDI_PLATFORM_URL": "${EDI_PLATFORM_URL}",
-        "BEDROCK_MODEL_ID": "us.anthropic.claude-3-5-sonnet-20241022-v2:0",
-        "REGION": "us-west-2",
-        "AGENT_NAME": "edicraft"
-      },
-      "disabled": false,
-      "autoApprove": [
-        "show_config",
-        "search_wellbores",
-        "get_trajectory_coordinates",
-        "minecraft_command",
-        "list_players",
-        "get_player_positions",
-        "transform_coordinates",
-        "build_wellbore",
-        "setup_coordinate_tracking",
-        "calculate_trajectory_coordinates",
-        "parse_osdu_trajectory_file",
-        "build_wellbore_in_minecraft",
-        "search_horizons_live",
-        "parse_horizon_file",
-        "convert_horizon_to_minecraft",
-        "download_horizon_data",
-        "build_horizon_surface"
       ]
     }
   }

@@ -50,8 +50,10 @@ def calculate_trajectory_coordinates(survey_data_json: str, start_x: float = 0, 
             prev_x, prev_y, prev_z = coordinates[-1]
             
             # Interpolate points along the segment for continuous path
+            # Calculate segment length and ensure we have enough points for continuous blocks
             segment_length = math.sqrt(dx*dx + dy*dy + dz*dz)
-            num_points = max(2, int(segment_length / 2))  # Point every 2 units
+            # Create a point for every 0.5 units to ensure no gaps after Minecraft coordinate conversion
+            num_points = max(2, int(segment_length * 2))  # Point every 0.5 units for continuous line
             
             for j in range(1, num_points + 1):
                 t = j / num_points

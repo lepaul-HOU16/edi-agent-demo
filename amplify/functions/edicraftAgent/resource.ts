@@ -8,7 +8,7 @@ import { defineFunction } from '@aws-amplify/backend';
 export const edicraftAgentFunction = defineFunction({
   name: 'edicraftAgent',
   entry: './handler.ts',
-  timeoutSeconds: 300, // 5 minutes - Required for Bedrock AgentCore invocations (Requirement 3.2)
+  timeoutSeconds: 600, // 10 minutes - Required for complex Bedrock AgentCore operations (Requirement 3.2)
   memoryMB: 1024,
   environment: {
     MINECRAFT_HOST: 'edicraft.nigelgardiner.com',
@@ -23,6 +23,8 @@ export const edicraftAgentFunction = defineFunction({
     BEDROCK_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
     REGION: 'us-east-1',
     AGENT_NAME: 'edicraft',
+    BEDROCK_AGENT_ID: 'edicraft-kl1b6iGNug',
+    BEDROCK_AGENT_ALIAS_ID: 'TSTALIASID',
     BEDROCK_AGENTCORE_ARN: 'arn:aws:bedrock-agentcore:us-east-1:484907533441:runtime/edicraft-kl1b6iGNug'
   }
 });

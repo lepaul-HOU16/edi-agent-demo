@@ -4,7 +4,7 @@
  * Requirements: 3.1, 3.2, 3.3, 3.4, 3.5
  */
 
-import { BedrockAgentRuntimeClient, InvokeAgentCommand } from '@aws-sdk/client-bedrock-agent-runtime';
+import { BedrockAgentCoreClient, InvokeAgentRuntimeCommand } from '@aws-sdk/client-bedrock-agentcore';
 
 export interface EDIcraftConfig {
   minecraftHost: string;
@@ -40,12 +40,15 @@ export interface ThoughtStep {
 
 export class EDIcraftMCPClient {
   private config: EDIcraftConfig;
-  private bedrockClient: BedrockAgentRuntimeClient;
+  private bedrockClient: BedrockAgentCoreClient;
   private sessionId: string;
 
   constructor(config: EDIcraftConfig) {
     this.config = config;
-    this.bedrockClient = new BedrockAgentRuntimeClient({ region: config.region });
+    // Bedrock AgentCore client - let SDK determine the correct endpoint
+    this.bedrockClient = new BedrockAgentCoreClient({ 
+      region: config.region
+    });
     // Create unique session ID for this conversation
     // Requirement 3.3: Create a unique session ID for each conversation
     this.sessionId = `edicraft-session-${Date.now()}-${Math.random().toString(36).substring(7)}`;
@@ -130,18 +133,27 @@ export class EDIcraftMCPClient {
     });
 
     try {
-      // Requirement 3.1: Use BedrockAgentRuntimeClient to invoke the agent
+      // Requirement 3.1: Use BedrockAgentCoreClient to invoke the agent
       // Requirement 3.2: Pass agent ID from environment variables
       // Requirement 3.3: Create unique session ID for each conversation
-      const command = new InvokeAgentCommand({
-        agentId: this.config.bedrockAgentId,
-        agentAliasId: this.config.bedrockAgentAliasId,
-        sessionId: this.sessionId,
-        inputText: message,
-        enableTrace: true, // Enable trace to extract thought steps
+      
+      // Bedrock AgentCore uses a payload-based API with runtime ARN
+      const runtimeArn = `arn:aws:bedrock-agentcore:${this.config.region}:${process.env.AWS_ACCOUNT_ID || '484907533441'}:runtime/${this.config.bedrockAgentId}`;
+      
+      const payload = JSON.stringify({
+        message: message,
+        sessionId: this.sessionId
+      });
+      
+      const command = new InvokeAgentRuntimeCommand({
+        agentRuntimeArn: runtimeArn,
+        runtimeSessionId: this.sessionId,
+        contentType: 'application/json',
+        accept: 'application/json',
+        payload: new TextEncoder().encode(payload)
       });
 
-      console.log('[EDIcraft MCP Client] Sending InvokeAgentCommand');
+      console.log('[EDIcraft MCP Client] Sending InvokeAgentRuntimeCommand');
       const response = await this.bedrockClient.send(command);
 
       // Requirement 3.4: Parse response stream and extract message content
@@ -189,9 +201,61 @@ export class EDIcraftMCPClient {
     const seenStepTypes = new Set<string>(); // Track unique step types to avoid duplicates
 
     try {
-      // The response contains a completion stream
-      if (response.completion) {
+      console.log('[EDIcraft MCP Client] Processing response');
+      // Don't log the full response object - it may contain circular references
+      console.log('[EDIcraft MCP Client] Response type:', typeof response);
+      if (response && typeof response === 'object') {
+        console.log('[EDIcraft MCP Client] Response keys:', Object.keys(response));
+      }
+      
+      // Bedrock AgentCore returns response in the 'response' field as a streaming body
+      if (response.response) {
         console.log('[EDIcraft MCP Client] Processing response stream');
+        
+        // Read the streaming response body
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of response.response) {
+          if (chunk) {
+            chunks.push(chunk);
+          }
+        }
+        
+        // Combine all chunks and decode
+        const totalLength = chunks.reduce((acc, chunk) => acc + chunk.length, 0);
+        const combined = new Uint8Array(totalLength);
+        let offset = 0;
+        for (const chunk of chunks) {
+          combined.set(chunk, offset);
+          offset += chunk.length;
+        }
+        
+        const responseText = new TextDecoder().decode(combined);
+        console.log('[EDIcraft MCP Client] Response length:', responseText.length);
+        console.log('[EDIcraft MCP Client] Response preview:', responseText.substring(0, 300));
+        
+        // Parse the response text - it might be in format: {role=assistant, content=[{text=...}]}
+        // This is a Python-style string representation, not JSON
+        completion = this.extractTextFromResponse(responseText);
+        
+        // Ensure completion is a string
+        if (typeof completion !== 'string') {
+          completion = String(completion || '');
+        }
+        
+        console.log('[EDIcraft MCP Client] Extracted completion:', completion.substring(0, 200));
+        
+        // Create thought steps from the response
+        thoughtSteps.push({
+          id: 'edicraft-processing',
+          type: 'processing',
+          timestamp: Date.now(),
+          title: 'EDIcraft Agent Processing',
+          summary: 'Successfully invoked Bedrock AgentCore agent',
+          status: 'complete'
+        });
+      } else if (response.completion) {
+        // Fallback to old format
+        console.log('[EDIcraft MCP Client] Processing completion stream');
         
         // Process each chunk in the stream
         for await (const chunk of response.completion) {
@@ -259,6 +323,11 @@ export class EDIcraftMCPClient {
         });
       }
 
+      // Ensure completion is always a string
+      if (typeof completion !== 'string') {
+        completion = String(completion || 'No response generated');
+      }
+
       console.log('[EDIcraft MCP Client] Final completion length:', completion.length);
       console.log('[EDIcraft MCP Client] Total thought steps:', thoughtSteps.length);
       console.log('[EDIcraft MCP Client] Thought step types:', thoughtSteps.map(s => `${s.type}:${s.title}`).join(', '));
@@ -280,6 +349,106 @@ export class EDIcraftMCPClient {
       });
       
       throw new Error(`Failed to process agent response: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  /**
+   * Extract text from response that may be in Python dict format or JSON
+   * Handles formats like: {role=assistant, content=[{text=Hello!}]}
+   */
+  private extractTextFromResponse(responseText: string): string {
+    console.log('[EDIcraft MCP Client] extractTextFromResponse input type:', typeof responseText);
+    console.log('[EDIcraft MCP Client] extractTextFromResponse input preview:', String(responseText).substring(0, 200));
+    
+    try {
+      // First try to parse as JSON
+      const jsonData = JSON.parse(responseText);
+      console.log('[EDIcraft MCP Client] Parsed as JSON, keys:', Object.keys(jsonData));
+      
+      // Handle nested response format: {response: {role: "assistant", content: [{text: "..."}]}}
+      if (jsonData.response && typeof jsonData.response === 'object') {
+        console.log('[EDIcraft MCP Client] Found nested response object');
+        if (jsonData.response.content && Array.isArray(jsonData.response.content)) {
+          const texts = jsonData.response.content.map((item: any) => {
+            if (typeof item === 'string') return item;
+            if (item && typeof item === 'object' && item.text) return item.text;
+            return '';
+          }).filter(t => t);
+          if (texts.length > 0) {
+            console.log('[EDIcraft MCP Client] Extracted from response.content array');
+            return texts.join('\n');
+          }
+        }
+        // If response is a string, use it directly
+        if (typeof jsonData.response === 'string') {
+          console.log('[EDIcraft MCP Client] Found response string');
+          return jsonData.response;
+        }
+      }
+      
+      // Extract text from various JSON formats
+      if (jsonData.message && typeof jsonData.message === 'string') {
+        console.log('[EDIcraft MCP Client] Found message field');
+        return jsonData.message;
+      }
+      if (jsonData.text && typeof jsonData.text === 'string') {
+        console.log('[EDIcraft MCP Client] Found text field');
+        return jsonData.text;
+      }
+      
+      if (jsonData.content) {
+        console.log('[EDIcraft MCP Client] Found content field, type:', typeof jsonData.content, 'isArray:', Array.isArray(jsonData.content));
+        if (Array.isArray(jsonData.content)) {
+          const texts = jsonData.content.map((item: any) => {
+            if (typeof item === 'string') return item;
+            if (item && typeof item === 'object' && item.text) return item.text;
+            return '';
+          }).filter(t => t);
+          if (texts.length > 0) {
+            console.log('[EDIcraft MCP Client] Extracted from content array');
+            return texts.join('\n');
+          }
+        }
+        if (typeof jsonData.content === 'object' && jsonData.content.text) {
+          console.log('[EDIcraft MCP Client] Found content.text');
+          return jsonData.content.text;
+        }
+        if (typeof jsonData.content === 'string') {
+          console.log('[EDIcraft MCP Client] Content is string');
+          return jsonData.content;
+        }
+      }
+      
+      // If we have a JSON object but couldn't extract text, try JSON.stringify as last resort
+      console.log('[EDIcraft MCP Client] Could not extract text from JSON, using original');
+      return responseText;
+    } catch (e) {
+      console.log('[EDIcraft MCP Client] Not valid JSON, trying Python dict format');
+      // Not valid JSON, try to parse Python dict format
+      // Format: {role=assistant, content=[{text=Hello! ...}]}
+      
+      // Extract content array
+      const contentMatch = responseText.match(/content=\[({text=.+?})\]/s);
+      if (contentMatch) {
+        const contentStr = contentMatch[1];
+        // Extract text value
+        const textMatch = contentStr.match(/text=(.+?)(?:}|$)/s);
+        if (textMatch) {
+          console.log('[EDIcraft MCP Client] Extracted from Python dict format');
+          return textMatch[1].trim();
+        }
+      }
+      
+      // Try simpler pattern: text=...
+      const simpleTextMatch = responseText.match(/text=(.+?)(?:}|$)/s);
+      if (simpleTextMatch) {
+        console.log('[EDIcraft MCP Client] Extracted from simple text pattern');
+        return simpleTextMatch[1].trim();
+      }
+      
+      // If all else fails, return the original text
+      console.log('[EDIcraft MCP Client] Using original text as-is');
+      return responseText;
     }
   }
 

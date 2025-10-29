@@ -148,6 +148,8 @@ This document provides a comprehensive index of all documentation for the EDIcra
 **Purpose:** Complete user workflows from query to Minecraft visualization
 
 **Contents:**
+- Getting started with welcome message
+- Understanding visualization location
 - Wellbore trajectory visualization workflow
 - Horizon surface rendering workflow
 - Player position tracking workflow
@@ -162,6 +164,29 @@ This document provides a comprehensive index of all documentation for the EDIcra
 - Understanding user workflows
 - Training new users
 - Creating user documentation
+
+---
+
+#### [Minecraft Connection Guide](EDICRAFT_MINECRAFT_CONNECTION_GUIDE.md)
+**Purpose:** Detailed guide for connecting to Minecraft and viewing visualizations
+
+**Contents:**
+- Understanding where visualizations appear
+- Connecting to the Minecraft server
+- Navigating to visualizations
+- Viewing different visualization types
+- Minecraft commands for visualization
+- Collaboration features
+- Troubleshooting connection issues
+- Best practices
+- FAQ
+
+**When to Use:**
+- First time connecting to Minecraft
+- Cannot find visualizations
+- Connection issues
+- Learning navigation commands
+- Collaborating with team members
 
 ---
 
@@ -325,9 +350,11 @@ node tests/manual/test-edicraft-deployment.js
 ### I want to learn how to use the agent
 
 1. Read: [User Workflows](EDICRAFT_USER_WORKFLOWS.md)
-2. Try example queries
-3. Review: [Validation Guide](../tests/manual/EDICRAFT_VALIDATION_GUIDE.md) for test cases
-4. Check: [Troubleshooting Guide](EDICRAFT_TROUBLESHOOTING_GUIDE.md) if issues arise
+2. Read: [Minecraft Connection Guide](EDICRAFT_MINECRAFT_CONNECTION_GUIDE.md)
+3. Try example queries
+4. Connect to Minecraft to view visualizations
+5. Review: [Validation Guide](../tests/manual/EDICRAFT_VALIDATION_GUIDE.md) for test cases
+6. Check: [Troubleshooting Guide](EDICRAFT_TROUBLESHOOTING_GUIDE.md) if issues arise
 
 ---
 
@@ -402,6 +429,7 @@ node tests/manual/test-edicraft-deployment.js
 - [Environment Variables](EDICRAFT_ENVIRONMENT_VARIABLES.md)
 - [Troubleshooting Guide](EDICRAFT_TROUBLESHOOTING_GUIDE.md)
 - [User Workflows](EDICRAFT_USER_WORKFLOWS.md)
+- [Minecraft Connection Guide](EDICRAFT_MINECRAFT_CONNECTION_GUIDE.md)
 
 ### Testing
 - [Validation Guide](../tests/manual/EDICRAFT_VALIDATION_GUIDE.md)

@@ -540,6 +540,11 @@ div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
   transition: height 0.2s ease-in-out, min-height 0.2s ease-in-out, max-height 0.2s ease-in-out !important;
 }
 
+.awsui_textarea_nr3gs_151v0_9:not(#\9) {
+    padding-top: 6px;
+}
+
+
 /* Ensure side elements stay center-aligned */
 .input-bkgd>*:not([class*="awsui-prompt-input"]) {
   align-self: center !important;

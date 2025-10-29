@@ -578,16 +578,26 @@ export const sendMessage = async (props: {
         console.error('Agent failed:', invokeResponse.data.message);
         
         // Parse the error to provide better user guidance
-        let userFriendlyMessage = 'I can help you with that! ';
         const originalError = invokeResponse.data.message || 'Unknown error';
         const originalMessageContent = (props.newMessage.content as any)?.text || '';
         
-        // Check if this is a first prompt scenario (calculation request without well name)
-        const isCalculationRequest = originalMessageContent.toLowerCase().match(/\b(calculate|analyze|compute)\b.*\b(porosity|shale|saturation|formation|well)\b/);
-        const isBasicGreeting = originalMessageContent.toLowerCase().match(/^(hello|hi|hey|help)$/);
-        const isGeneralRequest = originalMessageContent.toLowerCase().match(/\b(list|show|wells|available|data)\b/);
-        
-        if (isCalculationRequest && (originalError.toLowerCase().includes('well') && (originalError.toLowerCase().includes('not found') || originalError.toLowerCase().includes('could not be found')))) {
+        // CRITICAL FIX: If this is an EDIcraft configuration error, pass it through unchanged
+        let userFriendlyMessage;
+        if (originalError.includes('EDIcraft Agent Configuration Error') || 
+            originalError.includes('BEDROCK_AGENT_ID') ||
+            originalError.includes('Minecraft Server') ||
+            originalError.includes('OSDU Platform')) {
+          userFriendlyMessage = originalError;
+        } else {
+          // For other agents, provide helpful guidance
+          userFriendlyMessage = 'I can help you with that! ';
+          
+          // Check if this is a first prompt scenario (calculation request without well name)
+          const isCalculationRequest = originalMessageContent.toLowerCase().match(/\b(calculate|analyze|compute)\b.*\b(porosity|shale|saturation|formation|well)\b/);
+          const isBasicGreeting = originalMessageContent.toLowerCase().match(/^(hello|hi|hey|help)$/);
+          const isGeneralRequest = originalMessageContent.toLowerCase().match(/\b(list|show|wells|available|data)\b/);
+          
+          if (isCalculationRequest && (originalError.toLowerCase().includes('well') && (originalError.toLowerCase().includes('not found') || originalError.toLowerCase().includes('could not be found')))) {
           // First prompt calculation request - provide helpful guidance instead of error
           userFriendlyMessage = `I'd be happy to help you with ${originalMessageContent.toLowerCase().includes('porosity') ? 'porosity calculation' : 
                                                                  originalMessageContent.toLowerCase().includes('shale') ? 'shale analysis' : 
@@ -633,11 +643,12 @@ What would you like to do first?`;
           userFriendlyMessage += 'There was an access issue. Please refresh the page and try again.';
         } else if (originalError.toLowerCase().includes('network') || originalError.toLowerCase().includes('connection')) {
           userFriendlyMessage += 'There seems to be a connection issue. Please check your internet connection and try again.';
-        } else {
-          userFriendlyMessage += `Here's what happened: ${originalError}`;
+          } else {
+            userFriendlyMessage += `Here's what happened: ${originalError}`;
+          }
+          
+          userFriendlyMessage += '\n\n💡 **What you can try:**\n- "list wells" - to see available data\n- "well info [WELL_NAME]" - to check a specific well\n- "help" - for available commands';
         }
-        
-        userFriendlyMessage += '\n\n💡 **What you can try:**\n- "list wells" - to see available data\n- "well info [WELL_NAME]" - to check a specific well\n- "help" - for available commands';
         
         const errorMessage: Schema['ChatMessage']['createType'] = {
           role: 'ai' as any,

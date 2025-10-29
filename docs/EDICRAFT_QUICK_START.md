@@ -58,17 +58,45 @@ node tests/manual/test-edicraft-deployment.js
 
 ### Step 5: Try It Out!
 
-Open the web application and try:
+Open the web application and select EDIcraft agent.
+
+**First, you'll see a welcome message:**
 
 ```
-Get wellbore data from well001 and visualize it in minecraft
+Hello! 🎮⛏️ I'm your EDIcraft agent, ready to bring subsurface data to life in Minecraft.
+
+**What I Can Help With:**
+
+🔍 **Wellbore Trajectories**
+   • Search and retrieve wellbore data from OSDU
+   • Calculate 3D paths from survey data
+   • Build complete wellbore visualizations in Minecraft
+
+🌍 **Geological Horizons**
+   • Find horizon surface data
+   • Process large coordinate datasets
+   • Create solid underground surfaces
+
+🎮 **Minecraft Integration**
+   • Transform real-world coordinates to Minecraft space
+   • Track player positions
+   • Build structures in real-time
+
+I'm connected and ready to visualize your subsurface data. What would you like to explore?
+```
+
+**Then try a specific command:**
+
+```
+Build wellbore trajectory for WELL-001
 ```
 
 **Expected:**
 - Query routes to EDIcraft agent
 - Thought steps display execution progress
 - Response includes Minecraft coordinates
-- Visualization appears in Minecraft
+- Text confirmation in chat
+- Visualization appears in Minecraft (connect to see it)
 
 ---
 
@@ -102,14 +130,19 @@ Get wellbore data from well001 and visualize it in minecraft
 
 ## 🎯 Example Queries
 
+**Initial Greeting (shows welcome message):**
+```
+Hello
+```
+
 **Wellbore Visualization:**
 ```
-Visualize wellbore well001 in minecraft
+Build wellbore trajectory for WELL-001
 ```
 
 **Horizon Surface:**
 ```
-Render the horizon surface for formation XYZ in minecraft
+Visualize horizon surface in Minecraft
 ```
 
 **Player Position:**
@@ -121,6 +154,8 @@ What is my current position in minecraft?
 ```
 Show me all wellbores in the North Sea field in minecraft
 ```
+
+**Important:** Visualizations appear in Minecraft, not in the chat. The chat shows text confirmations and coordinates.
 
 **More examples:** [User Workflows](EDICRAFT_USER_WORKFLOWS.md)
 

@@ -108,7 +108,7 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
     const sessionContext = {
       chatSessionId: event.arguments.chatSessionId,
       userId: userId,
-      selectedAgent: event.arguments.agentType as 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | undefined
+      selectedAgent: event.arguments.agentType as 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft' | undefined
     };
     const response = await router.routeQuery(event.arguments.message, conversationHistory, sessionContext);
     console.log('🔍 HANDLER: Agent response received:', {

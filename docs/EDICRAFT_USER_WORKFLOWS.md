@@ -4,15 +4,175 @@
 
 This document describes the complete user workflows for the EDIcraft agent, from submitting a query to seeing visualizations in Minecraft. It covers all major use cases and provides step-by-step instructions for each workflow.
 
+**Important:** EDIcraft visualizations appear in Minecraft, not in the web chat interface. The chat provides text confirmations and coordinates, but you must connect to the Minecraft server to see the actual 3D visualizations.
+
 ## Table of Contents
 
-1. [Wellbore Trajectory Visualization](#wellbore-trajectory-visualization)
-2. [Horizon Surface Rendering](#horizon-surface-rendering)
-3. [Player Position Tracking](#player-position-tracking)
-4. [Coordinate Transformation](#coordinate-transformation)
-5. [Multi-Wellbore Visualization](#multi-wellbore-visualization)
-6. [OSDU Data Exploration](#osdu-data-exploration)
-7. [Troubleshooting Workflows](#troubleshooting-workflows)
+1. [Getting Started - Welcome Message](#getting-started---welcome-message)
+2. [Wellbore Trajectory Visualization](#wellbore-trajectory-visualization)
+3. [Horizon Surface Rendering](#horizon-surface-rendering)
+4. [Player Position Tracking](#player-position-tracking)
+5. [Coordinate Transformation](#coordinate-transformation)
+6. [Multi-Wellbore Visualization](#multi-wellbore-visualization)
+7. [OSDU Data Exploration](#osdu-data-exploration)
+8. [Troubleshooting Workflows](#troubleshooting-workflows)
+
+---
+
+## Getting Started - Welcome Message
+
+### First Interaction
+
+When you first open the EDIcraft chat or send an initial greeting, you'll see a professional welcome message that explains the agent's capabilities.
+
+#### What to Expect
+
+**Example Welcome Message:**
+
+```
+Hello! 🎮⛏️ I'm your EDIcraft agent, ready to bring subsurface data to life in Minecraft.
+
+**What I Can Help With:**
+
+🔍 **Wellbore Trajectories**
+   • Search and retrieve wellbore data from OSDU
+   • Calculate 3D paths from survey data
+   • Build complete wellbore visualizations in Minecraft
+
+🌍 **Geological Horizons**
+   • Find horizon surface data
+   • Process large coordinate datasets
+   • Create solid underground surfaces
+
+🎮 **Minecraft Integration**
+   • Transform real-world coordinates to Minecraft space
+   • Track player positions
+   • Build structures in real-time
+
+I'm connected and ready to visualize your subsurface data. What would you like to explore?
+```
+
+#### Understanding the Welcome Message
+
+**Key Points:**
+
+1. **No Server Details Exposed**
+   - The welcome message does NOT show server URLs or ports
+   - Technical details are hidden for professional presentation
+   - Focus is on capabilities, not infrastructure
+
+2. **Capabilities Overview**
+   - Clear categories of what the agent can do
+   - Examples of specific tasks
+   - Friendly, accessible language
+
+3. **Ready Status**
+   - Confirms agent is connected
+   - Indicates readiness to process requests
+   - Invites you to start exploring
+
+#### When You See the Welcome Message
+
+The welcome message appears when:
+- You first open the EDIcraft chat
+- You send an empty or greeting message (e.g., "hello", "hi")
+- The agent hasn't received a specific task command yet
+
+**This is normal!** The welcome message means the agent is ready and waiting for your command.
+
+#### Moving Beyond the Welcome Message
+
+To trigger actual visualization, send a specific command:
+
+**Example Commands:**
+```
+Build wellbore trajectory for WELL-001
+```
+
+```
+Visualize horizon surface in Minecraft
+```
+
+```
+Search for wellbores in the area
+```
+
+**Remember:** The welcome message is just the starting point. To see visualizations, you need to:
+1. Give a specific command
+2. Wait for the agent to build in Minecraft
+3. Connect to Minecraft to see the results
+
+---
+
+## Understanding Visualization Location
+
+### Critical Concept: Where Visualizations Appear
+
+**EDIcraft visualizations do NOT appear in the web chat interface.**
+
+Instead:
+- ✅ Visualizations appear in the Minecraft server
+- ✅ Chat shows text confirmations and coordinates
+- ✅ You must connect to Minecraft to see 3D structures
+- ❌ No visual artifacts render in the web UI
+
+### The Workflow
+
+```
+1. You send command in web chat
+   ↓
+2. Agent processes request
+   ↓
+3. Agent builds structure in Minecraft
+   ↓
+4. Agent confirms in chat with coordinates
+   ↓
+5. You connect to Minecraft to see it
+```
+
+### Example Interaction
+
+**You type in chat:**
+```
+Build wellbore trajectory for WELL-001
+```
+
+**Agent responds in chat:**
+```
+✅ Wellbore trajectory for WELL-001 has been built in Minecraft!
+
+The wellbore path starts at ground level and extends 2,500 meters underground,
+following the survey data from OSDU.
+
+🎮 Connect to the Minecraft server to explore the visualization in 3D.
+
+Coordinates: X: 1234, Y: 100, Z: 5678
+```
+
+**What you see in chat:** Text confirmation only
+**What you see in Minecraft:** Actual 3D wellbore structure
+
+### Connecting to Minecraft
+
+To see your visualizations:
+
+1. **Open Minecraft Client**
+   - Java Edition required
+   - Version 1.19 or later
+
+2. **Connect to Server**
+   - Server: `edicraft.nigelgardiner.com`
+   - Port: `49000`
+
+3. **Navigate to Coordinates**
+   - Use coordinates from chat response
+   - Command: `/tp @s 1234 100 5678`
+   - Or fly/walk to location
+
+4. **View Visualization**
+   - See 3D structure
+   - Explore from different angles
+   - Interact with environment
 
 ---
 
@@ -96,22 +256,26 @@ Watch the thought steps appear in real-time:
 The agent will return a message like:
 
 ```
-Wellbore trajectory for well001 has been successfully built in Minecraft!
+✅ Wellbore trajectory for WELL-001 has been built in Minecraft!
 
-Location: X: 1234, Y: 64, Z: 5678
+The wellbore path starts at ground level and extends 2,500 meters underground,
+following the survey data from OSDU.
+
+🎮 Connect to the Minecraft server to explore the visualization in 3D.
+
+Location: X: 1234, Y: 100, Z: 5678
 Depth: 100 blocks (representing 3000m true vertical depth)
 Blocks used: 150 (representing trajectory path)
 
 The wellbore starts at surface level (Y=100) and extends downward to Y=0.
 Each block represents approximately 20 meters of depth.
-
-To view the wellbore:
-1. Connect to edicraft.nigelgardiner.com:49000
-2. Teleport to coordinates: /tp @s 1234 100 5678
-3. Look down to see the full trajectory
 ```
 
-**Note:** No visual artifacts appear in the web UI. The visualization exists only in Minecraft.
+**Important Notes:**
+- ✅ Text confirmation appears in chat
+- ✅ Coordinates provided for navigation
+- ❌ No visual artifacts in web UI
+- 🎮 Visualization exists only in Minecraft
 
 #### Step 6: View in Minecraft
 
@@ -219,23 +383,23 @@ Watch thought steps:
 #### Step 3: Review Response
 
 ```
-Horizon surface for formation XYZ has been rendered in Minecraft!
+✅ Horizon surface for formation XYZ has been rendered in Minecraft!
+
+The geological horizon has been built underground, representing the top of formation XYZ.
+
+🎮 Connect to the Minecraft server to explore the surface in 3D.
 
 Location: Center at X: 2000, Z: 3000
 Depth Range: Y: 45-55 (representing 1800m-2200m TVD)
 Surface Area: 100x100 blocks (2km x 2km)
 Blocks used: 10,000
 
-The horizon surface represents the top of formation XYZ.
 Different colors indicate depth variations:
 - Light blue: Shallow (Y=55)
 - Dark blue: Deep (Y=45)
-
-To view the surface:
-1. Teleport to: /tp @s 2000 100 3000
-2. Fly down to Y=50 to see the surface
-3. Use spectator mode for best view: /gamemode spectator
 ```
+
+**Remember:** The horizon surface is built in Minecraft, not displayed in the chat interface.
 
 #### Step 4: View in Minecraft
 
