@@ -1,12 +1,5 @@
 import { Handler } from 'aws-lambda';
 
-interface CreateCollectionRequest {
-  name: string;
-  description?: string;
-  dataSourceType: string;
-  previewMetadata?: string;
-}
-
 interface ListCollectionsResponse {
   collections: any[];
   count: number;
@@ -155,57 +148,187 @@ export const handler: Handler = async (event) => {
         });
 
       case 'listCollections':
-        const collections = getCollections();
-        console.log('📋 Listing collections, current count:', collections.length);
+        const collectionsForList = getCollections();
+        console.log('📋 Listing collections, current count:', collectionsForList.length);
         
         const collectionsResponse: ListCollectionsResponse = {
-          collections: collections,
-          count: collections.length
+          collections: collectionsForList,
+          count: collectionsForList.length
         };
         
         return JSON.stringify(collectionsResponse);
 
       case 'getCollection':
       case 'fetchCollection':
+      case 'getCollectionById':
         const collectionId = event.arguments?.collectionId;
-        console.log('🔍 Getting collection:', collectionId);
+        console.log('🔍 Getting collection by ID:', collectionId);
+        
+        if (!collectionId) {
+          return JSON.stringify({
+            success: false,
+            error: 'Collection ID is required'
+          });
+        }
+        
+        const collectionsForGet = getCollections();
+        const collection = collectionsForGet.find(c => c.id === collectionId);
+        
+        if (!collection) {
+          return JSON.stringify({
+            success: false,
+            error: `Collection not found: ${collectionId}`
+          });
+        }
+        
+        // Update last accessed time
+        collection.lastAccessedAt = new Date().toISOString();
         
         return JSON.stringify({
-          success: false,
-          error: 'Collection not found - mock implementation'
+          success: true,
+          collection: collection
         });
 
       case 'deleteCollection':
         const deleteId = event.arguments?.collectionId;
         console.log('🗑️ Deleting collection:', deleteId);
         
+        if (!deleteId) {
+          return JSON.stringify({
+            success: false,
+            error: 'Collection ID is required'
+          });
+        }
+        
+        const collectionsBeforeDelete = getCollections();
+        const indexToDelete = collectionsBeforeDelete.findIndex(c => c.id === deleteId);
+        
+        if (indexToDelete === -1) {
+          return JSON.stringify({
+            success: false,
+            error: `Collection not found: ${deleteId}`
+          });
+        }
+        
+        collectionsBeforeDelete.splice(indexToDelete, 1);
+        console.log('✅ Collection deleted, remaining count:', collectionsBeforeDelete.length);
+        
         return JSON.stringify({
           success: true,
           message: 'Collection deleted successfully'
+        });
+
+      case 'linkCanvasToCollection':
+        const canvasId = event.arguments?.canvasId;
+        const linkCollectionId = event.arguments?.collectionId;
+        console.log('🔗 Linking canvas to collection:', { canvasId, linkCollectionId });
+        
+        if (!canvasId || !linkCollectionId) {
+          return JSON.stringify({
+            success: false,
+            error: 'Both canvasId and collectionId are required'
+          });
+        }
+        
+        // Verify collection exists
+        const collectionsForLink = getCollections();
+        const targetCollection = collectionsForLink.find(c => c.id === linkCollectionId);
+        
+        if (!targetCollection) {
+          return JSON.stringify({
+            success: false,
+            error: `Collection not found: ${linkCollectionId}`
+          });
+        }
+        
+        // Note: The actual linking is done in the ChatSession model via linkedCollectionId field
+        // This operation just validates the collection exists
+        return JSON.stringify({
+          success: true,
+          message: 'Canvas linked to collection successfully',
+          collection: targetCollection
         });
 
       case 'collectionManagement':
         // Handle the unified operation approach
         console.log('🔧 Handling unified collection management operation');
         const unifiedOperation = event.arguments?.operation;
-        if (unifiedOperation === 'createCollection') {
-          return await handleCreateCollection(event.arguments);
+        
+        switch (unifiedOperation) {
+          case 'createCollection':
+            return await handleCreateCollection(event.arguments);
+          
+          case 'deleteCollection':
+            const deleteId = event.arguments?.collectionId;
+            if (!deleteId) {
+              return JSON.stringify({
+                success: false,
+                error: 'Collection ID is required'
+              });
+            }
+            
+            const collectionsBeforeDelete = getCollections();
+            const indexToDelete = collectionsBeforeDelete.findIndex(c => c.id === deleteId);
+            
+            if (indexToDelete === -1) {
+              return JSON.stringify({
+                success: false,
+                error: `Collection not found: ${deleteId}`
+              });
+            }
+            
+            collectionsBeforeDelete.splice(indexToDelete, 1);
+            console.log('✅ Collection deleted via unified API, remaining:', collectionsBeforeDelete.length);
+            
+            return JSON.stringify({
+              success: true,
+              message: 'Collection deleted successfully'
+            });
+          
+          case 'linkCanvasToCollection':
+            const canvasId = event.arguments?.canvasId;
+            const linkCollectionId = event.arguments?.collectionId;
+            
+            if (!canvasId || !linkCollectionId) {
+              return JSON.stringify({
+                success: false,
+                error: 'Both canvasId and collectionId are required'
+              });
+            }
+            
+            const collectionsForLink = getCollections();
+            const targetCollection = collectionsForLink.find(c => c.id === linkCollectionId);
+            
+            if (!targetCollection) {
+              return JSON.stringify({
+                success: false,
+                error: `Collection not found: ${linkCollectionId}`
+              });
+            }
+            
+            return JSON.stringify({
+              success: true,
+              message: 'Canvas linked to collection successfully',
+              collection: targetCollection
+            });
+          
+          default:
+            return JSON.stringify({
+              success: false,
+              error: `Unknown unified operation: ${unifiedOperation}`
+            });
         }
-        return JSON.stringify({
-          success: false,
-          error: `Unknown unified operation: ${unifiedOperation}`
-        });
 
       case 'collectionQuery':
         // Handle the unified query approach  
         console.log('🔧 Handling unified collection query operation');
         const queryOperation = event.arguments?.operation;
         if (queryOperation === 'listCollections') {
-          const collections = getCollections();
-          console.log('📋 Unified query - listing collections, count:', collections.length);
+          const collectionsForQuery = getCollections();
+          console.log('📋 Unified query - listing collections, count:', collectionsForQuery.length);
           return JSON.stringify({
-            collections: collections,
-            count: collections.length
+            collections: collectionsForQuery,
+            count: collectionsForQuery.length
           });
         }
         return JSON.stringify({

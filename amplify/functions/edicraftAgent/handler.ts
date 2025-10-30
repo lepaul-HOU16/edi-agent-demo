@@ -1,11 +1,12 @@
 /**
  * EDIcraft Agent Handler
  * AWS Lambda handler for the EDIcraft Minecraft-based subsurface data visualization agent
- * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 12.1, 12.2, 12.3, 12.4, 12.5, 13.4, 13.5
+ * Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 12.1, 12.2, 12.3, 12.4, 12.5, 13.4, 13.5, 2.4, 2.5, 4.1, 4.2
  */
 
 import { AppSyncResolverEvent } from 'aws-lambda';
 import { EDIcraftMCPClient } from './mcpClient.js';
+import { classifyIntent, generateToolCallMessage } from './intentClassifier.js';
 
 type EDIcraftAgentResponse = {
   success: boolean;
@@ -235,9 +236,11 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
 
     const message = event.arguments.message;
     
-    // Check if this is a greeting/welcome message request (deterministic detection)
+    // DETERMINISTIC PATTERN MATCHING - bypasses LLM for known workflows
     // Do this BEFORE validation so greetings work even without env vars configured
     const normalizedMessage = message.trim().toLowerCase();
+    
+    // Pattern 1: Greeting detection
     const isGreeting = normalizedMessage === 'hello' || 
                        normalizedMessage === 'hi' || 
                        normalizedMessage === 'hey' ||
@@ -245,7 +248,7 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
                        normalizedMessage === 'help';
 
     if (isGreeting) {
-      console.log('Detected greeting message, returning welcome message');
+      console.log('[DETERMINISTIC] Detected greeting message, returning welcome message');
       return {
         success: true,
         message: getWelcomeMessage(),
@@ -300,10 +303,51 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
     });
 
     console.log('🎮 Processing EDIcraft message:', message);
-    console.log('🎮 Message is NOT a greeting, proceeding to MCP client');
+    console.log('🎮 Message is NOT a greeting, proceeding to intent classification');
     
-    // Process message through MCP server
-    const response = await mcpClient.processMessage(message);
+    // HYBRID INTENT CLASSIFICATION
+    // Step 1: Classify intent using deterministic pattern matching
+    const intent = classifyIntent(message);
+    console.log('[INTENT ROUTING] Classification result:', JSON.stringify(intent, null, 2));
+    
+    let messageToSend = message;
+    let routingDecision = 'LLM_AGENT'; // Default to LLM for unknown intents
+    
+    // Step 2: Route based on confidence threshold
+    const CONFIDENCE_THRESHOLD = 0.85;
+    
+    if (intent.confidence >= CONFIDENCE_THRESHOLD && intent.type !== 'unknown') {
+      // High confidence - use direct tool call
+      routingDecision = 'DIRECT_TOOL_CALL';
+      try {
+        messageToSend = generateToolCallMessage(intent);
+        console.log('[INTENT ROUTING] High confidence intent detected');
+        console.log('[INTENT ROUTING] Intent type:', intent.type);
+        console.log('[INTENT ROUTING] Confidence:', intent.confidence);
+        console.log('[INTENT ROUTING] Parameters:', JSON.stringify(intent.parameters));
+        console.log('[INTENT ROUTING] Routing decision: DIRECT_TOOL_CALL');
+        console.log('[INTENT ROUTING] Generated tool call:', messageToSend);
+      } catch (error) {
+        // If tool call generation fails, fall back to LLM
+        console.warn('[INTENT ROUTING] Failed to generate tool call, falling back to LLM:', error);
+        routingDecision = 'LLM_AGENT';
+        messageToSend = message;
+      }
+    } else {
+      // Low confidence or unknown intent - use LLM agent
+      console.log('[INTENT ROUTING] Low confidence or unknown intent');
+      console.log('[INTENT ROUTING] Intent type:', intent.type);
+      console.log('[INTENT ROUTING] Confidence:', intent.confidence);
+      console.log('[INTENT ROUTING] Routing decision: LLM_AGENT');
+      console.log('[INTENT ROUTING] Sending original message to LLM');
+    }
+    
+    // Step 3: Process message through MCP client
+    // The Python agent will handle both direct tool calls and natural language
+    console.log('[INTENT ROUTING] Final routing decision:', routingDecision);
+    console.log('[INTENT ROUTING] Message to send:', messageToSend);
+    
+    const response = await mcpClient.processMessage(messageToSend);
     
     console.log('🎮 EDIcraft agent response received');
     console.log('🎮 Response success:', response.success);
@@ -379,12 +423,18 @@ function categorizeError(errorMessage: string): string {
   if (errorMessage.includes('agent') && errorMessage.includes('not') && (errorMessage.includes('deployed') || errorMessage.includes('found'))) {
     return 'AGENT_NOT_DEPLOYED';
   }
+  if (errorMessage.includes('invalid') && errorMessage.includes('horizon')) {
+    return 'INVALID_HORIZON_QUERY';
+  }
+  if (errorMessage.includes('horizon') && errorMessage.includes('not found')) {
+    return 'HORIZON_NOT_FOUND';
+  }
   return 'UNKNOWN';
 }
 
 /**
  * Get user-friendly error messages with troubleshooting information
- * Requirements: 13.4, 13.5, 4.4, 4.5
+ * Requirements: 13.4, 13.5, 4.4, 4.5, 2.5, 5.4
  */
 function getUserFriendlyErrorMessage(errorType: string, originalError: string): string {
   switch (errorType) {
@@ -443,6 +493,27 @@ function getUserFriendlyErrorMessage(errorType: string, originalError: string): 
              `3. Confirm user has necessary permissions\n` +
              `4. Verify partition name is correct: ${process.env.EDI_PARTITION}\n` +
              `5. Check platform status and availability\n\n` +
+             `Error details: ${originalError}`;
+    
+    case 'INVALID_HORIZON_QUERY':
+      return `❌ Invalid Horizon Query\n\n` +
+             `The horizon query could not be processed.\n\n` +
+             `🔧 Troubleshooting Steps:\n` +
+             `1. Verify horizon name or ID is correct\n` +
+             `2. Check horizon data exists in OSDU platform\n` +
+             `3. Try a simpler query: "find a horizon"\n` +
+             `4. Specify horizon name explicitly if known\n\n` +
+             `Error details: ${originalError}`;
+    
+    case 'HORIZON_NOT_FOUND':
+      return `❌ Horizon Not Found\n\n` +
+             `The requested horizon could not be found in the OSDU platform.\n\n` +
+             `🔧 Troubleshooting Steps:\n` +
+             `1. Verify horizon name or ID is correct\n` +
+             `2. Check horizon data exists in OSDU partition: ${process.env.EDI_PARTITION}\n` +
+             `3. Confirm user has permissions to access horizon data\n` +
+             `4. Try searching for available horizons: "list horizons"\n` +
+             `5. Contact data administrator if horizon should exist\n\n` +
              `Error details: ${originalError}`;
     
     default:

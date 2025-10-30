@@ -13,14 +13,11 @@ import {
   SpaceBetween,
   Button,
   Pagination,
-  Modal,
-  FormField,
-  Input,
-  Textarea,
   Box,
   StatusIndicator,
   Icon
 } from '@cloudscape-design/components';
+import CollectionCreationModal from '@/components/CollectionCreationModal';
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 import { withAuth } from '@/components/WithAuth';
@@ -34,7 +31,12 @@ function CollectionManagementPageBase() {
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'collections' | 'all-sessions'>('collections');
-  
+
+  // Pagination state for collections
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCollections, setTotalCollections] = useState(0);
+  const ITEMS_PER_PAGE = 10;
+
   // Create collection form state
   const [collectionName, setCollectionName] = useState('');
   const [collectionDescription, setCollectionDescription] = useState('');
@@ -83,7 +85,17 @@ function CollectionManagementPageBase() {
       });
       if (response.data) {
         const collectionsData = JSON.parse(response.data);
-        setCollections(collectionsData.collections || []);
+        const allCollections = collectionsData.collections || [];
+
+        // CRITICAL: Replace entire array, don't splice
+        setCollections(allCollections);
+        setTotalCollections(allCollections.length);
+
+        // Reset to page 1 if current page is now out of bounds
+        const maxPage = Math.ceil(allCollections.length / ITEMS_PER_PAGE);
+        if (currentPage > maxPage && maxPage > 0) {
+          setCurrentPage(1);
+        }
       }
     } catch (error) {
       console.error('Error loading collections:', error);
@@ -94,7 +106,7 @@ function CollectionManagementPageBase() {
 
   const handleCreateCollection = async () => {
     if (!collectionName.trim() || !creationEnabled) return;
-    
+
     try {
       setCreating(true);
       const response = await amplifyClient.mutations.collectionManagement({
@@ -108,12 +120,14 @@ function CollectionManagementPageBase() {
           createdFrom: 'manual'
         })
       });
-      
+
       if (response.data) {
         await loadCollections(); // Refresh the list
         setShowCreateModal(false);
         setCollectionName('');
         setCollectionDescription('');
+        // Reset to page 1 when new collection is added
+        setCurrentPage(1);
       }
     } catch (error) {
       console.error('Error creating collection:', error);
@@ -144,6 +158,12 @@ function CollectionManagementPageBase() {
     }
   };
 
+  // Calculate paginated collections
+  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+  const endIndex = startIndex + ITEMS_PER_PAGE;
+  const paginatedCollections = collections.slice(startIndex, endIndex);
+  const pagesCount = Math.ceil(collections.length / ITEMS_PER_PAGE);
+
   // Feature flag fallback - redirect to catalog if collections disabled
   if (!collectionsEnabled) {
     return (
@@ -153,18 +173,18 @@ function CollectionManagementPageBase() {
           headerVariant="divider"
           header={
             <Header variant="h1">
-              Collections (Beta Feature)
+              Data Collections
             </Header>
           }
         >
           <Alert
             statusIconAriaLabel="Info"
             type="info"
-            header="Collection Management Coming Soon"
+            header="Collection Management"
           >
             <Box>
-              The collection management feature is currently in development. 
-              You can continue using the Data Catalog for all your data discovery and analysis needs.
+              Organize and manage your data with collections.
+              Create collections from the Data Catalog to group related wells and data sources.
             </Box>
             <Box margin={{ top: 'm' }}>
               <Button variant="primary" href="/catalog">
@@ -179,7 +199,7 @@ function CollectionManagementPageBase() {
 
   if (viewMode === 'collections') {
     return (
-      <div style={{ margin: '36px 80px 0' }}>
+      <div style={{ margin: '36px 80px 0', marginBottom: '20px' }}>
         <ContentLayout
           disableOverlap
           headerVariant="divider"
@@ -188,14 +208,14 @@ function CollectionManagementPageBase() {
               variant="h1"
               actions={
                 <SpaceBetween direction="horizontal" size="m">
-                  <Button 
+                  <Button
                     variant="normal"
                     onClick={() => setViewMode('all-sessions')}
                   >
                     Show All Sessions
                   </Button>
                   {creationEnabled && (
-                    <Button 
+                    <Button
                       variant="primary"
                       onClick={() => setShowCreateModal(true)}
                     >
@@ -218,7 +238,7 @@ function CollectionManagementPageBase() {
                     variant="h2"
                     actions={
                       <SpaceBetween direction="horizontal" size="s">
-                        <Button 
+                        <Button
                           variant="link"
                           onClick={() => setSelectedCollection(null)}
                         >
@@ -245,7 +265,7 @@ function CollectionManagementPageBase() {
                     <Box>
                       <Box variant="h3">📊 Data Summary</Box>
                       <Box>
-                        {selectedCollection.previewMetadata?.wellCount || 0} Wells • 
+                        {selectedCollection.previewMetadata?.wellCount || 0} Wells •
                         {selectedCollection.previewMetadata?.dataPointCount || 0} Data Points
                       </Box>
                     </Box>
@@ -274,7 +294,7 @@ function CollectionManagementPageBase() {
               <Container
                 header={
                   <Header variant="h3">
-                    Workspace Canvases (Coming Soon)
+                    Workspace Canvases
                   </Header>
                 }
               >
@@ -282,192 +302,160 @@ function CollectionManagementPageBase() {
                   <SpaceBetween direction="vertical" size="m">
                     <Icon name="folder" size="large" />
                     <Box variant="strong" color="inherit">
-                      Canvas linking in development
+                      No canvases linked to this collection
                     </Box>
                     <Box variant="p" color="inherit">
-                      Canvas-collection linking will be available in the next phase.
+                      Create a new canvas to start working with this collection's data.
                     </Box>
+                    <Button variant="primary" href="/create-new-chat">
+                      Create Canvas
+                    </Button>
                   </SpaceBetween>
                 </Box>
               </Container>
             </SpaceBetween>
           ) : (
-            // Collections Grid View
-            <Cards
-              cardDefinition={{
-                header: item => (
-                  <SpaceBetween direction="vertical" size="xs">
-                    <Box variant="h3">{item.name}</Box>
-                    <Box variant="small" color="text-body-secondary">
-                      Last modified: {formatDate(item.lastAccessedAt)}
-                    </Box>
-                  </SpaceBetween>
-                ),
-                sections: [
-                  {
-                    id: "preview",
-                    content: item => (
-                      <Box padding={{ vertical: "m" }}>
-                        <div style={{ 
-                          height: '120px', 
-                          background: '#f8f9fa', 
-                          borderRadius: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          border: '1px solid #e1e4e8'
-                        }}>
-                          <Box variant="p" color="text-body-secondary" textAlign="center">
-                            📊 {item.previewMetadata?.wellCount || 0} wells<br/>
-                            <small>Preview coming soon</small>
-                          </Box>
-                        </div>
+            // Collections Grid View with Pagination
+            <SpaceBetween direction="vertical" size="l">
+              <Cards
+                cardDefinition={{
+                  header: item => (
+                    <SpaceBetween direction="vertical" size="xs">
+                      <Box variant="h3">{item.name}</Box>
+                      <Box variant="small" color="text-body-secondary">
+                        Last modified: {formatDate(item.lastAccessedAt)}
                       </Box>
-                    )
-                  },
-                  {
-                    id: "metadata",
-                    content: item => (
-                      <SpaceBetween direction="vertical" size="xs">
-                        <SpaceBetween direction="horizontal" size="xs">
-                          <Badge color={getDataSourceBadgeColor(item.dataSourceType)}>
-                            {item.previewMetadata?.wellCount || 0} Wells
-                          </Badge>
-                          <Badge color="grey">
-                            {item.dataSourceType}
-                          </Badge>
-                        </SpaceBetween>
-                        <Box variant="small" color="text-body-secondary">
-                          📝 Canvas linking coming soon
+                    </SpaceBetween>
+                  ),
+                  sections: [
+                    {
+                      id: "preview",
+                      content: item => (
+                        <Box padding={{ vertical: "m" }}>
+                          <div style={{
+                            height: '120px',
+                            background: '#f8f9fa',
+                            borderRadius: '6px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: '1px solid #e1e4e8'
+                          }}>
+                            <Box variant="p" color="text-body-secondary" textAlign="center">
+                              📊 {item.previewMetadata?.wellCount || 0} wells<br />
+                              <small>{item.previewMetadata?.dataPointCount || 0} data points</small>
+                            </Box>
+                          </div>
                         </Box>
-                      </SpaceBetween>
-                    )
+                      )
+                    },
+                    {
+                      id: "metadata",
+                      content: item => (
+                        <SpaceBetween direction="vertical" size="xs">
+                          <SpaceBetween direction="horizontal" size="xs">
+                            <Badge color={getDataSourceBadgeColor(item.dataSourceType)}>
+                              {item.previewMetadata?.wellCount || 0} Wells
+                            </Badge>
+                            <Badge color="grey">
+                              {item.dataSourceType}
+                            </Badge>
+                          </SpaceBetween>
+                          <Box variant="small" color="text-body-secondary">
+                            Click to view details
+                          </Box>
+                        </SpaceBetween>
+                      )
+                    }
+                  ]
+                }}
+                cardsPerRow={[
+                  { cards: 1 },
+                  { minWidth: 400, cards: 2 },
+                  { minWidth: 800, cards: 3 }
+                ]}
+                items={paginatedCollections}
+                loadingText="Loading collections"
+                loading={loading}
+                selectionType="single"
+                onSelectionChange={({ detail }) => {
+                  if (detail.selectedItems[0]) {
+                    handleCollectionSelect(detail.selectedItems[0]);
                   }
-                ]
-              }}
-              cardsPerRow={[
-                { cards: 1 },
-                { minWidth: 400, cards: 2 },
-                { minWidth: 800, cards: 3 }
-              ]}
-              items={collections}
-              loadingText="Loading collections"
-              loading={loading}
-              selectionType="single"
-              onSelectionChange={({ detail }) => {
-                if (detail.selectedItems[0]) {
-                  handleCollectionSelect(detail.selectedItems[0]);
-                }
-              }}
-              header={
-                <Header
-                  counter={`(${collections.length})`}
-                  actions={
-                    <Button iconName="refresh" onClick={loadCollections}>
-                      Refresh
-                    </Button>
-                  }
-                >
-                  Your Data Collections (Beta)
-                </Header>
-              }
-              empty={
-                <Box textAlign="center" color="inherit" padding="xxl">
-                  <SpaceBetween direction="vertical" size="m">
-                    <Icon name="folder" size="large" />
-                    <Box variant="strong" color="inherit">
-                      No data collections
-                    </Box>
-                    <Box variant="p" color="inherit">
-                      Create your first collection to organize and manage your data.
-                      Collections are currently in beta preview.
-                    </Box>
-                    {creationEnabled && (
-                      <Button 
-                        variant="primary" 
-                        iconName="add-plus"
-                        onClick={() => setShowCreateModal(true)}
-                      >
-                        Create New Collection
+                }}
+                header={
+                  <Header
+                    counter={`(${collections.length})`}
+                    actions={
+                      <Button iconName="refresh" onClick={loadCollections}>
+                        Refresh
                       </Button>
-                    )}
-                  </SpaceBetween>
-                </Box>
-              }
-            />
+                    }
+                  >
+                    Your Data Collections
+                  </Header>
+                }
+                empty={
+                  <Box textAlign="center" color="inherit" padding="xxl">
+                    <SpaceBetween direction="vertical" size="m">
+                      <Icon name="folder" size="large" />
+                      <Box variant="strong" color="inherit">
+                        No data collections
+                      </Box>
+                      <Box variant="p" color="inherit">
+                        Create your first collection to organize and manage your data.
+                      </Box>
+                      {creationEnabled && (
+                        <Button
+                          variant="primary"
+                          iconName="add-plus"
+                          onClick={() => setShowCreateModal(true)}
+                        >
+                          Create New Collection
+                        </Button>
+                      )}
+                    </SpaceBetween>
+                  </Box>
+                }
+              />
+
+              {/* Pagination Controls */}
+              {collections.length > ITEMS_PER_PAGE && (
+                <Pagination
+                  currentPageIndex={currentPage}
+                  pagesCount={pagesCount}
+                  onChange={({ detail }) => setCurrentPage(detail.currentPageIndex)}
+                  ariaLabels={{
+                    nextPageLabel: "Next page",
+                    previousPageLabel: "Previous page",
+                    pageLabel: pageNumber => `Page ${pageNumber} of ${pagesCount}`
+                  }}
+                />
+              )}
+            </SpaceBetween>
           )}
         </ContentLayout>
 
         {/* Create Collection Modal */}
         {creationEnabled && (
-          <Modal
-            onDismiss={() => setShowCreateModal(false)}
+          <CollectionCreationModal
             visible={showCreateModal}
-            closeAriaLabel="Close modal"
-            header="Create New Data Collection (Beta)"
-            footer={
-              <Box float="right">
-                <SpaceBetween direction="horizontal" size="xs">
-                  <Button 
-                    variant="link" 
-                    onClick={() => setShowCreateModal(false)}
-                    disabled={creating}
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    variant="primary"
-                    onClick={handleCreateCollection}
-                    loading={creating}
-                    disabled={!collectionName.trim()}
-                  >
-                    Create Collection
-                  </Button>
-                </SpaceBetween>
-              </Box>
-            }
-          >
-            <SpaceBetween direction="vertical" size="l">
-              <Alert
-                statusIconAriaLabel="Info"
-                type="info"
-                header="Beta Feature"
-              >
-                Collection management is currently in beta testing. 
-                Features like data import and canvas linking are still in development.
-              </Alert>
-
-              <FormField
-                label="Collection Name"
-                description="Choose a descriptive name for your data collection"
-              >
-                <Input
-                  value={collectionName}
-                  onChange={({ detail }) => setCollectionName(detail.value)}
-                  placeholder="e.g., Cuu Long Basin Production Wells"
-                />
-              </FormField>
-
-              <FormField
-                label="Description (Optional)"
-                description="Provide additional context about this collection"
-              >
-                <Textarea
-                  value={collectionDescription}
-                  onChange={({ detail }) => setCollectionDescription(detail.value)}
-                  placeholder="Describe the purpose and contents of this collection..."
-                  rows={3}
-                />
-              </FormField>
-            </SpaceBetween>
-          </Modal>
+            onDismiss={() => setShowCreateModal(false)}
+            collectionName={collectionName}
+            collectionDescription={collectionDescription}
+            onNameChange={setCollectionName}
+            onDescriptionChange={setCollectionDescription}
+            onCreateCollection={handleCreateCollection}
+            creating={creating}
+            showItemSelection={false}
+          />
         )}
       </div>
     );
   }
 
   return (
-    <div style={{ margin: '36px 80px 0' }}>
+    <div style={{ margin: '36px 80px 0', marginBottom: '20px' }}>
       <ContentLayout
         disableOverlap
         headerVariant="divider"
@@ -476,15 +464,15 @@ function CollectionManagementPageBase() {
             variant="h1"
             actions={
               <SpaceBetween direction="horizontal" size="m">
-                <Button 
-                  variant="normal" 
-                  iconName="undo" 
+                <Button
+                  variant="normal"
+                  iconName="undo"
                   onClick={() => setViewMode('collections')}
                 >
                   Return to Collections
                 </Button>
-                <Button 
-                  variant="primary" 
+                <Button
+                  variant="primary"
                   href="/create-new-chat"
                 >
                   Create New Session
@@ -497,8 +485,8 @@ function CollectionManagementPageBase() {
         }
       >
         <SpaceBetween direction="vertical" size="l">
-          <Alert 
-            type="info" 
+          <Alert
+            type="info"
             dismissible={false}
             header="Collection Integration Available"
           >
@@ -513,8 +501,8 @@ function CollectionManagementPageBase() {
                     {item.name || `Chat Session ${item.id.slice(-8)}`}
                   </Box>
                   <Box variant="small" color="text-body-secondary">
-                    {item.linkedCollectionId ? 
-                      `📁 Linked to Collection` : 
+                    {item.linkedCollectionId ?
+                      `📁 Linked to Collection` :
                       `🔗 Unlinked Canvas - Ready for Collection`
                     }
                   </Box>

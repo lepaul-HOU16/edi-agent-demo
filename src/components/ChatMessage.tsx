@@ -59,6 +59,8 @@ import {
 } from './maintenance';
 // Confirmation dialog component
 import { ConfirmationMessageComponent } from './messageComponents/ConfirmationMessageComponent';
+// Data access approval component
+import { DataAccessApprovalComponent } from './messageComponents/DataAccessApprovalComponent';
 
 // Enhanced artifact processor component with S3 support - STABLE VERSION
 const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, onSendMessage }: {
@@ -771,6 +773,38 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                                     }
                                 } else {
                                     console.warn('[ChatMessage] onSendMessage callback not available');
+                                }
+                            }}
+                        />
+                    }
+                />;
+            }
+
+            // Check for data access approval request artifact
+            if (parsedArtifact && typeof parsedArtifact === 'object' &&
+                (parsedArtifact.messageContentType === 'data_access_approval' ||
+                 parsedArtifact.data?.messageContentType === 'data_access_approval' ||
+                 parsedArtifact.type === 'data_access_approval')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering DataAccessApprovalComponent!');
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={
+                        <DataAccessApprovalComponent
+                            data={artifactData}
+                            theme={theme}
+                            onApprove={() => {
+                                console.log('✅ User approved expanded data access');
+                                if (onSendMessage) {
+                                    onSendMessage('approve');
+                                }
+                            }}
+                            onCancel={() => {
+                                console.log('❌ User cancelled data access request');
+                                if (onSendMessage) {
+                                    onSendMessage('cancel');
                                 }
                             }}
                         />

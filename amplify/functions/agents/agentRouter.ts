@@ -79,11 +79,22 @@ export class AgentRouter {
       chatSessionId?: string; 
       userId?: string;
       selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft';
+      collectionContext?: any; // Collection data context for scoped queries
     }
   ): Promise<RouterResponse> {
     console.log('🔀 AgentRouter: Routing query:', message.substring(0, 100) + '...');
     console.log('🔀 AgentRouter: Conversation history provided:', !!conversationHistory, 'messages:', conversationHistory?.length || 0);
     console.log('🔀 AgentRouter: Session context:', JSON.stringify(sessionContext, null, 2));
+    
+    // Log collection context if present
+    if (sessionContext?.collectionContext) {
+      console.log('🗂️ AgentRouter: Collection context active');
+      console.log('🗂️ Collection:', sessionContext.collectionContext.collectionName || sessionContext.collectionContext.name);
+      console.log('🗂️ Data items:', sessionContext.collectionContext.dataItems?.length || 0);
+      console.log('ℹ️ AgentRouter: Agent will be limited to collection data scope');
+    } else {
+      console.log('ℹ️ AgentRouter: No collection context - full data access');
+    }
     
     try {
       // Check for explicit agent selection
@@ -144,8 +155,31 @@ export class AgentRouter {
           console.log('🎮 Routing to EDIcraft Agent');
           console.log('🎮 Message:', message);
           console.log('🎮 Session context:', sessionContext);
+          
+          // DETERMINISTIC PATTERN MATCHING for wellbore trajectory workflow
+          let edicraftMessage = message;
+          const wellborePattern = /build.*wellbore.*trajectory.*for\s+(well-\d+|well\s*\d+)/i;
+          const wellboreMatch = message.match(wellborePattern);
+          
+          if (wellboreMatch) {
+            const wellId = wellboreMatch[1].replace(/\s+/g, '-').toUpperCase();
+            console.log(`[DETERMINISTIC] Detected wellbore trajectory request for: ${wellId}`);
+            console.log('[DETERMINISTIC] Routing to wellbore trajectory workflow');
+            
+            // Construct explicit workflow instruction for the agent
+            edicraftMessage = `Execute wellbore trajectory workflow for ${wellId}:
+1. Call get_trajectory_coordinates("${wellId}") to fetch trajectory data from OSDU
+2. Call calculate_trajectory_coordinates with the survey data to convert to Minecraft coordinates
+3. Call build_wellbore_in_minecraft with the Minecraft coordinates to build the visualization
+4. Report the results
+
+IMPORTANT: Execute ALL steps in sequence. Do not stop after step 1.`;
+            
+            console.log('[DETERMINISTIC] Sending workflow instruction to agent:', edicraftMessage);
+          }
+          
           try {
-            result = await this.edicraftAgent.processMessage(message);
+            result = await this.edicraftAgent.processMessage(edicraftMessage);
             console.log('🎮 EDIcraft agent result:', {
               success: result.success,
               messageLength: result.message?.length,
@@ -257,6 +291,30 @@ export class AgentRouter {
       /build.*horizon|render.*surface/i,
       /osdu.*horizon/i,
       /geological.*surface/i,
+      
+      // NEW: Horizon finding and naming patterns
+      /find.*horizon|horizon.*find/i,
+      /get.*horizon|horizon.*name/i,
+      /list.*horizon|show.*horizon/i,
+      
+      // NEW: Coordinate conversion patterns (more flexible)
+      /convert.*coordinates|coordinates.*convert/i,
+      /convert.*to.*minecraft|minecraft.*convert/i,
+      /coordinates.*for.*minecraft|minecraft.*coordinates/i,
+      
+      // NEW: Combined horizon + coordinate patterns (HIGHEST PRIORITY)
+      /horizon.*coordinates|coordinates.*horizon/i,
+      /horizon.*minecraft|minecraft.*horizon/i,
+      /horizon.*convert|convert.*horizon/i,
+      
+      // NEW: Natural language patterns
+      /tell.*me.*horizon|horizon.*tell.*me/i,
+      /what.*horizon|which.*horizon/i,
+      /where.*horizon|horizon.*where/i,
+      
+      // NEW: Coordinate output patterns
+      /coordinates.*you.*use|coordinates.*to.*use/i,
+      /print.*coordinates|output.*coordinates/i,
       
       // Coordinate and position patterns
       /player.*position/i,
@@ -413,43 +471,129 @@ export class AgentRouter {
     // Test patterns in priority order - EDICRAFT FIRST, then MAINTENANCE, then WEATHER, then RENEWABLE!
     console.log('🔍 AgentRouter: Testing patterns for message:', lowerMessage.substring(0, 100));
     
-    // Check EDIcraft patterns with detailed logging
-    const matchedEDIcraftPatterns = edicraftPatterns.filter(pattern => pattern.test(lowerMessage));
+    // Check EDIcraft patterns with detailed logging for each pattern test
+    console.log('🎮 AgentRouter: Testing EDIcraft patterns...');
+    const matchedEDIcraftPatterns: { pattern: RegExp; source: string }[] = [];
+    
+    for (const pattern of edicraftPatterns) {
+      const matches = pattern.test(lowerMessage);
+      if (matches) {
+        matchedEDIcraftPatterns.push({ pattern, source: pattern.source });
+        console.log('  ✅ EDIcraft pattern MATCHED:', pattern.source);
+        console.log('  📝 Query excerpt:', lowerMessage.substring(0, 100));
+      }
+    }
+    
     if (matchedEDIcraftPatterns.length > 0) {
-      console.log('🎮 AgentRouter: EDIcraft pattern matched');
+      console.log('🎮 AgentRouter: EDIcraft agent selected');
+      console.log('🎮 AgentRouter: Total patterns matched:', matchedEDIcraftPatterns.length);
       console.log('🎮 AgentRouter: Matched patterns:', matchedEDIcraftPatterns.map(p => p.source).join(', '));
+      console.log('🎮 AgentRouter: Final decision: EDICRAFT');
       return 'edicraft';
     }
+    console.log('  ❌ No EDIcraft patterns matched');
     
-    if (maintenancePatterns.some(pattern => pattern.test(lowerMessage))) {
-      console.log('🔧 AgentRouter: Maintenance pattern matched');
+    // Check Maintenance patterns with detailed logging
+    console.log('🔧 AgentRouter: Testing Maintenance patterns...');
+    const matchedMaintenancePatterns: string[] = [];
+    for (const pattern of maintenancePatterns) {
+      if (pattern.test(lowerMessage)) {
+        matchedMaintenancePatterns.push(pattern.source);
+        console.log('  ✅ Maintenance pattern MATCHED:', pattern.source);
+      }
+    }
+    if (matchedMaintenancePatterns.length > 0) {
+      console.log('🔧 AgentRouter: Maintenance agent selected');
+      console.log('🔧 AgentRouter: Total patterns matched:', matchedMaintenancePatterns.length);
+      console.log('🔧 AgentRouter: Final decision: MAINTENANCE');
       return 'maintenance';
     }
+    console.log('  ❌ No Maintenance patterns matched');
     
-    if (weatherPatterns.some(pattern => pattern.test(lowerMessage))) {
-      console.log('🌤️ AgentRouter: Weather pattern matched');
+    // Check Weather patterns with detailed logging
+    console.log('🌤️ AgentRouter: Testing Weather patterns...');
+    const matchedWeatherPatterns: string[] = [];
+    for (const pattern of weatherPatterns) {
+      if (pattern.test(lowerMessage)) {
+        matchedWeatherPatterns.push(pattern.source);
+        console.log('  ✅ Weather pattern MATCHED:', pattern.source);
+      }
+    }
+    if (matchedWeatherPatterns.length > 0) {
+      console.log('🌤️ AgentRouter: Weather query detected - routing to General agent');
+      console.log('🌤️ AgentRouter: Total patterns matched:', matchedWeatherPatterns.length);
+      console.log('🌤️ AgentRouter: Final decision: GENERAL (weather)');
       return 'general';
     }
+    console.log('  ❌ No Weather patterns matched');
 
-    if (renewablePatterns.some(pattern => pattern.test(lowerMessage))) {
-      console.log('🌱 AgentRouter: Renewable energy pattern matched');
+    // Check Renewable patterns with detailed logging
+    console.log('🌱 AgentRouter: Testing Renewable patterns...');
+    const matchedRenewablePatterns: string[] = [];
+    for (const pattern of renewablePatterns) {
+      if (pattern.test(lowerMessage)) {
+        matchedRenewablePatterns.push(pattern.source);
+        console.log('  ✅ Renewable pattern MATCHED:', pattern.source);
+      }
+    }
+    if (matchedRenewablePatterns.length > 0) {
+      console.log('🌱 AgentRouter: Renewable energy agent selected');
+      console.log('🌱 AgentRouter: Total patterns matched:', matchedRenewablePatterns.length);
+      console.log('🌱 AgentRouter: Final decision: RENEWABLE');
       return 'renewable';
     }
+    console.log('  ❌ No Renewable patterns matched');
 
-    if (generalPatterns.some(pattern => pattern.test(lowerMessage))) {
-      console.log('🌐 AgentRouter: General knowledge pattern matched');
+    // Check General patterns with detailed logging
+    console.log('🌐 AgentRouter: Testing General knowledge patterns...');
+    const matchedGeneralPatterns: string[] = [];
+    for (const pattern of generalPatterns) {
+      if (pattern.test(lowerMessage)) {
+        matchedGeneralPatterns.push(pattern.source);
+        console.log('  ✅ General pattern MATCHED:', pattern.source);
+      }
+    }
+    if (matchedGeneralPatterns.length > 0) {
+      console.log('🌐 AgentRouter: General knowledge agent selected');
+      console.log('🌐 AgentRouter: Total patterns matched:', matchedGeneralPatterns.length);
+      console.log('🌐 AgentRouter: Final decision: GENERAL');
       return 'general';
     }
+    console.log('  ❌ No General patterns matched');
 
-    if (catalogPatterns.some(pattern => pattern.test(lowerMessage))) {
-      console.log('�️ AgentRouter: Catalog search pattern matched');
+    // Check Catalog patterns with detailed logging
+    console.log('🗺️ AgentRouter: Testing Catalog patterns...');
+    const matchedCatalogPatterns: string[] = [];
+    for (const pattern of catalogPatterns) {
+      if (pattern.test(lowerMessage)) {
+        matchedCatalogPatterns.push(pattern.source);
+        console.log('  ✅ Catalog pattern MATCHED:', pattern.source);
+      }
+    }
+    if (matchedCatalogPatterns.length > 0) {
+      console.log('🗺️ AgentRouter: Catalog search agent selected');
+      console.log('🗺️ AgentRouter: Total patterns matched:', matchedCatalogPatterns.length);
+      console.log('🗺️ AgentRouter: Final decision: CATALOG');
       return 'catalog';
     }
+    console.log('  ❌ No Catalog patterns matched');
 
-    if (petrophysicsPatterns.some(pattern => pattern.test(lowerMessage))) {
-      console.log('🔬 AgentRouter: Petrophysics pattern matched');
+    // Check Petrophysics patterns with detailed logging
+    console.log('🔬 AgentRouter: Testing Petrophysics patterns...');
+    const matchedPetrophysicsPatterns: string[] = [];
+    for (const pattern of petrophysicsPatterns) {
+      if (pattern.test(lowerMessage)) {
+        matchedPetrophysicsPatterns.push(pattern.source);
+        console.log('  ✅ Petrophysics pattern MATCHED:', pattern.source);
+      }
+    }
+    if (matchedPetrophysicsPatterns.length > 0) {
+      console.log('🔬 AgentRouter: Petrophysics agent selected');
+      console.log('🔬 AgentRouter: Total patterns matched:', matchedPetrophysicsPatterns.length);
+      console.log('🔬 AgentRouter: Final decision: PETROPHYSICS');
       return 'petrophysics';
     }
+    console.log('  ❌ No Petrophysics patterns matched');
 
     // Default routing based on content
     if (this.containsMaintenanceTerms(lowerMessage)) {
@@ -584,5 +728,47 @@ export class AgentRouter {
     ];
 
     return edicraftTerms.some(term => message.includes(term));
+  }
+
+  /**
+   * Validate data access against collection context
+   * Returns approval message if data is out of scope
+   */
+  private validateDataAccess(
+    requestedDataIds: string[],
+    collectionContext: any
+  ): { allowed: boolean; approvalMessage?: string } {
+    if (!collectionContext) {
+      // No collection context - allow all access
+      return { allowed: true };
+    }
+
+    // Build set of allowed data IDs from collection
+    const allowedDataIds = new Set<string>();
+    const dataItems = collectionContext.dataItems || [];
+    
+    dataItems.forEach((item: any) => {
+      if (item.id) allowedDataIds.add(item.id);
+      if (item.name) allowedDataIds.add(item.name);
+    });
+
+    // Check which requested items are out of scope
+    const outOfScopeItems = requestedDataIds.filter(
+      id => !allowedDataIds.has(id)
+    );
+
+    if (outOfScopeItems.length === 0) {
+      // All requested data is within collection scope
+      return { allowed: true };
+    }
+
+    // Some data is out of scope - create approval message
+    const collectionName = collectionContext.collectionName || collectionContext.name || 'your collection';
+    const approvalMessage = `⚠️ **Data Access Request**\n\nThis query requires access to ${outOfScopeItems.length} data points outside "${collectionName}".\n\n**Out of scope items:**\n${outOfScopeItems.slice(0, 5).join(', ')}${outOfScopeItems.length > 5 ? ` and ${outOfScopeItems.length - 5} more...` : ''}\n\nReply "approve" to proceed with expanded access, or rephrase your query to use only collection data.`;
+
+    return {
+      allowed: false,
+      approvalMessage
+    };
   }
 }

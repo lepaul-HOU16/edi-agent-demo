@@ -669,6 +669,7 @@ This guide provides solutions to common issues encountered when deploying and us
 
 **Symptoms:**
 - Minecraft queries go to wrong agent
+- Horizon queries route to petrophysics agent
 - EDIcraft agent not selected
 - Routing conflicts
 
@@ -676,33 +677,62 @@ This guide provides solutions to common issues encountered when deploying and us
 - Pattern matching too broad/narrow
 - Priority not configured
 - Agent router logic error
+- Query structure doesn't match existing patterns
 
 **Solutions:**
 
-1. **Test routing patterns:**
+1. **Check comprehensive routing documentation:**
+   - **[Horizon Routing Patterns](EDICRAFT_HORIZON_ROUTING_PATTERNS.md)** - Full pattern documentation
+   - **[Routing Troubleshooting Quick Reference](EDICRAFT_ROUTING_TROUBLESHOOTING_QUICK_REFERENCE.md)** - Quick fixes
+
+2. **Test routing patterns:**
    ```bash
    node tests/unit/test-agent-router-edicraft.test.ts
+   node tests/unit/test-agent-router-horizon.test.ts
    ```
 
-2. **Check pattern matching in agentRouter.ts:**
-   - Verify EDIcraft patterns are defined
-   - Check priority handling
+3. **Test specific query:**
+   ```bash
+   node tests/test-edicraft-routing.js "your query here"
+   ```
+
+4. **Check CloudWatch logs for pattern matching:**
+   ```bash
+   aws logs tail /aws/lambda/<router-function> --follow
+   ```
+   
+   Look for:
+   ```
+   🎮 AgentRouter: Testing EDIcraft patterns...
+     ✅ EDIcraft pattern MATCHED: [pattern]
+   🎮 AgentRouter: EDIcraft agent selected
+   ```
+
+5. **Test horizon-specific queries:**
+   ```bash
+   ./tests/manual/test-edicraft-horizon-query.sh
+   ```
+
+6. **Verify pattern matching in agentRouter.ts:**
+   - Verify EDIcraft patterns are defined (35+ patterns)
+   - Check priority handling (EDIcraft should be FIRST)
    - Ensure no conflicts with other agents
 
-3. **Test specific queries:**
+7. **Test specific queries:**
    ```
-   Show me wellbore data in minecraft
+   find a horizon
+   tell me the horizon name
+   convert to minecraft coordinates
+   show me wellbore data in minecraft
    ```
-   Should route to EDIcraft.
+   All should route to EDIcraft.
 
-4. **Enable routing debug logs:**
-   ```typescript
-   // In agentRouter.ts
-   console.log('Matched patterns:', matchedPatterns);
-   console.log('Selected agent:', agentType);
-   ```
+8. **If query not matching any pattern:**
+   - See [Adding New Patterns](EDICRAFT_HORIZON_ROUTING_PATTERNS.md#adding-new-patterns)
+   - Add pattern to edicraftPatterns array
+   - Test and deploy
 
-5. **Verify agent switcher works:**
+9. **Verify agent switcher works:**
    - Manually select EDIcraft agent
    - Verify it stays selected
    - Check session context

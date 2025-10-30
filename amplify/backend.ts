@@ -235,6 +235,22 @@ backend.edicraftAgentFunction.resources.lambda.addToRolePolicy(
   })
 );
 
+// Add Bedrock AgentCore permissions for EDIcraft Agent
+// AgentCore uses different ARN format and permissions than standard Bedrock Agents
+backend.edicraftAgentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "bedrock-agentcore:InvokeAgentRuntime",
+      "bedrock-agentcore:InvokeAgent",
+      "bedrock-agentcore:GetAgent",
+    ],
+    resources: [
+      `arn:aws:bedrock-agentcore:*:${backend.stack.account}:runtime/*`,
+      `arn:aws:bedrock-agentcore:*:${backend.stack.account}:agent/*`,
+    ],
+  })
+);
+
 // Add CloudWatch Logs permissions for EDIcraft Agent (explicit for clarity)
 // Note: Lambda functions automatically get basic CloudWatch Logs permissions,
 // but we add this explicitly to ensure full logging capabilities

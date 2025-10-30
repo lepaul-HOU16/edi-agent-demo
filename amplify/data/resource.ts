@@ -130,11 +130,16 @@ export const schema = a.schema({
     name: a.string(),
     messages: a.hasMany("ChatMessage", "chatSessionId"),
     workSteps: a.ref("WorkStep").array(),
-    // Phase 3: Collection integration
-    linkedCollectionId: a.string(),
-    collectionContext: a.json(), // Cached collection data for performance
+    // Collection integration fields (Task 9.1)
+    linkedCollectionId: a.string(), // Links canvas to a collection
+    collectionContext: a.json(), // Cached collection data for performance (30-min TTL)
+    dataAccessLog: a.json().array(), // Track data access approvals and expansions
   })
-    .authorization((allow) => [allow.owner(), allow.authenticated(), allow.guest()]),
+    .authorization((allow) => [
+      allow.owner(), 
+      allow.authenticated(), 
+      allow.guest()
+    ]),
 
   ChatMessage: a
     .model({

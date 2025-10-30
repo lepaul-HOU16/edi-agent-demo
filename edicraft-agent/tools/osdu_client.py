@@ -249,27 +249,116 @@ def search_all_trajectories_for_files() -> str:
     return result
 
 def search_wellbores_live() -> str:
-    """Search for wellbore trajectories using live OSDU connection."""
-    return search_all_trajectories_for_files()
-
-def get_trajectory_coordinates_live(trajectory_id: str) -> str:
-    """Get trajectory coordinates for a specific trajectory record using live OSDU connection."""
+    """Search for wellbore trajectories using live OSDU connection.
+    Returns a quick list of available trajectories without downloading files.
+    """
     client = OSDUClient()
     
     if not client.authenticate():
         return "Authentication failed. Check EDI credentials and AWS configuration."
     
+    # Search for trajectory records
+    trajectories = client.search_trajectory_records()
+    
+    if not trajectories:
+        return "No trajectory records found."
+    
+    # Quick list - just show first 10 trajectories with their IDs
+    result = f"Found {len(trajectories)} wellbore trajectories in OSDU.\n\n"
+    result += "Here are the first 10 available trajectories:\n\n"
+    
+    for i, traj in enumerate(trajectories[:10]):
+        traj_id = traj.get('id', 'Unknown')
+        traj_data = traj.get('data', {})
+        wellbore_id = traj_data.get('WellboreID', 'Unknown')
+        wellbore_name = wellbore_id.split(':')[-1].rstrip(':')  # Extract just the number
+        
+        result += f"{i+1}. Wellbore {wellbore_name}\n"
+        result += f"   ID: {traj_id}\n\n"
+    
+    result += f"\n💡 To build a trajectory, use:\n"
+    result += f"   'Build trajectory for <trajectory-id>'\n\n"
+    result += f"For example:\n"
+    result += f"   'Build trajectory for {trajectories[0].get('id', '')}'"
+    
+    return result
+
+def parse_trajectory_csv_survey_data(file_content: str) -> List[Dict]:
+    """Parse trajectory CSV file with survey data (TVD, Azimuth, Inclination).
+    
+    Expected CSV format:
+    "UWBI","CommonName","MeasuredDepth","TVD","Azimuth","Inclination",...
+    "1014","AKM-12","25","18.45","310.2","0.18",...
+    """
+    import csv
+    import io
+    
+    survey_data = []
+    
+    try:
+        # Parse CSV
+        reader = csv.DictReader(io.StringIO(file_content))
+        
+        for row in reader:
+            try:
+                # Extract survey data fields
+                tvd = float(row.get('TVD', row.get('tvd', '0')).strip('"'))
+                azimuth = float(row.get('Azimuth', row.get('azimuth', '0')).strip('"'))
+                inclination = float(row.get('Inclination', row.get('inclination', '0')).strip('"'))
+                measured_depth = float(row.get('MeasuredDepth', row.get('measured_depth', '0')).strip('"'))
+                
+                survey_data.append({
+                    "tvd": tvd,
+                    "azimuth": azimuth,
+                    "inclination": inclination,
+                    "measured_depth": measured_depth
+                })
+            except (ValueError, KeyError) as e:
+                # Skip rows that can't be parsed
+                continue
+    except Exception as e:
+        print(f"CSV parsing error: {e}")
+        return []
+    
+    return survey_data
+
+
+def get_trajectory_coordinates_live(trajectory_id: str) -> str:
+    """Get trajectory coordinates for a specific trajectory record using live OSDU connection.
+    
+    Returns JSON string with structured coordinate data and metadata.
+    """
+    client = OSDUClient()
+    
+    if not client.authenticate():
+        return json.dumps({
+            "error": "Authentication failed. Check EDI credentials and AWS configuration.",
+            "trajectory_id": trajectory_id,
+            "success": False
+        })
+    
     # Get trajectory record
     trajectory = client.get_record(trajectory_id)
     if not trajectory:
-        return f"No trajectory record found for: {trajectory_id}"
+        return json.dumps({
+            "error": f"No trajectory record found for: {trajectory_id}",
+            "trajectory_id": trajectory_id,
+            "success": False
+        })
     
     # Look for Datasets field in the trajectory record
     data = trajectory.get('data', {})
     datasets = data.get('Datasets', [])
+    wellbore_id = data.get('WellboreID', 'Unknown')
     
     if not datasets:
-        return f"No datasets found in trajectory {trajectory_id}. Available keys: {list(data.keys())}"
+        return json.dumps({
+            "error": f"No datasets found in trajectory {trajectory_id}",
+            "trajectory_id": trajectory_id,
+            "wellbore_id": wellbore_id,
+            "available_keys": list(data.keys()),
+            "success": False
+        })
     
     # Try to download and parse trajectory files
     for dataset_id in datasets[:1]:  # Try first dataset
@@ -280,18 +369,61 @@ def get_trajectory_coordinates_live(trajectory_id: str) -> str:
         file_content = client.download_file(signed_url)
         if not file_content:
             continue
+        
+        # Try to parse as CSV survey data first (most common format)
+        survey_data = parse_trajectory_csv_survey_data(file_content)
+        if survey_data:
+            # Return structured JSON with survey data
+            result = {
+                "trajectory_id": trajectory_id,
+                "wellbore_id": wellbore_id,
+                "data_type": "survey",
+                "coordinates": None,
+                "survey_data": survey_data,
+                "metadata": {
+                    "total_points": len(survey_data),
+                    "source": "OSDU",
+                    "dataset_id": dataset_id,
+                    "file_size_chars": len(file_content),
+                    "format": "CSV survey data"
+                },
+                "success": True
+            }
             
+            return json.dumps(result, indent=2)
+        
+        # Fallback: try to parse as coordinate data
         coordinates = parse_trajectory_coordinates(file_content)
         if coordinates:
-            result = f"SUCCESS! Trajectory coordinates for {trajectory_id}:\n"
-            result += f"Dataset: {dataset_id}\n"
-            result += f"Downloaded file with {len(file_content)} characters\n"
-            for i, (x, y, z) in enumerate(coordinates[:10]):  # Show first 10 points
-                result += f"Point {i+1}: X={x:.2f}, Y={y:.2f}, Z={z:.2f}\n"
+            # Convert coordinates to structured format
+            coordinates_list = [
+                {"x": float(x), "y": float(y), "z": float(z)}
+                for x, y, z in coordinates
+            ]
             
-            if len(coordinates) > 10:
-                result += f"... and {len(coordinates) - 10} more points\n"
+            # Return structured JSON
+            result = {
+                "trajectory_id": trajectory_id,
+                "wellbore_id": wellbore_id,
+                "data_type": "coordinates",
+                "coordinates": coordinates_list,
+                "survey_data": None,
+                "metadata": {
+                    "total_points": len(coordinates_list),
+                    "source": "OSDU",
+                    "dataset_id": dataset_id,
+                    "file_size_chars": len(file_content),
+                    "format": "XYZ coordinates"
+                },
+                "success": True
+            }
             
-            return result
+            return json.dumps(result, indent=2)
     
-    return f"Could not download or parse trajectory data for {trajectory_id}. Found {len(datasets)} datasets but none were accessible."
+    return json.dumps({
+        "error": f"Could not download or parse trajectory data for {trajectory_id}",
+        "trajectory_id": trajectory_id,
+        "wellbore_id": wellbore_id,
+        "datasets_found": len(datasets),
+        "success": False
+    })

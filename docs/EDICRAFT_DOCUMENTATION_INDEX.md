@@ -213,6 +213,27 @@ This document provides a comprehensive index of all documentation for the EDIcra
 
 ---
 
+#### [Horizon Routing Patterns](EDICRAFT_HORIZON_ROUTING_PATTERNS.md)
+**Purpose:** Comprehensive documentation of pattern matching for horizon queries
+
+**Contents:**
+- Pattern categories (11 categories)
+- Pattern matching logic and priority order
+- Query type examples with matched patterns
+- Troubleshooting routing issues
+- Testing pattern matching
+- Pattern maintenance guidelines
+- Success metrics
+
+**When to Use:**
+- Understanding how horizon queries are routed
+- Debugging routing issues
+- Adding new patterns
+- Optimizing pattern matching
+- Troubleshooting queries not routing to EDIcraft
+
+---
+
 ### Requirements & Design
 
 #### [Requirements Document](../.kiro/specs/fix-edicraft-agent-integration/requirements.md)
@@ -347,6 +368,17 @@ node tests/manual/test-edicraft-deployment.js
 
 ---
 
+### My horizon query is not routing to EDIcraft
+
+1. Check: [Horizon Routing Patterns](EDICRAFT_HORIZON_ROUTING_PATTERNS.md)
+2. Review CloudWatch logs for pattern matching details
+3. Verify query contains horizon/minecraft keywords
+4. Check pattern priority order
+5. Add new pattern if needed
+6. Test with: `node tests/test-edicraft-routing.js "your query"`
+
+---
+
 ### I want to learn how to use the agent
 
 1. Read: [User Workflows](EDICRAFT_USER_WORKFLOWS.md)
@@ -402,6 +434,7 @@ node tests/manual/test-edicraft-deployment.js
 - [x] Environment Variables Reference
 - [x] Credential Finding Guide
 - [x] Troubleshooting Guide
+- [x] Horizon Routing Patterns Documentation
 - [x] User Workflows
 - [x] Validation Guide
 - [x] Requirements Document
@@ -428,6 +461,7 @@ node tests/manual/test-edicraft-deployment.js
 - [Deployment Guide](../edicraft-agent/DEPLOYMENT_GUIDE.md)
 - [Environment Variables](EDICRAFT_ENVIRONMENT_VARIABLES.md)
 - [Troubleshooting Guide](EDICRAFT_TROUBLESHOOTING_GUIDE.md)
+- [Horizon Routing Patterns](EDICRAFT_HORIZON_ROUTING_PATTERNS.md)
 - [User Workflows](EDICRAFT_USER_WORKFLOWS.md)
 - [Minecraft Connection Guide](EDICRAFT_MINECRAFT_CONNECTION_GUIDE.md)
 

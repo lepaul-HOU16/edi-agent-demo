@@ -1,24 +1,50 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { type Schema } from "@/../amplify/data/resource";
 import { generateClient } from 'aws-amplify/api';
+import { loadCanvasContext } from '@/services/collectionContextLoader';
 
 const amplifyClient = generateClient<Schema>();
 
-export default function CreateNewChatPage() {
+function CreateNewChatContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const createNewChat = async () => {
       try {
+        // Get collectionId from URL query parameter if provided
+        const collectionId = searchParams.get('collectionId');
+        
+        console.log('🎨 Creating new canvas', collectionId ? `with collection: ${collectionId}` : 'without collection');
+
         // Invoke the lightweight agent for initialization (replaced deprecated reActAgent)
         amplifyClient.mutations.invokeLightweightAgent({ chatSessionId: "initialize", message: "initialize" });
 
-        const newChatSession = await amplifyClient.models.ChatSession.create({});
+        // Create chat session with optional collection linkage
+        const sessionData: any = {};
+        
+        if (collectionId) {
+          sessionData.linkedCollectionId = collectionId;
+          
+          // Load and cache collection context
+          try {
+            const context = await loadCanvasContext('', collectionId);
+            if (context) {
+              sessionData.collectionContext = context;
+              console.log('✅ Collection context loaded and cached for new canvas');
+            }
+          } catch (contextError) {
+            console.warn('⚠️ Failed to load collection context, continuing without it:', contextError);
+          }
+        }
+
+        const newChatSession = await amplifyClient.models.ChatSession.create(sessionData);
         
         if (newChatSession.data && newChatSession.data.id) {
+          console.log('✅ Canvas created successfully:', newChatSession.data.id);
           // Navigate to the new chat session
           router.push(`/chat/${newChatSession.data.id}`);
         }
@@ -29,11 +55,23 @@ export default function CreateNewChatPage() {
     };
 
     createNewChat();
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
     <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
       <p>Creating new chat session...</p>
     </div>
+  );
+}
+
+export default function CreateNewChatPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <p>Loading...</p>
+      </div>
+    }>
+      <CreateNewChatContent />
+    </Suspense>
   );
 }

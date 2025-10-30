@@ -190,6 +190,12 @@ function RootLayoutContent({
                   href: '/catalog',
                 },
                 {
+                  id: 'view-collections',
+                  text: 'View All Collections',
+                  href: '/collections',
+                  iconName: 'folder',
+                },
+                {
                   id: 'dc',
                   text: 'Data Collections',
                   items: [
@@ -211,8 +217,14 @@ function RootLayoutContent({
               iconName: 'gen-ai',
               items: [
                 {
-                  id: 'list',
+                  id: 'view-all-canvases',
                   text: 'View All Canvases',
+                  href: '/canvases',
+                  iconName: 'view-full',
+                },
+                {
+                  id: 'list',
+                  text: 'List Chats (Deprecated)',
                   href: '/listChats',
                 },
                 {

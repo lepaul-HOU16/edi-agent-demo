@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Collection Modal Responsive Validation</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: #232f3e;
+            border-bottom: 2px solid #ec7211;
+            padding-bottom: 10px;
+        }
+        
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+        
+        .test-section h2 {
+            color: #16191f;
+            margin-top: 0;
+        }
+        
+        .viewport-simulator {
+            border: 2px solid #232f3e;
+            margin: 20px 0;
+            position: relative;
+            background: white;
+            overflow: hidden;
+        }
+        
+        .modal-preview {
+            background: rgba(0, 0, 0, 0.5);
+            padding: 100px 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 400px;
+        }
+        
+        .modal-container {
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            position: relative;
+        }
+        
+        .modal-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .modal-content {
+            padding: 10px 0;
+        }
+        
+        .form-field {
+            margin: 15px 0;
+        }
+        
+        .form-label {
+            display: block;
+            font-weight: 500;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .form-input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .modal-footer {
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 1px solid #eee;
+            text-align: right;
+        }
+        
+        .button {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            cursor: pointer;
+            font-size: 14px;
+            margin-left: 8px;
+        }
+        
+        .button-primary {
+            background: #ec7211;
+            color: white;
+        }
+        
+        .button-secondary {
+            background: #fff;
+            border: 1px solid #ddd;
+            color: #232f3e;
+        }
+        
+        .viewport-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: #232f3e;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .dimensions {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ec7211;
+            color: white;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+        }
+        
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .checklist li {
+            padding: 8px;
+            margin: 5px 0;
+            background: white;
+            border-left: 3px solid #ec7211;
+            padding-left: 15px;
+        }
+        
+        .checklist li::before {
+            content: '✓ ';
+            color: #067f68;
+            font-weight: bold;
+            margin-right: 8px;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        
+        .warning-box {
+            background: #fff3e0;
+            border-left: 4px solid #ff9800;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Collection Creation Modal - Responsive Validation</h1>
+    
+    <div class="info-box">
+        <strong>Purpose:</strong> This page demonstrates the responsive behavior of the Collection Creation Modal across different viewport sizes.
+    </div>
+    
+    <div class="test-section">
+        <h2>Desktop View (1920px × 1080px)</h2>
+        <p><strong>Expected:</strong> Modal width = 60% of viewport (1152px)</p>
+        
+        <div class="viewport-simulator" style="width: 100%; height: 600px;">
+            <div class="viewport-label">Desktop</div>
+            <div class="dimensions">1920px × 1080px</div>
+            <div class="modal-preview">
+                <div class="modal-container" style="width: 60%; max-height: calc(600px - 200px);">
+                    <div class="modal-header">Create Data Collection from Search Results</div>
+                    <div class="modal-content">
+                        <div class="form-field">
+                            <label class="form-label">Collection Name</label>
+                            <input type="text" class="form-input" placeholder="e.g., Cuu Long Basin Production Wells">
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Description (Optional)</label>
+                            <textarea class="form-input" rows="3" placeholder="Describe the purpose and contents..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="button button-secondary">Cancel</button>
+                        <button class="button button-primary">Create Collection</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <ul class="checklist">
+            <li>Modal width is 60% of viewport width</li>
+            <li>Modal is centered horizontally</li>
+            <li>100px margin from top</li>
+            <li>100px margin from bottom</li>
+            <li>Max height: calc(100vh - 200px)</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h2>Tablet View (768px × 1024px)</h2>
+        <p><strong>Expected:</strong> Modal width = 75% of viewport (576px)</p>
+        
+        <div class="viewport-simulator" style="width: 768px; height: 500px; margin: 0 auto;">
+            <div class="viewport-label">Tablet</div>
+            <div class="dimensions">768px × 1024px</div>
+            <div class="modal-preview">
+                <div class="modal-container" style="width: 75%; max-height: calc(500px - 200px);">
+                    <div class="modal-header">Create Data Collection</div>
+                    <div class="modal-content">
+                        <div class="form-field">
+                            <label class="form-label">Collection Name</label>
+                            <input type="text" class="form-input" placeholder="e.g., Cuu Long Basin">
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label">Description</label>
+                            <textarea class="form-input" rows="2" placeholder="Describe..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="button button-secondary">Cancel</button>
+                        <button class="button button-primary">Create</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <ul class="checklist">
+            <li>Modal width is 75% of viewport width</li>
+            <li>Modal is centered horizontally</li>
+            <li>Maintains 100px top/bottom margins</li>
+            <li>Content is readable and properly formatted</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h2>Mobile View (375px × 667px)</h2>
+        <p><strong>Expected:</strong> Modal width = 90% of viewport (337.5px)</p>
+        
+        <div class="viewport-simulator" style="width: 375px; height: 500px; margin: 0 auto;">
+            <div class="viewport-label">Mobile</div>
+            <div class="dimensions">375px × 667px</div>
+            <div class="modal-preview">
+                <div class="modal-container" style="width: 90%; max-height: calc(500px - 200px);">
+                    <div class="modal-header" style="font-size: 16px;">Create Collection</div>
+                    <div class="modal-content">
+                        <div class="form-field">
+                            <label class="form-label" style="font-size: 13px;">Name</label>
+                            <input type="text" class="form-input" style="font-size: 13px;" placeholder="Collection name">
+                        </div>
+                        <div class="form-field">
+                            <label class="form-label" style="font-size: 13px;">Description</label>
+                            <textarea class="form-input" style="font-size: 13px;" rows="2" placeholder="Optional"></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="button button-secondary" style="font-size: 13px;">Cancel</button>
+                        <button class="button button-primary" style="font-size: 13px;">Create</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <ul class="checklist">
+            <li>Modal width is 90% of viewport width</li>
+            <li>Modal is centered horizontally</li>
+            <li>Maintains 100px top/bottom margins</li>
+            <li>Form fields stack vertically</li>
+            <li>No horizontal scroll required</li>
+            <li>Touch targets are properly sized</li>
+        </ul>
+    </div>
+    
+    <div class="test-section">
+        <h2>CSS Implementation Reference</h2>
+        <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>/* Desktop (default) */
+.collection-modal-container .awsui-modal-container {
+  width: 60vw !important;
+  max-width: 60vw !important;
+  max-height: calc(100vh - 200px) !important;
+  margin-top: 100px !important;
+  margin-bottom: 100px !important;
+}
+
+/* Tablet (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .collection-modal-container .awsui-modal-container {
+    width: 75vw !important;
+    max-width: 75vw !important;
+  }
+}
+
+/* Mobile (< 768px) */
+@media (max-width: 768px) {
+  .collection-modal-container .awsui-modal-container {
+    width: 90vw !important;
+    max-width: 90vw !important;
+  }
+}</code></pre>
+    </div>
+    
+    <div class="warning-box">
+        <strong>Testing Instructions:</strong>
+        <ol>
+            <li>Open the actual application in your browser</li>
+            <li>Navigate to <code>/catalog</code> or <code>/collections</code></li>
+            <li>Open the collection creation modal</li>
+            <li>Use browser DevTools to test different viewport sizes</li>
+            <li>Verify the modal matches the behavior shown above</li>
+            <li>Test on actual mobile devices for touch interaction</li>
+        </ol>
+    </div>
+    
+    <div class="test-section">
+        <h2>Browser DevTools Testing</h2>
+        <p>Use these commands in the browser console to validate modal dimensions:</p>
+        <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;"><code>// Get modal element
+const modal = document.querySelector('.collection-modal-container .awsui-modal-container');
+
+// Check dimensions
+console.log('Width:', modal.offsetWidth, 'px');
+console.log('Viewport Width:', window.innerWidth, 'px');
+console.log('Percentage:', (modal.offsetWidth / window.innerWidth * 100).toFixed(1) + '%');
+
+// Check margins
+const styles = window.getComputedStyle(modal);
+console.log('Margin Top:', styles.marginTop);
+console.log('Margin Bottom:', styles.marginBottom);
+console.log('Max Height:', styles.maxHeight);</code></pre>
+    </div>
+</body>
+</html>

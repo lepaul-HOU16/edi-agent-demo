@@ -35,6 +35,7 @@ import { withAuth } from '@/components/WithAuth';
 import FileDrawer from '@/components/FileDrawer';
 import AgentSwitcher from '@/components/AgentSwitcher';
 import AgentLandingPage from '@/components/AgentLandingPage';
+import CollectionContextBadge from '@/components/CollectionContextBadge';
 import { sendMessage } from '../../../../utils/amplifyUtils';
 import zIndex from '@mui/material/styles/zIndex';
 
@@ -908,12 +909,15 @@ function Page({
                         }),
                         paddingRight: fileDrawerOpen && !isMobile ? '0' : '0'
                     }}>
-                        <EditableTextBox
-                            object={activeChatSession}
-                            fieldPath="name"
-                            onUpdate={setActiveChatSessionAndUpload}
-                            typographyVariant="h5"
-                        />
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <EditableTextBox
+                                object={activeChatSession}
+                                fieldPath="name"
+                                onUpdate={setActiveChatSessionAndUpload}
+                                typographyVariant="h5"
+                            />
+                            <CollectionContextBadge chatSessionId={activeChatSession.id} />
+                        </div>
                         <div style={{
                             paddingBottom: '160px',
                         }}>

@@ -1,171 +1,133 @@
-# Task 10 Quick Reference: Agent Router Unit Tests
+# Task 10: Collection Context Badge - Quick Reference
 
-## Running the Tests
+## What Was Implemented
 
-### Run All Agent Router Tests
-```bash
-npx jest tests/unit/test-agent-router-edicraft.test.ts
-```
+A collection context badge that displays in the canvas header, showing which collection the canvas is linked to and providing quick navigation to the collection detail page.
 
-### Run with Verbose Output
-```bash
-npx jest tests/unit/test-agent-router-edicraft.test.ts --verbose
-```
+## Key Features
 
-### Run Specific Test Suite
-```bash
-# Pattern matching tests
-npx jest tests/unit/test-agent-router-edicraft.test.ts -t "EDIcraft Pattern Matching"
+1. **Visual Badge**
+   - Blue badge with folder icon
+   - Shows collection name and item count
+   - Positioned in canvas header next to canvas name
 
-# Priority handling tests
-npx jest tests/unit/test-agent-router-edicraft.test.ts -t "Priority Handling"
+2. **Information Popover**
+   - Displays on hover
+   - Shows collection name, description, and data scope
+   - Indicates AI query limitations
+   - Provides navigation instruction
 
-# Confidence scoring tests
-npx jest tests/unit/test-agent-router-edicraft.test.ts -t "Confidence Scoring"
+3. **Navigation**
+   - Click badge to navigate to collection detail page
+   - Seamless integration with existing navigation
 
-# Routing decision logging tests
-npx jest tests/unit/test-agent-router-edicraft.test.ts -t "Routing Decision Logging"
-```
+4. **Smart Display**
+   - Only shows when canvas is linked to collection
+   - Shows loading state during data fetch
+   - Handles errors gracefully
 
-### Run with Coverage
-```bash
-npx jest tests/unit/test-agent-router-edicraft.test.ts --coverage
-```
+## Files Created
 
-## Test Structure
+- `src/components/CollectionContextBadge.tsx` - Main component
+- `tests/manual/TASK_10_COLLECTION_CONTEXT_BADGE_TEST_GUIDE.md` - Test guide
+- `tests/TASK_10_IMPLEMENTATION_SUMMARY.md` - Detailed summary
+- `tests/TASK_10_QUICK_REFERENCE.md` - This file
 
-### Test Suites (3)
-1. **AgentRouter - EDIcraft Pattern Matching** (51 tests)
-   - Core Minecraft Patterns
-   - Wellbore Trajectory Patterns
-   - Horizon Surface Patterns
-   - Coordinate and Position Patterns
-   - Visualization Patterns
-   - Priority Handling - Well Log + Minecraft
-   - Non-EDIcraft Queries
-   - Routing Decision Logging
-   - Confidence Scoring
-   - Complex Query Scenarios
-   - Edge Cases
+## Files Modified
 
-2. **AgentRouter - Pattern Priority Order** (5 tests)
-   - EDIcraft vs Maintenance
-   - EDIcraft vs Renewable
-   - EDIcraft vs Petrophysics
-   - Maintenance vs Renewable
-   - Renewable vs Petrophysics
+- `src/app/chat/[chatSessionId]/page.tsx` - Added badge to chat header
 
-3. **AgentRouter - Matched Patterns Tracking** (3 tests)
-   - Track all matched patterns
-   - Empty array for non-matches
-   - Pattern sources as strings
+## How to Test
 
-## Key Test Scenarios
+### Quick Test
+1. Create a collection from the data catalog
+2. Create a canvas from the collection
+3. Verify badge appears in canvas header
+4. Hover over badge to see popover
+5. Click badge to navigate to collection
 
-### EDIcraft Pattern Matching
+### Comprehensive Test
+See `tests/manual/TASK_10_COLLECTION_CONTEXT_BADGE_TEST_GUIDE.md` for detailed test scenarios.
+
+## Component Usage
+
 ```typescript
-// Should route to EDIcraft
-"Show me data in Minecraft"
-"Show wellbore trajectory"
-"Build horizon surface"
-"Track player position"
-"Transform coordinates to UTM"
-"Create minecraft visualization"
+import CollectionContextBadge from '@/components/CollectionContextBadge';
+
+<CollectionContextBadge chatSessionId={chatSessionId} />
 ```
 
-### Priority Handling
-```typescript
-// Should route to EDIcraft (not petrophysics)
-"Show well log data in minecraft"
-"Display log curves in minecraft"
+## Props
 
-// Should route to petrophysics (no minecraft)
-"Show well log data for Well-001"
-"Analyze log curves for Well-002"
-```
+- `chatSessionId` (string, required): The ID of the chat session to display collection context for
 
-### Confidence Scoring
-```typescript
-// Higher confidence for multiple matches
-"Show wellbore trajectory in minecraft with player position"
+## Data Flow
 
-// Lower confidence for single match
-"minecraft"
+1. Component receives `chatSessionId` prop
+2. Fetches chat session from Amplify
+3. Checks for `linkedCollectionId`
+4. If linked, fetches collection data
+5. Displays badge with collection information
+6. Handles click to navigate to collection detail
 
-// Default confidence for general queries
-"Hello"
-```
+## Styling
 
-## Expected Results
+- Uses Cloudscape Design System components
+- Blue badge color for consistency
+- Folder icon for visual context
+- Responsive design for all screen sizes
 
-### All Tests Should Pass
-```
-Test Suites: 1 passed, 1 total
-Tests:       60 passed, 60 total
-Time:        < 1 second
-```
+## Error Handling
 
-### No TypeScript Errors
-```bash
-npx tsc --noEmit tests/unit/test-agent-router-edicraft.test.ts
-# Should complete with no errors
-```
+- Returns null if no collection linked
+- Logs errors to console
+- Doesn't crash page on error
+- Shows loading state during fetch
 
-## Troubleshooting
+## Performance
 
-### If Tests Fail
+- Lightweight component
+- Minimal re-renders
+- Efficient data fetching
+- No heavy computations
 
-1. **Check Pattern Definitions**
-   - Verify patterns in `TestableAgentRouter` match actual `AgentRouter`
-   - Ensure regex patterns are correct
+## Accessibility
 
-2. **Check Priority Order**
-   - EDIcraft should have highest priority
-   - Verify priority order: EDIcraft > Maintenance > Renewable > Petrophysics
+- Semantic HTML
+- Keyboard navigation support (Cloudscape default)
+- Clear visual indicators
+- Descriptive text
 
-3. **Check Confidence Calculation**
-   - Confidence should be between 0.5 and 1.0
-   - Multiple matches should increase confidence
+## Browser Compatibility
 
-### Common Issues
+- Works in all modern browsers
+- Responsive on mobile devices
+- No special polyfills required
 
-**Issue**: Tests fail with "pattern not matched"
-**Solution**: Check that pattern regex is correct and case-insensitive
+## Known Issues
 
-**Issue**: Priority tests fail
-**Solution**: Verify EDIcraft patterns are checked first in determineAgentType
+- None currently identified
 
-**Issue**: Confidence tests fail
-**Solution**: Check confidence calculation formula and bounds
+## Future Enhancements
 
-## Integration with CI/CD
+- Collection data caching
+- Text truncation for long names
+- Quick actions in popover
+- More detailed statistics
 
-### Add to Test Suite
-```bash
-# In package.json scripts
-"test:agent-router": "jest tests/unit/test-agent-router-edicraft.test.ts"
-```
+## Support
 
-### Run in CI Pipeline
-```yaml
-# In .github/workflows/test.yml
-- name: Run Agent Router Tests
-  run: npm run test:agent-router
-```
+For issues or questions:
+1. Check manual test guide
+2. Review implementation summary
+3. Check console for errors
+4. Verify collection data exists
 
-## Next Steps
+## Status
 
-After Task 10 completion:
-- [ ] Task 11: Create Unit Tests for Handler
-- [ ] Task 12: Create Unit Tests for MCP Client
-- [ ] Task 13: Create Integration Tests
-- [ ] Task 14: Manual Testing and Validation
-- [ ] Task 15: Update Documentation
+✅ **Complete** - Ready for testing and deployment
 
-## Related Files
+---
 
-- **Test File**: `tests/unit/test-agent-router-edicraft.test.ts`
-- **Implementation**: `amplify/functions/agents/agentRouter.ts`
-- **Requirements**: `.kiro/specs/fix-edicraft-agent-integration/requirements.md`
-- **Design**: `.kiro/specs/fix-edicraft-agent-integration/design.md`
-- **Tasks**: `.kiro/specs/fix-edicraft-agent-integration/tasks.md`
+**Last Updated:** 2025-01-XX
+**Version:** 1.0.0

@@ -2,8 +2,322 @@ import math
 import csv
 import io
 import json
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict, Any, Optional
 from strands import tool
+
+def parse_trajectory_data(trajectory_json: str) -> Dict[str, Any]:
+    """
+    Parse trajectory data and determine format.
+    Validates structure and detects whether data is in coordinates or survey format.
+    
+    Args:
+        trajectory_json: JSON string from OSDU containing trajectory data
+    
+    Returns:
+        Dictionary with:
+            - format: "coordinates" | "survey" | "unknown"
+            - data: Parsed data array (coordinates or survey points)
+            - valid: Boolean indicating if data is valid
+            - error: Error message if invalid, None otherwise
+            - metadata: Additional information about the data
+    """
+    try:
+        # Parse JSON input
+        data = json.loads(trajectory_json)
+        
+        # Check if we have coordinates format
+        if "coordinates" in data and data["coordinates"]:
+            coordinates = data["coordinates"]
+            
+            # Validate coordinates structure
+            if not isinstance(coordinates, list):
+                return {
+                    "format": "unknown",
+                    "data": None,
+                    "valid": False,
+                    "error": "Coordinates field must be an array",
+                    "metadata": {}
+                }
+            
+            # Validate each coordinate has x, y, z fields
+            required_fields = ["x", "y", "z"]
+            for i, coord in enumerate(coordinates):
+                if not isinstance(coord, dict):
+                    return {
+                        "format": "unknown",
+                        "data": None,
+                        "valid": False,
+                        "error": f"Coordinate at index {i} must be an object with x, y, z fields",
+                        "metadata": {}
+                    }
+                
+                missing_fields = [field for field in required_fields if field not in coord]
+                if missing_fields:
+                    return {
+                        "format": "coordinates",
+                        "data": None,
+                        "valid": False,
+                        "error": f"Coordinate at index {i} missing required fields: {', '.join(missing_fields)}",
+                        "metadata": {"total_points": len(coordinates)}
+                    }
+                
+                # Validate that values are numeric
+                for field in required_fields:
+                    try:
+                        float(coord[field])
+                    except (ValueError, TypeError):
+                        return {
+                            "format": "coordinates",
+                            "data": None,
+                            "valid": False,
+                            "error": f"Coordinate at index {i} has non-numeric value for field '{field}': {coord[field]}",
+                            "metadata": {"total_points": len(coordinates)}
+                        }
+            
+            # Valid coordinates format
+            return {
+                "format": "coordinates",
+                "data": coordinates,
+                "valid": True,
+                "error": None,
+                "metadata": {
+                    "total_points": len(coordinates),
+                    "trajectory_id": data.get("trajectory_id", "unknown"),
+                    "wellbore_id": data.get("wellbore_id", "unknown"),
+                    "source": data.get("metadata", {}).get("source", "unknown")
+                }
+            }
+        
+        # Check if we have survey data format
+        if "survey_data" in data and data["survey_data"]:
+            survey_data = data["survey_data"]
+            
+            # Validate survey data structure
+            if not isinstance(survey_data, list):
+                return {
+                    "format": "unknown",
+                    "data": None,
+                    "valid": False,
+                    "error": "Survey_data field must be an array",
+                    "metadata": {}
+                }
+            
+            # Validate each survey point has required fields
+            required_fields = ["tvd", "azimuth", "inclination"]
+            for i, point in enumerate(survey_data):
+                if not isinstance(point, dict):
+                    return {
+                        "format": "unknown",
+                        "data": None,
+                        "valid": False,
+                        "error": f"Survey point at index {i} must be an object with tvd, azimuth, inclination fields",
+                        "metadata": {}
+                    }
+                
+                missing_fields = [field for field in required_fields if field not in point]
+                if missing_fields:
+                    return {
+                        "format": "survey",
+                        "data": None,
+                        "valid": False,
+                        "error": f"Survey point at index {i} missing required fields: {', '.join(missing_fields)}",
+                        "metadata": {"total_points": len(survey_data)}
+                    }
+                
+                # Validate that values are numeric
+                for field in required_fields:
+                    try:
+                        float(point[field])
+                    except (ValueError, TypeError):
+                        return {
+                            "format": "survey",
+                            "data": None,
+                            "valid": False,
+                            "error": f"Survey point at index {i} has non-numeric value for field '{field}': {point[field]}",
+                            "metadata": {"total_points": len(survey_data)}
+                        }
+            
+            # Valid survey data format
+            return {
+                "format": "survey",
+                "data": survey_data,
+                "valid": True,
+                "error": None,
+                "metadata": {
+                    "total_points": len(survey_data),
+                    "trajectory_id": data.get("trajectory_id", "unknown"),
+                    "wellbore_id": data.get("wellbore_id", "unknown"),
+                    "source": data.get("metadata", {}).get("source", "unknown")
+                }
+            }
+        
+        # Check if this is an error response from OSDU
+        if "error" in data:
+            return {
+                "format": "unknown",
+                "data": None,
+                "valid": False,
+                "error": f"OSDU error: {data['error']}",
+                "metadata": {
+                    "trajectory_id": data.get("trajectory_id", "unknown"),
+                    "wellbore_id": data.get("wellbore_id", "unknown")
+                }
+            }
+        
+        # No valid data format found
+        available_keys = list(data.keys())
+        return {
+            "format": "unknown",
+            "data": None,
+            "valid": False,
+            "error": f"No valid coordinates or survey_data found. Available keys: {', '.join(available_keys)}",
+            "metadata": {
+                "available_keys": available_keys,
+                "trajectory_id": data.get("trajectory_id", "unknown")
+            }
+        }
+    
+    except json.JSONDecodeError as e:
+        return {
+            "format": "unknown",
+            "data": None,
+            "valid": False,
+            "error": f"JSON parsing failed: {str(e)}. Input must be valid JSON string.",
+            "metadata": {}
+        }
+    except Exception as e:
+        return {
+            "format": "unknown",
+            "data": None,
+            "valid": False,
+            "error": f"Unexpected error parsing trajectory data: {str(e)}",
+            "metadata": {}
+        }
+
+@tool
+def transform_coordinates_to_minecraft(coordinates_json: str) -> str:
+    """
+    Transform raw XYZ coordinates directly to Minecraft coordinates.
+    This function is used when trajectory data is already in coordinate format
+    (not survey data that needs calculation).
+    
+    Args:
+        coordinates_json: JSON string with coordinates array: 
+                         [{"x": 1.0, "y": 2.0, "z": 3.0}, ...]
+                         or JSON object with "coordinates" field
+    
+    Returns:
+        JSON string with Minecraft coordinates and trajectory statistics
+    """
+    try:
+        # Parse input JSON
+        data = json.loads(coordinates_json)
+        
+        # Handle both direct array and object with "coordinates" field
+        if isinstance(data, list):
+            coordinates = data
+        elif isinstance(data, dict) and "coordinates" in data:
+            coordinates = data["coordinates"]
+        else:
+            return json.dumps({
+                "error": "Invalid input format. Expected array of coordinates or object with 'coordinates' field",
+                "success": False
+            }, indent=2)
+        
+        # Validate coordinates
+        if not coordinates or len(coordinates) == 0:
+            return json.dumps({
+                "error": "No coordinates provided",
+                "success": False
+            }, indent=2)
+        
+        # Convert dict format to tuple format for transformation function
+        coord_tuples = []
+        for i, coord in enumerate(coordinates):
+            if not isinstance(coord, dict):
+                return json.dumps({
+                    "error": f"Coordinate at index {i} must be an object with x, y, z fields",
+                    "success": False
+                }, indent=2)
+            
+            if "x" not in coord or "y" not in coord or "z" not in coord:
+                return json.dumps({
+                    "error": f"Coordinate at index {i} missing required fields (x, y, z)",
+                    "success": False
+                }, indent=2)
+            
+            try:
+                x = float(coord["x"])
+                y = float(coord["y"])
+                z = float(coord["z"])
+                coord_tuples.append((x, y, z))
+            except (ValueError, TypeError) as e:
+                return json.dumps({
+                    "error": f"Coordinate at index {i} has non-numeric values: {str(e)}",
+                    "success": False
+                }, indent=2)
+        
+        # Transform to Minecraft space using existing function
+        from .coordinates import transform_trajectory_to_minecraft
+        minecraft_coords = transform_trajectory_to_minecraft(coord_tuples)
+        
+        # Convert back to dict format for JSON output
+        minecraft_coords_dict = [
+            {"x": x, "y": y, "z": z} 
+            for x, y, z in minecraft_coords
+        ]
+        
+        # Calculate trajectory statistics
+        x_coords = [c[0] for c in coord_tuples]
+        y_coords = [c[1] for c in coord_tuples]
+        z_coords = [c[2] for c in coord_tuples]
+        
+        max_depth = max(z_coords)
+        min_depth = min(z_coords)
+        
+        # Calculate horizontal displacement (distance from first to last point)
+        horizontal_displacement = math.sqrt(
+            (coord_tuples[-1][0] - coord_tuples[0][0])**2 + 
+            (coord_tuples[-1][1] - coord_tuples[0][1])**2
+        )
+        
+        # Calculate total path length
+        total_length = 0.0
+        for i in range(1, len(coord_tuples)):
+            dx = coord_tuples[i][0] - coord_tuples[i-1][0]
+            dy = coord_tuples[i][1] - coord_tuples[i-1][1]
+            dz = coord_tuples[i][2] - coord_tuples[i-1][2]
+            total_length += math.sqrt(dx*dx + dy*dy + dz*dz)
+        
+        result = {
+            "success": True,
+            "total_points": len(minecraft_coords_dict),
+            "minecraft_coordinates": minecraft_coords_dict,
+            "world_coordinates": [{"x": x, "y": y, "z": z} for x, y, z in coord_tuples],
+            "trajectory_stats": {
+                "max_depth": max_depth,
+                "min_depth": min_depth,
+                "depth_range": max_depth - min_depth,
+                "horizontal_displacement": horizontal_displacement,
+                "total_path_length": total_length,
+                "x_range": {"min": min(x_coords), "max": max(x_coords)},
+                "y_range": {"min": min(y_coords), "max": max(y_coords)},
+                "z_range": {"min": min_depth, "max": max_depth}
+            }
+        }
+        
+        return json.dumps(result, indent=2)
+        
+    except json.JSONDecodeError as e:
+        return json.dumps({
+            "error": f"JSON parsing failed: {str(e)}",
+            "success": False
+        }, indent=2)
+    except Exception as e:
+        return json.dumps({
+            "error": f"Error transforming coordinates: {str(e)}",
+            "success": False
+        }, indent=2)
 
 @tool
 def calculate_trajectory_coordinates(survey_data_json: str, start_x: float = 0, start_y: float = 0, start_z: float = 0) -> str:
