@@ -3,33 +3,37 @@ import { Message } from '../../utils/types';
 import ChatMessage from './ChatMessage';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { 
-  Table, 
-  Header, 
-  Pagination, 
-  ButtonDropdown, 
-  Button, 
+import {
+  Table,
+  Header,
+  Pagination,
+  ButtonDropdown,
+  Button,
   Spinner,
   Icon
 } from '@cloudscape-design/components';
 import ExpandablePromptInput from './ExpandablePromptInput';
 import GeoscientistDashboard from './GeoscientistDashboard';
 import GeoscientistDashboardErrorBoundary from './GeoscientistDashboardErrorBoundary';
+import HierarchicalDataTable from './HierarchicalDataTable';
 import { v4 as uuidv4 } from 'uuid';
 
 // Enhanced component to render professional geoscientist content instead of boring tables
-function ProfessionalGeoscientistDisplay({ 
-  tableData, 
-  searchQuery, 
-  queryType, 
-  weatherData 
-}: { 
-  tableData: any[], 
-  searchQuery: string, 
+function ProfessionalGeoscientistDisplay({
+  tableData,
+  searchQuery,
+  queryType,
+  weatherData
+}: {
+  tableData: any[],
+  searchQuery: string,
   queryType?: string,
-  weatherData?: any 
+  weatherData?: any
 }) {
-  
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 50;
+
   // Convert table data to well data format for the dashboard
   const wellsData = tableData.map(item => ({
     name: item.name || item.Name || `Well-${Math.random().toString().substr(2, 3)}`,
@@ -44,57 +48,150 @@ function ProfessionalGeoscientistDisplay({
   }));
 
   // Check if we should show professional dashboard vs simple table
-  const shouldShowProfessionalDashboard = 
+  const shouldShowProfessionalDashboard =
     wellsData.length <= 50 && // Don't overwhelm with too many wells
-    (searchQuery.toLowerCase().includes('well') || 
-     searchQuery.toLowerCase().includes('weather') ||
-     searchQuery.toLowerCase().includes('analysis') ||
-     searchQuery.toLowerCase().includes('field'));
+    (searchQuery.toLowerCase().includes('well') ||
+      searchQuery.toLowerCase().includes('weather') ||
+      searchQuery.toLowerCase().includes('analysis') ||
+      searchQuery.toLowerCase().includes('field'));
 
   // Always show simple table in chat - visualizations moved to analytics tab
   console.log('📋 Rendering simple data table in chat (visualizations in analytics tab)');
 
   // Fallback to simple table for very large datasets
   console.log('📋 Rendering simple table for large dataset:', wellsData.length, 'items');
-  
-  // Generate column definitions dynamically based on the first item's keys
+
+  // Generate column definitions with specific structure
   const generateColumnDefinitions = () => {
     if (!tableData || tableData.length === 0) return [];
-    
-    const firstItem = tableData[0];
-    return Object.keys(firstItem)
-      .filter(key => key !== 'id') // Remove ID column
-      .map(key => ({
-        id: key,
-        header: key.charAt(0).toUpperCase() + key.slice(1).replace(/_/g, ' '),
-        cell: (item: any) => item[key]?.toString() || "N/A",
-        sortingField: key
-      }));
+
+    return [
+      {
+        id: 'facilityName',
+        header: 'Facility Name',
+        cell: (item: any) => (
+          <strong>{item.data?.FacilityName || item.facilityName || item.name || 'N/A'}</strong>
+        ),
+        sortingField: 'facilityName',
+        isRowHeader: true
+      },
+      {
+        id: 'nameAliases',
+        header: 'Name Aliases',
+        cell: (item: any) => {
+          const aliases = item.data?.NameAliases || [];
+          return aliases.length > 0 ? aliases.join(', ') : 'N/A';
+        }
+      },
+      {
+        id: 'wellId',
+        header: 'Well ID',
+        cell: (item: any) => item.well_id || item.wellId || item.uniqueId || item.id || 'N/A',
+        sortingField: 'well_id'
+      },
+      {
+        id: 'wellboreCount',
+        header: 'Wellbores',
+        cell: (item: any) => {
+          // Handle both array and object formats
+          const wellbores = item.wellbores;
+          const count = Array.isArray(wellbores) 
+            ? wellbores.length 
+            : (wellbores && typeof wellbores === 'object' ? Object.keys(wellbores).length : 0);
+          return count;
+        },
+        sortingField: 'wellboreCount'
+      },
+      {
+        id: 'curveCount',
+        header: 'Welllog Curves',
+        cell: (item: any) => {
+          // Handle both array and object formats
+          const wellbores = item.wellbores;
+          const wellboresArray = Array.isArray(wellbores) 
+            ? wellbores 
+            : (wellbores && typeof wellbores === 'object' ? Object.values(wellbores) : []);
+          
+          const totalCurves = wellboresArray.reduce((total: number, wellbore: any) => {
+            const welllogs = wellbore.welllogs;
+            const welllogsArray = Array.isArray(welllogs)
+              ? welllogs
+              : (welllogs && typeof welllogs === 'object' ? Object.values(welllogs) : []);
+            
+            const welllogCurves = welllogsArray.reduce((wbTotal: number, welllog: any) => {
+              const curves = welllog.data?.Curves || welllog.Curves || [];
+              return wbTotal + (Array.isArray(curves) ? curves.length : 0);
+            }, 0);
+            return total + welllogCurves;
+          }, 0);
+          return totalCurves;
+        },
+        sortingField: 'curveCount'
+      }
+    ];
   };
 
   const columnDefinitions = generateColumnDefinitions();
 
+  // Pagination calculations
+  const totalPages = Math.ceil(tableData.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedData = tableData.slice(startIndex, endIndex);
+
+  // Reset to page 1 when data changes
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [tableData.length]);
+
   return (
-    <div 
-      style={{ 
-        marginTop: '15px', 
+    <div
+      style={{
+        marginTop: '15px',
         marginBottom: '15px',
-        // Fix horizontal scroll for table container
         maxWidth: '100%',
         width: '100%',
         overflow: 'hidden',
         boxSizing: 'border-box'
       }}
     >
-      <div className='tables' style={{ 
+      <div className='tables' style={{
         maxWidth: '100%',
         overflow: 'auto',
         boxSizing: 'border-box'
       }}>
         <Table
           columnDefinitions={columnDefinitions}
-          items={tableData}
-          trackBy={(item) => item.name || `item-${Math.random()}`}
+          items={paginatedData}
+          trackBy={(item) => item.well_id || item.wellId || item.uniqueId || item.id || `${item.name}-${tableData.indexOf(item)}`}
+          loadingText="Loading wells"
+          header={
+            <Header
+              counter={`(${tableData.length} total)`}
+              description="Showing 50 wells per page"
+            >
+              Well Data
+            </Header>
+          }
+          pagination={
+            tableData.length > itemsPerPage ? (
+              <Pagination
+                currentPageIndex={currentPage}
+                onChange={({ detail }) => setCurrentPage(detail.currentPageIndex)}
+                pagesCount={totalPages}
+                ariaLabels={{
+                  nextPageLabel: 'Next page',
+                  previousPageLabel: 'Previous page',
+                  pageLabel: pageNumber => `Page ${pageNumber} of ${totalPages}`
+                }}
+              />
+            ) : undefined
+          }
+          empty={
+            <div style={{ textAlign: 'center', padding: '20px' }}>
+              <strong>No wells found</strong>
+            </div>
+          }
         />
       </div>
     </div>
@@ -102,18 +199,23 @@ function ProfessionalGeoscientistDisplay({
 }
 
 // Enhanced AI message component that renders professional geoscientist content
-function CustomAIMessage({ message, originalSearchQuery }: { message: Message, originalSearchQuery?: string }) {
+function CustomAIMessage({ message, originalSearchQuery, hierarchicalData }: {
+  message: Message,
+  originalSearchQuery?: string,
+  hierarchicalData?: any
+}) {
   const [tableData, setTableData] = useState<any[] | null>(null);
   const [queryType, setQueryType] = useState<string>('general');
   const [weatherData, setWeatherData] = useState<any>(null);
-  
+  const [useHierarchicalView, setUseHierarchicalView] = useState<boolean>(false);
+
   // Parse the message content to extract table data and determine query type
   useEffect(() => {
     // Access the text content safely
-    const messageText = typeof message.content === 'object' && message.content && 'text' in message.content 
+    const messageText = typeof message.content === 'object' && message.content && 'text' in message.content
       ? String(message.content.text)
       : '';
-    
+
     if (messageText) {
       try {
         // Look for JSON table data marker in the message
@@ -121,13 +223,18 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
         if (tableDataMatch && tableDataMatch[1]) {
           const parsedData = JSON.parse(tableDataMatch[1]);
           setTableData(parsedData);
-          
+
           // Determine query type from the original search query
           if (originalSearchQuery) {
             const lowerQuery = originalSearchQuery.toLowerCase();
-            if (lowerQuery.includes('weather map') || 
-                (lowerQuery.includes('weather') && lowerQuery.includes('map')) ||
-                (lowerQuery.includes('weather') && lowerQuery.includes('near'))) {
+
+            // Check if this is a /getdata command - use hierarchical view
+            if (lowerQuery === '/getdata' || lowerQuery.includes('getdata')) {
+              setUseHierarchicalView(true);
+              setQueryType('getdata');
+            } else if (lowerQuery.includes('weather map') ||
+              (lowerQuery.includes('weather') && lowerQuery.includes('map')) ||
+              (lowerQuery.includes('weather') && lowerQuery.includes('near'))) {
               setQueryType('weatherMaps');
               // Create mock weather data for dashboard
               setWeatherData({
@@ -141,35 +248,48 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
               setQueryType('myWells');
             }
           }
-          
+
           console.log('🎯 Detected query type:', queryType);
           console.log('📊 Table data:', parsedData.length, 'items');
+          console.log('🌳 Use hierarchical view:', useHierarchicalView);
         }
       } catch (error) {
         console.error("Error parsing table data:", error);
       }
     }
   }, [message.content, originalSearchQuery]);
-  
+
   // Get clean text without the JSON table data
   const getCleanText = () => {
     // Access the text content safely
-    const messageText = typeof message.content === 'object' && message.content && 'text' in message.content 
+    const messageText = typeof message.content === 'object' && message.content && 'text' in message.content
       ? String(message.content.text)
       : '';
-    
+
     if (!messageText) return "";
     return messageText.replace(/```json-table-data\n[\s\S]*?\n```/g, "");
   };
-  
+
+  // Extract thought steps from message
+  const thoughtSteps = (message as any).thoughtSteps || [];
+  const hasThoughtSteps = Array.isArray(thoughtSteps) && thoughtSteps.length > 0;
+
+  // Extract stats from message (if available)
+  const stats = (message as any).stats;
+  const hasStats = stats && (stats.wellCount || stats.wellboreCount || stats.welllogCount);
+
+  // Extract file URLs from message (if available)
+  const files = (message as any).files;
+  const hasFiles = files && (files.metadata || files.geojson);
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
-        <div style={{ 
-          width: '32px', 
-          height: '32px', 
-          display: 'flex', 
-          alignItems: 'center', 
+        <div style={{
+          width: '32px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#0073bb',
           borderRadius: '50%',
@@ -180,19 +300,133 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
           <Icon name="gen-ai" />
         </div>
         <div style={{ flex: 1 }}>
+          {/* Display thought steps summary if available */}
+          {hasThoughtSteps && (
+            <div style={{
+              backgroundColor: '#f0f8ff',
+              border: '1px solid #0073bb',
+              borderRadius: '4px',
+              padding: '12px',
+              marginBottom: '12px'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                marginBottom: '8px',
+                fontWeight: 'bold',
+                color: '#0073bb'
+              }}>
+                <Icon name="gen-ai" />
+                <span>AI Reasoning Process ({thoughtSteps.length} steps)</span>
+              </div>
+              <div style={{ fontSize: '13px', color: '#545b64' }}>
+                View detailed thought process in the <strong>Chain of Thought</strong> panel
+              </div>
+            </div>
+          )}
+
+          {/* Display stats summary if available */}
+          {hasStats && (
+            <div style={{
+              backgroundColor: '#f9f9f9',
+              border: '1px solid #d5dbdb',
+              borderRadius: '4px',
+              padding: '12px',
+              marginBottom: '12px',
+              display: 'flex',
+              gap: '16px',
+              flexWrap: 'wrap'
+            }}>
+              {stats.wellCount !== undefined && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Icon name="status-info" variant="success" />
+                  <span style={{ fontWeight: 'bold' }}>{stats.wellCount}</span>
+                  <span style={{ color: '#545b64' }}>wells</span>
+                </div>
+              )}
+              {stats.wellboreCount !== undefined && stats.wellboreCount > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Icon name="status-info" variant="success" />
+                  <span style={{ fontWeight: 'bold' }}>{stats.wellboreCount}</span>
+                  <span style={{ color: '#545b64' }}>wellbores</span>
+                </div>
+              )}
+              {stats.welllogCount !== undefined && stats.welllogCount > 0 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Icon name="status-info" variant="success" />
+                  <span style={{ fontWeight: 'bold' }}>{stats.welllogCount}</span>
+                  <span style={{ color: '#545b64' }}>welllogs</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Display file URLs if available */}
+          {hasFiles && (
+            <div style={{
+              backgroundColor: '#f9f9f9',
+              border: '1px solid #d5dbdb',
+              borderRadius: '4px',
+              padding: '12px',
+              marginBottom: '12px'
+            }}>
+              <div style={{
+                fontWeight: 'bold',
+                marginBottom: '8px',
+                color: '#232f3e'
+              }}>
+                📁 Data Files Available
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px' }}>
+                {files.metadata && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Icon name="file" />
+                    <a
+                      href={files.metadata}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#0073bb', textDecoration: 'none' }}
+                    >
+                      Well Metadata (JSON)
+                    </a>
+                  </div>
+                )}
+                {files.geojson && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <Icon name="file" />
+                    <a
+                      href={files.geojson}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#0073bb', textDecoration: 'none' }}
+                    >
+                      GeoJSON Data
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {getCleanText()}
           </ReactMarkdown>
-          
-          {/* Render simple data table only - visualizations moved to analytics tab */}
-          {tableData && tableData.length > 0 && (
-            <ProfessionalGeoscientistDisplay 
-              tableData={tableData} 
+
+          {/* Render hierarchical table for /getdata command, otherwise simple table */}
+          {useHierarchicalView && hierarchicalData ? (
+            <HierarchicalDataTable
+              treeData={hierarchicalData}
+              searchQuery={originalSearchQuery || 'wells analysis'}
+            />
+          ) : tableData && tableData.length > 0 ? (
+            <ProfessionalGeoscientistDisplay
+              tableData={tableData}
               searchQuery={originalSearchQuery || 'wells analysis'}
               queryType={queryType}
               weatherData={weatherData}
             />
-          )}
+          ) : null}
         </div>
       </div>
     </div>
@@ -208,10 +442,11 @@ const CatalogChatBoxCloudscape = (params: {
   userInput: string,
   messages: Message[],
   setMessages: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void,
-  onSendMessage: (message: string) => Promise<void>
+  onSendMessage: (message: string) => Promise<void>,
+  hierarchicalData?: any
 }) => {
-  const { onInputChange, userInput, messages, setMessages, onSendMessage } = params;
-  
+  const { onInputChange, userInput, messages, setMessages, onSendMessage, hierarchicalData } = params;
+
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastSearchQuery, setLastSearchQuery] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -229,7 +464,7 @@ const CatalogChatBoxCloudscape = (params: {
     if (messagesEndRef.current) {
       console.log('Scrolling to bottom, messages length:', messages.length);
       // Use scrollIntoView on the end ref for more reliable scrolling
-      messagesEndRef.current.scrollIntoView({ 
+      messagesEndRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'end'
       });
@@ -249,7 +484,7 @@ const CatalogChatBoxCloudscape = (params: {
         requestAnimationFrame(() => {
           // First try scrollIntoView
           scrollToBottom();
-          
+
           // Backup: also try container scroll after additional delay
           setTimeout(() => {
             if (messagesContainerRef.current) {
@@ -261,7 +496,7 @@ const CatalogChatBoxCloudscape = (params: {
           }, 100);
         });
       }, 300); // Increased delay
-      
+
       return () => clearTimeout(timeoutId);
     }
   }, [messages.length, scrollToBottom]);
@@ -269,7 +504,7 @@ const CatalogChatBoxCloudscape = (params: {
   const handleSend = useCallback(async (userMessage: string) => {
     if (userMessage.trim()) {
       setIsLoading(true);
-      
+
       // Store the search query for context in dashboard rendering
       setLastSearchQuery(userMessage);
 
@@ -285,18 +520,18 @@ const CatalogChatBoxCloudscape = (params: {
         chatSessionId: '',
         owner: ''
       } as any;
-      
+
       // Defer the state update to avoid setState-during-render warning
       setTimeout(() => {
         setMessages(prevMessages => [...prevMessages, newUserMessage]);
       }, 0);
-      
+
       // Clear the input field
       onInputChange('');
-      
+
       // Process the message (this will be handled by the parent component's onSendMessage)
       await onSendMessage(userMessage);
-      
+
       setIsLoading(false);
     }
   }, [onInputChange, setMessages, onSendMessage]);
@@ -325,12 +560,16 @@ const CatalogChatBoxCloudscape = (params: {
       >
         <div>
           {messages.map((message, index) => (
-            <div 
+            <div
               key={Array.isArray(message.id) ? message.id[0] || `message-${index}` : message.id || `message-${index}`}
               style={{ marginBottom: '16px', padding: '0 16px' }}
             >
               {message.role === 'ai' ? (
-                <CustomAIMessage message={message} originalSearchQuery={lastSearchQuery} />
+                <CustomAIMessage
+                  message={message}
+                  originalSearchQuery={lastSearchQuery}
+                  hierarchicalData={hierarchicalData}
+                />
               ) : (
                 <ChatMessage message={message} />
               )}
@@ -352,13 +591,13 @@ const CatalogChatBoxCloudscape = (params: {
             ariaLabel="Prompt input with action button"
             placeholder="Ask for weather maps, field analysis, or reservoir intelligence..."
           />
-          <div style={{ 
-            color: 'white', 
-            fontSize: '11px', 
-            lineHeight: '14px', 
-            width: '50px', 
-            marginRight: '-13px', 
-            marginLeft: '10px' 
+          <div style={{
+            color: 'white',
+            fontSize: '11px',
+            lineHeight: '14px',
+            width: '50px',
+            marginRight: '-13px',
+            marginLeft: '10px'
           }}>
             Data Sources
           </div>
@@ -406,7 +645,7 @@ const CatalogChatBoxCloudscape = (params: {
                   id: '5'
                 }
               ].find(item => item.id === detail.id);
-              
+
               if (clickedItem) {
                 onInputChange(clickedItem.text);
               }
@@ -414,7 +653,7 @@ const CatalogChatBoxCloudscape = (params: {
           />
         </div>
       </div>
-      
+
       {/* Scroll to bottom button */}
       {!isScrolledToBottom && (
         <div style={{
@@ -431,7 +670,7 @@ const CatalogChatBoxCloudscape = (params: {
           />
         </div>
       )}
-      
+
       {/* Loading indicator */}
       {isLoading && (
         <div style={{

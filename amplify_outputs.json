@@ -1,9 +1,9 @@
 {
   "auth": {
-    "user_pool_id": "us-east-1_sC6yswGji",
+    "user_pool_id": "us-east-1_2RoxVgGN8",
     "aws_region": "us-east-1",
-    "user_pool_client_id": "18m99t0u39vi9614ssd8sf8vmb",
-    "identity_pool_id": "us-east-1:9deb181a-83d2-4e1d-bb7a-f4f2d418bbae",
+    "user_pool_client_id": "q4uofa9fdnju0s40kdcv58okv",
+    "identity_pool_id": "us-east-1:8c55577d-859b-4a43-b110-5d8554ffc74b",
     "mfa_methods": [],
     "standard_required_attributes": [
       "email"
@@ -26,7 +26,7 @@
     "unauthenticated_identities_enabled": true
   },
   "data": {
-    "url": "https://olauulryq5bkpbvcnkul6zvn5i.appsync-api.us-east-1.amazonaws.com/graphql",
+    "url": "https://dyxmdmp4jvcnhnh7dzdlyuujeq.appsync-api.us-east-1.amazonaws.com/graphql",
     "aws_region": "us-east-1",
     "default_authorization_type": "AMAZON_COGNITO_USER_POOLS",
     "authorization_types": [
@@ -1030,6 +1030,48 @@
             }
           }
         },
+        "CatalogSearchReturnType": {
+          "name": "CatalogSearchReturnType",
+          "fields": {
+            "type": {
+              "name": "type",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "data": {
+              "name": "data",
+              "isArray": false,
+              "type": {
+                "nonModel": "CatalogSearchReturnTypeData"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "error": {
+              "name": "error",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "errorType": {
+              "name": "errorType",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "timestamp": {
+              "name": "timestamp",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
         "GetAgentProgressReturnType": {
           "name": "GetAgentProgressReturnType",
           "fields": {
@@ -1084,6 +1126,89 @@
               "attributes": []
             }
           }
+        },
+        "CatalogSearchReturnTypeData": {
+          "name": "CatalogSearchReturnTypeData",
+          "fields": {
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "thoughtSteps": {
+              "name": "thoughtSteps",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "files": {
+              "name": "files",
+              "isArray": false,
+              "type": {
+                "nonModel": "CatalogSearchReturnTypeDataFiles"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "stats": {
+              "name": "stats",
+              "isArray": false,
+              "type": {
+                "nonModel": "CatalogSearchReturnTypeDataStats"
+              },
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
+        "CatalogSearchReturnTypeDataFiles": {
+          "name": "CatalogSearchReturnTypeDataFiles",
+          "fields": {
+            "metadata": {
+              "name": "metadata",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "geojson": {
+              "name": "geojson",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
+        "CatalogSearchReturnTypeDataStats": {
+          "name": "CatalogSearchReturnTypeDataStats",
+          "fields": {
+            "wellCount": {
+              "name": "wellCount",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "wellboreCount": {
+              "name": "wellboreCount",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            },
+            "welllogCount": {
+              "name": "welllogCount",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
         }
       },
       "queries": {
@@ -1098,26 +1223,6 @@
               "isArray": false,
               "type": "String",
               "isRequired": true
-            }
-          }
-        },
-        "catalogSearch": {
-          "name": "catalogSearch",
-          "isArray": false,
-          "type": "String",
-          "isRequired": false,
-          "arguments": {
-            "prompt": {
-              "name": "prompt",
-              "isArray": false,
-              "type": "String",
-              "isRequired": true
-            },
-            "existingContext": {
-              "name": "existingContext",
-              "isArray": false,
-              "type": "AWSJSON",
-              "isRequired": false
             }
           }
         },
@@ -1295,6 +1400,46 @@
             }
           }
         },
+        "catalogSearch": {
+          "name": "catalogSearch",
+          "isArray": false,
+          "type": {
+            "nonModel": "CatalogSearchReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "prompt": {
+              "name": "prompt",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "sessionId": {
+              "name": "sessionId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "osduInstance": {
+              "name": "osduInstance",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": true
+            },
+            "authToken": {
+              "name": "authToken",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "existingContext": {
+              "name": "existingContext",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": false
+            }
+          }
+        },
         "collectionManagement": {
           "name": "collectionManagement",
           "isArray": false,
@@ -1362,11 +1507,11 @@
   },
   "storage": {
     "aws_region": "us-east-1",
-    "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy",
+    "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-fwez7aqrqv9r",
     "buckets": [
       {
         "name": "workshopStorage",
-        "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy",
+        "bucket_name": "amplify-digitalassistant--workshopstoragebucketd9b-fwez7aqrqv9r",
         "aws_region": "us-east-1",
         "paths": {
           "chatSessionArtifacts/*": {

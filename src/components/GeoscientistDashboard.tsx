@@ -1,31 +1,23 @@
 'use client';
 
 import React, { useMemo, useCallback } from 'react';
-import { 
-  Container, 
-  Header, 
-  SpaceBetween, 
-  Grid, 
-  Box, 
-  Badge, 
+import {
+  Container,
+  Header,
+  SpaceBetween,
+  Grid,
+  Box,
+  Badge,
   ProgressBar,
   KeyValuePairs,
   Cards,
   Button,
   Icon,
   ExpandableSection,
-  Tabs
+  Tabs,
+  Table,
+  Pagination
 } from '@cloudscape-design/components';
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper,
-  Chip
-} from '@mui/material';
 
 interface WellData {
   name: string;
@@ -34,12 +26,23 @@ interface WellData {
   location: string;
   operator: string;
   coordinates: [number, number];
+  // OSDU properties
+  well_id?: string;
+  id?: string;
+  data?: {
+    FacilityName?: string;
+    [key: string]: any;
+  };
   // Reservoir properties (estimated)
   porosity?: number;
   permeability?: number;
   netPay?: number;
   waterSaturation?: number;
   reservoirQuality?: 'Excellent' | 'Good' | 'Fair' | 'Poor';
+  // Generated properties
+  uniqueId?: string;
+  facilityName?: string;
+  qualityScore?: number;
 }
 
 interface GeoscientistDashboardProps {
@@ -50,29 +53,32 @@ interface GeoscientistDashboardProps {
 }
 
 // Memoized component to prevent unnecessary re-renders
-const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({ 
-  wells, 
-  queryType, 
+const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
+  wells,
+  queryType,
   searchQuery,
-  weatherData 
+  weatherData
 }) => {
-  
+  // Pagination state
+  const [currentPage, setCurrentPage] = React.useState(1);
+  const itemsPerPage = 50;
+
   // Memoize expensive calculations to prevent re-computation on every render
   const enhancedWells = useMemo(() => wells.map((well, index) => {
     // Generate realistic reservoir properties based on offshore SE Asia characteristics
     // Use well name as seed for consistent results across re-renders
     const seed = well.name.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const random = (seed * 9301 + 49297) % 233280 / 233280; // Seeded pseudo-random
-    
+
     const porosity = 0.12 + (random * 0.15); // 12-27% typical for offshore
     const permeability = Math.pow(10, (random * 3) - 1); // 0.1-100 mD log-normal
     const netPay = 15 + (random * 85); // 15-100m net pay
     const waterSaturation = 0.25 + (random * 0.40); // 25-65% water saturation
-    
+
     // Calculate reservoir quality index
     let reservoirQuality: 'Excellent' | 'Good' | 'Fair' | 'Poor';
     const qualityScore = (porosity * 100) + Math.log10(permeability) * 10 + netPay;
-    
+
     if (qualityScore > 50) reservoirQuality = 'Excellent';
     else if (qualityScore > 35) reservoirQuality = 'Good';
     else if (qualityScore > 25) reservoirQuality = 'Fair';
@@ -80,6 +86,10 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
 
     return {
       ...well,
+      // Create unique ID from well_id, id, or generate stable ID from index and name
+      uniqueId: well.well_id || well.id || `${well.name}-${index}`,
+      // Extract FacilityName if available
+      facilityName: well.data?.FacilityName || well.name,
       porosity: Math.round(porosity * 1000) / 10, // As percentage with 1 decimal
       permeability: Math.round(permeability * 10) / 10,
       netPay: Math.round(netPay),
@@ -112,9 +122,23 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
     currentConditions: 'Favorable for operations'
   } : null, [weatherData]);
 
+  // Pagination calculations
+  const totalPages = Math.ceil(enhancedWells.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedWells = useMemo(() =>
+    enhancedWells.slice(startIndex, endIndex),
+    [enhancedWells, startIndex, endIndex]
+  );
+
+  // Reset to page 1 when wells change
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [wells.length]);
+
   return (
     <SpaceBetween direction="vertical" size="l">
-      
+
       {/* Executive Summary Header */}
       <Container
         header={
@@ -134,7 +158,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
         }
       >
         <Grid gridDefinition={[{ colspan: 4 }, { colspan: 4 }, { colspan: 4 }]}>
-          
+
           {/* Key Performance Indicators */}
           <Box>
             <SpaceBetween direction="vertical" size="m">
@@ -174,7 +198,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
               />
             </SpaceBetween>
           </Box>
-          
+
           {/* Development Recommendations */}
           <Box>
             <SpaceBetween direction="vertical" size="m">
@@ -189,7 +213,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                         <SpaceBetween direction="horizontal" size="xs" alignItems="center">
                           <Badge color={
                             item.reservoirQuality === 'Excellent' ? 'green' :
-                            item.reservoirQuality === 'Good' ? 'blue' : 'red'
+                              item.reservoirQuality === 'Good' ? 'blue' : 'red'
                           }>
                             {item.reservoirQuality}
                           </Badge>
@@ -198,12 +222,12 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                       )
                     },
                     {
-                      id: "recommendation", 
+                      id: "recommendation",
                       content: item => (
                         <Box variant="small" color="text-body-secondary">
                           {item.reservoirQuality === 'Excellent' ? '🥇 Priority development target' :
-                           item.reservoirQuality === 'Good' ? '🥈 Strong completion candidate' : 
-                           '🥉 Consider enhanced recovery'}
+                            item.reservoirQuality === 'Good' ? '🥈 Strong completion candidate' :
+                              '🥉 Consider enhanced recovery'}
                         </Box>
                       )
                     }
@@ -215,7 +239,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
               />
             </SpaceBetween>
           </Box>
-          
+
           {/* Weather Operations (if weather query) */}
           {queryType === 'weatherMaps' && weatherOperations && (
             <Box>
@@ -229,9 +253,9 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                       value: (
                         <SpaceBetween direction="horizontal" size="xs" alignItems="center">
                           <Badge color="green">{weatherOperations.optimalOperatingDays} days/month</Badge>
-                          <ProgressBar 
-                            value={(weatherOperations.optimalOperatingDays / 30) * 100} 
-                            additionalInfo="This month" 
+                          <ProgressBar
+                            value={(weatherOperations.optimalOperatingDays / 30) * 100}
+                            additionalInfo="This month"
                           />
                         </SpaceBetween>
                       )
@@ -241,7 +265,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                       value: (
                         <Badge color={
                           weatherOperations.weatherRisk === 'Low' ? 'green' :
-                          weatherOperations.weatherRisk === 'Medium' ? 'blue' : 'red'
+                            weatherOperations.weatherRisk === 'Medium' ? 'blue' : 'red'
                         }>
                           {weatherOperations.weatherRisk}
                         </Badge>
@@ -259,7 +283,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
               </SpaceBetween>
             </Box>
           )}
-          
+
         </Grid>
       </Container>
 
@@ -272,35 +296,33 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
               id: "reservoir",
               content: (
                 <SpaceBetween direction="vertical" size="m">
-                  
+
                   {/* Reservoir Quality Matrix */}
                   <Box>
                     <Box variant="h3">Reservoir Quality Assessment</Box>
                     <Grid gridDefinition={[{ colspan: 6 }, { colspan: 6 }]}>
                       <Box>
                         <Box variant="h4">Quality Distribution</Box>
-                        <div style={{ 
-                          display: 'grid', 
+                        <div style={{
+                          display: 'grid',
                           gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
                           gap: '12px',
                           marginTop: '12px'
                         }}>
                           {enhancedWells.map(well => (
-                            <div 
+                            <div
                               key={well.name}
                               style={{
                                 padding: '8px',
-                                border: `2px solid ${
-                                  well.reservoirQuality === 'Excellent' ? '#1976d2' :
+                                border: `2px solid ${well.reservoirQuality === 'Excellent' ? '#1976d2' :
                                   well.reservoirQuality === 'Good' ? '#2e7d32' :
-                                  well.reservoirQuality === 'Fair' ? '#f57c00' : '#d32f2f'
-                                }`,
+                                    well.reservoirQuality === 'Fair' ? '#f57c00' : '#d32f2f'
+                                  }`,
                                 borderRadius: '6px',
-                                backgroundColor: `${
-                                  well.reservoirQuality === 'Excellent' ? '#e3f2fd' :
+                                backgroundColor: `${well.reservoirQuality === 'Excellent' ? '#e3f2fd' :
                                   well.reservoirQuality === 'Good' ? '#e8f5e8' :
-                                  well.reservoirQuality === 'Fair' ? '#fff3e0' : '#ffebee'
-                                }`,
+                                    well.reservoirQuality === 'Fair' ? '#fff3e0' : '#ffebee'
+                                  }`,
                                 textAlign: 'center',
                                 fontSize: '11px'
                               }}
@@ -309,20 +331,20 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                                 {well.name}
                               </div>
                               <div style={{ color: '#666' }}>
-                                φ: {well.porosity}%<br/>
-                                k: {well.permeability}mD<br/>
+                                φ: {well.porosity}%<br />
+                                k: {well.permeability}mD<br />
                                 Pay: {well.netPay}m
                               </div>
                             </div>
                           ))}
                         </div>
                       </Box>
-                      
+
                       <Box>
                         <Box variant="h4">Development Priorities</Box>
                         <SpaceBetween direction="vertical" size="s">
                           {topWells.slice(0, 5).map((well, index) => (
-                            <div 
+                            <div
                               key={well.name}
                               style={{
                                 display: 'flex',
@@ -332,9 +354,9 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                                 borderRadius: '4px'
                               }}
                             >
-                              <div style={{ 
-                                width: '24px', 
-                                height: '24px', 
+                              <div style={{
+                                width: '24px',
+                                height: '24px',
                                 borderRadius: '50%',
                                 backgroundColor: index === 0 ? '#ffd700' : index === 1 ? '#c0c0c0' : '#cd7f32',
                                 display: 'flex',
@@ -353,8 +375,8 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                                 </div>
                               </div>
                               <Badge color={
-                                well.reservoirQuality === 'Excellent' ? 'green' : 
-                                well.reservoirQuality === 'Good' ? 'blue' : 'grey'
+                                well.reservoirQuality === 'Excellent' ? 'green' :
+                                  well.reservoirQuality === 'Good' ? 'blue' : 'grey'
                               }>
                                 {well.reservoirQuality}
                               </Badge>
@@ -382,9 +404,9 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                         {/* Mock Crossplot */}
                         <svg width="280" height="280" viewBox="0 0 280 280">
                           {/* Axes */}
-                          <line x1="40" y1="240" x2="240" y2="240" stroke="#333" strokeWidth="2"/>
-                          <line x1="40" y1="40" x2="40" y2="240" stroke="#333" strokeWidth="2"/>
-                          
+                          <line x1="40" y1="240" x2="240" y2="240" stroke="#333" strokeWidth="2" />
+                          <line x1="40" y1="40" x2="40" y2="240" stroke="#333" strokeWidth="2" />
+
                           {/* Axis labels */}
                           <text x="140" y="260" textAnchor="middle" fontSize="12" fill="#333">
                             Porosity (%)
@@ -392,38 +414,38 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                           <text x="20" y="140" textAnchor="middle" fontSize="12" fill="#333" transform="rotate(-90 20 140)">
                             Permeability (mD)
                           </text>
-                          
+
                           {/* Grid lines */}
                           <defs>
                             <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-                              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" strokeWidth="1"/>
+                              <path d="M 20 0 L 0 0 0 20" fill="none" stroke="#e0e0e0" strokeWidth="1" />
                             </pattern>
                           </defs>
                           <rect x="40" y="40" width="200" height="200" fill="url(#grid)" />
-                          
+
                           {/* Data points */}
                           {enhancedWells.map((well, index) => {
                             const x = 40 + ((well.porosity || 0) * 8); // Scale to fit
                             const y = 240 - (Math.log10(well.permeability || 1) * 40 + 80); // Log scale
-                            const color = 
+                            const color =
                               well.reservoirQuality === 'Excellent' ? '#2e7d32' :
-                              well.reservoirQuality === 'Good' ? '#1976d2' :
-                              well.reservoirQuality === 'Fair' ? '#f57c00' : '#d32f2f';
-                            
+                                well.reservoirQuality === 'Good' ? '#1976d2' :
+                                  well.reservoirQuality === 'Fair' ? '#f57c00' : '#d32f2f';
+
                             return (
                               <g key={well.name}>
-                                <circle 
-                                  cx={x} 
-                                  cy={y} 
-                                  r="4" 
+                                <circle
+                                  cx={x}
+                                  cy={y}
+                                  r="4"
                                   fill={color}
                                   stroke="#fff"
                                   strokeWidth="1"
                                 />
-                                <text 
-                                  x={x + 6} 
-                                  y={y + 3} 
-                                  fontSize="9" 
+                                <text
+                                  x={x + 6}
+                                  y={y + 3}
+                                  fontSize="9"
                                   fill="#333"
                                 >
                                   {well.name.split('-')[1] || index + 1}
@@ -431,14 +453,14 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                               </g>
                             );
                           })}
-                          
+
                           {/* Quality zones */}
                           <text x="50" y="60" fontSize="10" fill="#2e7d32" fontWeight="bold">Excellent Zone</text>
                           <text x="50" y="120" fontSize="10" fill="#1976d2" fontWeight="bold">Good Zone</text>
                           <text x="50" y="180" fontSize="10" fill="#f57c00" fontWeight="bold">Fair Zone</text>
                         </svg>
                       </div>
-                      
+
                       <Box variant="small" color="text-body-secondary" textAlign="center">
                         Interactive Porosity vs Permeability Crossplot - Color coded by reservoir quality
                       </Box>
@@ -448,13 +470,13 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                 </SpaceBetween>
               )
             },
-            
+
             {
               label: "Production Intelligence",
               id: "production",
               content: (
                 <SpaceBetween direction="vertical" size="m">
-                  
+
                   {/* EUR Predictions */}
                   <Box>
                     <Box variant="h3">Estimated Ultimate Recovery (EUR) Analysis</Box>
@@ -469,7 +491,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                           {topWells.slice(0, 9).map((well, index) => {
                             const eur = Math.round((well.porosity || 0) * (well.netPay || 0) * (1 - (well.waterSaturation || 0) / 100) * 0.5);
                             return (
-                              <div 
+                              <div
                                 key={well.name}
                                 style={{
                                   padding: '12px',
@@ -493,7 +515,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                           })}
                         </div>
                       </Box>
-                      
+
                       <Box>
                         <Box variant="h4">Economic Ranking</Box>
                         <SpaceBetween direction="vertical" size="s">
@@ -501,7 +523,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                             const eur = Math.round((well.porosity || 0) * (well.netPay || 0) * (1 - (well.waterSaturation || 0) / 100) * 0.5);
                             const npv = eur * 2.3;
                             return (
-                              <div 
+                              <div
                                 key={well.name}
                                 style={{
                                   display: 'flex',
@@ -511,9 +533,9 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                                   borderRadius: '4px'
                                 }}
                               >
-                                <div style={{ 
-                                  width: '20px', 
-                                  height: '20px', 
+                                <div style={{
+                                  width: '20px',
+                                  height: '20px',
                                   borderRadius: '50%',
                                   backgroundColor: '#2e7d32',
                                   color: 'white',
@@ -551,13 +573,13 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                 </SpaceBetween>
               )
             },
-            
+
             {
-              label: "Regional Context", 
+              label: "Regional Context",
               id: "regional",
               content: (
                 <SpaceBetween direction="vertical" size="m">
-                  
+
                   {/* Basin Analysis */}
                   <Box>
                     <Box variant="h3">South China Sea Basin Analysis</Box>
@@ -575,7 +597,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                           ]}
                         />
                       </Box>
-                      
+
                       <Box>
                         <Box variant="h4">📊 Regional Statistics</Box>
                         <KeyValuePairs
@@ -589,13 +611,13 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                           ]}
                         />
                       </Box>
-                      
+
                       <Box>
                         <Box variant="h4">🎯 Play Fairway</Box>
                         <SpaceBetween direction="vertical" size="s">
-                          <div style={{ 
-                            padding: '8px', 
-                            backgroundColor: '#e8f5e8', 
+                          <div style={{
+                            padding: '8px',
+                            backgroundColor: '#e8f5e8',
                             borderRadius: '4px',
                             border: '1px solid #2e7d32'
                           }}>
@@ -604,10 +626,10 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                               High porosity trend: Central field area
                             </div>
                           </div>
-                          
-                          <div style={{ 
-                            padding: '8px', 
-                            backgroundColor: '#e3f2fd', 
+
+                          <div style={{
+                            padding: '8px',
+                            backgroundColor: '#e3f2fd',
                             borderRadius: '4px',
                             border: '1px solid #1976d2'
                           }}>
@@ -616,10 +638,10 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                               Additional prospects: Northern extension
                             </div>
                           </div>
-                          
-                          <div style={{ 
-                            padding: '8px', 
-                            backgroundColor: '#fff3e0', 
+
+                          <div style={{
+                            padding: '8px',
+                            backgroundColor: '#fff3e0',
                             borderRadius: '4px',
                             border: '1px solid #f57c00'
                           }}>
@@ -636,13 +658,13 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                 </SpaceBetween>
               )
             },
-            
+
             {
               label: "Operations Planning",
-              id: "operations", 
+              id: "operations",
               content: (
                 <SpaceBetween direction="vertical" size="m">
-                  
+
                   {/* Operations Matrix */}
                   <Box>
                     <Box variant="h3">Field Development Operations</Box>
@@ -655,27 +677,27 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                               // CRASH FIX: Defensive programming with safe array operations
                               const safeTopWells = topWells || [];
                               const safeEnhancedWells = enhancedWells || [];
-                              
+
                               const phases = [
-                                { 
-                                  phase: 'Phase 1 (Q1-Q2)', 
-                                  wells: safeTopWells.slice(0, Math.min(3, safeTopWells.length)), 
-                                  status: 'Planning' 
+                                {
+                                  phase: 'Phase 1 (Q1-Q2)',
+                                  wells: safeTopWells.slice(0, Math.min(3, safeTopWells.length)),
+                                  status: 'Planning'
                                 },
-                                { 
-                                  phase: 'Phase 2 (Q3-Q4)', 
-                                  wells: safeTopWells.slice(3, Math.min(6, safeTopWells.length)), 
-                                  status: 'Future' 
+                                {
+                                  phase: 'Phase 2 (Q3-Q4)',
+                                  wells: safeTopWells.slice(3, Math.min(6, safeTopWells.length)),
+                                  status: 'Future'
                                 },
-                                { 
-                                  phase: 'Phase 3 (Year 2)', 
-                                  wells: safeEnhancedWells.slice(6, Math.min(10, safeEnhancedWells.length)), 
-                                  status: 'Exploration' 
+                                {
+                                  phase: 'Phase 3 (Year 2)',
+                                  wells: safeEnhancedWells.slice(6, Math.min(10, safeEnhancedWells.length)),
+                                  status: 'Exploration'
                                 }
                               ];
-                              
+
                               return phases.map((phase, phaseIndex) => (
-                                <div 
+                                <div
                                   key={phase.phase}
                                   style={{
                                     marginBottom: '12px',
@@ -690,7 +712,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                                     <span style={{ marginLeft: '8px' }}>
                                       <Badge color={
                                         phase.status === 'Planning' ? 'green' :
-                                        phase.status === 'Future' ? 'blue' : 'grey'
+                                          phase.status === 'Future' ? 'blue' : 'grey'
                                       }>
                                         {phase.status}
                                       </Badge>
@@ -698,7 +720,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                                   </div>
                                   <div style={{ fontSize: '11px', color: '#666' }}>
                                     Wells: {
-                                      phase.wells && phase.wells.length > 0 
+                                      phase.wells && phase.wells.length > 0
                                         ? phase.wells.map(w => w?.name || 'Unknown').join(', ')
                                         : 'No wells assigned yet'
                                     }
@@ -708,9 +730,9 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                             } catch (error) {
                               console.error('Error in operations planning:', error);
                               return (
-                                <div style={{ 
-                                  padding: '12px', 
-                                  backgroundColor: '#fff3e0', 
+                                <div style={{
+                                  padding: '12px',
+                                  backgroundColor: '#fff3e0',
                                   borderRadius: '4px',
                                   border: '1px solid #f57c00'
                                 }}>
@@ -726,33 +748,33 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                           })()}
                         </div>
                       </Box>
-                      
+
                       <Box>
                         <Box variant="h4">⚙️ Completion Strategy</Box>
                         <SpaceBetween direction="vertical" size="s">
                           <div style={{ padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
                             <div style={{ fontWeight: 'bold' }}>🎯 Primary Targets</div>
                             <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                              • High porosity zones (&gt;18%)<br/>
-                              • Net pay &gt;50m<br/>
+                              • High porosity zones (&gt;18%)<br />
+                              • Net pay &gt;50m<br />
                               • Water saturation &lt;40%
                             </div>
                           </div>
-                          
+
                           <div style={{ padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
                             <div style={{ fontWeight: 'bold' }}>🔧 Completion Methods</div>
                             <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                              • Hydraulic fracturing for tight zones<br/>
-                              • Sand control for unconsolidated intervals<br/>
+                              • Hydraulic fracturing for tight zones<br />
+                              • Sand control for unconsolidated intervals<br />
                               • Selective completion for optimal zones
                             </div>
                           </div>
-                          
+
                           <div style={{ padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
                             <div style={{ fontWeight: 'bold' }}>📈 Expected Performance</div>
                             <div style={{ fontSize: '12px', color: '#666', marginTop: '4px' }}>
-                              • Initial rates: 5-25 MMCFD<br/>
-                              • Recovery factor: 75-85%<br/>
+                              • Initial rates: 5-25 MMCFD<br />
+                              • Recovery factor: 75-85%<br />
                               • Field life: 15-20 years
                             </div>
                           </div>
@@ -769,9 +791,9 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                         <Box>
                           <Box variant="h4">⏰ Operational Windows</Box>
                           <div style={{ marginTop: '12px' }}>
-                            <div style={{ 
-                              padding: '12px', 
-                              backgroundColor: '#e8f5e8', 
+                            <div style={{
+                              padding: '12px',
+                              backgroundColor: '#e8f5e8',
                               borderRadius: '6px',
                               marginBottom: '8px'
                             }}>
@@ -780,11 +802,11 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                                 March - September: {weatherOperations.optimalOperatingDays} days/month average
                               </div>
                             </div>
-                            
-                            <div style={{ 
-                              padding: '12px', 
-                              backgroundColor: '#fff3e0', 
-                              borderRadius: '6px' 
+
+                            <div style={{
+                              padding: '12px',
+                              backgroundColor: '#fff3e0',
+                              borderRadius: '6px'
                             }}>
                               <div style={{ fontWeight: 'bold', color: '#f57c00' }}>Challenging Period</div>
                               <div style={{ fontSize: '12px', marginTop: '4px' }}>
@@ -793,7 +815,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                             </div>
                           </div>
                         </Box>
-                        
+
                         <Box>
                           <Box variant="h4">🌊 Sea State Analysis</Box>
                           <KeyValuePairs
@@ -813,7 +835,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                 </SpaceBetween>
               )
             },
-            
+
             {
               label: "Data Table",
               id: "datatable",
@@ -825,76 +847,123 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
                       Traditional tabular view of all well data with sortable columns and detailed information
                     </Box>
                   </Box>
-                  
-                  {/* Material UI Data Table */}
-                  <div style={{ 
-                    backgroundColor: 'white', 
-                    borderRadius: '8px', 
-                    overflow: 'hidden',
-                    border: '1px solid #e0e0e0'
-                  }}>
-                    <TableContainer component={Paper} style={{ maxHeight: 600 }}>
-                      <Table stickyHeader size="small">
-                        <TableHead>
-                          <TableRow>
-                            <TableCell><strong>Well Name</strong></TableCell>
-                            <TableCell><strong>Type</strong></TableCell>
-                            <TableCell><strong>Location</strong></TableCell>
-                            <TableCell><strong>Depth</strong></TableCell>
-                            <TableCell><strong>Operator</strong></TableCell>
-                            <TableCell><strong>Porosity</strong></TableCell>
-                            <TableCell><strong>Permeability</strong></TableCell>
-                            <TableCell><strong>Quality</strong></TableCell>
-                            <TableCell><strong>Coordinates</strong></TableCell>
-                          </TableRow>
-                        </TableHead>
-                        <TableBody>
-                          {enhancedWells.map((well, index) => (
-                            <TableRow 
-                              key={well.name}
-                              sx={{ 
-                                '&:nth-of-type(odd)': { backgroundColor: '#f9f9f9' },
-                                '&:hover': { backgroundColor: '#f0f0f0' }
-                              }}
-                            >
-                              <TableCell>
-                                <strong style={{ color: '#1976d2' }}>{well.name}</strong>
-                              </TableCell>
-                              <TableCell>{well.type}</TableCell>
-                              <TableCell>{well.location}</TableCell>
-                              <TableCell>{well.depth}</TableCell>
-                              <TableCell>{well.operator}</TableCell>
-                              <TableCell>
-                                <Chip 
-                                  label={`${well.porosity}%`} 
-                                  size="small"
-                                  color={well.porosity > 18 ? 'success' : well.porosity > 14 ? 'primary' : 'default'}
-                                />
-                              </TableCell>
-                              <TableCell>{well.permeability} mD</TableCell>
-                              <TableCell>
-                                <Chip 
-                                  label={well.reservoirQuality}
-                                  size="small"
-                                  color={
-                                    well.reservoirQuality === 'Excellent' ? 'success' :
-                                    well.reservoirQuality === 'Good' ? 'primary' : 'default'
-                                  }
-                                />
-                              </TableCell>
-                              <TableCell style={{ fontSize: '11px', color: '#666' }}>
-                                {well.coordinates[1].toFixed(4)}, {well.coordinates[0].toFixed(4)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </TableContainer>
-                  </div>
-                  
+
+                  {/* Cloudscape Table with Built-in Pagination */}
+                  <Table
+                    columnDefinitions={[
+                      {
+                        id: 'facilityName',
+                        header: 'Facility Name',
+                        cell: item => <strong>{item.facilityName}</strong>,
+                        sortingField: 'facilityName',
+                        isRowHeader: true
+                      },
+                      {
+                        id: 'wellId',
+                        header: 'Well ID',
+                        cell: item => (
+                          <Box variant="small" color="text-body-secondary">
+                            {item.uniqueId}
+                          </Box>
+                        ),
+                        sortingField: 'uniqueId'
+                      },
+                      {
+                        id: 'type',
+                        header: 'Type',
+                        cell: item => item.type,
+                        sortingField: 'type'
+                      },
+                      {
+                        id: 'location',
+                        header: 'Location',
+                        cell: item => item.location,
+                        sortingField: 'location'
+                      },
+                      {
+                        id: 'depth',
+                        header: 'Depth',
+                        cell: item => item.depth,
+                        sortingField: 'depth'
+                      },
+                      {
+                        id: 'operator',
+                        header: 'Operator',
+                        cell: item => item.operator,
+                        sortingField: 'operator'
+                      },
+                      {
+                        id: 'porosity',
+                        header: 'Porosity',
+                        cell: item => (
+                          <Badge color={item.porosity > 18 ? 'green' : item.porosity > 14 ? 'blue' : 'grey'}>
+                            {item.porosity}%
+                          </Badge>
+                        ),
+                        sortingField: 'porosity'
+                      },
+                      {
+                        id: 'permeability',
+                        header: 'Permeability',
+                        cell: item => `${item.permeability} mD`,
+                        sortingField: 'permeability'
+                      },
+                      {
+                        id: 'quality',
+                        header: 'Quality',
+                        cell: item => (
+                          <Badge color={
+                            item.reservoirQuality === 'Excellent' ? 'green' :
+                              item.reservoirQuality === 'Good' ? 'blue' : 'grey'
+                          }>
+                            {item.reservoirQuality}
+                          </Badge>
+                        ),
+                        sortingField: 'reservoirQuality'
+                      },
+                      {
+                        id: 'coordinates',
+                        header: 'Coordinates',
+                        cell: item => (
+                          <Box variant="small" color="text-body-secondary">
+                            {item.coordinates[1].toFixed(4)}, {item.coordinates[0].toFixed(4)}
+                          </Box>
+                        )
+                      }
+                    ]}
+                    items={paginatedWells}
+                    trackBy="uniqueId"
+                    loadingText="Loading wells"
+                    empty={
+                      <Box textAlign="center" color="inherit">
+                        <Box variant="strong" color="inherit">No wells</Box>
+                      </Box>
+                    }
+                    header={
+                      <Header
+                        counter={`(${enhancedWells.length} total)`}
+                        description="Showing 50 wells per page for optimal performance"
+                      >
+                        Well Data
+                      </Header>
+                    }
+                    pagination={
+                      <Pagination
+                        currentPageIndex={currentPage}
+                        onChange={({ detail }) => setCurrentPage(detail.currentPageIndex)}
+                        pagesCount={totalPages}
+                        ariaLabels={{
+                          nextPageLabel: 'Next page',
+                          previousPageLabel: 'Previous page',
+                          pageLabel: pageNumber => `Page ${pageNumber} of ${totalPages}`
+                        }}
+                      />
+                    }
+                  />
+
                   <Box variant="small" color="text-body-secondary">
-                    💡 This table preserves all original functionality while providing sortable columns and detailed data access.
-                    Total wells: {enhancedWells.length} | Excellent quality: {fieldStats.excellentWells} | Good quality: {fieldStats.goodWells}
+                    💡 Showing {itemsPerPage} wells per page for better performance.
+                    Total: {enhancedWells.length} wells | Excellent: {fieldStats.excellentWells} | Good: {fieldStats.goodWells}
                   </Box>
                 </SpaceBetween>
               )
@@ -902,7 +971,7 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
           ]}
         />
       </Container>
-      
+
       {/* Action Items and Next Steps */}
       <Container
         header={
@@ -912,9 +981,9 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
         }
       >
         <SpaceBetween direction="vertical" size="s">
-          <div style={{ 
-            padding: '12px', 
-            backgroundColor: '#e8f5e8', 
+          <div style={{
+            padding: '12px',
+            backgroundColor: '#e8f5e8',
             borderRadius: '6px',
             border: '1px solid #2e7d32'
           }}>
@@ -928,10 +997,10 @@ const GeoscientistDashboard = React.memo<GeoscientistDashboardProps>(({
               <li>Plan Phase 2 development based on Phase 1 results</li>
             </ul>
           </div>
-          
-          <div style={{ 
-            padding: '12px', 
-            backgroundColor: '#e3f2fd', 
+
+          <div style={{
+            padding: '12px',
+            backgroundColor: '#e3f2fd',
             borderRadius: '6px',
             border: '1px solid #1976d2'
           }}>

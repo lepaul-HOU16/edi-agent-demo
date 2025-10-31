@@ -3,12 +3,13 @@ import { auth } from './auth/resource';
 import { data, agentFunction, catalogMapDataFunction, catalogSearchFunction, renewableToolsFunction, agentProgressFunction } from './data/resource';
 import { storage } from './storage/resource';
 import { renewableAgentCoreProxy } from './functions/renewableAgentCoreProxy/resource';
-import { aws_iam as iam, Stack, RemovalPolicy, Duration } from 'aws-cdk-lib';
+import { aws_iam as iam, Stack, RemovalPolicy, Duration, CfnOutput } from 'aws-cdk-lib';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 import { McpServerConstruct } from './custom/mcpServer';
 import { LocationServiceConstruct } from './custom/locationService';
 import { StrandsAgentAlarms } from './custom/strandsAgentAlarms';
-import * as dynamodb from 'aws-cdk-lib/aws-dynamodb';
 
 // Import NEW Lambda-based renewable energy functions
 import { renewableOrchestrator } from './functions/renewableOrchestrator/resource';
@@ -67,6 +68,44 @@ const sessionContextTable = new dynamodb.Table(backend.stack, 'RenewableSessionC
 });
 
 console.log('✅ Created DynamoDB table for session context:', sessionContextTable.tableName);
+
+// ============================================
+// Catalog Session Storage Infrastructure
+// ============================================
+
+// Create S3 bucket for catalog sessions with lifecycle policies
+const catalogSessionBucket = new s3.Bucket(backend.stack, 'CatalogSessionBucket', {
+  bucketName: `catalog-sessions-${backend.stack.account}-${backend.stack.region}`,
+  // Lifecycle policy: Delete sessions after 7 days
+  lifecycleRules: [
+    {
+      id: 'DeleteOldSessions',
+      expiration: Duration.days(7),
+      enabled: true
+    }
+  ],
+  // CORS configuration for frontend access to signed URLs
+  cors: [
+    {
+      allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT],
+      allowedOrigins: ['*'], // In production, restrict to your domain
+      allowedHeaders: ['*'],
+      maxAge: 3000
+    }
+  ],
+  // Encryption at rest
+  encryption: s3.BucketEncryption.S3_MANAGED,
+  // Block public access
+  blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+  // Removal policy for development
+  removalPolicy: RemovalPolicy.DESTROY,
+  autoDeleteObjects: true,
+  // Versioning disabled to save costs
+  versioned: false
+});
+
+console.log('✅ Created S3 bucket for catalog sessions:', catalogSessionBucket.bucketName);
+console.log('✅ Lifecycle policy: Delete sessions after 7 days');
 
 // Create DynamoDB table for agent progress tracking
 const agentProgressTable = new dynamodb.Table(backend.stack, 'AgentProgress', {
@@ -183,6 +222,58 @@ backend.agentFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyState
 backend.catalogMapDataFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
 backend.catalogSearchFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
 backend.maintenanceAgentFunction.resources.lambda.addToRolePolicy(actualS3BucketPolicyStatement);
+
+// ============================================
+// Catalog Search Lambda S3 Permissions
+// ============================================
+
+// Grant catalogSearchFunction full access to catalog session bucket
+backend.catalogSearchFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      's3:PutObject',
+      's3:GetObject',
+      's3:DeleteObject',
+      's3:ListBucket'
+    ],
+    resources: [
+      catalogSessionBucket.bucketArn,
+      `${catalogSessionBucket.bucketArn}/*`
+    ]
+  })
+);
+
+// Grant catalogSearchFunction Bedrock permissions for Strands Agent
+backend.catalogSearchFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      'bedrock:InvokeModel',
+      'bedrock:InvokeModelWithResponseStream'
+    ],
+    resources: [
+      // Foundation models (region-specific)
+      `arn:aws:bedrock:us-*::foundation-model/*`,
+      `arn:aws:bedrock:*::foundation-model/*`,
+      // Inference profiles (cross-region and global)
+      `arn:aws:bedrock:us-*:${backend.stack.account}:inference-profile/*`,
+      `arn:aws:bedrock:*:${backend.stack.account}:inference-profile/*`,
+      // Global inference profiles (no region, no account)
+      `arn:aws:bedrock:*::inference-profile/*`,
+    ]
+  })
+);
+
+// Add catalog session bucket name as environment variable
+backend.catalogSearchFunction.addEnvironment(
+  'CATALOG_SESSION_BUCKET',
+  catalogSessionBucket.bucketName
+);
+
+// CloudWatch Logs permissions are automatically granted by Lambda
+// But we'll ensure enhanced logging is enabled
+console.log('✅ Granted catalogSearchFunction S3 permissions for catalog sessions');
+console.log('✅ Granted catalogSearchFunction Bedrock permissions for Strands Agent');
+console.log('✅ CloudWatch Logs automatically enabled for Lambda function');
 
 backend.agentFunction.resources.lambda.addToRolePolicy(
   new iam.PolicyStatement({
@@ -766,8 +857,6 @@ console.log('✅ Renewable Energy Lambda functions registered successfully');
 // Without these outputs, the frontend cannot access the deployed function names
 // This is why changes never reach the frontend - the frontend is using hardcoded names!
 
-import { CfnOutput } from 'aws-cdk-lib';
-
 // Export all renewable energy function names
 new CfnOutput(backend.stack, 'RenewableOrchestratorFunctionName', {
   value: backend.renewableOrchestrator.resources.lambda.functionName,
@@ -839,6 +928,12 @@ new CfnOutput(backend.stack, 'AgentProgressTableName', {
   value: agentProgressTable.tableName,
   description: 'DynamoDB table for agent progress tracking',
   exportName: 'AgentProgressTableName'
+});
+
+new CfnOutput(backend.stack, 'CatalogSessionBucketName', {
+  value: catalogSessionBucket.bucketName,
+  description: 'S3 bucket for catalog session storage',
+  exportName: 'CatalogSessionBucketName'
 });
 
 console.log('✅ Exported all function names and resource names as CloudFormation outputs');

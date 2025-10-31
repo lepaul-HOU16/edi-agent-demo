@@ -1,0 +1,33 @@
+[
+    {
+        "well_id": "str",
+        "data": {
+            "FacilityName": "str",
+            "NameAliases": [],
+            "SpatialLocation.Wgs84Coordinates": {}
+        },
+        "wellbores": [
+            {
+                "wellbore_id": "str",
+                "data": {
+                    "FacilityName": "str",
+                    "NameAliases": []
+                },
+                "welllogs": [
+                    {
+                        "welllog_id": "str",
+                        "data": {
+                            "Name": "str",
+                            "Datasets": [],
+                            "Curves": [
+                                {
+                                    "Mnemonic": "str"
+                                }
+                            ]
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+]

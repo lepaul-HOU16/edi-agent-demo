@@ -970,13 +970,51 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     const mapContainer = document.getElementById("map");
     if (mapContainer && !mapRef.current) {
       
-      // Create new map instance using default Amazon Location Service implementation
-      mapRef.current = new maplibregl.Map({
-        container: "map",
-        style: `https://maps.geo.${REGION}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`,
-        center: [106.9, 10.2], // Center on Vietnamese territorial waters
-        zoom: 5,
-      });
+      try {
+        // Create new map instance using default Amazon Location Service implementation
+        mapRef.current = new maplibregl.Map({
+          container: "map",
+          style: `https://maps.geo.${REGION}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`,
+          center: [106.9, 10.2], // Center on Vietnamese territorial waters
+          zoom: 5,
+          failIfMajorPerformanceCaveat: false, // Allow software rendering if needed
+        } as any); // Use 'as any' to allow additional WebGL options
+      } catch (error) {
+        console.error('❌ Failed to initialize map:', error);
+        
+        // Display user-friendly error message
+        const errorDiv = document.createElement('div');
+        errorDiv.style.cssText = `
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%);
+          background: rgba(255, 255, 255, 0.95);
+          padding: 24px;
+          border-radius: 8px;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+          max-width: 500px;
+          text-align: center;
+          z-index: 1000;
+        `;
+        errorDiv.innerHTML = `
+          <h3 style="margin: 0 0 12px 0; color: #d32f2f;">Map Initialization Failed</h3>
+          <p style="margin: 0 0 16px 0; color: #666;">
+            Unable to initialize the map due to WebGL issues. This may be caused by:
+          </p>
+          <ul style="text-align: left; margin: 0 0 16px 0; color: #666;">
+            <li>Browser hardware acceleration is disabled</li>
+            <li>GPU drivers need updating</li>
+            <li>Browser doesn't support WebGL</li>
+            <li>Too many browser tabs are open</li>
+          </ul>
+          <p style="margin: 0; color: #666; font-size: 14px;">
+            Try: Enable hardware acceleration in browser settings, update GPU drivers, or close other tabs.
+          </p>
+        `;
+        mapContainer.appendChild(errorDiv);
+        return;
+      }
 
       // Add controls
       mapRef.current.addControl(new maplibregl.ScaleControl({
@@ -1126,6 +1164,56 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
 
       mapRef.current.addControl(drawRef.current as any, 'top-left');
 
+      // Handle WebGL context loss
+      mapRef.current.on('webglcontextlost', (e: any) => {
+        console.error('❌ WebGL context lost:', e);
+        if (e && typeof e.preventDefault === 'function') {
+          e.preventDefault();
+        }
+        
+        // Show user notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #ff9800;
+          color: white;
+          padding: 12px 24px;
+          border-radius: 4px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          z-index: 10000;
+        `;
+        notification.textContent = 'Map rendering paused. Attempting to restore...';
+        document.body.appendChild(notification);
+        
+        setTimeout(() => notification.remove(), 5000);
+      });
+      
+      mapRef.current.on('webglcontextrestored', () => {
+        console.log('✅ WebGL context restored');
+        
+        // Show success notification
+        const notification = document.createElement('div');
+        notification.style.cssText = `
+          position: fixed;
+          top: 20px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: #4caf50;
+          color: white;
+          padding: 12px 24px;
+          border-radius: 4px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          z-index: 10000;
+        `;
+        notification.textContent = 'Map rendering restored successfully';
+        document.body.appendChild(notification);
+        
+        setTimeout(() => notification.remove(), 3000);
+      });
+
       // Wait for the map to load before setup
       mapRef.current.on('load', () => {
         console.log('Map loaded successfully - wells will only appear when searched');
@@ -1151,6 +1239,11 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
             bearing: currentMapState.bearing
           });
         }
+      });
+      
+      // Handle map errors
+      mapRef.current.on('error', (e) => {
+        console.error('❌ Map error:', e);
       });
 
       // Track map state changes for persistence

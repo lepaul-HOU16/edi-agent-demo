@@ -2,6 +2,7 @@ import { type ClientSchema, a, defineData, defineFunction } from '@aws-amplify/b
 import { maintenanceAgentFunction } from '../functions/maintenanceAgent/resource';
 import { edicraftAgentFunction } from '../functions/edicraftAgent/resource';
 import { agentProgressFunction } from '../functions/agentProgress/resource';
+import { catalogSearchFunction as catalogSearchPythonFunction } from '../functions/catalogSearch/resource';
 
 // Main agent function with full routing capabilities (EnhancedStrandsAgent + RenewableProxyAgent)
 // NOTE: Dynamic environment variables (function names, bucket names) are set in backend.ts
@@ -13,8 +14,8 @@ export const agentFunction = defineFunction({
   memoryMB: 1024,
   resourceGroupName: 'data',
   environment: {
-    AGENT_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-    TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+    AGENT_MODEL_ID: 'global.anthropic.claude-sonnet-4-5-20250929-v1:0',
+    TEXT_TO_TABLE_MODEL_ID: 'global.anthropic.claude-sonnet-4-5-20250929-v1:0',
     TEXT_TO_TABLE_CONCURRENCY: '5',
     ORIGIN_BASE_PATH: process.env.ORIGIN_BASE_PATH || '',
     AMPLIFY_BRANCH: process.env.AMPLIFY_BRANCH || 'main',
@@ -43,18 +44,8 @@ export const catalogMapDataFunction = defineFunction({
   }
 });
 
-export const catalogSearchFunction = defineFunction({
-  name: 'catalogSearch',
-  entry: '../functions/catalogSearch/index.ts',
-  timeoutSeconds: 60,
-  environment: {
-    OSDU_BASE_URL: 'https://community.opensubsurface.org',
-    OSDU_API_VERSION: 'v2',
-    OSDU_PARTITION_ID: 'opendes',
-    STORAGE_BUCKET_NAME: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
-    // Add OSDU_ACCESS_TOKEN as environment variable when available
-  }
-});
+// Use the Python Lambda function for catalog search
+export const catalogSearchFunction = catalogSearchPythonFunction;
 
 export const renewableToolsFunction = defineFunction({
   name: 'renewableTools',
@@ -261,14 +252,37 @@ export const schema = a.schema({
     .handler(a.handler.function(catalogMapDataFunction))
     .authorization((allow) => [allow.authenticated()]),
 
-  catalogSearch: a.query()
+  // Catalog Search - Streaming mutation for OSDU data search
+  // Supports both hardcoded commands (/getdata, /reset) and natural language queries
+  catalogSearch: a.mutation()
     .arguments({
       prompt: a.string().required(),
+      sessionId: a.string().required(),
+      osduInstance: a.json().required(), // Changed from customType to json for compatibility
+      authToken: a.string().required(),
       existingContext: a.json(),
     })
-    .returns(a.string())
+    .returns(a.customType({
+      type: a.string().required(), // 'complete', 'stream', 'error'
+      data: a.customType({
+        message: a.string(),
+        thoughtSteps: a.json().array(),
+        files: a.customType({
+          metadata: a.string(),
+          geojson: a.string(),
+        }),
+        stats: a.customType({
+          wellCount: a.integer(),
+          wellboreCount: a.integer(),
+          welllogCount: a.integer(),
+        }),
+      }),
+      error: a.string(),
+      errorType: a.string(),
+      timestamp: a.integer(),
+    }))
     .handler(a.handler.function(catalogSearchFunction))
-    .authorization((allow) => [allow.authenticated()]),
+    .authorization((allow) => [allow.authenticated(), allow.guest()]),
 
   // Enterprise Collection Management Operations - Simplified to avoid GraphQL conflicts
   collectionManagement: a.mutation()

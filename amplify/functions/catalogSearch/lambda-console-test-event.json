@@ -1,0 +1,42 @@
+{
+  "arguments": {
+    "prompt": "/getdata",
+    "sessionId": "test-session-12345",
+    "existingContext": null
+  },
+  "identity": {
+    "claims": {
+      "sub": "test-user-id",
+      "email": "test@example.com",
+      "cognito:username": "testuser"
+    },
+    "defaultAuthStrategy": "ALLOW",
+    "groups": null,
+    "issuer": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_example",
+    "sourceIp": [
+      "192.168.1.1"
+    ],
+    "sub": "test-user-id",
+    "username": "testuser",
+    "userArn": "arn:aws:sts::123456789012:assumed-role/TestRole/testuser"
+  },
+  "source": null,
+  "request": {
+    "headers": {
+      "content-type": "application/json",
+      "x-amzn-trace-id": "Root=1-test-trace-id"
+    }
+  },
+  "prev": null,
+  "info": {
+    "fieldName": "catalogSearch",
+    "parentTypeName": "Mutation",
+    "variables": {},
+    "selectionSetList": [
+      "type",
+      "data",
+      "error"
+    ]
+  },
+  "stash": {}
+}

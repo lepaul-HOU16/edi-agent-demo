@@ -1,0 +1,26 @@
+{
+  "arguments": {
+    "prompt": "/getdata",
+    "sessionId": "test-session-123",
+    "osduInstance": "{\"url\":\"https://community.opensubsurface.org\",\"dataPartitionId\":\"opendes\"}",
+    "authToken": "test-token",
+    "existingContext": null
+  },
+  "identity": {
+    "username": "test-user",
+    "sourceIp": ["127.0.0.1"],
+    "userArn": "arn:aws:iam::123456789012:user/test-user",
+    "accountId": "123456789012",
+    "caller": "test-caller"
+  },
+  "request": {
+    "headers": {
+      "content-type": "application/json"
+    }
+  },
+  "info": {
+    "fieldName": "catalogSearch",
+    "parentTypeName": "Mutation",
+    "variables": {}
+  }
+}

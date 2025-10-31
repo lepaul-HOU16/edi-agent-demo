@@ -117,14 +117,18 @@ function transformWellsToGeoJSON(osduRecords: any[]): any {
           'Unknown',
         location: wellData.FacilityState || 'Unknown',
         osduId: record.id,
-        status: 'Active'
+        status: 'Active',
+        dataSource: 'OSDU'
       }
     };
   });
 
+  // Deduplicate OSDU wells by facility name
+  const deduplicatedFeatures = deduplicateWells(features);
+
   return {
     type: "FeatureCollection",
-    features: features
+    features: deduplicatedFeatures
   };
 }
 
@@ -202,6 +206,70 @@ async function fetchWellCoordinatesFromCSV(): Promise<Map<string, { lat: number;
   }
 }
 
+// Deduplicate wells by facility name, keeping the most recent/complete record
+function deduplicateWells(features: any[]): any[] {
+  const wellMap = new Map<string, any>();
+  
+  for (const feature of features) {
+    const facilityName = feature.properties?.name;
+    
+    if (!facilityName) {
+      // Keep wells without names
+      wellMap.set(`unnamed_${Math.random()}`, feature);
+      continue;
+    }
+    
+    const existing = wellMap.get(facilityName);
+    
+    if (!existing) {
+      // First occurrence of this facility name
+      wellMap.set(facilityName, feature);
+    } else {
+      // Duplicate found - keep the better record
+      const shouldReplace = shouldReplaceWell(existing, feature);
+      if (shouldReplace) {
+        wellMap.set(facilityName, feature);
+      }
+    }
+  }
+  
+  const deduplicated = Array.from(wellMap.values());
+  console.log(`Deduplication: ${features.length} wells -> ${deduplicated.length} unique wells (removed ${features.length - deduplicated.length} duplicates)`);
+  
+  return deduplicated;
+}
+
+// Determine which well record to keep when duplicates are found
+function shouldReplaceWell(existing: any, candidate: any): boolean {
+  // Priority 1: Keep wells with real coordinates over fallback coordinates
+  const existingHasRealCoords = existing.properties?.dataSource?.includes('Real Coordinates');
+  const candidateHasRealCoords = candidate.properties?.dataSource?.includes('Real Coordinates');
+  
+  if (candidateHasRealCoords && !existingHasRealCoords) {
+    return true;
+  }
+  if (existingHasRealCoords && !candidateHasRealCoords) {
+    return false;
+  }
+  
+  // Priority 2: Keep more recent records
+  const existingDate = existing.properties?.lastModified ? new Date(existing.properties.lastModified) : new Date(0);
+  const candidateDate = candidate.properties?.lastModified ? new Date(candidate.properties.lastModified) : new Date(0);
+  
+  if (candidateDate > existingDate) {
+    return true;
+  }
+  if (existingDate > candidateDate) {
+    return false;
+  }
+  
+  // Priority 3: Keep larger files (likely more complete data)
+  const existingSize = parseFloat(existing.properties?.fileSize || '0');
+  const candidateSize = parseFloat(candidate.properties?.fileSize || '0');
+  
+  return candidateSize > existingSize;
+}
+
 // Function to fetch LAS files from S3 and create "My Wells"
 async function fetchMyWells(): Promise<any> {
   try {
@@ -264,14 +332,17 @@ async function fetchMyWells(): Promise<any> {
           fileSize: `${fileSizeMB.toFixed(2)} MB`,
           s3Key: file.Key,
           lastModified: file.LastModified?.toISOString() || new Date().toISOString(),
-          dataSource: "Personal LAS Files (Real Coordinates)"
+          dataSource: realCoords ? "Personal LAS Files (Real Coordinates)" : "Personal LAS Files (Fallback Coordinates)"
         }
       };
     });
     
+    // Deduplicate wells by facility name
+    const deduplicatedFeatures = deduplicateWells(myWellsFeatures);
+    
     return {
       type: "FeatureCollection",
-      features: myWellsFeatures
+      features: deduplicatedFeatures
     };
     
   } catch (error) {
