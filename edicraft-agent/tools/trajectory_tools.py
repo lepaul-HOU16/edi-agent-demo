@@ -521,3 +521,167 @@ def build_wellbore_in_minecraft(minecraft_coordinates_json: str, block_type: str
         
     except Exception as e:
         return f"Error generating Minecraft commands: {str(e)}"
+
+
+def build_wellbore_in_minecraft_enhanced(
+    minecraft_coordinates_json: str,
+    well_name: str = "WELL",
+    color_scheme: str = "default"
+) -> str:
+    """
+    Build enhanced wellbore trajectory in Minecraft with color coding, depth markers, and signage.
+    
+    This enhanced version includes:
+    - Color-coded blocks based on depth or well properties
+    - Enhanced depth markers with labels at regular intervals
+    - Ground-level markers showing well location
+    - Simplified well names on signs
+    
+    Args:
+        minecraft_coordinates_json: JSON string with minecraft coordinates
+        well_name: Simplified well name for markers and signs (e.g., "WELL-007")
+        color_scheme: Color scheme - "default", "depth", "type"
+    
+    Returns:
+        String with RCON execution results
+    """
+    import json
+    from .rcon_tool import execute_rcon_command
+    
+    try:
+        data = json.loads(minecraft_coordinates_json)
+        coords = data.get("minecraft_coordinates", [])
+        
+        if not coords:
+            return "Error: No minecraft coordinates found"
+        
+        # Remove duplicates
+        unique_coords = []
+        seen = set()
+        for coord in coords:
+            pos = (coord["x"], coord["y"], coord["z"])
+            if pos not in seen:
+                seen.add(pos)
+                unique_coords.append(coord)
+        
+        results = []
+        results.append(f"Building enhanced wellbore '{well_name}' with {len(unique_coords)} unique points")
+        
+        # Determine color scheme blocks
+        def get_block_for_depth(y_coord: int, index: int, total: int) -> str:
+            """Get block type based on color scheme and depth."""
+            if color_scheme == "depth":
+                # Color code by depth: shallow (emerald) -> medium (diamond) -> deep (obsidian)
+                if y_coord > 80:
+                    return "emerald_block"
+                elif y_coord > 60:
+                    return "diamond_block"
+                else:
+                    return "obsidian"
+            elif color_scheme == "type":
+                # Color code by position in trajectory: start (emerald) -> middle (diamond) -> end (obsidian)
+                progress = index / total if total > 0 else 0
+                if progress < 0.33:
+                    return "emerald_block"
+                elif progress < 0.67:
+                    return "diamond_block"
+                else:
+                    return "obsidian"
+            else:  # default
+                return "obsidian"
+        
+        # Build wellbore path with color coding
+        for i, coord in enumerate(unique_coords):
+            x, y, z = coord["x"], coord["y"], coord["z"]
+            
+            # Get block type based on color scheme
+            block_type = get_block_for_depth(y, i, len(unique_coords))
+            
+            # Place wellbore block
+            try:
+                block_result = execute_rcon_command(f"setblock {x} {y} {z} {block_type}")
+            except Exception as e:
+                print(f"[BUILD_ENHANCED] Error placing block at ({x}, {y}, {z}): {str(e)}")
+                continue
+            
+            # Enhanced depth markers every 10 points
+            if i % 10 == 0:
+                try:
+                    # Place glowstone marker above
+                    marker_result = execute_rcon_command(f"setblock {x} {y+1} {z} glowstone")
+                    
+                    # Place sign with depth label next to marker
+                    sign_x = x + 1
+                    sign_result = execute_rcon_command(f"setblock {sign_x} {y+1} {z} oak_sign")
+                    
+                    # Try to set sign text (may not work via RCON, but worth trying)
+                    depth_label = f"D:{100-y}m"  # Depth from surface
+                    try:
+                        sign_text_cmd = f'data merge block {sign_x} {y+1} {z} {{Text1:"{{\\"text\\":\\"{well_name}\\"}}", Text2:"{{\\"text\\":\\"{depth_label}\\"}}""}}'
+                        execute_rcon_command(sign_text_cmd)
+                    except:
+                        pass  # Sign text setting may fail, but sign is placed
+                    
+                    results.append(f"Depth marker {i//10 + 1} at Y={y} ({depth_label})")
+                except Exception as e:
+                    print(f"[BUILD_ENHANCED] Error placing marker at ({x}, {y}, {z}): {str(e)}")
+        
+        # Add ground-level markers at wellhead
+        if unique_coords:
+            first_coord = unique_coords[0]
+            wellhead_x = first_coord['x']
+            wellhead_z = first_coord['z']
+            wellhead_y = 100  # Ground level
+            
+            try:
+                # Place emerald block at wellhead
+                wellhead_result = execute_rcon_command(f"setblock {wellhead_x} {wellhead_y} {wellhead_z} emerald_block")
+                results.append(f"Wellhead marker at ({wellhead_x}, {wellhead_y}, {wellhead_z})")
+                
+                # Place beacon above for visibility
+                beacon_result = execute_rcon_command(f"setblock {wellhead_x} {wellhead_y+1} {wellhead_z} beacon")
+                results.append(f"Beacon placed at wellhead")
+                
+                # Place sign with well name at wellhead
+                sign_x = wellhead_x + 2
+                sign_result = execute_rcon_command(f"setblock {sign_x} {wellhead_y+1} {wellhead_z} oak_sign")
+                
+                # Try to set sign text with well name
+                try:
+                    sign_text_cmd = f'data merge block {sign_x} {wellhead_y+1} {wellhead_z} {{Text1:"{{\\"text\\":\\"{well_name}\\"}}", Text2:"{{\\"text\\":\\"Wellhead\\"}}""}}'
+                    execute_rcon_command(sign_text_cmd)
+                except:
+                    pass  # Sign text setting may fail
+                
+                results.append(f"Wellhead sign placed with name: {well_name}")
+                
+                # Place sea lanterns in a circle around wellhead for visibility
+                circle_offsets = [
+                    (2, 0), (-2, 0), (0, 2), (0, -2),
+                    (1, 1), (1, -1), (-1, 1), (-1, -1)
+                ]
+                for dx, dz in circle_offsets:
+                    try:
+                        light_x = wellhead_x + dx
+                        light_z = wellhead_z + dz
+                        execute_rcon_command(f"setblock {light_x} {wellhead_y} {light_z} sea_lantern")
+                    except:
+                        pass  # Continue if some lights fail
+                
+                results.append(f"Ground-level marker circle placed around wellhead")
+                
+            except Exception as e:
+                print(f"[BUILD_ENHANCED] Error placing wellhead markers: {str(e)}")
+                results.append(f"Warning: Some wellhead markers failed to place")
+        
+        # Completion message
+        try:
+            completion_result = execute_rcon_command(f"say Enhanced wellbore '{well_name}' completed!")
+            results.append(f"Completion: {completion_result}")
+        except:
+            pass
+        
+        return f"Enhanced wellbore '{well_name}' built successfully with {len(unique_coords)} blocks. " + "; ".join(results)
+        
+    except Exception as e:
+        return f"Error building enhanced wellbore: {str(e)}"

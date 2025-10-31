@@ -433,15 +433,21 @@ node tests/manual/test-edicraft-deployment.js
 - [x] Bedrock AgentCore Deployment Guide
 - [x] Environment Variables Reference
 - [x] Credential Finding Guide
-- [x] Troubleshooting Guide
+- [x] Troubleshooting Guide (updated with demo features)
 - [x] Horizon Routing Patterns Documentation
-- [x] User Workflows
+- [x] User Workflows (updated with demo features)
 - [x] Validation Guide
 - [x] Requirements Document
 - [x] Design Document
 - [x] Tasks Document
 - [x] Test Scripts
 - [x] README
+- [x] Demo Script ⭐ NEW
+- [x] Clear Environment Tool Guide ⭐ NEW
+- [x] Time Lock Tool Guide ⭐ NEW
+- [x] Collection Visualization Tool Guide ⭐ NEW
+- [x] Demo Reset Tool Guide ⭐ NEW
+- [x] S3 Data Access Layer Guide ⭐ NEW
 
 ### In Progress 🚧
 
@@ -464,6 +470,14 @@ node tests/manual/test-edicraft-deployment.js
 - [Horizon Routing Patterns](EDICRAFT_HORIZON_ROUTING_PATTERNS.md)
 - [User Workflows](EDICRAFT_USER_WORKFLOWS.md)
 - [Minecraft Connection Guide](EDICRAFT_MINECRAFT_CONNECTION_GUIDE.md)
+- [Demo Script](EDICRAFT_DEMO_SCRIPT.md) ⭐ NEW
+
+### Demo Enhancement Features
+- [Clear Environment Tool Guide](CLEAR_ENVIRONMENT_TOOL_GUIDE.md)
+- [Time Lock Tool Guide](TIME_LOCK_TOOL_GUIDE.md)
+- [Collection Visualization Tool Guide](COLLECTION_VISUALIZATION_TOOL_GUIDE.md)
+- [Demo Reset Tool Guide](DEMO_RESET_TOOL_GUIDE.md)
+- [S3 Data Access Layer Guide](S3_DATA_ACCESS_LAYER_GUIDE.md)
 
 ### Testing
 - [Validation Guide](../tests/manual/EDICRAFT_VALIDATION_GUIDE.md)

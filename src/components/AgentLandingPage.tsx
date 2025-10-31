@@ -13,6 +13,7 @@ export type AgentType = 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 
 interface AgentLandingPageProps {
   selectedAgent: AgentType;
   onWorkflowSelect?: (prompt: string) => void;
+  onSendMessage?: (message: string) => Promise<void>;
 }
 
 /**
@@ -38,7 +39,8 @@ const LoadingFallback: React.FC = () => (
  */
 const AgentLandingPage: React.FC<AgentLandingPageProps> = React.memo(({
   selectedAgent,
-  onWorkflowSelect
+  onWorkflowSelect,
+  onSendMessage
 }) => {
   // Memoize the landing component to prevent unnecessary re-renders
   const landingComponent = useMemo(() => {
@@ -56,13 +58,13 @@ const AgentLandingPage: React.FC<AgentLandingPageProps> = React.memo(({
         return <RenewableAgentLanding onWorkflowSelect={onWorkflowSelect} />;
       
       case 'edicraft':
-        return <EDIcraftAgentLanding onWorkflowSelect={onWorkflowSelect} />;
+        return <EDIcraftAgentLanding onWorkflowSelect={onWorkflowSelect} onSendMessage={onSendMessage} />;
       
       default:
         // Fallback to auto agent if unknown agent type
         return <AutoAgentLanding onWorkflowSelect={onWorkflowSelect} />;
     }
-  }, [selectedAgent, onWorkflowSelect]);
+  }, [selectedAgent, onWorkflowSelect, onSendMessage]);
 
   return (
     <Suspense fallback={<LoadingFallback />}>

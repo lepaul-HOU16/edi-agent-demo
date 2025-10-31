@@ -1044,6 +1044,35 @@ const ChatMessage = (params: {
                 );
             }
             
+            // Check if message contains EDIcraft Cloudscape template response
+            // Use consistent detection logic with EDIcraftResponseComponent
+            const hasEDIcraftIndicator = messageText.includes('✅') || messageText.includes('❌') || 
+                                        messageText.includes('⏳') || messageText.includes('⚠️') || messageText.includes('💡');
+            const hasEDIcraftTerms = /wellbore|trajectory|minecraft|drilling|rig|rcon|blocks? placed|coordinates?|game rule|time lock|cleared|environment|clear.*confirmation/i.test(messageText);
+            const hasStructuredData = /\*\*[^*]+\*\*:\s*[^\n]+/i.test(messageText);
+            const isClearConfirmation = /✅.*\*\*Minecraft Environment Cleared\*\*/i.test(messageText) ||
+                                       (messageText.includes('**Summary:**') && messageText.includes('**Wellbores Cleared:**'));
+            
+            const isEDIcraftResponse = isClearConfirmation || 
+                                      (hasEDIcraftIndicator && hasEDIcraftTerms) || 
+                                      (hasStructuredData && hasEDIcraftTerms);
+            
+            if (isEDIcraftResponse) {
+                // Dynamically import EDIcraft response component
+                const EDIcraftResponseComponent = React.lazy(() => 
+                    import('./messageComponents/EDIcraftResponseComponent')
+                );
+                
+                return (
+                    <>
+                        {progressComponents}
+                        <React.Suspense fallback={<div>Loading...</div>}>
+                            <EDIcraftResponseComponent content={messageText} />
+                        </React.Suspense>
+                    </>
+                );
+            }
+            
             // Check if message contains actual statistical data that should use interactive visualization
             const hasStatisticalData = messageText.includes('Mean:') &&
                                      messageText.includes('Median:') &&

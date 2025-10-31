@@ -13,6 +13,7 @@ This guide provides solutions to common issues encountered when deploying and us
 5. [Execution Issues](#execution-issues)
 6. [Performance Issues](#performance-issues)
 7. [Integration Issues](#integration-issues)
+8. [Demo Enhancement Issues](#demo-enhancement-issues)
 
 ---
 
@@ -778,6 +779,490 @@ This guide provides solutions to common issues encountered when deploying and us
 
 ---
 
+## Demo Enhancement Issues
+
+### Issue: Clear Button Not Visible
+
+**Symptoms:**
+- Clear button doesn't appear in chat interface
+- Button is hidden or not rendered
+- Only visible when EDIcraft agent is active
+
+**Possible Causes:**
+- Wrong agent selected
+- Component not loaded
+- CSS hiding button
+- React rendering issue
+
+**Solutions:**
+
+1. **Verify EDIcraft agent is selected:**
+   - Check agent switcher shows "EDIcraft"
+   - Try manually selecting EDIcraft agent
+   - Refresh page and reselect agent
+
+2. **Check browser console for errors:**
+   - Open DevTools (F12)
+   - Look for React component errors
+   - Check for CSS loading issues
+
+3. **Verify component is loaded:**
+   ```javascript
+   // In browser console
+   document.querySelector('[data-testid="edicraft-controls"]')
+   ```
+   Should return the controls element.
+
+4. **Clear browser cache:**
+   - Hard refresh (Ctrl+Shift+R)
+   - Clear localStorage
+   - Try incognito mode
+
+5. **Check component visibility:**
+   - Inspect element in DevTools
+   - Verify CSS display property
+   - Check for z-index issues
+
+### Issue: Clear Button Not Working
+
+**Symptoms:**
+- Button clicks don't trigger clear operation
+- No response in chat
+- Loading state doesn't appear
+- Environment not cleared
+
+**Possible Causes:**
+- Event handler not attached
+- API call failing
+- RCON connection issue
+- Permission denied
+
+**Solutions:**
+
+1. **Check browser console for errors:**
+   - Look for JavaScript errors
+   - Check network tab for failed requests
+   - Verify API endpoint is correct
+
+2. **Use text command instead:**
+   ```
+   "Clear the Minecraft environment"
+   ```
+   If text command works, issue is with button component.
+
+3. **Verify RCON connection:**
+   ```bash
+   telnet edicraft.nigelgardiner.com 49001
+   ```
+
+4. **Check Lambda logs:**
+   ```bash
+   aws logs tail "/aws/lambda/edicraftAgent" --follow
+   ```
+
+5. **Test clear operation directly:**
+   ```bash
+   node tests/integration/test-edicraft-clear-environment.test.py
+   ```
+
+### Issue: Clear Operation Incomplete
+
+**Symptoms:**
+- Some structures remain after clear
+- Partial clearing
+- Response shows fewer blocks cleared than expected
+- Terrain accidentally cleared
+
+**Possible Causes:**
+- RCON timeout
+- Server lag
+- Wrong block types specified
+- Terrain preservation disabled
+
+**Solutions:**
+
+1. **Check clear response for details:**
+   - Look at blocks cleared count
+   - Verify terrain preservation status
+   - Check for error messages
+
+2. **Run clear operation again:**
+   ```
+   "Clear the Minecraft environment"
+   ```
+   May clear remaining structures.
+
+3. **Use selective clearing:**
+   ```
+   "Clear wellbores"
+   "Clear rigs"
+   "Clear markers"
+   ```
+
+4. **Verify terrain preservation:**
+   - Check `preserve_terrain` parameter is True
+   - Verify terrain blocks are in preservation list
+
+5. **Check Minecraft server performance:**
+   - Server may be lagging
+   - Reduce clear area size
+   - Wait and retry
+
+### Issue: Time Lock Not Working
+
+**Symptoms:**
+- Time continues to change after lock command
+- Daylight cycle not disabled
+- Night falls during demo
+- Time lock response shows success but time changes
+
+**Possible Causes:**
+- RCON command failed
+- Insufficient permissions
+- Server override
+- Gamerule not applied
+
+**Solutions:**
+
+1. **Verify time lock response:**
+   ```
+   ✅ World Time Locked
+   Settings:
+   - Current Time: Day
+   - Daylight Cycle: Disabled
+   ```
+
+2. **Check time in Minecraft:**
+   ```
+   /time query daytime
+   /gamerule doDaylightCycle
+   ```
+
+3. **Manually lock time:**
+   ```
+   /time set 6000
+   /gamerule doDaylightCycle false
+   ```
+
+4. **Verify RCON permissions:**
+   - Check server operator status
+   - Verify RCON user has gamerule permissions
+
+5. **Check server logs:**
+   - Look for gamerule command execution
+   - Check for permission errors
+
+### Issue: Invalid Time Value
+
+**Symptoms:**
+- "Invalid time value" error
+- Time lock fails
+- Unrecognized time string
+
+**Possible Causes:**
+- Typo in time value
+- Unsupported time value
+- Wrong format
+
+**Solutions:**
+
+1. **Use supported time values:**
+   - day, morning (1000)
+   - noon, midday (6000)
+   - afternoon (9000)
+   - sunset, dusk (12000)
+   - night (13000)
+   - midnight (18000)
+
+2. **Check spelling:**
+   - Use lowercase
+   - No extra spaces
+   - Exact match required
+
+3. **Try alternative time value:**
+   ```
+   "Lock time to day"  # Instead of "daytime"
+   "Lock time to noon"  # Instead of "midday"
+   ```
+
+### Issue: Collection Visualization Fails
+
+**Symptoms:**
+- "Collection not found" error
+- "No wells in collection" warning
+- S3 access denied
+- All wells fail to build
+
+**Possible Causes:**
+- Wrong collection ID
+- S3 permissions missing
+- Collection empty
+- S3 bucket not accessible
+
+**Solutions:**
+
+1. **Verify collection ID:**
+   ```bash
+   aws s3 ls s3://bucket-name/collections/
+   ```
+
+2. **Check S3 permissions:**
+   ```bash
+   aws s3 ls s3://bucket-name/collections/collection-id/
+   ```
+
+3. **Verify collection structure:**
+   ```bash
+   aws s3 ls s3://bucket-name/collections/collection-id/ --recursive
+   ```
+   Should show trajectory files.
+
+4. **Check IAM permissions:**
+   - s3:ListBucket
+   - s3:GetObject
+   - Verify bucket name in policy
+
+5. **Test with single well:**
+   ```
+   "Build wellbore WELL-001"
+   ```
+   If single well works, issue is with collection processing.
+
+### Issue: Collection Visualization Slow
+
+**Symptoms:**
+- Takes longer than expected
+- Progress updates slow
+- Timeouts occur
+- Some wells fail
+
+**Possible Causes:**
+- Large collection size
+- Server performance
+- Network latency
+- S3 throttling
+
+**Solutions:**
+
+1. **Reduce batch size:**
+   ```python
+   visualize_collection_wells(
+       collection_id="collection-123",
+       batch_size=3  # Smaller batches
+   )
+   ```
+
+2. **Increase spacing:**
+   ```python
+   visualize_collection_wells(
+       collection_id="collection-123",
+       spacing=75  # More space between wells
+   )
+   ```
+
+3. **Check server performance:**
+   - Monitor server TPS
+   - Check CPU/memory usage
+   - Reduce server load
+
+4. **Verify S3 performance:**
+   - Check S3 request metrics
+   - Look for throttling
+   - Consider S3 caching
+
+5. **Process in smaller batches:**
+   - Visualize subset of wells
+   - Process multiple times
+   - Combine results
+
+### Issue: Drilling Rigs Not Appearing
+
+**Symptoms:**
+- Wellbores built but no rigs
+- Rig build fails silently
+- Only wellbore trajectory visible
+- Signs missing
+
+**Possible Causes:**
+- Rig build disabled
+- RCON timeout
+- Insufficient space
+- Block placement failed
+
+**Solutions:**
+
+1. **Check wellbore response:**
+   - Should mention "Drilling Rig: Standard style"
+   - Look for rig build confirmation
+
+2. **Verify rig location:**
+   - Rigs are at wellhead (surface level)
+   - Check coordinates from response
+   - Teleport to wellhead: `/tp @s X 100 Z`
+
+3. **Check for space conflicts:**
+   - Rigs need 5×5 area
+   - Check for overlapping structures
+   - Increase spacing if needed
+
+4. **Rebuild with rig:**
+   ```
+   "Build wellbore WELL-007 with drilling rig"
+   ```
+
+5. **Check RCON logs:**
+   - Look for block placement errors
+   - Check for timeout messages
+
+### Issue: Well Names Not Simplified
+
+**Symptoms:**
+- Full OSDU IDs shown instead of short names
+- Signs show long IDs
+- Response uses full IDs
+- Difficult to read
+
+**Possible Causes:**
+- Name simplifier not working
+- OSDU ID format not recognized
+- Simplification disabled
+
+**Solutions:**
+
+1. **Check OSDU ID format:**
+   - Should match pattern: `osdu:*:WELL-XXX:*`
+   - Verify ID structure
+
+2. **Test name simplifier:**
+   ```python
+   from tools.name_utils import WellNameSimplifier
+   simplifier = WellNameSimplifier()
+   short_name = simplifier.simplify_name("osdu:work-product--Wellbore:WELL-007:...")
+   print(short_name)  # Should print "WELL-007"
+   ```
+
+3. **Check for errors in logs:**
+   - Look for name simplification errors
+   - Verify simplifier is called
+
+4. **Use custom short names:**
+   ```python
+   simplifier.register_well(
+       osdu_id="full-osdu-id",
+       short_name="WELL-007"
+   )
+   ```
+
+### Issue: Demo Reset Requires Confirmation
+
+**Symptoms:**
+- Reset command shows warning
+- Reset doesn't execute
+- Asks for confirmation
+
+**Possible Causes:**
+- Safety feature working as designed
+- Confirmation not provided
+- Wrong command format
+
+**Solutions:**
+
+1. **This is expected behavior:**
+   - Demo reset requires confirmation to prevent accidents
+   - This is a safety feature, not a bug
+
+2. **Confirm the reset:**
+   - Respond "yes" when prompted
+   - Or use direct tool call with confirm=True
+
+3. **Use clear instead if appropriate:**
+   ```
+   "Clear the Minecraft environment"
+   ```
+   Clear doesn't require confirmation.
+
+### Issue: Collection Context Not Retained
+
+**Symptoms:**
+- New canvas doesn't have collection context
+- Collection badge missing
+- Need to reload collection
+- Context lost
+
+**Possible Causes:**
+- Created canvas without "Create New Chat" button
+- Session context not passed
+- Collection ID not inherited
+- Frontend routing issue
+
+**Solutions:**
+
+1. **Use "Create New Chat" button:**
+   - Don't use browser back button
+   - Don't manually navigate to create-new-chat
+   - Use the button in chat interface
+
+2. **Verify collection badge in original canvas:**
+   - Badge should be visible
+   - Shows collection name and count
+   - If missing, collection context wasn't loaded
+
+3. **Check URL parameters:**
+   - Should include `fromSession` parameter
+   - Verify session ID is correct
+
+4. **Manually load collection:**
+   - If context lost, reload collection
+   - Create new canvas from collection page
+
+5. **Check browser console:**
+   - Look for context loading errors
+   - Verify API calls succeed
+
+### Issue: Progress Updates Not Showing
+
+**Symptoms:**
+- No progress updates during collection visualization
+- Only see final response
+- Can't track progress
+- Appears stuck
+
+**Possible Causes:**
+- Streaming not working
+- Frontend not rendering updates
+- WebSocket issue
+- Batch size too large
+
+**Solutions:**
+
+1. **Check browser console:**
+   - Look for streaming errors
+   - Verify WebSocket connection
+   - Check for rendering errors
+
+2. **Verify batch processing:**
+   - Progress updates sent per batch
+   - Default batch size is 5
+   - Larger batches = fewer updates
+
+3. **Check network tab:**
+   - Verify progress messages received
+   - Look for dropped connections
+
+4. **Reduce batch size:**
+   ```python
+   visualize_collection_wells(
+       collection_id="collection-123",
+       batch_size=3  # More frequent updates
+   )
+   ```
+
+5. **Check Lambda logs:**
+   - Verify progress updates are sent
+   - Look for streaming errors
+
+---
+
 ## Diagnostic Commands
 
 ### Check Lambda Status
@@ -827,6 +1312,51 @@ curl -X POST https://edi.aws.amazon.com/auth/token \
   -d "password=$EDI_PASSWORD" \
   -d "client_id=$EDI_CLIENT_ID" \
   -d "client_secret=$EDI_CLIENT_SECRET"
+```
+
+### Test Clear Environment
+```bash
+python3 tests/integration/test-edicraft-clear-environment.test.py
+```
+
+### Test Time Lock
+```bash
+python3 tests/integration/test-edicraft-time-lock.test.py
+```
+
+### Test Collection Visualization
+```bash
+python3 tests/integration/test-edicraft-collection-visualization.test.py
+```
+
+### Test Drilling Rig Builder
+```bash
+python3 tests/integration/test-edicraft-drilling-rig.test.py
+```
+
+### Test Demo Reset
+```bash
+python3 tests/test-demo-reset.py
+```
+
+### Test Name Simplifier
+```bash
+python3 tests/test-name-simplifier.py
+```
+
+### Test S3 Data Access
+```bash
+python3 tests/test-s3-data-access.py
+```
+
+### Verify Clear Button
+```bash
+npm test -- tests/unit/test-edicraft-clear-button.test.tsx
+```
+
+### Test Collection Context Retention
+```bash
+node tests/test-collection-context-retention.js
 ```
 
 ---

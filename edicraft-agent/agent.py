@@ -7,7 +7,7 @@ from tools.coordinates import transform_utm_to_minecraft, build_wellbore_path
 from tools.trajectory_tools import calculate_trajectory_coordinates, parse_osdu_trajectory_file, build_wellbore_in_minecraft
 from tools.horizon_tools import search_horizons_live, parse_horizon_file, convert_horizon_to_minecraft, download_horizon_data
 from tools.surface_tools import build_horizon_surface
-from tools.workflow_tools import build_wellbore_trajectory_complete, build_horizon_surface_complete, get_system_status
+from tools.workflow_tools import build_wellbore_trajectory_complete, build_horizon_surface_complete, get_system_status, clear_minecraft_environment, lock_world_time, build_drilling_rig, reset_demo_environment
 
 app = BedrockAgentCoreApp()
 
@@ -149,6 +149,7 @@ agent = Agent(
         # Composite workflow tools (preferred)
         build_wellbore_trajectory_complete,
         build_horizon_surface_complete,
+        clear_minecraft_environment,
         get_system_status,
         # Player information tools
         list_players,
@@ -177,31 +178,38 @@ HYBRID APPROACH:
 
 DECISION TREE - Follow this EXACTLY for natural language queries:
 
-Step 1: Does the user message contain a well ID pattern (WELL-XXX where XXX is digits)?
-  YES → Extract the well ID and call build_wellbore_trajectory_complete(well_id)
+Step 1: Does the user message contain words like "clear", "remove", "clean", "reset", or "delete"?
+  YES → Call clear_minecraft_environment() with appropriate parameters
   NO → Go to Step 2
 
-Step 2: Does the user message contain the word "wellbore" or "trajectory" or "well"?
-  YES → If no well ID found, ask user to specify well ID. Otherwise call build_wellbore_trajectory_complete()
+Step 2: Does the user message contain a well ID pattern (WELL-XXX where XXX is digits)?
+  YES → Extract the well ID and call build_wellbore_trajectory_complete(well_id)
   NO → Go to Step 3
 
-Step 3: Does the user message contain the word "horizon" or "surface"?
-  YES → Call build_horizon_surface_complete()
+Step 3: Does the user message contain the word "wellbore" or "trajectory" or "well"?
+  YES → If no well ID found, ask user to specify well ID. Otherwise call build_wellbore_trajectory_complete()
   NO → Go to Step 4
 
-Step 4: Does the user message contain "list" AND ("players" OR "online")?
-  YES → Call list_players()
+Step 4: Does the user message contain the word "horizon" or "surface"?
+  YES → Call build_horizon_surface_complete()
   NO → Go to Step 5
 
-Step 5: Does the user message contain ("position" OR "where") AND "player"?
-  YES → Call get_player_positions()
+Step 5: Does the user message contain "list" AND ("players" OR "online")?
+  YES → Call list_players()
   NO → Go to Step 6
 
-Step 6: Is this ONLY a greeting (hello/hi/hey) with NO other action words?
+Step 6: Does the user message contain ("position" OR "where") AND "player"?
+  YES → Call get_player_positions()
+  NO → Go to Step 7
+
+Step 7: Is this ONLY a greeting (hello/hi/hey) with NO other action words?
   YES → Call get_system_status()
   NO → Explain what you can do and ask for clarification
 
 EXAMPLES:
+"Clear the Minecraft environment" → Contains "clear" → clear_minecraft_environment()
+"Remove all wellbores" → Contains "remove" → clear_minecraft_environment(area="wellbores")
+"Clean up the world" → Contains "clean" → clear_minecraft_environment()
 "Build wellbore trajectory for WELL-011" → Contains "WELL-011" → build_wellbore_trajectory_complete("WELL-011")
 "Visualize wellbore WELL-005" → Contains "WELL-005" → build_wellbore_trajectory_complete("WELL-005")
 "Show me wellbore WELL-003" → Contains "WELL-003" → build_wellbore_trajectory_complete("WELL-003")
@@ -210,13 +218,14 @@ EXAMPLES:
 "Build horizon surface" → Contains "horizon" → build_horizon_surface_complete()
 
 CRITICAL RULES:
-1. ANY message containing "WELL-" followed by digits MUST call build_wellbore_trajectory_complete with that well ID
-2. NEVER call get_system_status() if the message contains action words like "build", "visualize", "show", "create"
-3. ALWAYS use composite workflow tools (build_wellbore_trajectory_complete, build_horizon_surface_complete) instead of low-level tools
-4. Low-level tools are only for advanced debugging or custom workflows
-5. Composite workflow tools handle the complete end-to-end workflow automatically
+1. ANY message containing "clear", "remove", "clean", "reset", or "delete" MUST call clear_minecraft_environment
+2. ANY message containing "WELL-" followed by digits MUST call build_wellbore_trajectory_complete with that well ID
+3. NEVER call get_system_status() if the message contains action words like "build", "visualize", "show", "create", "clear"
+4. ALWAYS use composite workflow tools (build_wellbore_trajectory_complete, build_horizon_surface_complete, clear_minecraft_environment) instead of low-level tools
+5. Low-level tools are only for advanced debugging or custom workflows
+6. Composite workflow tools handle the complete end-to-end workflow automatically
 
-Requirements: 3.4, 3.5"""
+Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 3.4, 3.5"""
 )
 
 def handle_direct_tool_call(message: str) -> dict:
@@ -229,11 +238,12 @@ def handle_direct_tool_call(message: str) -> dict:
     Supported functions:
     - build_wellbore_trajectory_complete("WELL-XXX")
     - build_horizon_surface_complete(None) or build_horizon_surface_complete("horizon_name")
+    - clear_minecraft_environment("all", True) or clear_minecraft_environment()
     - list_players()
     - get_player_positions()
     - get_system_status()
     
-    Requirements: 3.1, 3.2, 3.3
+    Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 3.1, 3.2, 3.3
     
     Args:
         message: The DIRECT_TOOL_CALL message to parse
@@ -298,6 +308,25 @@ def handle_direct_tool_call(message: str) -> dict:
             result = get_player_positions()
             return {"response": result}
         
+        elif function_name == "clear_minecraft_environment":
+            # Extract area and preserve_terrain parameters (optional)
+            area = "all"
+            preserve_terrain = True
+            
+            if parameters_str:
+                # Parse parameters like "all", True or "wellbores", False
+                params = parameters_str.split(',')
+                if len(params) >= 1:
+                    area_match = re.search(r'"([^"]+)"', params[0])
+                    if area_match:
+                        area = area_match.group(1)
+                if len(params) >= 2:
+                    preserve_terrain = "true" in params[1].lower()
+            
+            print(f"[DIRECT TOOL CALL] Calling clear_minecraft_environment with area={area}, preserve_terrain={preserve_terrain}")
+            result = clear_minecraft_environment(area, preserve_terrain)
+            return {"response": result}
+        
         elif function_name == "get_system_status":
             # No parameters expected
             print(f"[DIRECT TOOL CALL] Calling get_system_status")
@@ -305,7 +334,7 @@ def handle_direct_tool_call(message: str) -> dict:
             return {"response": result}
         
         else:
-            error_msg = f"Unknown function: {function_name}. Supported functions: build_wellbore_trajectory_complete, build_horizon_surface_complete, list_players, get_player_positions, get_system_status"
+            error_msg = f"Unknown function: {function_name}. Supported functions: build_wellbore_trajectory_complete, build_horizon_surface_complete, clear_minecraft_environment, list_players, get_player_positions, get_system_status"
             print(f"[DIRECT TOOL CALL] ERROR: {error_msg}")
             return {"error": error_msg}
     

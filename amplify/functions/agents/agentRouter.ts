@@ -280,6 +280,13 @@ IMPORTANT: Execute ALL steps in sequence. Do not stop after step 1.`;
       // Core Minecraft patterns
       /minecraft/i,
       
+      // Environment control patterns (clear, reset, remove)
+      /clear.*minecraft|minecraft.*clear/i,
+      /clear.*environment|environment.*clear/i,
+      /remove.*wellbore|remove.*structure/i,
+      /clean.*minecraft|reset.*minecraft/i,
+      /delete.*wellbore|delete.*structure/i,
+      
       // Wellbore trajectory patterns
       /wellbore.*trajectory|trajectory.*wellbore/i,
       /build.*wellbore|wellbore.*build/i,

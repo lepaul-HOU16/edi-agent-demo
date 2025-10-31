@@ -1,15 +1,81 @@
-import React from 'react';
-import { Container, Header, Box, SpaceBetween, ColumnLayout, ExpandableSection, Cards, StatusIndicator } from '@cloudscape-design/components';
+import React, { useState } from 'react';
+import { Container, Header, Box, SpaceBetween, ColumnLayout, ExpandableSection, Cards, StatusIndicator, Button, Alert } from '@cloudscape-design/components';
 import AgentVisualization from './AgentVisualization';
+import { generateClient } from 'aws-amplify/data';
+import { type Schema } from '@/../amplify/data/resource';
 
 interface EDIcraftAgentLandingProps {
   onWorkflowSelect?: (prompt: string) => void;
+  onSendMessage?: (message: string) => Promise<void>;
 }
 
-const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ onWorkflowSelect }) => {
+const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ onWorkflowSelect, onSendMessage }) => {
   // In a real implementation, this would check actual server status
   const serverStatus = 'success'; // 'success' | 'warning' | 'error' | 'info'
   const serverUrl = 'edicraft.nigelgardiner.com:49000';
+
+  // State for clear environment operation
+  const [isClearing, setIsClearing] = useState(false);
+  const [clearResult, setClearResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+
+  const handleClearEnvironment = async () => {
+    console.log('[CLEAR BUTTON] Button clicked - executing clear via chat');
+    setIsClearing(true);
+    setClearResult(null);
+
+    try {
+      // Use the onSendMessage callback if provided (sends through chat)
+      if (onSendMessage) {
+        console.log('[CLEAR BUTTON] Sending clear message through chat');
+        await onSendMessage('Clear the Minecraft environment and fill any terrain holes');
+
+        setClearResult({
+          type: 'success',
+          message: 'Clear command sent! Check the chat for results.'
+        });
+      } else {
+        // Fallback: call agent directly
+        const client = generateClient<Schema>();
+
+        console.log('[CLEAR BUTTON] Calling EDIcraft agent directly');
+
+        const result = await client.mutations.invokeEDIcraftAgent({
+          chatSessionId: 'silent-clear-' + Date.now(),
+          message: 'Clear the Minecraft environment and fill any terrain holes',
+          foundationModelId: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+          userId: 'system'
+        });
+
+        console.log('[CLEAR BUTTON] Clear result:', result);
+
+        if (result.data?.success) {
+          setClearResult({
+            type: 'success',
+            message: result.data.message || 'Environment cleared successfully!'
+          });
+        } else {
+          setClearResult({
+            type: 'error',
+            message: result.data?.message || 'Clear failed'
+          });
+        }
+      }
+
+      // Hide the message after 5 seconds
+      setTimeout(() => {
+        setClearResult(null);
+      }, 5000);
+
+    } catch (error) {
+      console.error('[CLEAR BUTTON] Error clearing environment:', error);
+      setClearResult({
+        type: 'error',
+        message: 'Failed to clear environment. Please try again.'
+      });
+    } finally {
+      setIsClearing(false);
+    }
+  };
 
   const exampleWorkflows = [
     {
@@ -55,10 +121,10 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
         <Box>
           <Box variant="h3" padding={{ bottom: 's' }}>Minecraft-Based Subsurface Visualization</Box>
           <Box color="text-body-secondary">
-            The EDIcraft Agent brings subsurface data to life in a Minecraft environment, providing 
-            an immersive 3D visualization experience. It integrates with the OSDU platform to retrieve 
-            wellbore trajectories, geological horizons, and other subsurface data, then renders them 
-            as Minecraft structures. This unique approach makes complex geological data more intuitive 
+            The EDIcraft Agent brings subsurface data to life in a Minecraft environment, providing
+            an immersive 3D visualization experience. It integrates with the OSDU platform to retrieve
+            wellbore trajectories, geological horizons, and other subsurface data, then renders them
+            as Minecraft structures. This unique approach makes complex geological data more intuitive
             and accessible, enabling collaborative exploration and analysis in a familiar gaming environment.
           </Box>
         </Box>
@@ -70,16 +136,16 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
             <SpaceBetween direction="vertical" size="xs">
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                 <StatusIndicator type={serverStatus}>
-                  {serverStatus === 'success' ? 'Connected' : 
-                   serverStatus === 'warning' ? 'Connecting' : 
-                   serverStatus === 'error' ? 'Disconnected' : 'Unknown'}
+                  {serverStatus === 'success' ? 'Connected' :
+                    serverStatus === 'warning' ? 'Connecting' :
+                      serverStatus === 'error' ? 'Disconnected' : 'Unknown'}
                 </StatusIndicator>
                 {/* <Box color="text-body-secondary" fontSize="body-s">
                   Server: {serverUrl}
                 </Box> */}
               </div>
               <Box color="text-body-secondary" fontSize="body-s">
-                The EDIcraft agent communicates with a dedicated Minecraft server to build 
+                The EDIcraft agent communicates with a dedicated Minecraft server to build
                 and visualize subsurface data in real-time.
               </Box>
             </SpaceBetween>
@@ -180,10 +246,41 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
         {/* Note about visualization */}
         <Box variant="awsui-key-label">
           <Box color="text-body-secondary" fontSize="body-s">
-            <strong>Note:</strong> Visualizations are created in the external Minecraft server environment. 
-            The agent provides text feedback about what has been built, but the actual 3D visualization 
+            <strong>Note:</strong> Visualizations are created in the external Minecraft server environment.
+            The agent provides text feedback about what has been built, but the actual 3D visualization
             must be viewed by connecting to the Minecraft server at {serverUrl}.
           </Box>
+        </Box>
+
+        {/* Environment Controls */}
+        <Box>
+          <Box variant="h3" padding={{ bottom: 's' }}>Environment Controls</Box>
+          <SpaceBetween direction="vertical" size="s">
+            {clearResult && (
+              <Alert
+                type={clearResult.type}
+                dismissible
+                onDismiss={() => setClearResult(null)}
+              >
+                {clearResult.message}
+              </Alert>
+            )}
+            <Box>
+              <Button
+                variant="normal"
+                iconName="remove"
+                loading={isClearing}
+                onClick={handleClearEnvironment}
+                fullWidth
+              >
+                Clear Minecraft Environment
+              </Button>
+            </Box>
+            <Box color="text-body-secondary" fontSize="body-s">
+              Remove all structures from the Minecraft world to start fresh. This is useful
+              before demo sessions or when you want to rebuild visualizations from scratch.
+            </Box>
+          </SpaceBetween>
         </Box>
       </SpaceBetween>
     </Container>

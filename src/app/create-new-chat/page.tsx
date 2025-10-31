@@ -16,7 +16,29 @@ function CreateNewChatContent() {
     const createNewChat = async () => {
       try {
         // Get collectionId from URL query parameter if provided
-        const collectionId = searchParams.get('collectionId');
+        let collectionId = searchParams.get('collectionId');
+        
+        // Check for fromSession parameter to inherit collection context
+        const fromSessionId = searchParams.get('fromSession');
+        
+        // If fromSession is provided but no collectionId, fetch the current session to inherit context
+        if (fromSessionId && !collectionId) {
+          console.log('🔗 Inheriting collection context from session:', fromSessionId);
+          try {
+            const { data: currentSession } = await amplifyClient.models.ChatSession.get({
+              id: fromSessionId
+            });
+            
+            if (currentSession?.linkedCollectionId) {
+              collectionId = currentSession.linkedCollectionId;
+              console.log('✅ Inherited collection context:', collectionId);
+            } else {
+              console.log('ℹ️ Current session has no collection context to inherit');
+            }
+          } catch (inheritError) {
+            console.warn('⚠️ Failed to inherit collection context from session:', inheritError);
+          }
+        }
         
         console.log('🎨 Creating new canvas', collectionId ? `with collection: ${collectionId}` : 'without collection');
 

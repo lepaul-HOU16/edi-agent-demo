@@ -132,7 +132,11 @@ export const combineAndSortMessages = ((arr1: Array<Message>, arr2: Array<Messag
     index === self.findIndex((p) => p.id === message.id)
   );
   return uniqueMessages.sort((a, b) => {
-    if (!a.createdAt || !b.createdAt) throw new Error("createdAt is missing")
+    // Handle messages without createdAt (e.g., optimistically added messages)
+    // Put them at the end (most recent)
+    if (!a.createdAt && !b.createdAt) return 0;
+    if (!a.createdAt) return 1;
+    if (!b.createdAt) return -1;
     return (a.createdAt as any).localeCompare(b.createdAt as any)
   });
 })

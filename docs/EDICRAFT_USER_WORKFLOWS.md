@@ -9,13 +9,15 @@ This document describes the complete user workflows for the EDIcraft agent, from
 ## Table of Contents
 
 1. [Getting Started - Welcome Message](#getting-started---welcome-message)
-2. [Wellbore Trajectory Visualization](#wellbore-trajectory-visualization)
-3. [Horizon Surface Rendering](#horizon-surface-rendering)
-4. [Player Position Tracking](#player-position-tracking)
-5. [Coordinate Transformation](#coordinate-transformation)
-6. [Multi-Wellbore Visualization](#multi-wellbore-visualization)
-7. [OSDU Data Exploration](#osdu-data-exploration)
-8. [Troubleshooting Workflows](#troubleshooting-workflows)
+2. [Demo Environment Management](#demo-environment-management)
+3. [Collection-Based Visualization](#collection-based-visualization)
+4. [Wellbore Trajectory Visualization](#wellbore-trajectory-visualization)
+5. [Horizon Surface Rendering](#horizon-surface-rendering)
+6. [Player Position Tracking](#player-position-tracking)
+7. [Coordinate Transformation](#coordinate-transformation)
+8. [Multi-Wellbore Visualization](#multi-wellbore-visualization)
+9. [OSDU Data Exploration](#osdu-data-exploration)
+10. [Troubleshooting Workflows](#troubleshooting-workflows)
 
 ---
 
@@ -101,6 +103,421 @@ Search for wellbores in the area
 1. Give a specific command
 2. Wait for the agent to build in Minecraft
 3. Connect to Minecraft to see the results
+
+---
+
+## Demo Environment Management
+
+### Overview
+
+EDIcraft provides powerful tools for managing the Minecraft demo environment, making it easy to prepare for demonstrations, clear visualizations, and maintain a clean workspace.
+
+### Clear Environment Button
+
+The chat interface includes a "Clear Minecraft Environment" button when the EDIcraft agent is active. This button provides quick access to environment clearing without typing commands.
+
+#### Using the Clear Button
+
+1. **Locate the Button**
+   - Appears in the chat interface when EDIcraft agent is selected
+   - Positioned prominently for easy access during demos
+   - Shows loading state while clearing
+
+2. **Click to Clear**
+   - Click the button to clear the environment
+   - Confirmation message appears in chat
+   - Shows number of blocks cleared
+
+3. **View Results**
+   - Chat displays summary of cleared structures
+   - Minecraft environment is immediately clean
+   - Ready for new visualizations
+
+#### When to Use the Clear Button
+
+✅ **Use the clear button when:**
+- Testing the same wellbore repeatedly
+- Switching between different visualizations
+- Preparing for a new demonstration
+- Removing visual clutter
+
+❌ **Don't use when:**
+- You want to preserve some structures
+- Multiple users are working simultaneously
+- You need selective clearing (use commands instead)
+
+### Clear Environment Command
+
+For more control, use text commands to clear the environment:
+
+#### Basic Clear Commands
+
+**Clear Everything:**
+```
+"Clear the Minecraft environment"
+"Clean up the world"
+"Remove all visualizations"
+```
+
+**Clear Specific Elements:**
+```
+"Clear wellbores"
+"Remove drilling rigs"
+"Clear markers"
+```
+
+#### Clear Options
+
+The clear environment tool supports several options:
+
+**Selective Clearing:**
+- `"all"` - Clear all structures (wellbores, rigs, markers)
+- `"wellbores"` - Clear only wellbore blocks
+- `"rigs"` - Clear only drilling rig structures
+- `"markers"` - Clear only depth and ground markers
+
+**Terrain Preservation:**
+- Automatically preserves natural terrain (grass, dirt, stone, water)
+- Ensures landscape remains intact
+- Only removes visualization structures
+
+#### Clear Response Format
+
+```
+✅ **Minecraft Environment Cleared**
+
+**Summary:**
+- **Wellbores Cleared:** 5
+- **Drilling Rigs Removed:** 3
+- **Total Blocks Cleared:** 1250
+- **Terrain:** Preserved
+
+💡 **Tip:** The environment is now clear and ready for new visualizations!
+```
+
+### Time Lock Command
+
+Lock the Minecraft world time to ensure consistent visibility during demonstrations.
+
+#### Time Lock Commands
+
+**Lock to Daytime:**
+```
+"Lock the world time to day"
+"Set time to day"
+"Keep it daytime"
+```
+
+**Lock to Noon:**
+```
+"Lock time to noon"
+"Set time to noon"
+```
+
+**Unlock Time:**
+```
+"Unlock the time"
+"Resume normal day/night cycle"
+```
+
+#### Supported Time Values
+
+| Command | Minecraft Time | Description |
+|---------|----------------|-------------|
+| day, morning | 1000 | Early morning |
+| noon, midday | 6000 | High noon (brightest) |
+| afternoon | 9000 | Late afternoon |
+| sunset, dusk | 12000 | Sunset |
+| night | 13000 | Early night |
+| midnight | 18000 | Midnight |
+
+#### Time Lock Response
+
+```
+✅ **World Time Locked**
+
+**Settings:**
+- **Current Time:** Day
+- **Daylight Cycle:** Disabled
+- **Status:** Time is locked
+
+💡 **Tip:** Visualizations will always be visible in daylight!
+```
+
+### Collection Visualization
+
+Visualize all wellbores from a collection in a single command.
+
+#### Collection Visualization Commands
+
+**Visualize Entire Collection:**
+```
+"Visualize all wells from collection-123"
+"Show me all wellbores in the collection"
+"Build all wells from this collection"
+```
+
+**Custom Spacing:**
+```
+"Visualize collection with 75-block spacing"
+"Show collection wells with wide spacing"
+```
+
+#### Collection Visualization Features
+
+**Grid Layout:**
+- Wellbores arranged in organized grid pattern
+- Automatic spacing calculation
+- Centered around origin (0, 0)
+- Prevents overlapping structures
+
+**Batch Processing:**
+- Processes wells in batches (default: 5 at a time)
+- Shows real-time progress updates
+- Continues even if individual wells fail
+- Provides detailed summary at completion
+
+**Progress Updates:**
+```
+⏳ **Building Well 5 of 24**
+
+**Current Well:** WELL-005
+**Status:** Processing trajectory data...
+**Progress:** 21% complete
+```
+
+**Completion Summary:**
+```
+✅ **Collection Visualization Complete**
+
+**Collection:** collection-123
+
+**Summary:**
+- **Total Wells:** 24
+- **Successfully Built:** 24
+- **Failed:** 0
+- **Success Rate:** 100%
+
+💡 **Tip:** All wellbores are now visible in Minecraft! You can explore the collection in 3D.
+```
+
+### Demo Reset Command
+
+Reset the entire demo environment with a single command.
+
+#### Demo Reset Commands
+
+**Full Reset:**
+```
+"Reset the demo environment"
+"Reset everything"
+"Prepare for demo"
+```
+
+#### What Demo Reset Does
+
+The demo reset performs a complete reset sequence:
+
+1. **Clears All Wellbores** - Removes all trajectory visualizations
+2. **Removes All Drilling Rigs** - Clears all rig structures
+3. **Clears All Markers** - Removes depth and ground markers
+4. **Locks World Time** - Sets to daytime and locks cycle
+5. **Teleports Players** - Moves all players to spawn (0, 100, 0)
+
+#### Demo Reset Response
+
+```
+✅ **Demo Environment Reset Complete**
+
+**Actions Performed:**
+- ✅ All wellbores cleared
+- ✅ All drilling rigs removed
+- ✅ All markers cleared
+- ✅ World time locked to daytime
+- ✅ Players teleported to spawn
+
+**Status:** Ready for Demo
+
+💡 **Tip:** The Minecraft world is now clean and ready for your next demonstration!
+```
+
+#### Safety Confirmation
+
+Demo reset requires confirmation to prevent accidental resets:
+
+**Without Confirmation:**
+```
+⚠️ **Demo Reset Confirmation Required**
+
+**Warning:** This operation will clear ALL structures and reset the world.
+
+**To proceed:** Confirm the reset when prompted.
+```
+
+### Demo Workflow Best Practices
+
+#### Before Demo
+
+1. **Reset Environment:**
+   ```
+   "Reset the demo environment"
+   ```
+
+2. **Verify Clean State:**
+   - Check Minecraft world is clear
+   - Confirm time is locked to day
+   - Verify spawn point is accessible
+
+3. **Prepare Collection (if needed):**
+   - Load collection context in chat
+   - Verify collection data is accessible
+
+#### During Demo
+
+1. **Build Visualizations:**
+   ```
+   "Visualize all wells from collection-123"
+   ```
+   Or:
+   ```
+   "Build wellbore WELL-007"
+   ```
+
+2. **Show Features:**
+   - Navigate to visualizations in Minecraft
+   - Explain structures and data
+   - Demonstrate drilling rigs and markers
+
+3. **Clear Between Sections:**
+   - Use clear button for quick cleanup
+   - Or use selective clearing commands
+
+#### After Demo
+
+1. **Optional Cleanup:**
+   ```
+   "Clear the Minecraft environment"
+   ```
+
+2. **Or Keep for Review:**
+   - Leave visualizations for stakeholder review
+   - Document coordinates for future reference
+
+#### Between Demos
+
+1. **Full Reset:**
+   ```
+   "Reset the demo environment"
+   ```
+
+2. **Verify Ready State:**
+   - Clean environment
+   - Daytime locked
+   - Players at spawn
+
+### Enhanced Wellbore Visualizations
+
+All wellbore visualizations now include enhanced features:
+
+#### Drilling Rigs
+
+Every wellbore automatically includes a drilling rig at the wellhead:
+
+**Rig Components:**
+- **Derrick:** 15-block high iron bar tower
+- **Platform:** 5×5 smooth stone slab base
+- **Equipment:** Furnaces, hoppers, chests for detail
+- **Signage:** Oak signs with simplified well names
+- **Lighting:** Glowstone blocks for visibility
+
+**Rig Styles:**
+- Standard: Full-featured rig with all components
+- Compact: Smaller rig for dense visualizations
+- Detailed: Extra equipment and visual detail
+
+#### Simplified Well Names
+
+Wellbores display user-friendly names instead of long OSDU IDs:
+
+**Name Simplification:**
+- `osdu:work-product--Wellbore:WELL-007:...` → `WELL-007`
+- `osdu:master-data--Wellbore:12345...` → `WELL-12345`
+
+**Benefits:**
+- Easier to read and reference
+- Better for demonstrations
+- Clearer signage in Minecraft
+- Maintains mapping to full OSDU IDs
+
+#### Color Coding
+
+Wellbores use color-coded blocks for easy identification:
+
+**Color Scheme:**
+- Different colors for different wells
+- Consistent colors per well
+- Easy visual distinction
+- Professional appearance
+
+#### Depth Markers
+
+Wellbores include depth markers at regular intervals:
+
+**Marker Features:**
+- Placed every 500 meters (25 blocks)
+- Show depth labels on signs
+- Use glowstone for visibility
+- Help understand well depth
+
+#### Ground-Level Markers
+
+Surface markers show well locations:
+
+**Surface Markers:**
+- Distinct blocks at wellhead
+- Easy to spot from distance
+- Show well name on signs
+- Connect to drilling rig
+
+### Collection Context Retention
+
+When working with collections, the "Create New Chat" button retains collection context:
+
+#### How It Works
+
+1. **Open Collection Canvas:**
+   - Create canvas from collection
+   - Collection context loads automatically
+   - Badge displays collection name
+
+2. **Create New Chat:**
+   - Click "Create New Chat" button
+   - New canvas inherits collection context
+   - Badge appears immediately
+   - Same collection scope maintained
+
+3. **Multiple Canvases:**
+   - Create multiple canvases from same collection
+   - Each has independent chat history
+   - All share same collection scope
+   - Easy to organize work by topic
+
+#### Benefits
+
+**Faster Workflow:**
+- No need to reload collection context
+- Quick canvas creation
+- Seamless context switching
+
+**Better Organization:**
+- Separate canvases for different analyses
+- Maintain collection scope across canvases
+- Easy to find related work
+
+**Consistent Experience:**
+- Collection badge always visible
+- Same data access across canvases
+- Predictable behavior
 
 ---
 
