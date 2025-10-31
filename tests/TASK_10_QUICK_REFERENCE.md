@@ -1,133 +1,140 @@
-# Task 10: Collection Context Badge - Quick Reference
+# Task 10: Complete Workflows - Quick Reference
 
-## What Was Implemented
+## Quick Start
 
-A collection context badge that displays in the canvas header, showing which collection the canvas is linked to and providing quick navigation to the collection detail page.
-
-## Key Features
-
-1. **Visual Badge**
-   - Blue badge with folder icon
-   - Shows collection name and item count
-   - Positioned in canvas header next to canvas name
-
-2. **Information Popover**
-   - Displays on hover
-   - Shows collection name, description, and data scope
-   - Indicates AI query limitations
-   - Provides navigation instruction
-
-3. **Navigation**
-   - Click badge to navigate to collection detail page
-   - Seamless integration with existing navigation
-
-4. **Smart Display**
-   - Only shows when canvas is linked to collection
-   - Shows loading state during data fetch
-   - Handles errors gracefully
-
-## Files Created
-
-- `src/components/CollectionContextBadge.tsx` - Main component
-- `tests/manual/TASK_10_COLLECTION_CONTEXT_BADGE_TEST_GUIDE.md` - Test guide
-- `tests/TASK_10_IMPLEMENTATION_SUMMARY.md` - Detailed summary
-- `tests/TASK_10_QUICK_REFERENCE.md` - This file
-
-## Files Modified
-
-- `src/app/chat/[chatSessionId]/page.tsx` - Added badge to chat header
-
-## How to Test
-
-### Quick Test
-1. Create a collection from the data catalog
-2. Create a canvas from the collection
-3. Verify badge appears in canvas header
-4. Hover over badge to see popover
-5. Click badge to navigate to collection
-
-### Comprehensive Test
-See `tests/manual/TASK_10_COLLECTION_CONTEXT_BADGE_TEST_GUIDE.md` for detailed test scenarios.
-
-## Component Usage
-
-```typescript
-import CollectionContextBadge from '@/components/CollectionContextBadge';
-
-<CollectionContextBadge chatSessionId={chatSessionId} />
+```bash
+cd tests
+./run-workflow-tests.sh
 ```
 
-## Props
+## What Gets Tested
 
-- `chatSessionId` (string, required): The ID of the chat session to display collection context for
+| Test | Duration | Requirements |
+|------|----------|--------------|
+| 1. Clear Operation | ~5s | 2.1-2.5 |
+| 2. Time Lock | ~65s | 3.1-3.5 |
+| 3. Terrain Fill | ~10s | 4.1-4.5 |
+| 4. Error Recovery | ~10s | 6.1-6.5 |
+| 5. Performance | ~30s | 7.1-7.5 |
 
-## Data Flow
+**Total Time**: ~2-3 minutes
 
-1. Component receives `chatSessionId` prop
-2. Fetches chat session from Amplify
-3. Checks for `linkedCollectionId`
-4. If linked, fetches collection data
-5. Displays badge with collection information
-6. Handles click to navigate to collection detail
+## Prerequisites Checklist
 
-## Styling
+- [ ] Minecraft server running
+- [ ] RCON enabled in server.properties
+- [ ] config.ini configured with RCON credentials
+- [ ] Python 3 installed
+- [ ] Dependencies installed (`pip install -r requirements.txt`)
 
-- Uses Cloudscape Design System components
-- Blue badge color for consistency
-- Folder icon for visual context
-- Responsive design for all screen sizes
+## Expected Output
 
-## Error Handling
+```
+✅ PASS: Clear Operation Workflow
+✅ PASS: Time Lock Workflow
+✅ PASS: Terrain Fill Workflow
+✅ PASS: Error Recovery Workflow
+✅ PASS: Performance Workflow
 
-- Returns null if no collection linked
-- Logs errors to console
-- Doesn't crash page on error
-- Shows loading state during fetch
+Total: 5/5 tests passed
 
-## Performance
+🎉 All workflow tests passed!
+```
 
-- Lightweight component
-- Minimal re-renders
-- Efficient data fetching
-- No heavy computations
+## Common Issues
 
-## Accessibility
+### "Failed to setup RCON executor"
+→ Check Minecraft server is running and RCON is enabled
 
-- Semantic HTML
-- Keyboard navigation support (Cloudscape default)
-- Clear visual indicators
-- Descriptive text
+### "Clear operation failed"
+→ Verify RCON credentials in config.ini
 
-## Browser Compatibility
+### "Time lock did not persist"
+→ Check server version supports doDaylightCycle gamerule
 
-- Works in all modern browsers
-- Responsive on mobile devices
-- No special polyfills required
+### "Performance target not met"
+→ Check server TPS (should be 20)
 
-## Known Issues
+## Manual Testing
 
-- None currently identified
+### Test Clear Operation
+```bash
+# Place test blocks
+/setblock 0 100 0 obsidian
+/setblock 1 100 1 glowstone
 
-## Future Enhancements
+# Use EDIcraft clear tool
+# Then verify:
+/testforblock 0 100 0 air
+/testforblock 1 100 1 air
+```
 
-- Collection data caching
-- Text truncation for long names
-- Quick actions in popover
-- More detailed statistics
+### Test Time Lock
+```bash
+# Set and lock
+/time set day
+/gamerule doDaylightCycle false
 
-## Support
+# Wait 60 seconds, then verify:
+/time query daytime
+/gamerule doDaylightCycle
+```
 
-For issues or questions:
-1. Check manual test guide
-2. Review implementation summary
-3. Check console for errors
-4. Verify collection data exists
+### Test Terrain Fill
+```bash
+# Create hole
+/setblock 10 65 10 air
 
-## Status
+# Use EDIcraft clear with terrain preservation
+# Then verify:
+/testforblock 10 65 10 grass_block
+```
 
-✅ **Complete** - Ready for testing and deployment
+## Performance Targets
+
+| Operation | Target | Typical |
+|-----------|--------|---------|
+| Small clear | < 5s | 2-3s |
+| Medium clear | < 15s | 8-12s |
+| Large clear | < 30s | 20-25s |
+| Terrain fill | < 15s | 10-12s |
+
+## Files
+
+- **Test Suite**: `test-complete-workflows.py`
+- **Quick Start**: `run-workflow-tests.sh`
+- **Full Guide**: `TASK_10_COMPLETE_WORKFLOWS_TEST_GUIDE.md`
+- **Summary**: `TASK_10_IMPLEMENTATION_SUMMARY.md`
+
+## Success Criteria
+
+All 5 tests must pass:
+- ✅ Clear operation completes and verifies clean
+- ✅ Time lock persists for 60 seconds
+- ✅ Terrain fill repairs surface holes
+- ✅ Error recovery provides clear messages
+- ✅ Performance meets < 30s target
+
+## Next Steps
+
+### If All Pass
+→ Proceed to Task 11 (Deploy and Validate)
+
+### If Any Fail
+1. Review test output for specific errors
+2. Check troubleshooting section in full guide
+3. Verify prerequisites
+4. Fix issues and re-run
+
+## Help
+
+For detailed information, see:
+- `TASK_10_COMPLETE_WORKFLOWS_TEST_GUIDE.md` - Complete testing guide
+- `TASK_10_IMPLEMENTATION_SUMMARY.md` - Implementation details
+- `.kiro/specs/fix-edicraft-rcon-reliability/` - Full specification
 
 ---
 
-**Last Updated:** 2025-01-XX
-**Version:** 1.0.0
+**Task 10**: ✅ Complete Workflows Testing
+**Status**: Ready for execution
+**Time**: ~2-3 minutes

@@ -6,10 +6,9 @@ import { type Schema } from '@/../amplify/data/resource';
 
 interface EDIcraftAgentLandingProps {
   onWorkflowSelect?: (prompt: string) => void;
-  onSendMessage?: (message: string) => Promise<void>;
 }
 
-const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ onWorkflowSelect, onSendMessage }) => {
+const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ onWorkflowSelect }) => {
   // In a real implementation, this would check actual server status
   const serverStatus = 'success'; // 'success' | 'warning' | 'error' | 'info'
   const serverUrl = 'edicraft.nigelgardiner.com:49000';
@@ -19,58 +18,53 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
   const [clearResult, setClearResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const handleClearEnvironment = async () => {
-    console.log('[CLEAR BUTTON] Button clicked - executing clear via chat');
+    console.log('[CLEAR BUTTON] Button clicked - executing clear directly without chat message');
     setIsClearing(true);
     setClearResult(null);
 
     try {
-      // Use the onSendMessage callback if provided (sends through chat)
-      if (onSendMessage) {
-        console.log('[CLEAR BUTTON] Sending clear message through chat');
-        await onSendMessage('Clear the Minecraft environment and fill any terrain holes');
+      // Always call agent directly without creating chat message
+      const client = generateClient<Schema>();
 
+      console.log('[CLEAR BUTTON] Calling EDIcraft agent directly (silent mode)');
+
+      const result = await client.mutations.invokeEDIcraftAgent({
+        chatSessionId: 'silent-clear-' + Date.now(),
+        message: 'Clear the Minecraft environment and fill any terrain holes',
+        foundationModelId: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
+        userId: 'system'
+      });
+
+      console.log('[CLEAR BUTTON] Clear result:', result);
+
+      if (result.data?.success) {
+        const successMessage = result.data.message || 'Environment cleared successfully!';
         setClearResult({
           type: 'success',
-          message: 'Clear command sent! Check the chat for results.'
+          message: successMessage
         });
+
+        // Auto-dismiss success messages after 5 seconds
+        setTimeout(() => {
+          setClearResult(null);
+        }, 5000);
       } else {
-        // Fallback: call agent directly
-        const client = generateClient<Schema>();
-
-        console.log('[CLEAR BUTTON] Calling EDIcraft agent directly');
-
-        const result = await client.mutations.invokeEDIcraftAgent({
-          chatSessionId: 'silent-clear-' + Date.now(),
-          message: 'Clear the Minecraft environment and fill any terrain holes',
-          foundationModelId: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-          userId: 'system'
+        // Error messages stay visible until user dismisses
+        setClearResult({
+          type: 'error',
+          message: result.data?.message || 'Clear operation failed'
         });
-
-        console.log('[CLEAR BUTTON] Clear result:', result);
-
-        if (result.data?.success) {
-          setClearResult({
-            type: 'success',
-            message: result.data.message || 'Environment cleared successfully!'
-          });
-        } else {
-          setClearResult({
-            type: 'error',
-            message: result.data?.message || 'Clear failed'
-          });
-        }
       }
-
-      // Hide the message after 5 seconds
-      setTimeout(() => {
-        setClearResult(null);
-      }, 5000);
 
     } catch (error) {
       console.error('[CLEAR BUTTON] Error clearing environment:', error);
+      
+      // Error messages stay visible until user dismisses
       setClearResult({
         type: 'error',
-        message: 'Failed to clear environment. Please try again.'
+        message: error instanceof Error 
+          ? `Failed to clear environment: ${error.message}` 
+          : 'Failed to clear environment. Please try again.'
       });
     } finally {
       setIsClearing(false);

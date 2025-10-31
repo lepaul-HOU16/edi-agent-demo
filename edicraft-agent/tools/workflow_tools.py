@@ -10,6 +10,8 @@ from .trajectory_tools import calculate_trajectory_coordinates, build_wellbore_i
 from .horizon_tools import search_horizons_live, download_horizon_data, convert_horizon_to_minecraft
 from .surface_tools import build_horizon_surface
 from .rcon_tool import execute_rcon_command
+from .clear_environment_tool import ClearEnvironmentTool
+from config import EDIcraftConfig
 
 
 def find_trajectory_by_well_name(well_name: str) -> str:
@@ -449,161 +451,35 @@ def clear_minecraft_environment(area: str = "all", preserve_terrain: bool = True
     - "Reset the environment"
     
     Args:
-        area: Area to clear - "all" (default), "wellbores", "rigs", "markers", or coordinates
+        area: Area to clear - "all" (default), "wellbores", "rigs", "markers"
         preserve_terrain: If True (default), preserves natural terrain blocks
     
     Returns:
         Cloudscape-formatted response with clear results
     """
-    from .response_templates import CloudscapeResponseBuilder
-    
     try:
-        print(f"[CLEAR] Starting clear operation: area={area}, preserve_terrain={preserve_terrain}")
+        # Initialize ClearEnvironmentTool with configuration
+        config = EDIcraftConfig()
+        clear_tool = ClearEnvironmentTool(config)
         
-        # Track cleared blocks
-        wellbores_cleared = 0
-        rigs_cleared = 0
-        entities_cleared = 0
-        total_blocks = 0
-        
-        # Define block types to clear - EXPANDED LIST
-        wellbore_blocks = [
-            "obsidian", "glowstone", "emerald_block", "diamond_block",
-            "gold_block", "iron_block", "lapis_block", "redstone_block",
-            "coal_block", "quartz_block", "prismarine", "dark_prismarine"
-        ]
-        
-        rig_blocks = [
-            "iron_bars", "smooth_stone_slab", "furnace", "hopper", "chest",
-            "oak_sign", "wall_sign", "iron_block", "iron_trapdoor",
-            "ladder", "torch", "wall_torch", "lantern", "chain",
-            "anvil", "crafting_table", "barrel", "smoker", "blast_furnace"
-        ]
-        
-        marker_blocks = [
-            "beacon", "sea_lantern", "end_rod", "redstone_lamp",
-            "glowstone", "shroomlight"
-        ]
-        
-        # Determine which blocks to clear based on area parameter
-        blocks_to_clear = []
-        if area == "all":
-            blocks_to_clear = wellbore_blocks + rig_blocks + marker_blocks
-            # Remove duplicates
-            blocks_to_clear = list(set(blocks_to_clear))
-        elif area == "wellbores":
-            blocks_to_clear = wellbore_blocks
-        elif area == "rigs":
-            blocks_to_clear = rig_blocks
-        elif area == "markers":
-            blocks_to_clear = marker_blocks
-        else:
-            return CloudscapeResponseBuilder.error_response(
-                "Clear Environment",
-                f"Custom area clearing not yet implemented: {area}",
-                [
-                    "Use area='all' to clear everything",
-                    "Use area='wellbores' to clear only wellbores",
-                    "Use area='rigs' to clear only drilling rigs",
-                    "Use area='markers' to clear only markers"
-                ]
-            )
-        
-        # Step 1: Kill all non-player entities (item frames, armor stands, etc.)
-        print(f"[CLEAR] Step 1: Removing entities...")
-        try:
-            kill_result = execute_rcon_command("kill @e[type=!player]")
-            print(f"[CLEAR] Entity removal result: {kill_result}")
-            # Parse entity count
-            import re
-            match = re.search(r'killed\s+(\d+)', kill_result.lower())
-            if match:
-                entities_cleared = int(match.group(1))
-                print(f"[CLEAR] Removed {entities_cleared} entities")
-        except Exception as e:
-            print(f"[CLEAR] Error removing entities: {str(e)}")
-        
-        # Step 2: Clear blocks in smaller, more manageable chunks
-        # Use 50x50x50 chunks for better performance
-        chunk_size = 50
-        
-        # Define the overall area to clear (smaller area for better performance)
-        x_min, x_max = -300, 300
-        y_min, y_max = 50, 200  # Focus on build height, not deep underground
-        z_min, z_max = -300, 300
-        
-        print(f"[CLEAR] Step 2: Clearing blocks from ({x_min},{y_min},{z_min}) to ({x_max},{y_max},{z_max})")
-        print(f"[CLEAR] Using chunk size: {chunk_size}x{chunk_size}x{chunk_size}")
-        print(f"[CLEAR] Block types to clear: {len(blocks_to_clear)} types")
-        
-        # Clear each block type
-        for block_type in blocks_to_clear:
-            block_count_for_type = 0
-            
-            # Use larger fill commands (Minecraft can handle up to 32768 blocks)
-            # 50x50x50 = 125,000 blocks, so we need to be more conservative
-            # Use 30x30x30 = 27,000 blocks per command
-            for x in range(x_min, x_max, 30):
-                for y in range(y_min, y_max, 30):
-                    for z in range(z_min, z_max, 30):
-                        try:
-                            x1, x2 = x, min(x + 29, x_max)
-                            y1, y2 = y, min(y + 29, y_max)
-                            z1, z2 = z, min(z + 29, z_max)
-                            
-                            # Use fill command to replace specific blocks with air
-                            fill_command = f"fill {x1} {y1} {z1} {x2} {y2} {z2} air replace {block_type}"
-                            
-                            result = execute_rcon_command(fill_command)
-                            
-                            # Parse result
-                            match = re.search(r'(\d+)\s+block', result.lower())
-                            if match:
-                                blocks_count = int(match.group(1))
-                                if blocks_count > 0:
-                                    block_count_for_type += blocks_count
-                                    total_blocks += blocks_count
-                                    
-                        except Exception as e:
-                            # Continue on error
-                            continue
-            
-            # Categorize blocks
-            if block_count_for_type > 0:
-                if block_type in wellbore_blocks:
-                    wellbores_cleared += 1
-                elif block_type in rig_blocks:
-                    rigs_cleared += 1
-                print(f"[CLEAR] Cleared {block_count_for_type} {block_type} blocks")
-        
-        # Step 3: Fill any air pockets underground with stone to fix terrain
-        if preserve_terrain:
-            print(f"[CLEAR] Step 3: Repairing terrain...")
-            try:
-                # Fill underground air with stone (below y=60)
-                repair_command = f"fill {x_min} {y_min} {z_min} {x_max} 60 {z_max} stone replace air"
-                repair_result = execute_rcon_command(repair_command)
-                print(f"[CLEAR] Terrain repair result: {repair_result}")
-            except Exception as e:
-                print(f"[CLEAR] Error repairing terrain: {str(e)}")
-        
-        # Return success response
-        print(f"[CLEAR] Clear operation complete: {total_blocks} blocks cleared, {entities_cleared} entities removed")
-        return CloudscapeResponseBuilder.clear_confirmation(
-            wellbores_cleared=wellbores_cleared,
-            rigs_cleared=rigs_cleared,
-            blocks_cleared=total_blocks
+        # Execute clear operation using enhanced RCONExecutor
+        result = clear_tool.clear_minecraft_environment(
+            area=area,
+            preserve_terrain=preserve_terrain
         )
         
+        return result
+        
     except Exception as e:
+        from .response_templates import CloudscapeResponseBuilder
         print(f"[CLEAR] Error in clear operation: {str(e)}")
         return CloudscapeResponseBuilder.error_response(
             "Clear Environment",
-            f"Failed to clear Minecraft environment: {str(e)}",
+            str(e),
             [
                 "Check Minecraft server connection",
-                "Verify RCON is enabled and accessible",
-                "Try clearing a smaller area",
+                "Verify RCON configuration",
+                "Try restarting the Minecraft server",
                 "Check server logs for errors"
             ]
         )
@@ -632,6 +508,7 @@ def lock_world_time(time: str = "day", enabled: bool = True) -> str:
         Cloudscape-formatted response with time lock status
     """
     from .response_templates import CloudscapeResponseBuilder
+    from .rcon_executor import RCONExecutor
     
     try:
         print(f"[TIME_LOCK] Starting time lock operation: time={time}, enabled={enabled}")
@@ -667,17 +544,26 @@ def lock_world_time(time: str = "day", enabled: bool = True) -> str:
         
         time_value = time_values[time_lower]
         
+        # Initialize RCONExecutor with configuration
+        config = EDIcraftConfig()
+        executor = RCONExecutor(
+            host=config.minecraft_host,
+            port=config.minecraft_rcon_port,
+            password=config.minecraft_rcon_password,
+            timeout=10,
+            max_retries=3
+        )
+        
         # Step 1: Set the world time
         print(f"[TIME_LOCK] Setting world time to {time} ({time_value})...")
-        try:
-            time_command = f"time set {time_value}"
-            time_result = execute_rcon_command(time_command)
-            print(f"[TIME_LOCK] Time set result: {time_result}")
-        except Exception as e:
-            print(f"[TIME_LOCK] Error setting time: {str(e)}")
+        time_command = f"time set {time_value}"
+        time_result = executor.execute_command(time_command)
+        
+        if not time_result.success:
+            print(f"[TIME_LOCK] Error setting time: {time_result.error}")
             return CloudscapeResponseBuilder.error_response(
                 "Time Lock",
-                f"Failed to set world time: {str(e)}",
+                f"Failed to set world time: {time_result.error}",
                 [
                     "Check Minecraft server connection",
                     "Verify RCON is enabled and accessible",
@@ -686,32 +572,97 @@ def lock_world_time(time: str = "day", enabled: bool = True) -> str:
                 ]
             )
         
-        # Step 2: Lock or unlock the daylight cycle
+        print(f"[TIME_LOCK] Time set successfully: {time_result.response}")
+        
+        # Step 2: Lock or unlock the daylight cycle with verification
         print(f"[TIME_LOCK] {'Locking' if enabled else 'Unlocking'} daylight cycle...")
-        try:
-            # Set doDaylightCycle gamerule
-            cycle_value = "false" if enabled else "true"
-            cycle_command = f"gamerule doDaylightCycle {cycle_value}"
-            cycle_result = execute_rcon_command(cycle_command)
-            print(f"[TIME_LOCK] Daylight cycle result: {cycle_result}")
-        except Exception as e:
-            print(f"[TIME_LOCK] Error setting daylight cycle: {str(e)}")
+        
+        # Set doDaylightCycle gamerule
+        cycle_value = "false" if enabled else "true"
+        cycle_command = f"gamerule doDaylightCycle {cycle_value}"
+        
+        # Query gamerule state before change
+        query_before = executor.execute_command("gamerule doDaylightCycle", verify=False)
+        if query_before.success:
+            print(f"[TIME_LOCK] Gamerule state before: {query_before.response}")
+        
+        # Set gamerule with retry logic
+        cycle_result = executor.execute_command(cycle_command)
+        
+        if not cycle_result.success:
+            print(f"[TIME_LOCK] Error setting daylight cycle: {cycle_result.error}")
             return CloudscapeResponseBuilder.error_response(
                 "Time Lock",
-                f"Time was set but failed to lock daylight cycle: {str(e)}",
+                f"Time was set but failed to lock daylight cycle: {cycle_result.error}",
                 [
-                    "Time is set to {time} but may change",
+                    f"Time is set to {time} but may change",
                     "Try manually: /gamerule doDaylightCycle false",
                     "Check server permissions",
                     "Verify RCON connection"
                 ]
             )
         
-        # Return success response
-        print(f"[TIME_LOCK] Time lock operation complete")
+        print(f"[TIME_LOCK] Gamerule set result: {cycle_result.response}")
+        
+        # Step 3: Verify gamerule was actually set (with up to 3 attempts)
+        print(f"[TIME_LOCK] Verifying gamerule state...")
+        verification_attempts = 0
+        max_verification_attempts = 3
+        verified = False
+        
+        while verification_attempts < max_verification_attempts and not verified:
+            verification_attempts += 1
+            print(f"[TIME_LOCK] Verification attempt {verification_attempts}/{max_verification_attempts}")
+            
+            # Verify gamerule value
+            verified = executor.verify_gamerule("doDaylightCycle", cycle_value)
+            
+            if verified:
+                print(f"[TIME_LOCK] Gamerule verified successfully: doDaylightCycle={cycle_value}")
+                break
+            else:
+                print(f"[TIME_LOCK] Gamerule verification failed (attempt {verification_attempts})")
+                
+                if verification_attempts < max_verification_attempts:
+                    # Retry setting the gamerule
+                    print(f"[TIME_LOCK] Retrying gamerule command...")
+                    retry_result = executor.execute_command(cycle_command)
+                    
+                    if not retry_result.success:
+                        print(f"[TIME_LOCK] Retry failed: {retry_result.error}")
+                    else:
+                        print(f"[TIME_LOCK] Retry result: {retry_result.response}")
+                    
+                    # Wait a moment before verification
+                    import time as time_module
+                    time_module.sleep(1)
+        
+        # Check final verification status
+        if not verified:
+            print(f"[TIME_LOCK] Gamerule verification failed after {max_verification_attempts} attempts")
+            return CloudscapeResponseBuilder.error_response(
+                "Time Lock",
+                f"Gamerule was set but verification failed after {max_verification_attempts} attempts",
+                [
+                    f"Time is set to {time}",
+                    "Gamerule command executed but verification shows different value",
+                    "Check server logs for gamerule issues",
+                    "Try manually: /gamerule doDaylightCycle false",
+                    "Verify server permissions"
+                ]
+            )
+        
+        # Query gamerule state after change
+        query_after = executor.execute_command("gamerule doDaylightCycle", verify=False)
+        if query_after.success:
+            print(f"[TIME_LOCK] Gamerule state after: {query_after.response}")
+        
+        # Return success response with verified state
+        print(f"[TIME_LOCK] Time lock operation complete and verified")
         return CloudscapeResponseBuilder.time_lock_confirmation(
             time=time,
-            locked=enabled
+            locked=enabled,
+            verified=True
         )
         
     except Exception as e:

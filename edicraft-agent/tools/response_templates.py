@@ -250,7 +250,8 @@ Would you like to try one of these options?"""
     @staticmethod
     def time_lock_confirmation(
         time: str,
-        locked: bool
+        locked: bool,
+        verified: bool = False
     ) -> str:
         """
         Generate time lock confirmation response.
@@ -258,6 +259,7 @@ Would you like to try one of these options?"""
         Args:
             time: Time setting (e.g., "day", "noon")
             locked: Whether time is locked or unlocked
+            verified: Whether gamerule was verified (default: False)
         
         Returns:
             Cloudscape-formatted time lock confirmation
@@ -265,12 +267,16 @@ Would you like to try one of these options?"""
         status = "locked" if locked else "unlocked"
         cycle_status = "disabled" if locked else "enabled"
         
+        verification_section = ""
+        if verified:
+            verification_section = f"\n- **Verification:** Gamerule verified successfully"
+        
         return f"""{CloudscapeResponseBuilder.SUCCESS_ICON} **World Time {status.capitalize()}**
 
 **Settings:**
 - **Current Time:** {time.capitalize()}
 - **Daylight Cycle:** {cycle_status.capitalize()}
-- **Status:** Time is {status}
+- **Status:** Time is {status}{verification_section}
 
 {CloudscapeResponseBuilder.TIP_ICON} **Tip:** Visualizations will {"always be visible in daylight" if locked else "follow the natural day/night cycle"}!"""
     

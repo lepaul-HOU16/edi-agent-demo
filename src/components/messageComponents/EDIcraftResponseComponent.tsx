@@ -99,15 +99,39 @@ function parseEDIcraftResponse(content: string): ParsedResponse {
 }
 
 /**
+ * Generate stable content hash for deduplication
+ */
+function generateContentHash(content: string): string {
+  // Create a stable hash from the content
+  // Use first 100 chars + length to create unique identifier
+  const prefix = content.substring(0, 100).replace(/[^a-zA-Z0-9]/g, '');
+  const length = content.length;
+  return `edicraft-${prefix}-${length}`;
+}
+
+/**
  * Render EDIcraft response with Cloudscape components
  */
 export const EDIcraftResponseComponent: React.FC<EDIcraftResponseProps> = ({ content }) => {
   const parsed = parseEDIcraftResponse(content);
+  const renderCountRef = React.useRef(0);
   
-  // Generate a stable content hash for the key to prevent duplicate renders
+  // Generate a stable content hash for deduplication
   const contentHash = React.useMemo(() => {
-    return content.substring(0, 50).replace(/[^a-zA-Z0-9]/g, '');
+    return generateContentHash(content);
   }, [content]);
+  
+  // Track render count for debugging
+  renderCountRef.current += 1;
+  
+  // Check if this content hash already exists in the DOM
+  React.useEffect(() => {
+    const existingElements = document.querySelectorAll(`[data-content-hash="${contentHash}"]`);
+    if (existingElements.length > 1) {
+      console.warn(`⚠️ EDIcraft response duplicate detected: ${contentHash} (${existingElements.length} instances)`);
+    }
+    console.log(`🔄 EDIcraft response render #${renderCountRef.current} for hash: ${contentHash}`);
+  }, [contentHash]);
   
   // If it's plain text (no template structure), render as-is
   if (parsed.type === 'plain' || !parsed.title) {

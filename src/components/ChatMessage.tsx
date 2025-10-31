@@ -62,7 +62,7 @@ import { ConfirmationMessageComponent } from './messageComponents/ConfirmationMe
 // Data access approval component
 import { DataAccessApprovalComponent } from './messageComponents/DataAccessApprovalComponent';
 
-// Enhanced artifact processor component with S3 support - STABLE VERSION
+// Enhanced artifact processor component with S3 support - STABLE VERSION WITH DEDUPLICATION
 const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, onSendMessage }: {
     rawArtifacts: any[];
     message: Message;
@@ -74,14 +74,31 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
     const [error, setError] = useState<string | null>(null);
     const processingRef = useRef<boolean>(false); // Prevent multiple processing
     const renderCountRef = useRef<number>(0); // Track render count
+    const contentHashRef = useRef<string>(''); // Track content hash for deduplication
+    
+    // Generate stable content hash for deduplication
+    const contentHash = useMemo(() => {
+        const hashContent = JSON.stringify(rawArtifacts);
+        const hash = `artifact-${hashContent.substring(0, 100).replace(/[^a-zA-Z0-9]/g, '')}-${hashContent.length}`;
+        return hash;
+    }, [rawArtifacts]);
     
     // Track component renders
     renderCountRef.current += 1;
     console.log('🔄 EnhancedArtifactProcessor RENDER #' + renderCountRef.current, {
         messageId: (message as any).id,
         rawArtifactsCount: rawArtifacts?.length || 0,
+        contentHash: contentHash,
         timestamp: new Date().toISOString()
     });
+    
+    // Check if this content is already being rendered in the DOM
+    useEffect(() => {
+        const existingElements = document.querySelectorAll(`[data-content-hash="${contentHash}"]`);
+        if (existingElements.length > 1) {
+            console.warn(`⚠️ Duplicate artifact render detected: ${contentHash} (${existingElements.length} instances)`);
+        }
+    }, [contentHash]);
 
     // Memoize raw artifacts to prevent dependency changes
     // Use a stable string representation for comparison
@@ -90,6 +107,17 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
 
     // Memoize the process function to prevent useEffect re-runs
     const processArtifacts = useCallback(async () => {
+        // Skip if content hash already exists in DOM (deduplication)
+        const existingElements = document.querySelectorAll(`[data-content-hash="${contentHash}"]`);
+        if (existingElements.length > 0 && contentHashRef.current === contentHash) {
+            console.log('⏭️ EnhancedArtifactProcessor: Content already rendered, skipping processing');
+            setLoading(false);
+            return;
+        }
+        
+        // Update content hash ref
+        contentHashRef.current = contentHash;
+        
         // Prevent multiple simultaneous processing
         if (processingRef.current) {
             console.log('⏭️ EnhancedArtifactProcessor: Already processing, skipping...');
@@ -268,7 +296,7 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
         } finally {
             processingRef.current = false;
         }
-    }, [stableRawArtifacts]);
+    }, [stableRawArtifacts, contentHash]);
 
     useEffect(() => {
         processArtifacts();
@@ -280,7 +308,7 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             message={message} 
             theme={theme} 
             enhancedComponent={
-                <div style={{ padding: '16px', textAlign: 'center' }}>
+                <div style={{ padding: '16px', textAlign: 'center' }} data-content-hash={contentHash}>
                     <div>🔄 Loading visualization data...</div>
                     <div style={{ fontSize: '0.8em', color: 'gray', marginTop: '8px' }}>
                         Retrieving large dataset from storage
@@ -296,7 +324,7 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             message={message} 
             theme={theme} 
             enhancedComponent={
-                <div style={{ padding: '16px', color: 'orange' }}>
+                <div style={{ padding: '16px', color: 'orange' }} data-content-hash={contentHash}>
                     <div>⚠️ Error loading visualization data</div>
                     <div style={{ fontSize: '0.8em', marginTop: '8px' }}>{error}</div>
                     <div style={{ fontSize: '0.8em', marginTop: '8px' }}>
@@ -347,14 +375,16 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                  parsedArtifact.messageContentType === 'error')) {
                 console.log('⚠️ EnhancedArtifactProcessor: Rendering error artifact');
                 return (
-                    <div style={{
-                        padding: '16px',
-                        margin: '8px 0',
-                        backgroundColor: theme.palette.mode === 'dark' ? '#3d1f1f' : '#fff3cd',
-                        border: `1px solid ${theme.palette.mode === 'dark' ? '#721c24' : '#ffc107'}`,
-                        borderRadius: '4px',
-                        color: theme.palette.mode === 'dark' ? '#f8d7da' : '#856404',
-                    }}>
+                    <div 
+                        data-content-hash={contentHash}
+                        style={{
+                            padding: '16px',
+                            margin: '8px 0',
+                            backgroundColor: theme.palette.mode === 'dark' ? '#3d1f1f' : '#fff3cd',
+                            border: `1px solid ${theme.palette.mode === 'dark' ? '#721c24' : '#ffc107'}`,
+                            borderRadius: '4px',
+                            color: theme.palette.mode === 'dark' ? '#f8d7da' : '#856404',
+                        }}>
                         <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>
                             {parsedArtifact.title || 'Artifact Error'}
                         </div>
@@ -870,10 +900,23 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
     }
     
     console.log('⚠️ EnhancedArtifactProcessor: Artifacts found but no matching component, using regular AI message');
-    return <AiMessageComponent message={message} theme={theme} />;
+    return (
+        <div data-content-hash={contentHash}>
+            <AiMessageComponent message={message} theme={theme} />
+        </div>
+    );
 }, (prevProps, nextProps) => {
     // Custom comparison to prevent re-renders when artifacts haven't changed
-    return JSON.stringify(prevProps.rawArtifacts) === JSON.stringify(nextProps.rawArtifacts);
+    // This prevents duplicate processing when props haven't actually changed
+    const prevHash = JSON.stringify(prevProps.rawArtifacts);
+    const nextHash = JSON.stringify(nextProps.rawArtifacts);
+    const shouldSkipRender = prevHash === nextHash;
+    
+    if (shouldSkipRender) {
+        console.log('⏭️ EnhancedArtifactProcessor: Skipping re-render, artifacts unchanged');
+    }
+    
+    return shouldSkipRender;
 });
 
 const ChatMessage = (params: {
