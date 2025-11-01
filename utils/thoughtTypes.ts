@@ -5,7 +5,7 @@
 
 export interface ThoughtStep {
   id: string;
-  type: 'intent_detection' | 'parameter_extraction' | 'tool_selection' | 'execution' | 'validation' | 'completion';
+  type: 'intent_detection' | 'parameter_extraction' | 'tool_selection' | 'execution' | 'validation' | 'completion' | 'error';
   timestamp: number;
   title: string;
   summary: string;
@@ -80,6 +80,8 @@ export const getThinkingContextFromStep = (step: ThoughtStep): string => {
       return `✓ Validating ${context?.analysisType || 'results'}...`;
     case 'completion':
       return `🎉 Analysis complete!`;
+    case 'error':
+      return `❌ Error occurred`;
     default:
       return '🤔 Processing...';
   }
@@ -100,6 +102,8 @@ export const getAnimationIntensity = (type: ThoughtStep['type']) => {
       return { duration: '2.3s', scale: { min: 1, max: 1.025 }, opacity: { min: 0.75, max: 1 } };
     case 'completion':
       return { duration: '3s', scale: { min: 1, max: 1.01 }, opacity: { min: 0.9, max: 1 } };
+    case 'error':
+      return { duration: '2s', scale: { min: 1, max: 1.02 }, opacity: { min: 0.8, max: 1 } };
     default:
       return { duration: '2.5s', scale: { min: 1, max: 1.02 }, opacity: { min: 0.8, max: 1 } };
   }
