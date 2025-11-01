@@ -265,8 +265,9 @@ backend.catalogSearchFunction.resources.lambda.addToRolePolicy(
 );
 
 // Add catalog session bucket name as environment variable
+// CRITICAL: Must use CATALOG_S3_BUCKET to match handler.py expectation
 backend.catalogSearchFunction.addEnvironment(
-  'CATALOG_SESSION_BUCKET',
+  'CATALOG_S3_BUCKET',
   catalogSessionBucket.bucketName
 );
 

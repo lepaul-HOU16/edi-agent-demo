@@ -19,6 +19,9 @@ const __dirname = dirname(__filename);
  * - Strands Agent integration
  * - OSDU API search
  * - Streaming responses via AppSync GraphQL
+ * 
+ * NOTE: CATALOG_S3_BUCKET will be set dynamically in backend.ts
+ * to use the catalog session bucket created in the deploying account
  */
 export const catalogSearchFunction = defineFunction((scope: Construct) => {
   // Create the layer with dependencies
@@ -33,7 +36,7 @@ export const catalogSearchFunction = defineFunction((scope: Construct) => {
     timeout: Duration.seconds(300), // 5 minutes for OSDU queries
     memorySize: 1024,
     environment: {
-      CATALOG_S3_BUCKET: process.env.CATALOG_S3_BUCKET || 'catalog-sessions-418272783721-us-east-1',
+      // CATALOG_S3_BUCKET will be set in backend.ts to use the dynamically created bucket
       OSDU_BASE_URL: process.env.OSDU_BASE_URL || 'https://osdu.vavourak.people.aws.dev',
       OSDU_PARTITION_ID: process.env.OSDU_PARTITION_ID || 'osdu',
       EDI_USERNAME: process.env.EDI_USERNAME || 'edi-user',
