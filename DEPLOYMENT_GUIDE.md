@@ -1,160 +1,343 @@
-# Deployment Guide: Wind Rose Feature
+# Deployment Guide - Complete Steps from Scratch
 
-## Changes Made
+## Prerequisites
 
-### 1. Updated `amplify/functions/renewableTools/simulation/simple_handler.py`
-- ✅ Added matplotlib_generator import
-- ✅ Enhanced wind_rose action handler to use ORIGINAL matplotlib visualization
-- ✅ Generate wind rose PNG using `MatplotlibChartGenerator.create_wind_rose()`
-- ✅ Save PNG to S3
-- ✅ Return S3 URL in response
+Before starting, ensure you have:
 
-### 2. Created Test Script
-- ✅ `tests/test-wind-rose.sh` - Comprehensive wind rose testing
+- **Node.js 18+** installed ([download](https://nodejs.org/))
+- **AWS CLI** installed and configured ([install guide](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html))
+- **uv** Python package manager installed ([install guide](https://docs.astral.sh/uv/getting-started/installation/))
+- **Git** installed
+- **AWS Account** with appropriate permissions (Lambda, S3, DynamoDB, Cognito, AppSync, Amplify)
 
-## CRITICAL: Visualization Modules Fix
+## Step-by-Step Deployment
 
-**BEFORE DEPLOYING:** The visualization modules have been copied into the simulation directory to fix the "No module named 'matplotlib_generator'" error.
+### Step 1: Clone the Repository
 
-**Files Added:**
-- `amplify/functions/renewableTools/simulation/matplotlib_generator.py`
-- `amplify/functions/renewableTools/simulation/visualization_config.py`
-- `amplify/functions/renewableTools/simulation/folium_generator.py`
+```bash
+git clone <repository-url>
+cd edi-agent-demo
+```
 
-These files are now included in the ZIP deployment.
+Or if you already have it:
 
-## Deployment Steps
+```bash
+cd edi-agent-demo
+git pull origin <branch-name>
+```
 
-### Step 1: Deploy to Sandbox
+### Step 2: Install uv (if not already installed)
 
-**IMPORTANT:** You must run this command manually in your terminal:
+**macOS/Linux:**
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+**macOS with Homebrew:**
+```bash
+brew install uv
+```
+
+**Verify installation:**
+```bash
+uv --version
+```
+
+### Step 3: Build the Lambda Layer
+
+The catalogSearch Lambda requires a Python layer with dependencies. This MUST be done before deployment:
+
+```bash
+cd amplify/layers/catalogSearchLayer
+./build-layer.sh
+```
+
+**Expected output:**
+```
+Building Lambda Layer for Catalog Search...
+Using CPython 3.12.11
+Resolved 76 packages in 814ms
+...
+Lambda layer built successfully in python/ directory
+```
+
+**Verify the layer was built:**
+```bash
+ls -la python/requests/
+```
+
+You should see the requests module files.
+
+```bash
+cd ../../..
+```
+
+### Step 4: Install Node.js Dependencies
+
+```bash
+npm install
+```
+
+This will install all frontend and backend dependencies defined in `package.json`.
+
+### Step 5: Configure AWS Credentials
+
+If not already configured:
+
+```bash
+aws configure
+```
+
+Enter:
+- AWS Access Key ID
+- AWS Secret Access Key
+- Default region (e.g., `us-east-1`)
+- Default output format (e.g., `json`)
+
+**Verify credentials:**
+```bash
+aws sts get-caller-identity
+```
+
+### Step 6: Deploy to AWS Amplify Sandbox
+
+For development/testing:
 
 ```bash
 npx ampx sandbox
 ```
 
-**Wait for:** "Deployed" message (may take 5-10 minutes)
+**What this does:**
+- Creates a temporary cloud environment
+- Deploys all Lambda functions (including the layer)
+- Creates DynamoDB tables
+- Creates S3 buckets
+- Sets up Cognito authentication
+- Creates AppSync GraphQL API
+- Streams function logs to your terminal
 
-**Note:** This deployment includes the visualization module fix
-
-### Step 2: Verify Deployment
-
-After sandbox is deployed, run:
-
-```bash
-# Check Lambda function exists
-aws lambda list-functions | grep RenewableSimulationTool
-
-# Check environment variables
-SIMULATION_FUNCTION=$(aws lambda list-functions --query "Functions[?contains(FunctionName, 'RenewableSimulationTool')].FunctionName" --output text)
-aws lambda get-function-configuration --function-name "$SIMULATION_FUNCTION" --query "Environment.Variables"
+**Expected output:**
+```
+[Sandbox] Deploying...
+[Sandbox] Deployed resources:
+  - Lambda functions: 15+
+  - S3 buckets: 2
+  - DynamoDB tables: 3
+  - AppSync API: 1
+[Sandbox] Sandbox URL: https://...amplifyapp.com
 ```
 
-### Step 3: Run Wind Rose Tests
+**Wait for deployment to complete** (typically 5-10 minutes for first deployment).
+
+### Step 7: Verify Deployment
+
+Once deployed, verify the catalogSearch Lambda has the layer:
 
 ```bash
-./tests/test-wind-rose.sh
+# Get the Lambda function name
+aws lambda list-functions --query "Functions[?contains(FunctionName, 'CatalogSearch')].FunctionName" --output text
+
+# Check the function configuration
+aws lambda get-function-configuration --function-name <function-name-from-above>
 ```
 
-**Expected Output:**
-- ✓ Wind rose analysis successful
-- ✓ Wind rose visualization URL generated
-- ✓ Wind rose visualization is accessible
-- ✓ Average wind speed is reasonable
-- ✓ Direction count is correct (16 directions)
-- ✓ Response has project ID
-- ✓ Response has coordinates
-- ✓ Response has wind statistics
+Look for `Layers` in the output - it should show the catalogSearchLayer.
 
-### Step 4: Test in UI
+### Step 8: Access the Application
 
-1. Open chat interface
-2. Enter query: "show me a wind rose for 35.067482, -101.395466"
-3. Verify:
-   - Wind rose chart displays
-   - Statistics are shown
-   - No errors in console
+The sandbox will output a URL like:
+```
+https://main.d1234567890.amplifyapp.com
+```
 
-### Step 5: Run Regression Tests
+Open this URL in your browser to access the application.
 
-**CRITICAL:** Verify existing features still work:
+### Step 9: Test the Catalog Search
+
+1. Navigate to the Catalog page
+2. Try the query: "all wells"
+3. Verify files are generated and displayed correctly
+4. Check browser console for any errors
+
+## Production Deployment
+
+For production deployment to AWS Amplify:
+
+### Option 1: Via Amplify Console (Recommended)
+
+1. Go to [AWS Amplify Console](https://console.aws.amazon.com/amplify/)
+2. Click "New app" → "Host web app"
+3. Connect your Git repository
+4. Select the branch to deploy
+5. Amplify will automatically detect the configuration
+6. **IMPORTANT**: Before deploying, you must build the Lambda layer locally and commit it, OR add a build step
+
+### Option 2: Via CLI
 
 ```bash
-# Test terrain (should still show 170 features)
-./tests/test-renewable-baseline.sh
-
-# Or test individually
-aws lambda invoke \
-  --function-name amplify-digitalassistant--RenewableTerrainToolFBBF-WH2Gs9R2lgfP \
-  --payload '{"parameters":{"latitude":35.067482,"longitude":-101.395466,"radius_km":5,"project_id":"regression-test"}}' \
-  --cli-binary-format raw-in-base64-out \
-  /tmp/terrain-regression.json
-
-# Check feature count
-jq '.data.metrics.totalFeatures' /tmp/terrain-regression.json
-# Should output: 170 (or similar high number, NOT 60)
+npx ampx pipeline-deploy --branch main --app-id <your-app-id>
 ```
+
+## Redeployment to New AWS Account
+
+When deploying to a completely new AWS account:
+
+### Step 1: Configure New AWS Credentials
+
+```bash
+aws configure --profile new-account
+```
+
+Or update your default credentials:
+
+```bash
+aws configure
+```
+
+### Step 2: Build Lambda Layer
+
+**CRITICAL**: The Lambda layer must be rebuilt for each deployment:
+
+```bash
+cd amplify/layers/catalogSearchLayer
+./build-layer.sh
+cd ../../..
+```
+
+### Step 3: Deploy
+
+```bash
+npx ampx sandbox
+```
+
+Or with a specific profile:
+
+```bash
+AWS_PROFILE=new-account npx ampx sandbox
+```
+
+### Step 4: Update Environment Variables (if needed)
+
+If you have custom environment variables, update them in:
+- `amplify/functions/catalogSearch/resource.ts`
+- `amplify/backend.ts`
+
+## Common Issues and Solutions
+
+### Issue 1: "No module named 'requests'"
+
+**Cause**: Lambda layer not built or not deployed
+
+**Solution**:
+```bash
+cd amplify/layers/catalogSearchLayer
+./build-layer.sh
+cd ../../..
+npx ampx sandbox
+```
+
+### Issue 2: "uv: command not found"
+
+**Cause**: uv not installed
+
+**Solution**:
+```bash
+# macOS
+brew install uv
+
+# Or using curl
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+### Issue 3: S3 Fetch Timeout
+
+**Cause**: CORS or network issues
+
+**Solution**: Already fixed in this branch. Ensure you've deployed the latest code.
+
+### Issue 4: AWS Credentials Not Found
+
+**Cause**: AWS CLI not configured
+
+**Solution**:
+```bash
+aws configure
+```
+
+### Issue 5: Deployment Fails with Permission Errors
+
+**Cause**: AWS account lacks necessary permissions
+
+**Solution**: Ensure your AWS user/role has permissions for:
+- Lambda (create, update, invoke)
+- S3 (create buckets, put/get objects)
+- DynamoDB (create tables, read/write)
+- Cognito (create user pools)
+- AppSync (create APIs)
+- IAM (create roles, attach policies)
+- CloudFormation (create stacks)
+
+## Verification Checklist
+
+After deployment, verify:
+
+- [ ] Lambda layer built successfully (`ls amplify/layers/catalogSearchLayer/python/requests/`)
+- [ ] AWS credentials configured (`aws sts get-caller-identity`)
+- [ ] Node dependencies installed (`ls node_modules/`)
+- [ ] Sandbox deployed successfully (check terminal output)
+- [ ] Application URL accessible (open in browser)
+- [ ] Catalog search works ("all wells" query)
+- [ ] No console errors in browser DevTools
+- [ ] Files generated in S3 bucket
+- [ ] GeoJSON loads without timeout
 
 ## Troubleshooting
 
-### Issue: Matplotlib not available
+### Error: "No module named 'requests'"
 
-**Symptom:** Wind rose returns data but no visualization URL
-
-**Solution:**
-1. Check if matplotlib_generator.py exists in parent directory
-2. Verify Lambda layer includes matplotlib dependencies
-3. Check CloudWatch logs for import errors
-
-### Issue: S3 URL not accessible
-
-**Symptom:** HTTP 403 or 404 when accessing wind rose PNG
+This means the Lambda layer wasn't built or deployed properly.
 
 **Solution:**
-1. Check S3 bucket permissions
-2. Verify bucket name in environment variable
-3. Wait a few seconds for S3 propagation
-
-### Issue: Wind rose not routing correctly
-
-**Symptom:** Query doesn't trigger wind rose analysis
-
-**Solution:**
-1. Check orchestrator intent detection
-2. Verify `action: 'wind_rose'` is being set
-3. Check CloudWatch logs for routing decisions
-
-## Rollback Procedure
-
-If ANY regression is detected:
-
 ```bash
-# Stop sandbox
-Ctrl+C
-
-# Revert changes
-git checkout HEAD -- amplify/functions/renewableTools/simulation/simple_handler.py
-
-# Redeploy
+cd amplify/layers/catalogSearchLayer
+./build-layer.sh
+cd ../../..
 npx ampx sandbox
-
-# Verify terrain and layout still work
-./tests/test-renewable-baseline.sh
 ```
 
-## Success Criteria
+### Layer Build Fails
 
-- [ ] Sandbox deployed successfully
-- [ ] Wind rose tests pass
-- [ ] Wind rose visualization displays in UI
-- [ ] Terrain analysis still works (170 features)
-- [ ] Layout optimization still works
-- [ ] No CloudWatch errors
-- [ ] No console errors in UI
+Make sure `uv` is installed:
+```bash
+# macOS
+brew install uv
 
-## Next Steps
+# Or using pip
+pip install uv
+```
 
-After wind rose is validated:
-1. Move to wake simulation enhancement (Task 2)
-2. Then report generation (Task 3)
-3. Then end-to-end workflow testing (Task 4)
+## What Gets Deployed
+
+- **Frontend**: Next.js app to Amplify Hosting
+- **Backend**: 
+  - Lambda functions (Node.js and Python)
+  - Lambda layers (Python dependencies)
+  - AppSync GraphQL API
+  - DynamoDB tables
+  - S3 buckets
+  - Cognito user pools
+
+## Environment Variables
+
+The following environment variables can be configured in `amplify/functions/catalogSearch/resource.ts`:
+
+- `CATALOG_S3_BUCKET`: S3 bucket for session storage
+- `OSDU_BASE_URL`: OSDU instance URL
+- `OSDU_PARTITION_ID`: OSDU partition ID
+- `EDI_USERNAME`: EDI authentication username
+- `EDI_PASSWORD`: EDI authentication password
+- `EDI_CLIENT_ID`: Cognito client ID
+- `EDI_CLIENT_SECRET`: Cognito client secret
+- `COGNITO_REGION`: AWS region for Cognito
+- `OSDU_QUERY_MODEL`: Bedrock model ID for queries
+- `STRANDS_AGENT_MODEL`: Bedrock model ID for agents

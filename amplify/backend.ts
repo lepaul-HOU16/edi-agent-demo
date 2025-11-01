@@ -87,10 +87,11 @@ const catalogSessionBucket = new s3.Bucket(backend.stack, 'CatalogSessionBucket'
   // CORS configuration for frontend access to signed URLs
   cors: [
     {
-      allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT],
+      allowedMethods: [s3.HttpMethods.GET, s3.HttpMethods.PUT, s3.HttpMethods.HEAD],
       allowedOrigins: ['*'], // In production, restrict to your domain
       allowedHeaders: ['*'],
-      maxAge: 3000
+      exposedHeaders: ['ETag', 'Content-Length', 'Content-Type'],
+      maxAge: 3600
     }
   ],
   // Encryption at rest

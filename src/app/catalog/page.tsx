@@ -818,7 +818,17 @@ function CatalogPageBase() {
           if (catalogData.files.geojson) {
             console.log('📥 Fetching GeoJSON from S3:', catalogData.files.geojson);
             try {
-              const geojsonResponse = await fetch(catalogData.files.geojson);
+              // Add timeout to fetch request (60 seconds)
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 60000);
+              
+              const geojsonResponse = await fetch(catalogData.files.geojson, {
+                signal: controller.signal,
+                mode: 'cors',
+                credentials: 'omit'
+              });
+              clearTimeout(timeoutId);
+              
               if (geojsonResponse.ok) {
                 const fetchedGeoJson = await geojsonResponse.json();
                 geoJsonData.features = fetchedGeoJson.features || [];
@@ -828,7 +838,11 @@ function CatalogPageBase() {
                 console.warn('⚠️ Failed to fetch GeoJSON from S3:', geojsonResponse.status);
               }
             } catch (fetchError) {
-              console.error('❌ Error fetching GeoJSON:', fetchError);
+              if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+                console.error('❌ GeoJSON fetch timed out after 60 seconds');
+              } else {
+                console.error('❌ Error fetching GeoJSON:', fetchError);
+              }
             }
           }
 
@@ -946,7 +960,17 @@ function CatalogPageBase() {
           // For non-/getdata commands, still fetch GeoJSON if provided
           console.log('📥 Fetching GeoJSON from S3:', catalogData.files.geojson);
           try {
-            const geojsonResponse = await fetch(catalogData.files.geojson);
+            // Add timeout to fetch request (60 seconds)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            
+            const geojsonResponse = await fetch(catalogData.files.geojson, {
+              signal: controller.signal,
+              mode: 'cors',
+              credentials: 'omit'
+            });
+            clearTimeout(timeoutId);
+            
             if (geojsonResponse.ok) {
               const fetchedGeoJson = await geojsonResponse.json();
               geoJsonData.features = fetchedGeoJson.features || [];
@@ -956,7 +980,11 @@ function CatalogPageBase() {
               console.warn('⚠️ Failed to fetch GeoJSON from S3:', geojsonResponse.status);
             }
           } catch (fetchError) {
-            console.error('❌ Error fetching GeoJSON:', fetchError);
+            if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+              console.error('❌ GeoJSON fetch timed out after 60 seconds');
+            } else {
+              console.error('❌ Error fetching GeoJSON:', fetchError);
+            }
           }
         }
 
