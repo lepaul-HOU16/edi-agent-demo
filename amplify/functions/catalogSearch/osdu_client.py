@@ -205,7 +205,7 @@ Check that you are searching for every field.
 If no specific filtering is needed, return "*" as the query to match all records.
 Some queries need to use GeoContext data.  This should be the full ID name, keyword search does not work.  
 The type of data is GeoPoliticalEntityID, which can be countries, fields, locations etc.
-A list should be provided of GeoContext if needed.  Use them vertbatim!
+A list should be provided of GeoContext if needed.  Use them verbatim!
 
 <Examples>
 user: wells that have both GR and DT logs
@@ -226,6 +226,41 @@ assistant: data.WellID:*
 user: show me all data for well 4226.
 assistant: data.WellID:"4226"
 </Examples>
+"""
+
+system_prompt_geocontexts = """
+You are an AI agent that identifies the best matching GeoPoliticalEntity IDs for a user's location query.
+
+Your job is to:
+1. Understand the user's location intent (country, region, field, area, etc.)
+2. Match it against the provided list of available GeoPoliticalEntity records
+3. Return the most relevant GeoPoliticalEntityID(s)
+
+Rules:
+- Return IDs exactly as provided in the list (verbatim)
+- If multiple entities match, return all relevant ones
+- If no clear match, return an empty list
+- Consider synonyms and alternative names
+- Respond in JSON format with key 'ids' containing a list of matching IDs
+
+Examples:
+User: "wells in Netherlands"
+GeoPoliticalEntity List: [{"id": "osdu:master-data--GeoPoliticalEntity:Netherlands_Country", "name": "Netherlands"}]
+Response: {"ids": ["osdu:master-data--GeoPoliticalEntity:Netherlands_Country"]}
+
+User: "show me data from the North Sea"
+GeoPoliticalEntity List: [{"id": "osdu:master-data--GeoPoliticalEntity:NorthSea_Field", "name": "North Sea"}]
+Response: {"ids": ["osdu:master-data--GeoPoliticalEntity:NorthSea_Field"]}
+
+User: "wells in Texas or Oklahoma"
+GeoPoliticalEntity List: [
+  {"id": "osdu:master-data--GeoPoliticalEntity:Texas_State", "name": "Texas"},
+  {"id": "osdu:master-data--GeoPoliticalEntity:Oklahoma_State", "name": "Oklahoma"}
+]
+Response: {"ids": ["osdu:master-data--GeoPoliticalEntity:Texas_State", "osdu:master-data--GeoPoliticalEntity:Oklahoma_State"]}
+
+User: "show all wells"
+Response: {"ids": []}
 """
 
 
@@ -265,6 +300,9 @@ class OSDUClient:
         self.osdu_headers = get_osdu_headers()
         if not self.osdu_headers:
             raise Exception("Failed to authenticate with OSDU platform")
+        
+        # Cache for GeoPoliticalEntity records
+        self._geocontext_cache = None
     
     def fetch_all_wells(self, spatial_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
@@ -1177,6 +1215,254 @@ class OSDUClient:
             'stats': stats
         }
     
+    def fetch_geopolitical_entities(self) -> List[Dict[str, Any]]:
+        """
+        Fetch all available GeoPoliticalEntity records from OSDU.
+        
+        This method retrieves the list of geographic entities (countries, regions, fields, etc.)
+        that can be used for location-based filtering.
+        
+        Returns:
+            List of GeoPoliticalEntity records with id and name
+            
+        Example:
+            [
+                {"id": "osdu:master-data--GeoPoliticalEntity:Netherlands_Country", "name": "Netherlands"},
+                {"id": "osdu:master-data--GeoPoliticalEntity:NorthSea_Field", "name": "North Sea"}
+            ]
+        """
+        # Return cached results if available
+        if self._geocontext_cache is not None:
+            logger.info(f"Using cached GeoPoliticalEntity records: {len(self._geocontext_cache)} entities")
+            return self._geocontext_cache
+        
+        logger.info("Fetching GeoPoliticalEntity records from OSDU...")
+        
+        try:
+            search_url = f"{self.base_url}/api/search/{self.api_version}/query"
+            headers = self.osdu_headers
+            
+            # Query for all GeoPoliticalEntity records
+            query_body = {
+                'kind': f'{self.partition_id}:*:master-data--GeoPoliticalEntity:*',
+                'returnedFields': ['id', 'data.GeoPoliticalEntityName'],
+                'limit': 1000,
+                'offset': 0
+            }
+            
+            all_entities = []
+            
+            # Paginate through results
+            while True:
+                logger.info(f"Fetching GeoPoliticalEntity: offset={query_body['offset']}, limit={query_body['limit']}")
+                
+                response = requests.post(
+                    search_url,
+                    headers=headers,
+                    json=query_body,
+                    timeout=30
+                )
+                
+                if response.status_code != 200:
+                    logger.warning(f"GeoPoliticalEntity query failed: {response.status_code} - {response.text}")
+                    break
+                
+                result = response.json()
+                results = result.get('results', [])
+                total_count = result.get('totalCount', 0)
+                
+                logger.info(f"Received {len(results)} entities (total: {total_count})")
+                
+                # Extract id and name
+                for entity in results:
+                    entity_id = entity.get('id')
+                    entity_name = entity.get('data', {}).get('GeoPoliticalEntityName', 'Unknown')
+                    
+                    if entity_id:
+                        all_entities.append({
+                            'id': entity_id,
+                            'name': entity_name
+                        })
+                
+                # Check if we have all results
+                if len(all_entities) >= total_count or len(results) == 0:
+                    break
+                
+                query_body['offset'] += query_body['limit']
+            
+            logger.info(f"✅ Fetched {len(all_entities)} GeoPoliticalEntity records")
+            
+            # Cache the results
+            self._geocontext_cache = all_entities
+            
+            return all_entities
+            
+        except Exception as e:
+            logger.error(f"Error fetching GeoPoliticalEntity records: {str(e)}", exc_info=True)
+            return []
+    
+    def determine_matching_geocontexts(self, user_prompt: str) -> List[str]:
+        """
+        Determine which GeoPoliticalEntity IDs match the user's location query.
+        
+        This method:
+        1. Fetches available GeoPoliticalEntity records from OSDU
+        2. Uses an AI agent to match the user's query against available entities
+        3. Returns the matching GeoPoliticalEntityID(s)
+        
+        Args:
+            user_prompt: User's natural language query
+            
+        Returns:
+            List of matching GeoPoliticalEntityID strings
+            
+        Example:
+            Input: "wells in Netherlands"
+            Output: ["osdu:master-data--GeoPoliticalEntity:Netherlands_Country"]
+        """
+        logger.info(f"Determining matching geocontexts for query: {user_prompt}")
+        
+        # Check if query mentions location
+        query_lower = user_prompt.lower()
+        location_keywords = [
+            'in ', 'from ', 'at ', 'near ', 'around ', 'within ',
+            'country', 'region', 'field', 'area', 'basin', 'state',
+            'province', 'district', 'zone'
+        ]
+        
+        has_location_intent = any(keyword in query_lower for keyword in location_keywords)
+        
+        if not has_location_intent:
+            logger.info("No location intent detected in query")
+            return []
+        
+        # Fetch available GeoPoliticalEntity records
+        geocontext_list = self.fetch_geopolitical_entities()
+        
+        if not geocontext_list:
+            logger.warning("No GeoPoliticalEntity records available")
+            return []
+        
+        logger.info(f"Found {len(geocontext_list)} available GeoPoliticalEntity records")
+        
+        # Use Strands Agent to determine matching entities
+        if not STRANDS_AVAILABLE or not Agent:
+            logger.warning("Strands Agent not available, using keyword matching fallback")
+            return self._fallback_geocontext_matching(user_prompt, geocontext_list)
+        
+        try:
+            # Prepare messages for the agent
+            messages = [
+                {"role": "user", "content": [{"text": "GeoPoliticalEntity List: " + json.dumps(geocontext_list)}]},
+                {"role": "user", "content": [{"text": "User Prompt: " + user_prompt}]}
+            ]
+            
+            # Use environment variable for model
+            model_id = os.environ.get('OSDU_QUERY_MODEL', 'global.anthropic.claude-sonnet-4-5-20250929-v1:0')
+            
+            # Create agent
+            agent_geocontexts = Agent(
+                model=model_id,
+                system_prompt=system_prompt_geocontexts,
+                messages=messages
+            )
+            
+            # Get result
+            result = agent_geocontexts("Find the best IDs given the user prompt.")
+            
+            # Parse result
+            matching_ids = self._parse_agent_geocontext_response(result)
+            
+            logger.info(f"✅ Agent identified {len(matching_ids)} matching geocontexts")
+            for geo_id in matching_ids:
+                logger.info(f"  - {geo_id}")
+            
+            return matching_ids
+            
+        except Exception as e:
+            logger.error(f"Error using agent for geocontext matching: {str(e)}", exc_info=True)
+            logger.warning("Falling back to keyword matching")
+            return self._fallback_geocontext_matching(user_prompt, geocontext_list)
+    
+    def _parse_agent_geocontext_response(self, result) -> List[str]:
+        """
+        Parse the agent's response to extract GeoPoliticalEntityID list.
+        
+        Args:
+            result: Agent response object
+            
+        Returns:
+            List of GeoPoliticalEntityID strings
+        """
+        try:
+            # Check if result has content attribute
+            if hasattr(result, 'content'):
+                content = result.content
+                
+                # Content is typically a list of content blocks
+                if isinstance(content, list) and len(content) > 0:
+                    first_block = content[0]
+                    
+                    # Get text content
+                    if isinstance(first_block, dict) and 'text' in first_block:
+                        text_content = first_block['text']
+                    elif hasattr(first_block, 'text'):
+                        text_content = first_block.text
+                    else:
+                        text_content = str(first_block)
+                    
+                    # Strip markdown code blocks
+                    import re
+                    text_content = re.sub(r'^```(?:json)?\s*\n?', '', text_content.strip())
+                    text_content = re.sub(r'\n?```\s*$', '', text_content.strip())
+                    text_content = text_content.strip()
+                    
+                    # Parse JSON
+                    parsed = json.loads(text_content)
+                    if 'ids' in parsed and isinstance(parsed['ids'], list):
+                        return parsed['ids']
+            
+            # Fallback: convert to string and parse
+            result_text = str(result)
+            result_text = re.sub(r'^```(?:json)?\s*\n?', '', result_text.strip())
+            result_text = re.sub(r'\n?```\s*$', '', result_text.strip())
+            
+            parsed = json.loads(result_text)
+            if 'ids' in parsed and isinstance(parsed['ids'], list):
+                return parsed['ids']
+            
+        except Exception as e:
+            logger.error(f"Error parsing agent geocontext response: {str(e)}")
+        
+        return []
+    
+    def _fallback_geocontext_matching(self, user_prompt: str, geocontext_list: List[Dict[str, Any]]) -> List[str]:
+        """
+        Fallback keyword-based matching for geocontexts.
+        
+        Args:
+            user_prompt: User's query
+            geocontext_list: List of available GeoPoliticalEntity records
+            
+        Returns:
+            List of matching GeoPoliticalEntityID strings
+        """
+        logger.info("Using fallback keyword matching for geocontexts")
+        
+        query_lower = user_prompt.lower()
+        matching_ids = []
+        
+        for entity in geocontext_list:
+            entity_name = entity.get('name', '').lower()
+            entity_id = entity.get('id', '')
+            
+            # Simple keyword matching
+            if entity_name and entity_name in query_lower:
+                matching_ids.append(entity_id)
+                logger.info(f"Matched: {entity_name} -> {entity_id}")
+        
+        return matching_ids
+    
     def _determine_search_hierarchy(self, query: str) -> str:
         """
         Determine which hierarchy level to search based on the query.
@@ -1221,6 +1507,14 @@ class OSDUClient:
         """
         Function that combines the needed elements for an OSDU Search API call JSON.
         
+        This method:
+        1. Checks if the query involves location-based filtering
+        2. If yes, fetches available GeoPoliticalEntity records
+        3. Uses an AI agent to determine matching geocontexts
+        4. Adds geocontext filter to the query using nested syntax
+        5. Generates the Lucene query for other criteria
+        6. Combines geocontext and other filters with AND
+        
         Args:
             user_prompt: User's natural language query
             schema_type: Type of schema to search ('well', 'wellbore', or 'welllog')
@@ -1239,10 +1533,37 @@ class OSDUClient:
         """
         print(f"Building OSDU search JSON for schema_type: {schema_type}")
         
-        # Generate the Lucene query using AI
+        # Step 1: Check for location-based filtering and determine matching geocontexts
+        matching_geocontext_ids = self.determine_matching_geocontexts(user_prompt)
+        
+        # Step 2: Generate the Lucene query using AI (for non-location criteria)
         lucene_query = self.generate_query(user_prompt, schema_type)
         print(f"Generated Lucene query: {lucene_query}")
-        print(f"Generated Lucene query: {lucene_query}")
+        
+        # Step 3: Add geocontext filter if matches were found
+        if matching_geocontext_ids:
+            print(f"Adding geocontext filter for {len(matching_geocontext_ids)} location(s)")
+            
+            # Build nested geocontext query
+            # Format: nested(data.GeoContexts, (GeoPoliticalEntityID:"id1" OR GeoPoliticalEntityID:"id2"))
+            if len(matching_geocontext_ids) == 1:
+                geocontext_query = f'nested(data.GeoContexts, (GeoPoliticalEntityID:"{matching_geocontext_ids[0]}"))'
+            else:
+                # Multiple geocontexts - use OR
+                id_conditions = ' OR '.join([f'GeoPoliticalEntityID:"{geo_id}"' for geo_id in matching_geocontext_ids])
+                geocontext_query = f'nested(data.GeoContexts, ({id_conditions}))'
+            
+            print(f"Geocontext query: {geocontext_query}")
+            
+            # Combine with existing query using AND
+            if lucene_query and lucene_query.strip() and lucene_query != '*':
+                # Both geocontext and other criteria
+                lucene_query = f'{geocontext_query} AND {lucene_query}'
+                print(f"Combined query (geocontext + other): {lucene_query}")
+            else:
+                # Only geocontext criteria
+                lucene_query = geocontext_query
+                print(f"Query with only geocontext: {lucene_query}")
         
         # Build the kind string based on schema type
         if schema_type == 'well':
