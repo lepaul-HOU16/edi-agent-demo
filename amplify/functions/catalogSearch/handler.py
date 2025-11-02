@@ -903,6 +903,31 @@ def handle_natural_language_query(
         logger.info(f"   Thought steps streamed: {len(thought_steps_streamed)}")
         logger.info("=" * 80)
         
+        # Detect if this is a filter operation
+        # A filter operation is when we have existing context with wells
+        is_filter_operation = session_context is not None and session_context.get('allWells') is not None
+        
+        # Get original well count from context if this is a filter operation
+        total_wells = None
+        if is_filter_operation and session_context.get('allWells'):
+            # Calculate total count from original context
+            original_stats = calculate_statistics(session_context['allWells'])
+            total_wells = original_stats.get('wellCount', 0)
+            logger.info(f"   Filter operation detected: {result.get('stats', {}).get('wellCount', 0)} of {total_wells} wells")
+        
+        # Build stats with filter metadata
+        response_stats = result.get('stats', {
+            'wellCount': 0,
+            'wellboreCount': 0,
+            'welllogCount': 0
+        })
+        
+        # Add filter metadata to stats if this is a filter operation
+        if is_filter_operation and total_wells is not None:
+            response_stats['totalWells'] = total_wells
+            response_stats['isFiltered'] = True
+            logger.info(f"   Added filter metadata: totalWells={total_wells}, isFiltered=True")
+        
         # Return complete response with all streamed thought steps
         # Note: In a true streaming implementation, these would be yielded incrementally
         # For AppSync GraphQL, the response structure supports streaming via the 'stream' type
@@ -912,11 +937,8 @@ def handle_natural_language_query(
                 'message': result.get('message', 'Query processed successfully'),
                 'thoughtSteps': thought_steps_streamed,  # All thought steps collected during processing
                 'files': files_result,  # S3 signed URLs (not the files themselves)
-                'stats': result.get('stats', {
-                    'wellCount': 0,
-                    'wellboreCount': 0,
-                    'welllogCount': 0
-                }),
+                'stats': response_stats,
+                'isFilterOperation': is_filter_operation,  # Flag indicating if this was a filter operation
                 'isGetDataCommand': False  # All queries are now filter operations
             }
         }

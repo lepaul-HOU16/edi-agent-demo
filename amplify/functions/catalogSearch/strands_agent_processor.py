@@ -855,6 +855,10 @@ class StrandsAgentProcessor:
             initial_stats = self._calculate_stats(all_wells)
             logger.info(f"Loaded {initial_stats['wellCount']} wells, {initial_stats['wellboreCount']} wellbores, {initial_stats['welllogCount']} welllogs")
             
+            # Store original count for filter metadata
+            original_well_count = initial_stats['wellCount']
+            logger.info(f"Original well count before filtering: {original_well_count}")
+            
             thought_step_loading['status'] = 'complete'
             thought_step_loading['summary'] = f"Loaded {initial_stats['wellCount']} wells with {initial_stats['wellboreCount']} wellbores and {initial_stats['welllogCount']} welllogs"
             
@@ -939,6 +943,10 @@ class StrandsAgentProcessor:
             # Calculate stats
             stats = self._calculate_stats(filtered_wells)
             
+            # Add filter metadata to stats
+            stats['totalWells'] = original_well_count
+            stats['isFiltered'] = True
+            
             # Build response message
             message = f"Found {stats['wellCount']} wells matching your query"
             if stats['wellboreCount'] > 0:
@@ -956,7 +964,7 @@ class StrandsAgentProcessor:
                 'id': 'results_summary',
                 'type': 'results',
                 'title': 'Results Summary',
-                'summary': f"Found {stats['wellCount']} matching wells with {stats['wellboreCount']} wellbores and {stats['welllogCount']} welllogs",
+                'summary': f"Found {stats['wellCount']} of {original_well_count} wells matching criteria with {stats['wellboreCount']} wellbores and {stats['welllogCount']} welllogs",
                 'status': 'complete',
                 'timestamp': int(datetime.now().timestamp() * 1000),
                 'details': message
@@ -966,7 +974,7 @@ class StrandsAgentProcessor:
             logger.info("=" * 80)
             logger.info("✅ CONTEXT-AWARE QUERY PROCESSING COMPLETE")
             logger.info(f"   Hierarchy level: {hierarchy_level}")
-            logger.info(f"   Filtered to {stats['wellCount']} wells")
+            logger.info(f"   Filtered to {stats['wellCount']} of {original_well_count} wells")
             logger.info(f"   {stats['wellboreCount']} wellbores")
             logger.info(f"   {stats['welllogCount']} welllogs")
             logger.info(f"   Generated {len(thought_steps)} thought steps")
@@ -979,7 +987,8 @@ class StrandsAgentProcessor:
                     'metadata': filtered_wells,
                     'geojson': geojson
                 },
-                'stats': stats
+                'stats': stats,
+                'isFilterOperation': True  # Flag indicating this was a filter operation
             }
             
         except Exception as e:
@@ -1211,11 +1220,16 @@ class StrandsAgentProcessor:
         # Calculate stats
         stats = self._calculate_stats(filtered_wells)
         
+        # Add filter metadata to stats
+        original_well_count = len(all_wells)
+        stats['totalWells'] = original_well_count
+        stats['isFiltered'] = True
+        
         # Update thought step
         thought_step_intelligent['status'] = 'complete'
         if filter_description:
             thought_step_intelligent['summary'] = f"Applied filters: {', '.join(filter_description)}"
-            thought_step_intelligent['details'] = f"Filtered {len(all_wells)} wells to {stats['wellCount']} wells"
+            thought_step_intelligent['details'] = f"Filtered {original_well_count} wells to {stats['wellCount']} wells"
         else:
             # Check if this was actually a filter query that we couldn't parse
             is_likely_filter = any(word in query_lower for word in [
@@ -1234,7 +1248,7 @@ class StrandsAgentProcessor:
         
         # Build message
         if filter_description:
-            message = f"Found {stats['wellCount']} wells matching criteria: {', '.join(filter_description)}"
+            message = f"Found {stats['wellCount']} of {original_well_count} wells matching criteria: {', '.join(filter_description)}"
         else:
             message = f"Showing all {stats['wellCount']} wells (no specific filters detected in query)"
         
@@ -1250,7 +1264,8 @@ class StrandsAgentProcessor:
                 'metadata': filtered_wells,
                 'geojson': geojson
             },
-            'stats': stats
+            'stats': stats,
+            'isFilterOperation': True  # Flag indicating this was a filter operation
         }
     
     def _fallback_filtering(self, query: str, all_wells: List[Dict[str, Any]]) -> Dict[str, Any]:

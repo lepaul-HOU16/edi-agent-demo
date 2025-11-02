@@ -87,6 +87,16 @@ function CatalogPageBase() {
   // Analysis panel state management
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [analysisQueryType, setAnalysisQueryType] = useState<string>('');
+  
+  // Filtered data state management for chat filtering
+  interface FilterStats {
+    filteredCount: number;
+    totalCount: number;
+    isFiltered: boolean;
+  }
+  const [filteredData, setFilteredData] = useState<any>(null);
+  const [filterStats, setFilterStats] = useState<FilterStats | null>(null);
+  
   const amplifyClient = React.useMemo(() => generateClient<Schema>(), []);
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -94,6 +104,469 @@ function CatalogPageBase() {
   const [userInput, setUserInput] = useState<string>('');
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeChatSession, setActiveChatSession] = useState<Schema["ChatSession"]["createType"]>({ id: "default" } as Schema["ChatSession"]["createType"]);
+
+  // Message persistence: Load messages from localStorage on mount (Task 9.1)
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && sessionId) {
+      const storageKey = `catalog_messages_${sessionId}`;
+      
+      try {
+        const storedMessages = localStorage.getItem(storageKey);
+        
+        if (storedMessages) {
+          try {
+            const parsedMessages = JSON.parse(storedMessages);
+            
+            // Validate that parsed data is an array
+            if (Array.isArray(parsedMessages)) {
+              if (parsedMessages.length > 0) {
+                setMessages(parsedMessages);
+                console.log('📦 Restored messages from localStorage:', parsedMessages.length, 'messages');
+              } else {
+                console.log('ℹ️ No messages to restore (empty array)');
+              }
+            } else {
+              console.error('❌ Stored messages is not an array:', typeof parsedMessages);
+              // Clear corrupted data
+              localStorage.removeItem(storageKey);
+              console.log('🗑️ Cleared corrupted localStorage data');
+            }
+          } catch (parseError) {
+            // Task 9.1: Handle JSON parse errors for corrupted data
+            console.error('❌ Failed to parse stored messages - data may be corrupted:', parseError);
+            console.log('📊 Corrupted data length:', storedMessages.length, 'characters');
+            
+            // Clear corrupted data to prevent future errors
+            try {
+              localStorage.removeItem(storageKey);
+              console.log('🗑️ Cleared corrupted localStorage data');
+            } catch (removeError) {
+              console.error('❌ Failed to clear corrupted data:', removeError);
+            }
+            
+            // Show user-friendly warning
+            const warningMessage: Message = {
+              id: uuidv4() as any,
+              role: 'ai' as any,
+              content: {
+                text: `⚠️ **Session Data Corrupted**\n\nPrevious session data could not be restored due to corruption.\n\n**What happened:**\n- Stored message data was invalid or incomplete\n- Corrupted data has been cleared\n\n**You can:**\n- Start a new search\n- Continue with a fresh session\n\n*Your new messages will be saved normally.*`
+              } as any,
+              responseComplete: true as any,
+              createdAt: new Date().toISOString() as any,
+              chatSessionId: '' as any,
+              owner: '' as any
+            } as any;
+            
+            setMessages([warningMessage]);
+          }
+        } else {
+          console.log('ℹ️ No stored messages found for session:', sessionId);
+        }
+      } catch (storageError) {
+        // Task 9.1: Handle localStorage access errors
+        console.error('❌ Failed to access localStorage:', storageError);
+        
+        if (storageError instanceof Error) {
+          console.log('📊 Storage error details:', {
+            errorName: storageError.name,
+            errorMessage: storageError.message,
+            sessionId: sessionId
+          });
+        }
+        
+        // Continue with empty messages - don't block user
+        console.log('✅ Continuing without message restoration');
+      }
+    }
+  }, [sessionId]); // Only run when sessionId changes
+
+  // Data restoration: Load table data and map state from S3 when messages are restored (Task 7.1)
+  React.useEffect(() => {
+    const restoreDataFromMessages = async () => {
+      // Only run if we have messages and no current analysis data
+      if (messages.length === 0 || analysisData) {
+        return;
+      }
+
+      console.log('🔄 DATA RESTORATION: Checking for data to restore...');
+
+      try {
+        // Find the last AI message with file metadata
+        const lastMessageWithFiles = [...messages]
+          .reverse()
+          .find(msg => msg.role === 'ai' && (msg as any).files?.metadata);
+
+        if (!lastMessageWithFiles) {
+          console.log('ℹ️ DATA RESTORATION: No messages with file metadata found');
+          return;
+        }
+
+        const files = (lastMessageWithFiles as any).files;
+        const stats = (lastMessageWithFiles as any).stats;
+        
+        console.log('📥 DATA RESTORATION: Found message with files:', {
+          hasMetadata: !!files.metadata,
+          hasGeojson: !!files.geojson,
+          stats
+        });
+
+        // Restore table data from metadata file (Task 7.1, 7.3, 9.2)
+        if (files.metadata) {
+          console.log('📥 DATA RESTORATION: Fetching metadata from S3:', files.metadata);
+          
+          try {
+            // Task 9.2: Add timeout to S3 fetch
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+            
+            const metadataResponse = await fetch(files.metadata, {
+              signal: controller.signal,
+              mode: 'cors',
+              credentials: 'omit'
+            });
+            clearTimeout(timeoutId);
+            
+            if (!metadataResponse.ok) {
+              // Task 9.2: Handle HTTP errors with detailed logging
+              console.error('❌ DATA RESTORATION: S3 fetch failed:', {
+                status: metadataResponse.status,
+                statusText: metadataResponse.statusText,
+                url: files.metadata
+              });
+              
+              if (metadataResponse.status === 403) {
+                console.warn('⚠️ DATA RESTORATION: S3 signed URL expired (403 Forbidden)');
+                throw new Error('S3_URL_EXPIRED');
+              } else if (metadataResponse.status === 404) {
+                console.warn('⚠️ DATA RESTORATION: S3 file not found (404)');
+                throw new Error('S3_FILE_NOT_FOUND');
+              } else if (metadataResponse.status >= 500) {
+                console.warn('⚠️ DATA RESTORATION: S3 server error (5xx)');
+                throw new Error(`S3_SERVER_ERROR_${metadataResponse.status}`);
+              } else {
+                console.warn('⚠️ DATA RESTORATION: S3 HTTP error:', metadataResponse.status);
+                throw new Error(`HTTP_ERROR_${metadataResponse.status}`);
+              }
+            }
+
+            const hierarchicalMetadata = await metadataResponse.json();
+            console.log('✅ DATA RESTORATION: Loaded metadata from S3:', hierarchicalMetadata.length, 'wells');
+
+            // Transform array to hierarchical structure (same logic as in handleChatSearch)
+            const transformedData: any = {};
+
+            if (Array.isArray(hierarchicalMetadata)) {
+              hierarchicalMetadata.forEach((well: any, index: number) => {
+                const wellId = well.id || well.wellId || well.name || `well-${index}`;
+
+                // Transform wellbores array to object
+                const wellboresObj: any = {};
+                if (Array.isArray(well.wellbores)) {
+                  well.wellbores.forEach((wellbore: any, wbIndex: number) => {
+                    const wellboreId = wellbore.wellbore_id || wellbore.id || wellbore.facilityName || `wellbore-${wbIndex}`;
+
+                    // Transform welllogs array to object
+                    const welllogsObj: any = {};
+                    if (Array.isArray(wellbore.welllogs)) {
+                      wellbore.welllogs.forEach((welllog: any, wlIndex: number) => {
+                        const welllogId = welllog.welllog_id || welllog.id || welllog.name || `welllog-${wlIndex}`;
+                        welllogsObj[welllogId] = {
+                          ...welllog,
+                          Curves: welllog.Curves || welllog.curves || []
+                        };
+                      });
+                    }
+
+                    wellboresObj[wellboreId] = {
+                      ...wellbore,
+                      name: wellbore.facilityName || wellbore.name || wellboreId,
+                      welllogs: welllogsObj
+                    };
+                  });
+                }
+
+                transformedData[wellId] = {
+                  ...well,
+                  name: well.name || well.data?.FacilityName || wellId,
+                  wellbores: wellboresObj
+                };
+              });
+            }
+
+            // Restore analysisData
+            setAnalysisData(transformedData);
+            setAnalysisQueryType('getdata');
+            console.log('✅ DATA RESTORATION: Restored analysisData with', Object.keys(transformedData).length, 'wells');
+          } catch (fetchError) {
+            // Task 9.2: Comprehensive S3 fetch error handling
+            console.error('❌ DATA RESTORATION: Error fetching metadata:', fetchError);
+            
+            // Specific error handling based on error type
+            if (fetchError instanceof Error) {
+              if (fetchError.name === 'AbortError') {
+                console.error('❌ DATA RESTORATION: Metadata fetch timed out after 30 seconds');
+                console.log('💡 Suggestion: Check network connection or try again later');
+              } else if (fetchError.message === 'S3_URL_EXPIRED') {
+                console.log('⚠️ DATA RESTORATION: S3 URL expired - user needs to run new search');
+                console.log('📊 URL expiration info:', {
+                  message: 'S3 signed URLs typically expire after 1 hour',
+                  action: 'Run a new search to generate fresh URLs'
+                });
+              } else if (fetchError.message === 'S3_FILE_NOT_FOUND') {
+                console.log('⚠️ DATA RESTORATION: S3 file not found - may have been deleted');
+              } else if (fetchError.message.startsWith('S3_SERVER_ERROR_')) {
+                console.log('⚠️ DATA RESTORATION: S3 server error - temporary issue');
+              } else if (fetchError.message.startsWith('HTTP_ERROR_')) {
+                console.log('⚠️ DATA RESTORATION: HTTP error fetching metadata - continuing without data');
+              } else if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
+                console.error('❌ DATA RESTORATION: Network error - check internet connection');
+              } else {
+                console.log('⚠️ DATA RESTORATION: Unexpected error:', fetchError.message);
+              }
+              
+              console.log('📊 Error details:', {
+                errorName: fetchError.name,
+                errorMessage: fetchError.message,
+                url: files.metadata
+              });
+            }
+            
+            // Don't block user - they can run a new search
+            // Error will be shown in the main catch block
+          }
+        }
+
+        // Restore map state from GeoJSON file (Task 7.1, 7.3)
+        if (files.geojson) {
+          console.log('📥 DATA RESTORATION: Fetching GeoJSON from S3:', files.geojson);
+          
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
+            
+            const geojsonResponse = await fetch(files.geojson, {
+              signal: controller.signal,
+              mode: 'cors',
+              credentials: 'omit'
+            });
+            clearTimeout(timeoutId);
+            
+            if (!geojsonResponse.ok) {
+              // Handle HTTP errors
+              if (geojsonResponse.status === 403 || geojsonResponse.status === 404) {
+                console.warn('⚠️ DATA RESTORATION: S3 signed URL expired or not found (status:', geojsonResponse.status, ')');
+                throw new Error('S3_URL_EXPIRED');
+              } else {
+                console.warn('⚠️ DATA RESTORATION: Failed to fetch GeoJSON from S3:', geojsonResponse.status);
+                throw new Error(`HTTP_ERROR_${geojsonResponse.status}`);
+              }
+            }
+
+            const geoJsonData = await geojsonResponse.json();
+            console.log('✅ DATA RESTORATION: Loaded GeoJSON from S3:', geoJsonData.features?.length || 0, 'features');
+
+            // Calculate bounds from features
+            if (geoJsonData.features && geoJsonData.features.length > 0) {
+              const coordinates = geoJsonData.features
+                .filter((f: any) => f && f.geometry && f.geometry.coordinates && Array.isArray(f.geometry.coordinates))
+                .map((f: any) => f.geometry.coordinates);
+
+              if (coordinates.length > 0) {
+                const bounds = {
+                  minLon: Math.min(...coordinates.map((coords: number[]) => coords[0])),
+                  maxLon: Math.max(...coordinates.map((coords: number[]) => coords[0])),
+                  minLat: Math.min(...coordinates.map((coords: number[]) => coords[1])),
+                  maxLat: Math.max(...coordinates.map((coords: number[]) => coords[1]))
+                };
+
+                const centerLon = (bounds.minLon + bounds.maxLon) / 2;
+                const centerLat = (bounds.minLat + bounds.maxLat) / 2;
+                const center: [number, number] = [centerLon, centerLat];
+
+                // Restore map state
+                setMapState({
+                  center: center,
+                  zoom: 8,
+                  bounds: bounds,
+                  wellData: geoJsonData,
+                  hasSearchResults: true,
+                  weatherLayers: []
+                });
+
+                console.log('✅ DATA RESTORATION: Restored map state with', geoJsonData.features.length, 'features');
+              }
+            }
+          } catch (fetchError) {
+            // Task 9.2: Comprehensive GeoJSON fetch error handling
+            if (fetchError instanceof Error) {
+              if (fetchError.name === 'AbortError') {
+                console.error('❌ DATA RESTORATION: GeoJSON fetch timed out after 60 seconds');
+                console.log('💡 Suggestion: Large GeoJSON files may take longer - check network speed');
+              } else if (fetchError.message === 'S3_URL_EXPIRED') {
+                console.log('⚠️ DATA RESTORATION: S3 URL expired for GeoJSON - map state not restored');
+                console.log('📊 URL expiration info:', {
+                  message: 'S3 signed URLs typically expire after 1 hour',
+                  action: 'Run a new search to generate fresh URLs'
+                });
+              } else if (fetchError.message === 'S3_FILE_NOT_FOUND') {
+                console.log('⚠️ DATA RESTORATION: GeoJSON file not found - may have been deleted');
+              } else if (fetchError.message.startsWith('S3_SERVER_ERROR_')) {
+                console.log('⚠️ DATA RESTORATION: S3 server error for GeoJSON - temporary issue');
+              } else if (fetchError.message.startsWith('HTTP_ERROR_')) {
+                console.log('⚠️ DATA RESTORATION: HTTP error fetching GeoJSON - continuing without map state');
+              } else if (fetchError.message.includes('Failed to fetch') || fetchError.message.includes('NetworkError')) {
+                console.error('❌ DATA RESTORATION: Network error fetching GeoJSON - check internet connection');
+              } else {
+                console.error('❌ DATA RESTORATION: Error fetching GeoJSON:', fetchError.message);
+              }
+              
+              console.log('📊 GeoJSON error details:', {
+                errorName: fetchError.name,
+                errorMessage: fetchError.message,
+                url: files.geojson
+              });
+            }
+            // Don't block user - they can run a new search
+            // Error will be shown in the main catch block
+          }
+        }
+
+        // Restore chain of thought steps (Task 7.2)
+        console.log('🧠 DATA RESTORATION: Restoring chain of thought steps...');
+        
+        try {
+          const thoughtStepsFromMessages = messages
+            .filter(message => message.role === 'ai' && (message as any).thoughtSteps)
+            .flatMap(message => {
+              const steps = (message as any).thoughtSteps || [];
+              const parsedSteps = Array.isArray(steps) ? steps.map(step => {
+                if (typeof step === 'string') {
+                  try {
+                    return JSON.parse(step);
+                  } catch (e) {
+                    console.error('❌ Failed to parse step JSON:', step);
+                    return null;
+                  }
+                }
+                return step;
+              }) : [];
+              return parsedSteps.filter(Boolean);
+            })
+            .filter(step => step && typeof step === 'object');
+
+          const totalThoughtSteps = thoughtStepsFromMessages.length;
+          
+          if (totalThoughtSteps > 0) {
+            setChainOfThoughtMessageCount(totalThoughtSteps);
+            console.log('✅ DATA RESTORATION: Restored', totalThoughtSteps, 'chain of thought steps');
+          } else {
+            console.log('ℹ️ DATA RESTORATION: No chain of thought steps found in messages');
+          }
+        } catch (thoughtError) {
+          console.error('❌ DATA RESTORATION: Error restoring chain of thought:', thoughtError);
+          // Don't block user - chain of thought is optional
+        }
+
+        console.log('✅ DATA RESTORATION: Complete');
+      } catch (error) {
+        // Task 9.2: Enhanced error reporting for data restoration failures
+        console.error('❌ DATA RESTORATION: Unexpected error:', error);
+        
+        // Detailed error logging
+        if (error instanceof Error) {
+          console.log('📊 Restoration error details:', {
+            errorName: error.name,
+            errorMessage: error.message,
+            errorStack: error.stack?.split('\n').slice(0, 3).join('\n'),
+            sessionId: sessionId,
+            hasMessages: messages.length > 0
+          });
+        }
+        
+        // Log error but don't block user - they can continue with fresh session
+        
+        // Show warning message to user with actionable guidance
+        const warningMessage: Message = {
+          id: uuidv4() as any,
+          role: 'ai' as any,
+          content: {
+            text: `⚠️ **Data Restoration Failed**\n\nCould not restore previous session data. This may be due to:\n\n**Common Causes:**\n- 🕐 Expired S3 signed URLs (URLs expire after 1 hour)\n- 🌐 Network connectivity issues\n- 💾 Corrupted session data\n- 🔒 Browser security settings blocking S3 access\n\n**What You Can Do:**\n- ✅ Run a new search to generate fresh data\n- ✅ Check your internet connection\n- ✅ Try refreshing the page\n- ✅ Clear browser cache if issues persist\n\n💡 *Your new searches will work normally - this only affects restoring old data.*`
+          } as any,
+          responseComplete: true as any,
+          createdAt: new Date().toISOString() as any,
+          chatSessionId: '' as any,
+          owner: '' as any
+        } as any;
+
+        setMessages(prev => [...prev, warningMessage]);
+      }
+    };
+
+    // Run restoration after a short delay to ensure messages are fully loaded
+    const timeoutId = setTimeout(() => {
+      restoreDataFromMessages();
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [messages.length, analysisData]); // Run when messages are loaded and we don't have data yet
+
+  // Message persistence: Save messages to localStorage whenever they change (Task 9.1)
+  React.useEffect(() => {
+    if (typeof window !== 'undefined' && sessionId && messages.length > 0) {
+      const storageKey = `catalog_messages_${sessionId}`;
+      try {
+        const messagesJson = JSON.stringify(messages);
+        localStorage.setItem(storageKey, messagesJson);
+        console.log('💾 Saved messages to localStorage:', messages.length, 'messages');
+      } catch (error) {
+        // Task 9.1: Comprehensive localStorage error handling
+        if (error instanceof Error) {
+          if (error.name === 'QuotaExceededError') {
+            console.error('❌ localStorage quota exceeded - cannot save messages');
+            console.log('📊 Storage info:', {
+              messageCount: messages.length,
+              estimatedSize: JSON.stringify(messages).length,
+              sessionId: sessionId
+            });
+            
+            // Show user-friendly warning message (only once per session)
+            const warningShown = sessionStorage.getItem('localStorage_quota_warning');
+            if (!warningShown) {
+              const warningMessage: Message = {
+                id: uuidv4() as any,
+                role: 'ai' as any,
+                content: {
+                  text: `⚠️ **Storage Limit Reached**\n\nYour browser's storage is full. Messages will not be saved across page reloads.\n\n**To fix this:**\n- Clear browser data for this site\n- Use a different browser\n- Continue without persistence (messages will be lost on reload)\n\n*This warning will only show once per session.*`
+                } as any,
+                responseComplete: true as any,
+                createdAt: new Date().toISOString() as any,
+                chatSessionId: '' as any,
+                owner: '' as any
+              } as any;
+              
+              // Add warning message to chat (but don't try to save it to localStorage)
+              setMessages(prev => [...prev, warningMessage]);
+              sessionStorage.setItem('localStorage_quota_warning', 'true');
+            }
+            
+            // Continue without persistence - don't block user
+            console.log('✅ Continuing without message persistence');
+          } else {
+            console.error('❌ Failed to save messages to localStorage:', error.name, error.message);
+            console.log('📊 Error details:', {
+              errorName: error.name,
+              errorMessage: error.message,
+              messageCount: messages.length,
+              sessionId: sessionId
+            });
+            // Log error but continue - don't block user
+          }
+        } else {
+          console.error('❌ Unknown error saving messages to localStorage:', error);
+        }
+      }
+    }
+  }, [messages, sessionId]); // Run whenever messages or sessionId changes
 
   const [isLoadingMapData, setIsLoadingMapData] = useState<boolean>(false);
   const [error, setError] = useState<Error | null>(null);
@@ -331,6 +804,18 @@ function CatalogPageBase() {
     try {
       console.log('🔄 RESET: Clearing all catalog state...');
 
+      // Clear persisted messages for old session before generating new sessionId (Task 9.1)
+      if (typeof window !== 'undefined' && sessionId) {
+        const oldStorageKey = `catalog_messages_${sessionId}`;
+        try {
+          localStorage.removeItem(oldStorageKey);
+          console.log('🗑️ RESET: Cleared persisted messages for old session:', sessionId);
+        } catch (storageError) {
+          console.error('❌ RESET: Failed to clear localStorage:', storageError);
+          // Continue with reset even if localStorage clear fails
+        }
+      }
+
       // Reset sessionId - generate new one and persist to localStorage
       const newSessionId = uuidv4();
       setSessionId(newSessionId);
@@ -347,6 +832,8 @@ function CatalogPageBase() {
       // Clear all analysis data and query context
       setAnalysisData(null);
       setAnalysisQueryType('');
+      setFilteredData(null);
+      setFilterStats(null);
 
       // Reset map state completely
       setMapState({
@@ -585,6 +1072,8 @@ function CatalogPageBase() {
         // Clear all analysis data and query context
         setAnalysisData(null);
         setAnalysisQueryType('');
+        setFilteredData(null);
+        setFilterStats(null);
 
         // Reset map state completely
         setMapState({
@@ -685,7 +1174,28 @@ function CatalogPageBase() {
       }
 
       // Detect if this should be a filter operation on existing data
-      const filterKeywords = ['filter', 'depth', 'greater than', '>', 'deeper', 'show wells with', 'wells with'];
+      // Enhanced filter keyword detection (Task 3.1)
+      const filterKeywords = [
+        'filter',
+        'with',
+        'having',
+        'show wells with',
+        'wells with',
+        'that have',
+        'containing',
+        'log curve',
+        'curve',
+        'depth',
+        'greater than',
+        '>',
+        'deeper',
+        'less than',
+        '<',
+        'shallower',
+        'operator',
+        'operated by',
+        'between'
+      ];
       const isLikelyFilter = !isFirstQuery && filterKeywords.some(keyword => lowerPrompt.includes(keyword));
 
       console.log('🔍 Context Analysis:', {
@@ -694,25 +1204,42 @@ function CatalogPageBase() {
         hasExistingData: !!analysisData,
         existingWellCount: analysisData?.length || 0,
         prompt: lowerPrompt,
-        collectionsEnabled: creationEnabled
+        collectionsEnabled: creationEnabled,
+        matchedFilterKeywords: filterKeywords.filter(keyword => lowerPrompt.includes(keyword))
       });
+
+      // Log filter detection decision for debugging (Task 3.1)
+      if (isLikelyFilter) {
+        console.log('✅ Filter operation detected:', {
+          matchedKeywords: filterKeywords.filter(keyword => lowerPrompt.includes(keyword)),
+          existingWellCount: analysisData?.length || 0,
+          queryType: analysisQueryType
+        });
+      } else if (!isFirstQuery) {
+        console.log('ℹ️ Not detected as filter operation:', {
+          reason: 'No filter keywords matched',
+          prompt: lowerPrompt
+        });
+      }
 
       // Prepare context for backend - only metadata, NO well data
       // Backend will retrieve well context from S3 using sessionId
+      // Enhanced with filter operation flags (Task 3.2)
       let searchContextForBackend = null;
       if (!isFirstQuery && analysisData && analysisData.length > 0) {
         searchContextForBackend = {
           wellCount: analysisData.length,
           queryType: analysisQueryType,
           timestamp: new Date().toISOString(),
-          isFilterOperation: isLikelyFilter,
-          hasExistingData: true
+          isFilterOperation: isLikelyFilter, // Task 3.2: Flag indicating filter operation
+          hasExistingData: true // Task 3.2: Flag indicating existing data is available
         };
 
         console.log('📤 Sending context metadata to backend (backend will load wells from S3):', {
           wellCount: searchContextForBackend.wellCount,
           previousQueryType: searchContextForBackend.queryType,
           isFilterOperation: isLikelyFilter,
+          hasExistingData: true,
           sessionId: sessionId
         });
       } else {
@@ -1152,17 +1679,92 @@ function CatalogPageBase() {
               category: feature.properties?.category || 'search_result'
             }));
 
-            // Always update analysis data with current search results for proper filtering context
-            setAnalysisData(analysisWellData);
-            setAnalysisQueryType(geoJsonData.metadata?.queryType || 'general');
+            // Task 9.3: Wrap filter operation logic in try-catch
+            try {
+              // Check if backend response indicates this is a filter operation
+              const isFilterOperation = catalogData.isFilterOperation || 
+                (isLikelyFilter && !isFirstQuery && analysisData && analysisData.length > 0);
 
-            console.log('✅ Updated analysis context:', {
-              wellCount: analysisWellData.length,
-              queryType: geoJsonData.metadata?.queryType || 'general',
-              isContextualFilter: geoJsonData.metadata?.contextFilter || false
-            });
+              if (isFilterOperation) {
+                // This is a filter operation - update filteredData and filterStats
+                const totalCount = analysisData?.length || 0;
+                const filteredCount = analysisWellData.length;
+                
+                console.log('🔍 Applying filter operation:', {
+                  totalCount,
+                  filteredCount,
+                  filterCriteria: prompt
+                });
+                
+                setFilteredData(analysisWellData);
+                setFilterStats({
+                  filteredCount: filteredCount,
+                  totalCount: totalCount,
+                  isFiltered: true
+                });
+                
+                // Keep original analysisData unchanged
+                console.log('✅ Filter applied:', {
+                  filtered: filteredCount,
+                  total: totalCount,
+                  filterCriteria: prompt
+                });
+              } else {
+                // Fresh search - update analysisData and clear filteredData
+                console.log('🔍 Processing fresh search:', {
+                  wellCount: analysisWellData.length,
+                  queryType: geoJsonData.metadata?.queryType || 'general'
+                });
+                
+                setAnalysisData(analysisWellData);
+                setAnalysisQueryType(geoJsonData.metadata?.queryType || 'general');
+                setFilteredData(null);
+                setFilterStats(null);
+
+                console.log('✅ Updated analysis context (fresh search):', {
+                  wellCount: analysisWellData.length,
+                  queryType: geoJsonData.metadata?.queryType || 'general',
+                  isContextualFilter: geoJsonData.metadata?.contextFilter || false
+                });
+              }
+            } catch (filterError) {
+              // Task 9.3: Handle filter operation errors gracefully
+              console.error('❌ Error applying filter operation:', filterError);
+              
+              if (filterError instanceof Error) {
+                console.log('📊 Filter error details:', {
+                  errorName: filterError.name,
+                  errorMessage: filterError.message,
+                  prompt: prompt,
+                  hasAnalysisData: !!analysisData,
+                  analysisDataLength: analysisData?.length || 0
+                });
+              }
+              
+              // Keep original unfiltered data visible
+              setFilteredData(null);
+              setFilterStats(null);
+              
+              // Show error message to user
+              const filterErrorMessage: Message = {
+                id: uuidv4() as any,
+                role: 'ai' as any,
+                content: {
+                  text: `⚠️ **Filter Operation Failed**\n\nCould not apply filter: "${prompt}"\n\n**Error:** ${filterError instanceof Error ? filterError.message : String(filterError)}\n\n✅ **Your original data is still visible**\n- Showing all ${analysisData?.length || 0} wells\n- You can try a different filter\n- Or run a new search\n\n💡 *Try simpler filter criteria or check your query syntax.*`
+                } as any,
+                responseComplete: true as any,
+                createdAt: new Date().toISOString() as any,
+                chatSessionId: '' as any,
+                owner: '' as any
+              } as any;
+              
+              setMessages(prev => [...prev, filterErrorMessage]);
+            }
           } else {
             console.log('✅ /getdata command - hierarchical metadata already set');
+            // For /getdata, clear any previous filters
+            setFilteredData(null);
+            setFilterStats(null);
           }
         } else {
           // Only clear analysis data if this was a fresh search, not a failed filter
@@ -1170,8 +1772,13 @@ function CatalogPageBase() {
             console.log('🧹 Clearing analysis data - no results on fresh search');
             setAnalysisData(null);
             setAnalysisQueryType('');
+            setFilteredData(null);
+            setFilterStats(null);
           } else {
             console.log('⚠️ Filter returned no results - keeping existing context');
+            // Keep analysisData but clear filteredData to show original data
+            setFilteredData(null);
+            setFilterStats(null);
           }
         }
 
@@ -1292,14 +1899,61 @@ function CatalogPageBase() {
       }
 
     } catch (error) {
+      // Task 9.3: Comprehensive error handling for catalog search and filter operations
       console.error('❌ Error in catalog search:', error);
+      
+      // Detailed error logging
+      if (error instanceof Error) {
+        console.log('📊 Search error details:', {
+          errorName: error.name,
+          errorMessage: error.message,
+          errorStack: error.stack?.split('\n').slice(0, 5).join('\n'),
+          prompt: prompt,
+          sessionId: sessionId,
+          hasExistingData: !!analysisData
+        });
+      }
+      
       setError(error instanceof Error ? error : new Error(String(error)));
+
+      // Task 9.3: Keep original unfiltered data visible on error
+      // If this was a filter operation that failed, clear filteredData to show original data
+      if (analysisData && analysisData.length > 0) {
+        console.log('✅ Keeping original unfiltered data visible after error');
+        setFilteredData(null);
+        setFilterStats(null);
+      }
+
+      // Task 9.3: User-friendly error message with context
+      let errorText = `❌ **Search Error**\n\n`;
+      
+      if (error instanceof Error) {
+        // Provide specific guidance based on error type
+        if (error.message.includes('Network') || error.message.includes('fetch')) {
+          errorText += `**Network Error**\n\nCould not connect to the search service.\n\n**Possible causes:**\n- Internet connection issues\n- Service temporarily unavailable\n- Firewall or proxy blocking requests\n\n**Try:**\n- Check your internet connection\n- Refresh the page\n- Try again in a few moments`;
+        } else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+          errorText += `**Request Timeout**\n\nThe search took too long to complete.\n\n**Possible causes:**\n- Large dataset query\n- Slow network connection\n- Backend processing delay\n\n**Try:**\n- Simplify your search query\n- Try a more specific filter\n- Check network speed`;
+        } else if (error.message.includes('401') || error.message.includes('403') || error.message.includes('Unauthorized')) {
+          errorText += `**Authentication Error**\n\nYour session may have expired.\n\n**Try:**\n- Refresh the page\n- Log out and log back in\n- Check your permissions`;
+        } else if (error.message.includes('500') || error.message.includes('502') || error.message.includes('503')) {
+          errorText += `**Server Error**\n\nThe backend service encountered an error.\n\n**Try:**\n- Wait a moment and try again\n- Simplify your query\n- Contact support if issue persists`;
+        } else {
+          errorText += `**Error Details:**\n\`${error.message}\`\n\n**Try:**\n- Rephrase your query\n- Check query syntax\n- Try a simpler search first`;
+        }
+        
+        // Add context about what data is still available
+        if (analysisData && analysisData.length > 0) {
+          errorText += `\n\n✅ **Your previous data is still available**\n- ${analysisData.length} wells remain loaded\n- You can continue working with existing data\n- Try a different filter or search`;
+        }
+      } else {
+        errorText += `An unexpected error occurred: ${String(error)}`;
+      }
 
       const errorMessage: Message = {
         id: uuidv4() as any,
         role: "ai" as any,
         content: {
-          text: `Error processing your catalog search: ${error instanceof Error ? error.message : String(error)}`
+          text: errorText
         } as any,
         responseComplete: true as any,
         createdAt: new Date().toISOString() as any,
@@ -1771,6 +2425,8 @@ function CatalogPageBase() {
                   await handleChatSearch(message);
                 }}
                 hierarchicalData={analysisQueryType === 'getdata' && analysisData ? { wells: analysisData } : undefined}
+                filteredData={filteredData}
+                filterStats={filterStats}
               />
             </div>
           </div>

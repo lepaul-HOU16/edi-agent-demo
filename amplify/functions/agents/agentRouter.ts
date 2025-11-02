@@ -166,7 +166,7 @@ export class AgentRouter {
               artifacts: [],
               thoughtSteps: [{
                 id: 'edicraft_error',
-                type: 'error',
+                type: 'completion',
                 timestamp: Date.now(),
                 title: 'EDIcraft Agent Error',
                 summary: error instanceof Error ? error.message : 'Unknown error occurred',

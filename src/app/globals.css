@@ -341,7 +341,40 @@ div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
 }
 
 .tables>div {
-  padding: 10px 20px 0px 20px;
+  padding: 0 !important;
+}
+
+/* Match the table content padding with the "Well Data" title padding */
+.tables [class*="awsui_wrapper"] {
+  padding-left: 20px !important;
+  padding-right: 20px !important;
+}
+
+/* Ensure table container respects wrapper padding */
+.tables [class*="awsui_table-container"] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+/* Standard cell padding */
+.tables [class*="awsui_body-cell"],
+.tables [class*="awsui_header-cell"] {
+  padding-left: 16px !important;
+  padding-right: 16px !important;
+  padding-top: 8px !important;
+  padding-bottom: 8px !important;
+}
+
+/* First column should align with "Well Data" title - remove extra left padding */
+.tables [class*="awsui_body-cell"]:first-child,
+.tables [class*="awsui_header-cell"]:first-child {
+  padding-left: 0 !important;
+}
+
+/* Table header container should have no padding (wrapper handles it) */
+.tables [data-awsui-table-header] {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
 
 /* CRITICAL: Prevent all table horizontal overflow */
@@ -430,6 +463,8 @@ div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
 .convo {
   overflow: hidden;
   height: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .convo .messages-container {
@@ -439,6 +474,10 @@ div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
   scrollbar-color: rgba(0, 0, 0, 0.3) transparent;
   padding-bottom: 60px;
   /* Add extra scroll space for better user experience */
+  overflow-x: hidden;
+  overflow-y: auto;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .convo .messages-container::-webkit-scrollbar {
@@ -460,6 +499,8 @@ div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
 
 .convo .messages-container>div>div {
   padding: 0 !important;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Ensure proper container heights */
@@ -1689,4 +1730,25 @@ select:disabled {
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+
+/* ===================================================================
+   Catalog Table Expandable Rows - Two Column Layout
+   =================================================================== */
+
+/* Expanded content now uses two columns:
+   - Left column (50%): Well ID, Name Aliases
+   - Right column (25% + 25%): Wellbores, Additional Info
+*/
+
+/* Remove default padding from expanded row cells */
+.tables tbody tr [class*="awsui_body-cell"]:has(> div[style*="backgroundColor: rgb(249, 249, 249)"]) {
+  padding: 0 !important;
+}
+
+/* Ensure columns align properly */
+.tables tbody tr [class*="awsui_body-cell"] > div[style*="backgroundColor: rgb(249, 249, 249)"] {
+  min-height: 150px;
+  border-radius: 0;
 }

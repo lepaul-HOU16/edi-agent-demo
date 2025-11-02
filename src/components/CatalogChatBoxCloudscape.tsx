@@ -23,12 +23,14 @@ function ProfessionalGeoscientistDisplay({
   tableData,
   searchQuery,
   queryType,
-  weatherData
+  weatherData,
+  filterStats
 }: {
   tableData: any[],
   searchQuery: string,
   queryType?: string,
-  weatherData?: any
+  weatherData?: any,
+  filterStats?: FilterStats | null
 }) {
   // Pagination state
   const [currentPage, setCurrentPage] = React.useState(1);
@@ -37,6 +39,9 @@ function ProfessionalGeoscientistDisplay({
   // Sorting state
   const [sortingColumn, setSortingColumn] = React.useState<any>(null);
   const [isDescending, setIsDescending] = React.useState(false);
+
+  // Expandable rows state
+  const [expandedItems, setExpandedItems] = React.useState<any[]>([]);
 
   // Convert table data to well data format for the dashboard
   const wellsData = tableData.map(item => ({
@@ -72,21 +77,21 @@ function ProfessionalGeoscientistDisplay({
         return (item.data?.FacilityName || item.facilityName || item.name || 'N/A').toLowerCase();
       case 'wellboreCount':
         const wellbores = item.wellbores;
-        return Array.isArray(wellbores) 
-          ? wellbores.length 
+        return Array.isArray(wellbores)
+          ? wellbores.length
           : (wellbores && typeof wellbores === 'object' ? Object.keys(wellbores).length : 0);
       case 'curveCount':
         const wbs = item.wellbores;
-        const wbsArray = Array.isArray(wbs) 
-          ? wbs 
+        const wbsArray = Array.isArray(wbs)
+          ? wbs
           : (wbs && typeof wbs === 'object' ? Object.values(wbs) : []);
-        
+
         return wbsArray.reduce((total: number, wellbore: any) => {
           const welllogs = wellbore.welllogs;
           const welllogsArray = Array.isArray(welllogs)
             ? welllogs
             : (welllogs && typeof welllogs === 'object' ? Object.values(welllogs) : []);
-          
+
           const welllogCurves = welllogsArray.reduce((wbTotal: number, welllog: any) => {
             const curves = welllog.data?.Curves || welllog.Curves || [];
             return wbTotal + (Array.isArray(curves) ? curves.length : 0);
@@ -118,7 +123,7 @@ function ProfessionalGeoscientistDisplay({
     return sorted;
   }, [tableData, sortingColumn, isDescending]);
 
-  // Generate column definitions with specific structure
+  // Generate column definitions with specific structure (compact for expandable rows)
   const generateColumnDefinitions = () => {
     if (!tableData || tableData.length === 0) return [];
 
@@ -126,76 +131,60 @@ function ProfessionalGeoscientistDisplay({
       {
         id: 'facilityName',
         header: 'Facility Name',
-        cell: (item: any) => (
-          <strong>{item.data?.FacilityName || item.facilityName || item.name || 'N/A'}</strong>
-        ),
+        cell: (item: any) => {
+          // If this is a wellbore child row, show wellbore name with indent
+          if (item.__isWellboreChild) {
+            return (
+              <div style={{ paddingLeft: '24px', color: '#545b64', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon name="angle-right" size="small" /> 
+                <span>{item.wellboreName}</span>
+              </div>
+            );
+          }
+          return <strong>{item.data?.FacilityName || item.facilityName || item.name || 'N/A'}</strong>;
+        },
         sortingField: 'facilityName',
         isRowHeader: true,
-        width: '30%'
-      },
-      {
-        id: 'nameAliases',
-        header: 'Name Aliases',
-        cell: (item: any) => {
-          const aliases = item.data?.NameAliases || [];
-          return aliases.length > 0 ? aliases.join(', ') : 'N/A';
-        },
-        width: '25%'
-      },
-      {
-        id: 'wellId',
-        header: 'Well ID',
-        cell: (item: any) => {
-          const wellId = item.well_id || item.wellId || item.uniqueId || item.id || 'N/A';
-          
-          // Always apply truncation styling for consistent width
-          return (
-            <span title={wellId} style={{ 
-              display: 'inline-block',
-              width: '100%',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-              whiteSpace: 'nowrap',
-              direction: 'rtl',
-              textAlign: 'left'
-            }}>
-              {wellId}
-            </span>
-          );
-        },
-        sortingField: 'well_id',
-        width: '20%'
+        width: '50%'
       },
       {
         id: 'wellboreCount',
         header: 'Wellbores',
         cell: (item: any) => {
+          // For wellbore child rows, show welllog count
+          if (item.__isWellboreChild) {
+            return <span style={{ color: '#545b64', fontSize: '14px' }}>{item.welllogCount} welllogs</span>;
+          }
           // Handle both array and object formats
           const wellbores = item.wellbores;
-          const count = Array.isArray(wellbores) 
-            ? wellbores.length 
+          const count = Array.isArray(wellbores)
+            ? wellbores.length
             : (wellbores && typeof wellbores === 'object' ? Object.keys(wellbores).length : 0);
           return count;
         },
         sortingField: 'wellboreCount',
-        width: '12%'
+        width: '25%'
       },
       {
         id: 'curveCount',
         header: 'Welllog Curves',
         cell: (item: any) => {
+          // For wellbore child rows, show curve count
+          if (item.__isWellboreChild) {
+            return <span style={{ color: '#545b64', fontSize: '14px' }}>{item.curveCount} curves</span>;
+          }
           // Handle both array and object formats
           const wellbores = item.wellbores;
-          const wellboresArray = Array.isArray(wellbores) 
-            ? wellbores 
+          const wellboresArray = Array.isArray(wellbores)
+            ? wellbores
             : (wellbores && typeof wellbores === 'object' ? Object.values(wellbores) : []);
-          
+
           const totalCurves = wellboresArray.reduce((total: number, wellbore: any) => {
             const welllogs = wellbore.welllogs;
             const welllogsArray = Array.isArray(welllogs)
               ? welllogs
               : (welllogs && typeof welllogs === 'object' ? Object.values(welllogs) : []);
-            
+
             const welllogCurves = welllogsArray.reduce((wbTotal: number, welllog: any) => {
               const curves = welllog.data?.Curves || welllog.Curves || [];
               return wbTotal + (Array.isArray(curves) ? curves.length : 0);
@@ -205,9 +194,58 @@ function ProfessionalGeoscientistDisplay({
           return totalCurves;
         },
         sortingField: 'curveCount',
-        width: '13%'
+        width: '25%'
       }
     ];
+  };
+
+  // Detect data source type based on item structure
+  const detectDataSource = (item: any): 'osdu' | 'tgs' | 'volve' | 'sp' | 'generic' => {
+    // OSDU has specific schema with data.FacilityName and wellbores structure
+    if (item.data?.FacilityName && item.wellbores) return 'osdu';
+    // TGS might have different structure - add detection logic as needed
+    if (item.tgs_id || item.source === 'tgs') return 'tgs';
+    // Volve dataset detection
+    if (item.volve_id || item.source === 'volve') return 'volve';
+    // S&P detection
+    if (item.sp_id || item.source === 'sp') return 'sp';
+    return 'generic';
+  };
+
+  // Generate child rows (wellbores) for expandable rows
+  const getWellboreChildren = (item: any) => {
+    const wellbores = item.wellbores;
+    const wellboresArray = Array.isArray(wellbores)
+      ? wellbores
+      : (wellbores && typeof wellbores === 'object' ? Object.values(wellbores) : []);
+
+    if (wellboresArray.length === 0) return [];
+
+    // Convert wellbores to child row items
+    return wellboresArray.map((wellbore: any, idx: number) => {
+      const wellboreName = wellbore.data?.WellboreName || wellbore.name || `Wellbore ${idx + 1}`;
+      const welllogs = wellbore.welllogs;
+      const welllogsArray = Array.isArray(welllogs)
+        ? welllogs
+        : (welllogs && typeof welllogs === 'object' ? Object.values(welllogs) : []);
+
+      // Count total curves across all welllogs
+      const totalCurves = welllogsArray.reduce((total: number, welllog: any) => {
+        const curves = welllog.data?.Curves || welllog.Curves || [];
+        return total + (Array.isArray(curves) ? curves.length : 0);
+      }, 0);
+
+      return {
+        __isWellboreChild: true,
+        __parentId: item.well_id || item.wellId || item.id,
+        __wellboreId: `${item.well_id || item.wellId || item.id}-wb-${idx}`,
+        wellboreName,
+        welllogCount: welllogsArray.length,
+        curveCount: totalCurves,
+        welllogs: welllogsArray,
+        data: wellbore.data
+      };
+    });
   };
 
   const columnDefinitions = generateColumnDefinitions();
@@ -217,6 +255,9 @@ function ProfessionalGeoscientistDisplay({
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedData = sortedData.slice(startIndex, endIndex);
+
+  // Use paginated data directly - wellbore children are generated on-demand
+  const itemsForTable = paginatedData;
 
   // Reset to page 1 when data or sorting changes
   React.useEffect(() => {
@@ -236,13 +277,15 @@ function ProfessionalGeoscientistDisplay({
     >
       <div className='tables' style={{
         width: '100%',
-        boxSizing: 'border-box'
+        maxWidth: '100%',
+        boxSizing: 'border-box',
+        overflow: 'hidden'
       }}>
         <Table
           variant="container"
           contentDensity="compact"
           columnDefinitions={columnDefinitions}
-          items={paginatedData}
+          items={itemsForTable}
           trackBy={(item) => item.well_id || item.wellId || item.uniqueId || item.id || `${item.name}-${tableData.indexOf(item)}`}
           loadingText="Loading wells"
           sortingColumn={sortingColumn}
@@ -251,10 +294,54 @@ function ProfessionalGeoscientistDisplay({
             setSortingColumn(detail.sortingColumn);
             setIsDescending(detail.isDescending || false);
           }}
+          expandableRows={{
+            getItemChildren: (item) => {
+              // Don't expand wellbore child rows
+              if (item.__isWellboreChild) return [];
+              
+              const isExpanded = expandedItems.some(
+                (i) => (i.well_id || i.wellId || i.id) === (item.well_id || item.wellId || item.id)
+              );
+              
+              // Return wellbore children when expanded
+              return isExpanded ? getWellboreChildren(item) : [];
+            },
+            isItemExpandable: (item) => {
+              // Only parent facility rows are expandable, not wellbore children
+              return !item.__isWellboreChild && (item.wellbores && (
+                Array.isArray(item.wellbores) ? item.wellbores.length > 0 : Object.keys(item.wellbores).length > 0
+              ));
+            },
+            expandedItems: expandedItems,
+            onExpandableItemToggle: ({ detail }) => {
+              const item = detail.item;
+              const isExpanded = expandedItems.some(
+                (i) => (i.well_id || i.wellId || i.id) === (item.well_id || item.wellId || item.id)
+              );
+
+              if (isExpanded) {
+                setExpandedItems(
+                  expandedItems.filter(
+                    (i) => (i.well_id || i.wellId || i.id) !== (item.well_id || item.wellId || item.id)
+                  )
+                );
+              } else {
+                setExpandedItems([...expandedItems, item]);
+              }
+            }
+          }}
           header={
             <Header
-              counter={`(${tableData.length} total)`}
-              description="Showing 10 wells per page"
+              counter={
+                filterStats?.isFiltered
+                  ? `(${filterStats.filteredCount} of ${filterStats.totalCount} total)`
+                  : `(${tableData.length} total)`
+              }
+              description={
+                filterStats?.isFiltered
+                  ? "Filtered results - click any row to view details"
+                  : "Click any row to view detailed information"
+              }
             >
               Well Data
             </Header>
@@ -278,6 +365,7 @@ function ProfessionalGeoscientistDisplay({
               <strong>No wells found</strong>
             </div>
           }
+          wrapLines
         />
       </div>
     </div>
@@ -285,10 +373,12 @@ function ProfessionalGeoscientistDisplay({
 }
 
 // Enhanced AI message component that renders professional geoscientist content
-function CustomAIMessage({ message, originalSearchQuery, hierarchicalData }: {
+function CustomAIMessage({ message, originalSearchQuery, hierarchicalData, filteredData, filterStats }: {
   message: Message,
   originalSearchQuery?: string,
-  hierarchicalData?: any
+  hierarchicalData?: any,
+  filteredData?: any,
+  filterStats?: FilterStats | null
 }) {
   const [tableData, setTableData] = useState<any[] | null>(null);
   const [queryType, setQueryType] = useState<string>('general');
@@ -308,28 +398,28 @@ function CustomAIMessage({ message, originalSearchQuery, hierarchicalData }: {
         const tableDataMatch = messageText.match(/```json-table-data\n([\s\S]*?)\n```/);
         if (tableDataMatch && tableDataMatch[1]) {
           const parsedData = JSON.parse(tableDataMatch[1]);
-          
+
           // Check if we have files.metadata URL to fetch full data with wellbores/welllogs
           const files = (message as any).files;
           if (files && files.metadata) {
             console.log('📥 Fetching full metadata with wellbores/welllogs from:', files.metadata);
-            
+
             // Fetch the full metadata file
             fetch(files.metadata)
               .then(response => response.json())
               .then(fullData => {
                 console.log('✅ Loaded full metadata:', fullData.length, 'wells');
-                
+
                 // Use the full data which includes wellbores and welllogs
                 setTableData(fullData);
-                
+
                 // Log first item to verify structure
                 if (fullData.length > 0) {
                   console.log('🔍 Full data structure:', {
                     keys: Object.keys(fullData[0]),
                     wellbores: fullData[0].wellbores,
-                    wellboresCount: Array.isArray(fullData[0].wellbores) 
-                      ? fullData[0].wellbores.length 
+                    wellboresCount: Array.isArray(fullData[0].wellbores)
+                      ? fullData[0].wellbores.length
                       : (fullData[0].wellbores && typeof fullData[0].wellbores === 'object' ? Object.keys(fullData[0].wellbores).length : 0)
                   });
                 }
@@ -402,23 +492,25 @@ function CustomAIMessage({ message, originalSearchQuery, hierarchicalData }: {
   const hasFiles = files && (files.metadata || files.geojson);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px', width: '100%' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '12px', width: '100%', maxWidth: '100%', boxSizing: 'border-box' }}>
         <div style={{
-          width: '32px',
-          height: '32px',
+          width: '40px',
+          height: '40px',
+          minWidth: '40px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: '#0073bb',
           borderRadius: '50%',
           color: 'white',
-          fontSize: '16px',
-          fontWeight: 'bold'
+          fontSize: '18px',
+          fontWeight: 'bold',
+          flexShrink: 0
         }}>
           <Icon name="gen-ai" />
         </div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0, maxWidth: '100%', boxSizing: 'border-box' }}>
           {/* Display thought steps summary if available */}
           {hasThoughtSteps && (
             <div style={{
@@ -481,6 +573,27 @@ function CustomAIMessage({ message, originalSearchQuery, hierarchicalData }: {
             </div>
           )}
 
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {getCleanText()}
+          </ReactMarkdown>
+
+          {/* Render hierarchical table for /getdata command, otherwise simple table */}
+          {useHierarchicalView && hierarchicalData ? (
+            <HierarchicalDataTable
+              treeData={hierarchicalData}
+              searchQuery={originalSearchQuery || 'wells analysis'}
+            />
+          ) : tableData && tableData.length > 0 ? (
+            <ProfessionalGeoscientistDisplay
+              tableData={filteredData || tableData}
+              searchQuery={originalSearchQuery || 'wells analysis'}
+              queryType={queryType}
+              weatherData={weatherData}
+              filterStats={filterStats}
+            />
+          ) : null}
+
+
           {/* Display file URLs if available */}
           {hasFiles && (
             <div style={{
@@ -527,29 +640,17 @@ function CustomAIMessage({ message, originalSearchQuery, hierarchicalData }: {
               </div>
             </div>
           )}
-
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {getCleanText()}
-          </ReactMarkdown>
-
-          {/* Render hierarchical table for /getdata command, otherwise simple table */}
-          {useHierarchicalView && hierarchicalData ? (
-            <HierarchicalDataTable
-              treeData={hierarchicalData}
-              searchQuery={originalSearchQuery || 'wells analysis'}
-            />
-          ) : tableData && tableData.length > 0 ? (
-            <ProfessionalGeoscientistDisplay
-              tableData={tableData}
-              searchQuery={originalSearchQuery || 'wells analysis'}
-              queryType={queryType}
-              weatherData={weatherData}
-            />
-          ) : null}
         </div>
       </div>
     </div>
   );
+}
+
+// Filter stats interface
+interface FilterStats {
+  filteredCount: number;
+  totalCount: number;
+  isFiltered: boolean;
 }
 
 /**
@@ -562,9 +663,11 @@ const CatalogChatBoxCloudscape = (params: {
   messages: Message[],
   setMessages: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void,
   onSendMessage: (message: string) => Promise<void>,
-  hierarchicalData?: any
+  hierarchicalData?: any,
+  filteredData?: any,
+  filterStats?: FilterStats | null
 }) => {
-  const { onInputChange, userInput, messages, setMessages, onSendMessage, hierarchicalData } = params;
+  const { onInputChange, userInput, messages, setMessages, onSendMessage, hierarchicalData, filteredData, filterStats } = params;
 
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastSearchQuery, setLastSearchQuery] = useState<string>('');
@@ -681,13 +784,15 @@ const CatalogChatBoxCloudscape = (params: {
           {messages.map((message, index) => (
             <div
               key={Array.isArray(message.id) ? message.id[0] || `message-${index}` : message.id || `message-${index}`}
-              style={{ marginBottom: '16px', padding: '0 16px' }}
+              style={{ marginBottom: '16px', padding: '0 20px', maxWidth: '100%', boxSizing: 'border-box' }}
             >
               {message.role === 'ai' ? (
                 <CustomAIMessage
                   message={message}
                   originalSearchQuery={lastSearchQuery}
                   hierarchicalData={hierarchicalData}
+                  filteredData={filteredData}
+                  filterStats={filterStats}
                 />
               ) : (
                 <ChatMessage message={message} />
