@@ -146,12 +146,23 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         prompt = arguments.get('prompt', '').strip()
         session_id = arguments.get('sessionId', '').strip()
         existing_context = arguments.get('existingContext')
+        polygon_filters = arguments.get('polygonFilters')
+        
+        # Parse polygon filters if provided as JSON string
+        if polygon_filters and isinstance(polygon_filters, str):
+            try:
+                polygon_filters = json.loads(polygon_filters)
+                logger.info(f"✓ Parsed polygonFilters from JSON string")
+            except json.JSONDecodeError as json_error:
+                logger.warning(f"Failed to parse polygonFilters JSON: {str(json_error)}")
+                polygon_filters = None
         
         # Log extracted parameters (sanitized)
         logger.info(f"  - Prompt: '{prompt[:50]}{'...' if len(prompt) > 50 else ''}'")
         logger.info(f"  - Session ID: {session_id}")
         logger.info(f"  - OSDU Auth: Using environment variables (OSDU_BASE_URL, OSDU_PARTITION_ID, OSDU_CLIENT_ID, OSDU_CLIENT_SECRET)")
         logger.info(f"  - Existing Context: {'provided' if existing_context else 'none'}")
+        logger.info(f"  - Polygon Filters: {len(polygon_filters) if polygon_filters else 0} polygon(s)")
         
         # Step 3: Validate required parameters
         logger.info("Step 3: Validating required parameters")
@@ -215,6 +226,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 prompt=prompt,
                 session_id=session_id,
                 existing_context=existing_context,
+                polygon_filters=polygon_filters,
                 s3_manager=s3_manager
             )
         
@@ -560,6 +572,7 @@ def handle_natural_language_query(
     prompt: str,
     session_id: str,
     existing_context: Optional[Dict[str, Any]],
+    polygon_filters: Optional[List[Dict[str, Any]]],
     s3_manager: S3SessionManager
 ) -> Dict[str, Any]:
     """
@@ -583,6 +596,7 @@ def handle_natural_language_query(
         prompt: User's natural language query
         session_id: Session identifier
         existing_context: Previous search context
+        polygon_filters: List of polygon geometries for spatial filtering
         s3_manager: S3 session manager instance
         
     Note:
@@ -611,6 +625,11 @@ def handle_natural_language_query(
     logger.info("=== PROCESSING NATURAL LANGUAGE QUERY WITH STREAMING ===")
     logger.info(f"Query: {prompt}")
     logger.info(f"Session ID: {session_id}")
+    if polygon_filters:
+        logger.info(f"Polygon Filters: {len(polygon_filters)} polygon(s)")
+        for i, polygon in enumerate(polygon_filters):
+            logger.info(f"  Polygon {i+1}: {polygon.get('name', 'Unnamed')} - Area: {polygon.get('area', 'N/A')} sq meters")
+            logger.info(f"    Coordinates: {len(polygon.get('geometry', {}).get('coordinates', [[]])[0])} points")
     
     # Track streaming state
     thought_steps_streamed = []
@@ -713,7 +732,8 @@ def handle_natural_language_query(
             result = agent_processor.process_query(
                 query=prompt,
                 session_id=session_id,
-                existing_context=session_context
+                existing_context=session_context,
+                polygon_filters=polygon_filters
             )
             
             # Mark initial thought step as complete

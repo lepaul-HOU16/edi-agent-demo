@@ -266,12 +266,25 @@ class OSDUClient:
         if not self.osdu_headers:
             raise Exception("Failed to authenticate with OSDU platform")
     
-    def fetch_all_wells(self) -> List[Dict[str, Any]]:
+    def fetch_all_wells(self, spatial_filter: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
         Fetch all wells from OSDU using search API.
         
         Uses OSDU Search API to retrieve all well records accessible to the user.
         Implements pagination to handle large datasets.
+        Optionally applies spatial filtering using polygon geometry.
+        
+        Args:
+            spatial_filter: Optional spatial filter with polygon geometry
+                Format: {
+                    "field": "data.SpatialLocation.Wgs84Coordinates",
+                    "byGeoPolygon": {
+                        "points": [
+                            {"longitude": 2.667, "latitude": 56.327},
+                            ...
+                        ]
+                    }
+                }
         
         Returns:
             List of OSDU well records
@@ -279,7 +292,10 @@ class OSDUClient:
         Raises:
             Exception: If OSDU API call fails
         """
-        print("Fetching all wells from OSDU")
+        if spatial_filter:
+            print(f"Fetching wells from OSDU with spatial filter (polygon with {len(spatial_filter.get('byGeoPolygon', {}).get('points', []))} points)")
+        else:
+            print("Fetching all wells from OSDU")
         
         try:
             # OSDU Search API endpoint
@@ -299,6 +315,11 @@ class OSDUClient:
                     "order": ["DESC"],
                 }
             }
+            
+            # Add spatial filter if provided
+            if spatial_filter:
+                query_body['spatialFilter'] = spatial_filter
+                print(f"Applied spatial filter to query: {spatial_filter}")
             
             all_wells = []
             total_count = 0

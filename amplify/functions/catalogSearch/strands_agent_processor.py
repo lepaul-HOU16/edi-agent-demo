@@ -130,6 +130,7 @@ class StrandsAgentProcessor:
         
         self.osdu_base_url = osdu_base_url
         self.osdu_partition_id = osdu_partition_id
+        self.current_spatial_filter = None  # Store spatial filter for use in tools
         
         # Step 1: Initialize OSDU API client with environment credentials
         logger.info("Step 1: Initializing OSDU API client...")
@@ -160,6 +161,82 @@ class StrandsAgentProcessor:
         logger.info("=" * 80)
         logger.info("✅ STRANDS AGENT PROCESSOR READY")
         logger.info("=" * 80)
+    
+    def _convert_polygon_to_osdu_spatial_filter(self, polygon_filters: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+        """
+        Convert frontend polygon filters to OSDU spatial filter format.
+        
+        Frontend format:
+        {
+            "id": "polygon-123",
+            "name": "Area 1",
+            "geometry": {
+                "type": "Polygon",
+                "coordinates": [[[lon1, lat1], [lon2, lat2], ...]]
+            },
+            "area": 37310.37
+        }
+        
+        OSDU format:
+        {
+            "field": "data.SpatialLocation.Wgs84Coordinates",
+            "byGeoPolygon": {
+                "points": [
+                    {"longitude": lon1, "latitude": lat1},
+                    {"longitude": lon2, "latitude": lat2},
+                    ...
+                ]
+            }
+        }
+        
+        Args:
+            polygon_filters: List of polygon filters from frontend
+            
+        Returns:
+            OSDU spatial filter dict or None if no valid polygons
+        """
+        if not polygon_filters or len(polygon_filters) == 0:
+            return None
+        
+        # Use the first polygon (OSDU API typically supports one spatial filter)
+        polygon = polygon_filters[0]
+        geometry = polygon.get('geometry', {})
+        
+        if geometry.get('type') != 'Polygon':
+            logger.warning(f"Invalid geometry type: {geometry.get('type')}, expected 'Polygon'")
+            return None
+        
+        coordinates = geometry.get('coordinates', [])
+        if not coordinates or len(coordinates) == 0:
+            logger.warning("No coordinates in polygon geometry")
+            return None
+        
+        # GeoJSON Polygon coordinates are [[[lon, lat], [lon, lat], ...]]
+        # We need the outer ring (first array)
+        outer_ring = coordinates[0]
+        
+        # Convert to OSDU format
+        osdu_points = []
+        for coord in outer_ring:
+            if len(coord) >= 2:
+                osdu_points.append({
+                    "longitude": coord[0],
+                    "latitude": coord[1]
+                })
+        
+        if len(osdu_points) < 3:
+            logger.warning(f"Polygon has too few points: {len(osdu_points)}, need at least 3")
+            return None
+        
+        spatial_filter = {
+            "field": "data.SpatialLocation.Wgs84Coordinates",
+            "byGeoPolygon": {
+                "points": osdu_points
+            }
+        }
+        
+        logger.info(f"✓ Converted polygon '{polygon.get('name', 'Unnamed')}' to OSDU spatial filter with {len(osdu_points)} points")
+        return spatial_filter
     
     def _initialize_agent(self):
         """
@@ -268,9 +345,13 @@ class StrandsAgentProcessor:
             logger.info(f"[TOOL] get_all_osdu_data called for session: {session_id}")
             
             try:
-                # Step 1: Fetch all wells from OSDU
-                logger.info("Fetching all wells from OSDU...")
-                osdu_wells = osdu_client.fetch_all_wells()
+                # Step 1: Fetch all wells from OSDU (with spatial filter if available)
+                spatial_filter = self.current_spatial_filter
+                if spatial_filter:
+                    logger.info("Fetching wells from OSDU with spatial filter...")
+                else:
+                    logger.info("Fetching all wells from OSDU...")
+                osdu_wells = osdu_client.fetch_all_wells(spatial_filter=spatial_filter)
                 logger.info(f"✓ Fetched {len(osdu_wells)} wells")
                 
                 if not osdu_wells:
@@ -607,7 +688,8 @@ class StrandsAgentProcessor:
         self, 
         query: str, 
         session_id: str,
-        existing_context: Optional[Dict[str, Any]] = None
+        existing_context: Optional[Dict[str, Any]] = None,
+        polygon_filters: Optional[List[Dict[str, Any]]] = None
     ) -> Dict[str, Any]:
         """
         Process a natural language query using Strands Agent with context awareness.
@@ -616,12 +698,14 @@ class StrandsAgentProcessor:
         1. Loads all_well_metadata from existing context (S3)
         2. Determines which hierarchy level needs filtering (well, wellbore, or welllog)
         3. Processes natural language filter queries with intelligent understanding
-        4. Generates thought steps during processing for realtime streaming
+        4. Applies spatial polygon filters if provided
+        5. Generates thought steps during processing for realtime streaming
         
         Args:
             query: User's natural language query (e.g., "Show wells deeper than 3000m")
             session_id: Session identifier
             existing_context: Dict with 'allWells' key containing all_well_metadata.json data
+            polygon_filters: List of polygon geometries for spatial filtering (optional)
             
         Returns:
             Dictionary with:
@@ -635,6 +719,7 @@ class StrandsAgentProcessor:
             - Requirement 6.1: Determine which level of hierarchy needs to be filtered
             - Requirement 6.2: Process natural language filter queries
             - Requirement 6.1: Generate thought steps during processing
+            - Spatial filtering: Apply polygon geometry filters to well locations
         """
         logger.info("=" * 80)
         logger.info(f"PROCESSING QUERY WITH CONTEXT AWARENESS")
@@ -645,6 +730,20 @@ class StrandsAgentProcessor:
             logger.info(f"Context type: {type(existing_context)}")
             logger.info(f"Context keys: {list(existing_context.keys()) if hasattr(existing_context, 'keys') else 'Not a dict'}")
             logger.info(f"Context has allWells: {'allWells' in existing_context if hasattr(existing_context, '__contains__') else 'N/A'}")
+        if polygon_filters:
+            logger.info(f"Polygon filters: {len(polygon_filters)} polygon(s)")
+            for i, polygon in enumerate(polygon_filters):
+                logger.info(f"  Polygon {i+1}: {polygon.get('name', 'Unnamed')} - Area: {polygon.get('area', 'N/A')} sq meters")
+            
+            # Convert polygon filters to OSDU spatial filter format
+            self.current_spatial_filter = self._convert_polygon_to_osdu_spatial_filter(polygon_filters)
+            if self.current_spatial_filter:
+                logger.info(f"✓ Spatial filter ready for OSDU API calls")
+            else:
+                logger.warning("⚠️ Failed to convert polygon filters to OSDU format")
+        else:
+            self.current_spatial_filter = None
+        
         logger.info("=" * 80)
         
         thought_steps = []
@@ -671,14 +770,22 @@ class StrandsAgentProcessor:
                 if existing_context.get('allWells'):
                     logger.info(f"allWells length: {len(existing_context.get('allWells'))}")
             
-            if not existing_context or not existing_context.get('allWells'):
-                logger.warning("No existing context with wells data")
-                logger.info("Automatically fetching all wells from OSDU before processing query")
+            # If spatial filter is provided, always fetch fresh data from OSDU with spatial filter
+            # This ensures the OSDU API applies the polygon filter server-side
+            should_fetch_fresh = (not existing_context or not existing_context.get('allWells')) or self.current_spatial_filter
+            
+            if should_fetch_fresh:
+                if self.current_spatial_filter:
+                    logger.info("Spatial filter detected - fetching fresh data from OSDU with polygon filter")
+                    thought_step_loading['summary'] = 'Fetching wells within polygon boundary from OSDU'
+                else:
+                    logger.warning("No existing context with wells data")
+                    logger.info("Automatically fetching all wells from OSDU before processing query")
+                    thought_step_loading['summary'] = 'No existing data - fetching all wells from OSDU first'
                 
                 thought_step_loading['status'] = 'processing'
-                thought_step_loading['summary'] = 'No existing data - fetching all wells from OSDU first'
                 
-                # Always fetch all data first if no existing context
+                # Fetch data from OSDU (with spatial filter if provided)
                 getdata_tool = self._create_getdata_tool()
                 tool_result = getdata_tool(session_id=session_id)
                 

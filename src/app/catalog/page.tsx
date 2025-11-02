@@ -624,7 +624,7 @@ function CatalogPageBase() {
           id: uuidv4() as any,
           role: "ai" as any,
           content: {
-            text: `✅ **Session Reset Complete**\n\nAll catalog data has been cleared:\n- Session ID reset\n- All messages cleared\n- Map visualization cleared\n- Analysis data cleared\n- Filters and polygons removed\n\n🆕 **New Session ID:** \`${newSessionId}\`\n\n💡 *You can now start fresh with /getdata or a new search query.*`
+            text: `✅ **Session Reset Complete**\n\nAll catalog data has been cleared:\n- Session ID reset\n- All messages cleared\n- Map visualization cleared\n- Analysis data cleared\n- Filters and polygons removed\n\n🆕 New Session ID: \`${newSessionId}\`\n\n💡 *You can now start fresh with a new search query.*`
           } as any,
           responseComplete: true as any,
           createdAt: new Date().toISOString() as any,
@@ -719,6 +719,32 @@ function CatalogPageBase() {
         console.log('📤 No context sent - fresh search');
       }
 
+      // Add polygon filters to context if any exist
+      console.log('🔍 DEBUG: Checking for polygon filters:', {
+        polygonsLength: polygons.length,
+        polygonsState: polygons,
+        activePolygon: activePolygon
+      });
+      
+      let polygonFilters = null;
+      if (polygons.length > 0) {
+        polygonFilters = polygons.map(polygon => ({
+          id: polygon.id,
+          name: polygon.name,
+          geometry: polygon.geometry,
+          area: polygon.area,
+          createdAt: polygon.createdAt.toISOString()
+        }));
+        
+        console.log('🗺️ Including polygon filters in search:', {
+          polygonCount: polygonFilters.length,
+          activePolygon: activePolygon?.id,
+          polygons: polygonFilters
+        });
+      } else {
+        console.log('⚠️ No polygons in state - polygonFilters will be null');
+      }
+
       // TODO: OSDU configuration should be obtained from user settings or environment
       // For now, using placeholder values that need to be configured
       const osduInstance = {
@@ -746,7 +772,8 @@ function CatalogPageBase() {
         sessionId: sessionId,
         osduInstance: JSON.stringify(osduInstance),
         authToken: authToken,
-        existingContext: searchContextForBackend ? JSON.stringify(searchContextForBackend) : null
+        existingContext: searchContextForBackend ? JSON.stringify(searchContextForBackend) : null,
+        polygonFilters: polygonFilters ? JSON.stringify(polygonFilters) : null
       });
 
       console.log('🔍 CATALOG SEARCH RESPONSE:', searchResponse);
@@ -1070,8 +1097,6 @@ function CatalogPageBase() {
           statsText += ` from OSDU`;
 
           messageText = `**📥 Data Loaded Successfully**\n\n${backendMessage ? backendMessage + '\n\n' : ''}${statsText}\n\nAll available wells have been loaded and displayed on the map. You can now:\n- View wells on the interactive map\n- Explore hierarchical data in the Data Analysis & Visualization tab\n- Filter wells using natural language queries\n- Create collections from your search results\n\n**📊 Well Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n💡 *Try filtering: "Show wells deeper than 3000m" or "Wells operated by [company name]"*`;
-        } else if (isWeatherQuery) {
-          messageText = `**🌤️ Weather Map Results**\n\n${backendMessage}\n\nFound **${wellCount} wells** with **${weatherFeatures.length} weather data points** for query: *"${prompt}"*\n\nWells displayed as red markers, weather shown as temperature and precipitation overlays. Use the weather layer controls to toggle visibility.\n\n**📊 Well Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n🌤️ *Weather overlays: Temperature heatmap and precipitation patterns. Toggle controls in top-right corner of map.*`;
         } else if (isDepthQuery) {
           const depthFilter = geoJsonData.metadata?.depthFilter;
           const filterCriteria = depthFilter ? `depth ${depthFilter.operator.replace('_', ' ')} ${depthFilter.minDepth}${depthFilter.unit}` : 'depth criteria';
@@ -1087,7 +1112,7 @@ function CatalogPageBase() {
           }
           statsText += ` for query: *"${prompt}"*`;
 
-          messageText = `**🔍 Catalog Search Results**\n\n${backendMessage ? backendMessage + '\n\n' : ''}${statsText}\n\nResults displayed on the map with interactive markers and detailed table below.\n\n**📊 Well Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n💡 *Click map markers for additional well information.*\n\n📁 **New**: [Collection Management (Beta)](/collections) - Organize and save your curated datasets for reuse across analysis sessions.`;
+          messageText = `\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\``;
         }
 
         const newMessage: Message = {
@@ -1288,16 +1313,23 @@ function CatalogPageBase() {
     } finally {
       setIsLoadingMapData(false);
     }
-  }, [amplifyClient, setMessages, mapComponentRef, analysisData, analysisQueryType]);
+  }, [amplifyClient, setMessages, mapComponentRef, analysisData, analysisQueryType, polygons, activePolygon]);
 
   // NOTE: Chat session subscription removed since catalog uses direct search
   // Chain of thought infrastructure is ready for when catalogSearch backend 
   // is enhanced to return thought steps
 
   const handlePolygonCreate = useCallback((polygon: PolygonFilter) => {
-    setPolygons(prev => [...prev, polygon]);
+    setPolygons(prev => {
+      const newPolygons = [...prev, polygon];
+      console.log('✅ Polygon created and added to state:', {
+        newPolygon: polygon,
+        totalPolygons: newPolygons.length,
+        allPolygons: newPolygons
+      });
+      return newPolygons;
+    });
     setActivePolygon(polygon);
-    console.log('Polygon created:', polygon);
   }, []);
 
   const handlePolygonDelete = useCallback((deletedIds: string[]) => {

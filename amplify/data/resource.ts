@@ -261,6 +261,7 @@ export const schema = a.schema({
       osduInstance: a.json().required(), // Changed from customType to json for compatibility
       authToken: a.string().required(),
       existingContext: a.json(),
+      polygonFilters: a.json(), // Polygon geometry filters for spatial queries
     })
     .returns(a.customType({
       type: a.string().required(), // 'complete', 'stream', 'error'

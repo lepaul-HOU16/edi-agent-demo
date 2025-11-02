@@ -32,7 +32,11 @@ function ProfessionalGeoscientistDisplay({
 }) {
   // Pagination state
   const [currentPage, setCurrentPage] = React.useState(1);
-  const itemsPerPage = 50;
+  const itemsPerPage = 10;
+
+  // Sorting state
+  const [sortingColumn, setSortingColumn] = React.useState<any>(null);
+  const [isDescending, setIsDescending] = React.useState(false);
 
   // Convert table data to well data format for the dashboard
   const wellsData = tableData.map(item => ({
@@ -61,6 +65,59 @@ function ProfessionalGeoscientistDisplay({
   // Fallback to simple table for very large datasets
   console.log('📋 Rendering simple table for large dataset:', wellsData.length, 'items');
 
+  // Helper function to get sortable values
+  const getSortableValue = (item: any, field: string) => {
+    switch (field) {
+      case 'facilityName':
+        return (item.data?.FacilityName || item.facilityName || item.name || 'N/A').toLowerCase();
+      case 'wellboreCount':
+        const wellbores = item.wellbores;
+        return Array.isArray(wellbores) 
+          ? wellbores.length 
+          : (wellbores && typeof wellbores === 'object' ? Object.keys(wellbores).length : 0);
+      case 'curveCount':
+        const wbs = item.wellbores;
+        const wbsArray = Array.isArray(wbs) 
+          ? wbs 
+          : (wbs && typeof wbs === 'object' ? Object.values(wbs) : []);
+        
+        return wbsArray.reduce((total: number, wellbore: any) => {
+          const welllogs = wellbore.welllogs;
+          const welllogsArray = Array.isArray(welllogs)
+            ? welllogs
+            : (welllogs && typeof welllogs === 'object' ? Object.values(welllogs) : []);
+          
+          const welllogCurves = welllogsArray.reduce((wbTotal: number, welllog: any) => {
+            const curves = welllog.data?.Curves || welllog.Curves || [];
+            return wbTotal + (Array.isArray(curves) ? curves.length : 0);
+          }, 0);
+          return total + welllogCurves;
+        }, 0);
+      default:
+        return '';
+    }
+  };
+
+  // Sort the data
+  const sortedData = React.useMemo(() => {
+    if (!sortingColumn) return tableData;
+
+    const sorted = [...tableData].sort((a, b) => {
+      const aValue = getSortableValue(a, sortingColumn.sortingField);
+      const bValue = getSortableValue(b, sortingColumn.sortingField);
+
+      if (typeof aValue === 'number' && typeof bValue === 'number') {
+        return isDescending ? bValue - aValue : aValue - bValue;
+      }
+
+      const aStr = String(aValue);
+      const bStr = String(bValue);
+      return isDescending ? bStr.localeCompare(aStr) : aStr.localeCompare(bStr);
+    });
+
+    return sorted;
+  }, [tableData, sortingColumn, isDescending]);
+
   // Generate column definitions with specific structure
   const generateColumnDefinitions = () => {
     if (!tableData || tableData.length === 0) return [];
@@ -73,7 +130,8 @@ function ProfessionalGeoscientistDisplay({
           <strong>{item.data?.FacilityName || item.facilityName || item.name || 'N/A'}</strong>
         ),
         sortingField: 'facilityName',
-        isRowHeader: true
+        isRowHeader: true,
+        width: '30%'
       },
       {
         id: 'nameAliases',
@@ -81,13 +139,32 @@ function ProfessionalGeoscientistDisplay({
         cell: (item: any) => {
           const aliases = item.data?.NameAliases || [];
           return aliases.length > 0 ? aliases.join(', ') : 'N/A';
-        }
+        },
+        width: '25%'
       },
       {
         id: 'wellId',
         header: 'Well ID',
-        cell: (item: any) => item.well_id || item.wellId || item.uniqueId || item.id || 'N/A',
-        sortingField: 'well_id'
+        cell: (item: any) => {
+          const wellId = item.well_id || item.wellId || item.uniqueId || item.id || 'N/A';
+          
+          // Always apply truncation styling for consistent width
+          return (
+            <span title={wellId} style={{ 
+              display: 'inline-block',
+              width: '100%',
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+              direction: 'rtl',
+              textAlign: 'left'
+            }}>
+              {wellId}
+            </span>
+          );
+        },
+        sortingField: 'well_id',
+        width: '20%'
       },
       {
         id: 'wellboreCount',
@@ -100,7 +177,8 @@ function ProfessionalGeoscientistDisplay({
             : (wellbores && typeof wellbores === 'object' ? Object.keys(wellbores).length : 0);
           return count;
         },
-        sortingField: 'wellboreCount'
+        sortingField: 'wellboreCount',
+        width: '12%'
       },
       {
         id: 'curveCount',
@@ -126,23 +204,24 @@ function ProfessionalGeoscientistDisplay({
           }, 0);
           return totalCurves;
         },
-        sortingField: 'curveCount'
+        sortingField: 'curveCount',
+        width: '13%'
       }
     ];
   };
 
   const columnDefinitions = generateColumnDefinitions();
 
-  // Pagination calculations
-  const totalPages = Math.ceil(tableData.length / itemsPerPage);
+  // Pagination calculations (use sorted data)
+  const totalPages = Math.ceil(sortedData.length / itemsPerPage);
   const startIndex = (currentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
-  const paginatedData = tableData.slice(startIndex, endIndex);
+  const paginatedData = sortedData.slice(startIndex, endIndex);
 
-  // Reset to page 1 when data changes
+  // Reset to page 1 when data or sorting changes
   React.useEffect(() => {
     setCurrentPage(1);
-  }, [tableData.length]);
+  }, [tableData.length, sortingColumn, isDescending]);
 
   return (
     <div
@@ -156,19 +235,26 @@ function ProfessionalGeoscientistDisplay({
       }}
     >
       <div className='tables' style={{
-        maxWidth: '100%',
-        overflow: 'auto',
+        width: '100%',
         boxSizing: 'border-box'
       }}>
         <Table
+          variant="container"
+          contentDensity="compact"
           columnDefinitions={columnDefinitions}
           items={paginatedData}
           trackBy={(item) => item.well_id || item.wellId || item.uniqueId || item.id || `${item.name}-${tableData.indexOf(item)}`}
           loadingText="Loading wells"
+          sortingColumn={sortingColumn}
+          sortingDescending={isDescending}
+          onSortingChange={({ detail }) => {
+            setSortingColumn(detail.sortingColumn);
+            setIsDescending(detail.isDescending || false);
+          }}
           header={
             <Header
               counter={`(${tableData.length} total)`}
-              description="Showing 50 wells per page"
+              description="Showing 10 wells per page"
             >
               Well Data
             </Header>
@@ -222,7 +308,41 @@ function CustomAIMessage({ message, originalSearchQuery, hierarchicalData }: {
         const tableDataMatch = messageText.match(/```json-table-data\n([\s\S]*?)\n```/);
         if (tableDataMatch && tableDataMatch[1]) {
           const parsedData = JSON.parse(tableDataMatch[1]);
-          setTableData(parsedData);
+          
+          // Check if we have files.metadata URL to fetch full data with wellbores/welllogs
+          const files = (message as any).files;
+          if (files && files.metadata) {
+            console.log('📥 Fetching full metadata with wellbores/welllogs from:', files.metadata);
+            
+            // Fetch the full metadata file
+            fetch(files.metadata)
+              .then(response => response.json())
+              .then(fullData => {
+                console.log('✅ Loaded full metadata:', fullData.length, 'wells');
+                
+                // Use the full data which includes wellbores and welllogs
+                setTableData(fullData);
+                
+                // Log first item to verify structure
+                if (fullData.length > 0) {
+                  console.log('🔍 Full data structure:', {
+                    keys: Object.keys(fullData[0]),
+                    wellbores: fullData[0].wellbores,
+                    wellboresCount: Array.isArray(fullData[0].wellbores) 
+                      ? fullData[0].wellbores.length 
+                      : (fullData[0].wellbores && typeof fullData[0].wellbores === 'object' ? Object.keys(fullData[0].wellbores).length : 0)
+                  });
+                }
+              })
+              .catch(error => {
+                console.error('❌ Error fetching full metadata:', error);
+                // Fallback to parsed data
+                setTableData(parsedData);
+              });
+          } else {
+            // No metadata file, use parsed data
+            setTableData(parsedData);
+          }
 
           // Determine query type from the original search query
           if (originalSearchQuery) {
@@ -250,7 +370,6 @@ function CustomAIMessage({ message, originalSearchQuery, hierarchicalData }: {
           }
 
           console.log('🎯 Detected query type:', queryType);
-          console.log('📊 Table data:', parsedData.length, 'items');
           console.log('🌳 Use hierarchical view:', useHierarchicalView);
         }
       } catch (error) {
@@ -589,7 +708,7 @@ const CatalogChatBoxCloudscape = (params: {
             actionButtonAriaLabel="Send message"
             actionButtonIconName="send"
             ariaLabel="Prompt input with action button"
-            placeholder="Ask for weather maps, field analysis, or reservoir intelligence..."
+            placeholder="Ask to find wells, wellbores and well logs"
           />
           <div style={{
             color: 'white',
