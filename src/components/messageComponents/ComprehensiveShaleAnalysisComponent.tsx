@@ -870,3 +870,6 @@ function StrategyVisualization({ data }: { data: any }) {
     </Stack>
   );
 }
+
+// Memoize to prevent re-renders when parent re-renders
+export default React.memo(ComprehensiveShaleAnalysisComponent);

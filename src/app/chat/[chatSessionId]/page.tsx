@@ -121,6 +121,11 @@ function Page({
     
     const stableMessages = React.useMemo(() => messages, [messages]);
     
+    // Memoized input change handler to prevent re-renders on every keystroke
+    const stableOnInputChange = React.useCallback((input: string) => {
+        setUserInput(input);
+    }, []);
+    
     // Chain of thought auto-scroll state
     const [chainOfThoughtAutoScroll, setChainOfThoughtAutoScroll] = useState<boolean>(true);
     const [chainOfThoughtMessageCount, setChainOfThoughtMessageCount] = useState<number>(0);
@@ -419,7 +424,7 @@ function Page({
                     disableGutters
                     gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
                 >
-                    <div className='panel-header' style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                    <div className='panel-header' style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
                         <AgentSwitcher
                             selectedAgent={selectedAgent}
                             onAgentChange={handleAgentChange}
@@ -993,7 +998,7 @@ function Page({
                             <ChatBox
                                 chatSessionId={activeChatSession.id}
                                 showChainOfThought={showChainOfThought}
-                                onInputChange={setUserInput}
+                                onInputChange={stableOnInputChange}
                                 userInput={userInput}
                                 messages={stableMessages}
                                 setMessages={stableSetMessages}

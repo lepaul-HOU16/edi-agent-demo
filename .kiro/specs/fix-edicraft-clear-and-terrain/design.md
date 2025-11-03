@@ -2,210 +2,253 @@
 
 ## Overview
 
-This design addresses three interconnected issues with the EDIcraft clear environment functionality:
-1. Incomplete block clearing (missing sign variants)
-2. Duplicate clear button rendering in UI
-3. Inadequate terrain filling after structure removal
+This design implements a simple, aggressive chunk-based clearing system that:
+1. Wipes entire 32x32 chunk areas clean (ALL blocks, no filtering)
+2. Restores ground level with appropriate terrain blocks
+3. Handles timeouts and failures gracefully
 
 ## Architecture
 
 ### Component Interaction
 
 ```
-User Request → EDIcraft Agent → Clear Environment Tool → RCON Commands → Minecraft Server
+User Request → EDIcraft Agent → Clear Environment Tool
+                                        ↓
+                                Chunk-Based Clearing
+                                        ↓
+                                RCON Commands (32x32 chunks)
+                                        ↓
+                                Minecraft Server
+                                        ↓
+                                Ground Restoration
                                         ↓
                                 Response Template
-                                        ↓
-                            EDIcraftResponseComponent → UI Rendering
 ```
 
 ## Components and Interfaces
 
-### 1. Clear Environment Tool (Python)
+### 1. Chunk-Based Clear Algorithm
 
 **File:** `edicraft-agent/tools/clear_environment_tool.py`
 
-**Current Issue:** Missing sign block variants in rig_blocks list
+**New Approach:**
+- Divide clear region into 32x32 horizontal chunks
+- For each chunk:
+  1. Clear ALL blocks from ground level (y=60) to build height (y=255) with single `/fill` command
+  2. Restore ground level (y=60-64) with grass_block or sand
+- No block-type filtering - wipe everything
+
+**Algorithm:**
+```python
+def clear_chunk(x_start, z_start, chunk_size=32):
+    # Step 1: Wipe everything above ground
+    /fill x_start 65 z_start (x_start+31) 255 (z_start+31) air
+    
+    # Step 2: Restore ground level
+    /fill x_start 60 z_start (x_start+31) 64 (z_start+31) grass_block
+```
+
+**Rationale:** 
+- Single fill command per chunk is much faster than selective block clearing
+- 32x32 chunks are small enough to avoid RCON timeouts
+- Ground restoration ensures clean, flat surface for new builds
+
+### 2. Ground Level Detection and Restoration
+
+**File:** `edicraft-agent/tools/clear_environment_tool.py`
+
+**Design:**
+- Default ground level: y=60-64 (standard Minecraft terrain)
+- Ground block type: grass_block (or sand for desert biomes)
+- Restoration happens immediately after clearing each chunk
+- If ground restoration fails, log error but continue
+
+**Rationale:** 
+- Restoring ground immediately after clearing prevents "floating" structures
+- Using grass_block provides natural-looking terrain
+- Per-chunk restoration allows partial success if some chunks fail
+
+### 3. Timeout and Retry Logic
+
+**File:** `edicraft-agent/tools/rcon_executor.py`
+
+**Design:**
+- 30-second timeout per chunk clear operation
+- 3 retry attempts per chunk on failure
+- 5-minute total operation timeout
+- Continue processing remaining chunks if one fails
+
+**Rationale:**
+- Large fill operations can timeout on slow servers
+- Retries handle transient network issues
+- Per-chunk failures don't abort entire operation
+
+### 4. Horizon Visualization Fix
+
+**File:** `edicraft-agent/tools/horizon_tools.py` and `edicraft-agent/tools/surface_tools.py`
+
+**Current Issue:** Horizon surfaces not building correctly in Minecraft
 
 **Design Changes:**
-- Add all sign variants to rig_blocks list:
-  - `oak_sign` (standing sign)
-  - `oak_wall_sign` (wall-mounted sign)
-  - `wall_sign` (generic wall sign)
-  - `spruce_sign`, `birch_sign`, `jungle_sign`, `acacia_sign`, `dark_oak_sign`
-  - Corresponding wall variants for each wood type
+- Verify OSDU data fetching and parsing
+- Fix coordinate transformation for surface visualization
+- Ensure RCON commands execute correctly for horizon blocks
+- Add error handling and logging for each step
 
-**Rationale:** Signs are placed by the drilling rig builder and must be cleared. Wall signs are a separate block type from standing signs in Minecraft.
-
-### 2. Terrain Filling Logic
-
-**Current Issue:** Only fills surface level (y=61-70), leaving holes in subsurface
-
-**Design Changes:**
-- Implement layered terrain filling:
-  - **Surface Layer (y=61-70):** grass_block
-  - **Subsurface Layer (y=50-60):** dirt
-  - **Deep Layer (y=0-49):** stone
-- Use separate fill commands for each layer
-- Only replace air blocks, preserve existing terrain
-
-**Rationale:** Natural terrain has distinct layers. Filling only the surface leaves visible holes when players dig or when wellbores penetrate multiple layers.
-
-### 3. EDIcraft Response Component (React)
-
-**File:** `src/components/messageComponents/EDIcraftResponseComponent.tsx`
-
-**Current Issue:** Clear button may be rendering multiple times or in wrong location
-
-**Design Changes:**
-- Ensure clear confirmation responses are properly detected
-- Render clear button only once in the response component
-- Add CSS class to prevent duplication
-- Verify isEDIcraftResponse() correctly identifies clear confirmations
-
-**Rationale:** UI duplication suggests either multiple render calls or improper response parsing.
+**Rationale:**
+- Horizon visualization is a key demo feature
+- Must work reliably alongside wellbore trajectories
+- Proper error handling helps diagnose issues
 
 ## Data Models
 
 ### Clear Operation Result
 
-```typescript
-interface ClearResult {
-  wellbores_cleared: number;
-  rigs_cleared: number;
-  blocks_cleared: number;
-  entities_cleared: number;
-  terrain_filled: {
-    surface: number;
-    subsurface: number;
-    deep: number;
-  };
-  errors: string[];
-}
+```python
+@dataclass
+class ChunkClearResult:
+    x_start: int
+    z_start: int
+    cleared: bool
+    ground_restored: bool
+    blocks_cleared: int
+    blocks_restored: int
+    execution_time: float
+    error: Optional[str] = None
+
+@dataclass
+class ClearOperationResult:
+    total_chunks: int
+    successful_chunks: int
+    failed_chunks: int
+    total_blocks_cleared: int
+    total_blocks_restored: int
+    execution_time: float
+    chunk_results: List[ChunkClearResult]
+    errors: List[str]
 ```
 
-### Block Type Categories
+### Clear Region Configuration
 
 ```python
-wellbore_blocks = [
-  "obsidian", "glowstone", "emerald_block", "diamond_block",
-  "gold_block", "iron_block", "lapis_block", "redstone_block",
-  "coal_block", "quartz_block", "prismarine", "dark_prismarine"
-]
-
-rig_blocks = [
-  "iron_bars", "smooth_stone_slab", "furnace", "hopper", "chest",
-  # ADD ALL SIGN VARIANTS:
-  "oak_sign", "oak_wall_sign", "wall_sign",
-  "spruce_sign", "spruce_wall_sign",
-  "birch_sign", "birch_wall_sign",
-  "jungle_sign", "jungle_wall_sign",
-  "acacia_sign", "acacia_wall_sign",
-  "dark_oak_sign", "dark_oak_wall_sign",
-  "crimson_sign", "crimson_wall_sign",
-  "warped_sign", "warped_wall_sign",
-  # Other rig blocks:
-  "iron_trapdoor", "ladder", "torch", "wall_torch",
-  "lantern", "chain", "anvil", "crafting_table",
-  "barrel", "smoker", "blast_furnace"
-]
-
-marker_blocks = [
-  "beacon", "sea_lantern", "end_rod", "redstone_lamp",
-  "glowstone", "shroomlight"
-]
+clear_config = {
+    "region": {
+        "x_min": -500,
+        "x_max": 500,
+        "z_min": -500,
+        "z_max": 500,
+        "y_clear_start": 65,    # Start clearing above ground
+        "y_clear_end": 255,     # Clear to build height
+        "y_ground_start": 60,   # Ground level start
+        "y_ground_end": 64      # Ground level end
+    },
+    "chunk_size": 32,
+    "ground_block": "grass_block",
+    "timeout_per_chunk": 30,
+    "max_retries": 3,
+    "total_timeout": 300  # 5 minutes
+}
 ```
 
 ## Error Handling
 
-### Block Clearing Errors
+### Chunk Clearing Errors
 
-- **Strategy:** Continue clearing other blocks if one type fails
-- **Logging:** Log each failed block type with error message
-- **User Feedback:** Include failed block types in response summary
+- **Strategy:** Continue with remaining chunks if one fails
+- **Logging:** Log chunk coordinates, error message, and retry attempts
+- **User Feedback:** Include successful/failed chunk counts in response
 
-### Terrain Filling Errors
+### Ground Restoration Errors
 
-- **Strategy:** Non-fatal - log error but don't fail entire operation
-- **Logging:** Log layer-by-layer filling results
-- **User Feedback:** Include terrain filling status in response
+- **Strategy:** Non-fatal - log error but continue with remaining chunks
+- **Logging:** Log ground restoration results per chunk
+- **User Feedback:** Include ground restoration status in response
 
-### UI Rendering Errors
+### Horizon Build Errors
 
-- **Strategy:** Fallback to plain text rendering if component fails
-- **Logging:** Log parsing errors to console
-- **User Feedback:** Display raw response if formatted rendering fails
+- **Strategy:** Return detailed error at each step (fetch, parse, convert, build)
+- **Logging:** Log OSDU API calls, coordinate transformations, RCON commands
+- **User Feedback:** Provide specific error message and recovery suggestions
+
+### RCON Timeout Errors
+
+- **Strategy:** Retry up to 3 times, then skip chunk and continue
+- **Logging:** Log timeout duration and retry attempts
+- **User Feedback:** Include timeout information in response summary
 
 ## Testing Strategy
 
 ### Unit Tests
 
-1. **Test Block Type Lists**
-   - Verify all sign variants are in rig_blocks
-   - Verify no duplicate block types across categories
+1. **Test Chunk Division Logic**
+   - Verify clear region divides into correct number of 32x32 chunks
+   - Verify chunk coordinates are calculated correctly
+   - Verify edge chunks handle region boundaries
 
-2. **Test Terrain Filling Logic**
-   - Verify correct block types for each layer
-   - Verify correct y-coordinate ranges
-   - Verify air-only replacement
+2. **Test Ground Restoration Logic**
+   - Verify ground level coordinates (y=60-64)
+   - Verify grass_block placement
+   - Verify restoration happens after clearing
 
-3. **Test Response Parsing**
-   - Verify clear confirmation detection
-   - Verify button rendering logic
-   - Verify no duplicate buttons
+3. **Test Horizon Coordinate Transformation**
+   - Verify OSDU data parsing extracts X, Y, Z correctly
+   - Verify coordinate transformation to Minecraft space
+   - Verify surface scaling is appropriate
 
 ### Integration Tests
 
 1. **Test Complete Clear Operation**
-   - Build test structures with all block types
-   - Execute clear operation
-   - Verify all blocks removed
-   - Verify terrain filled correctly
+   - Build test structures (wellbores, rigs, horizons)
+   - Execute chunk-based clear operation
+   - Verify all blocks removed in cleared chunks
+   - Verify ground restored correctly
+   - Verify operation completes within timeout
 
-2. **Test UI Rendering**
-   - Send clear confirmation response
-   - Verify single button renders
-   - Verify button in correct location
-   - Verify no duplicates in DOM
+2. **Test Horizon Build Workflow**
+   - Fetch horizon data from OSDU
+   - Parse and convert coordinates
+   - Build surface in Minecraft
+   - Verify blocks placed at correct locations
+   - Verify surface is visible and correct
 
 ### Manual Testing
 
-1. **Build and Clear Workflow**
-   - Build wellbore with drilling rig
-   - Verify signs are placed
+1. **Clear and Restore Workflow**
+   - Build multiple wellbores and rigs
    - Execute clear operation
-   - Verify all signs removed
-   - Verify terrain looks natural
+   - Verify entire area is wiped clean
+   - Verify ground is flat and restored
+   - Verify no structures remain
 
-2. **UI Verification**
-   - Execute clear operation
-   - Check chat for clear button
-   - Verify button appears once
-   - Verify button is clickable
-   - Verify no visual duplicates
+2. **Horizon Visualization**
+   - Request horizon build
+   - Verify horizon surface appears in Minecraft
+   - Verify surface follows geological data
+   - Verify horizon can be cleared with clear operation
 
 ## Implementation Notes
 
-### Minecraft Block Types
+### Minecraft Fill Commands
 
-- Standing signs and wall signs are different block types in Minecraft
-- Wall signs attach to blocks, standing signs are placed on top
-- Each wood type has its own sign variant (oak, spruce, birch, etc.)
-- Must clear both standing and wall variants
+- `/fill x1 y1 z1 x2 y2 z2 air` - Wipes all blocks in region
+- `/fill x1 y1 z1 x2 y2 z2 grass_block` - Restores ground
+- 32x32 horizontal chunks = 1,024 blocks per layer
+- Clearing y=65 to y=255 = 191 layers × 1,024 blocks = ~195,000 blocks per chunk
+- Ground restoration y=60 to y=64 = 5 layers × 1,024 blocks = 5,120 blocks per chunk
 
-### Terrain Filling Performance
+### Performance Considerations
 
-- Large fill operations can lag Minecraft server
-- Use 30x30x30 chunk size for fill commands (27,000 blocks per command)
-- Process layers sequentially to avoid overwhelming server
-- Consider adding delay between large fill operations
+- 32x32 chunks are small enough to avoid RCON timeouts
+- Process chunks sequentially to avoid overwhelming server
+- 30-second timeout per chunk should be sufficient
+- Total clear time for 1000×1000 area = ~31 chunks × 30s = ~15 minutes max
 
-### UI Rendering
+### Horizon Visualization
 
-- React may re-render components multiple times
-- Use React.memo() or useMemo() to prevent duplicate renders
-- Ensure response parsing is idempotent
-- Add unique keys to prevent React key conflicts
+- Horizon surfaces use sandstone blocks for visibility
+- Glowstone markers every 50 points for reference
+- Surface scaling must preserve geological structure
+- Horizon blocks will be cleared by chunk-based clear operation
 
 ## Deployment Considerations
 

@@ -7,7 +7,7 @@ import json
 from strands import tool
 from .osdu_client import search_wellbores_live, get_trajectory_coordinates_live
 from .trajectory_tools import calculate_trajectory_coordinates, build_wellbore_in_minecraft, build_wellbore_in_minecraft_enhanced
-from .horizon_tools import search_horizons_live, download_horizon_data, convert_horizon_to_minecraft
+from .horizon_tools import search_horizons_live, download_horizon_data, convert_horizon_to_minecraft, parse_horizon_file
 from .surface_tools import build_horizon_surface
 from .rcon_tool import execute_rcon_command
 from .clear_environment_tool import ClearEnvironmentTool
@@ -379,60 +379,204 @@ def build_horizon_surface_complete(horizon_name: str = None) -> str:
     - Getting player positions (use get_player_positions instead)
     
     Args:
-        horizon_name: Optional horizon name. If not provided, will use first available horizon.
+        horizon_name: Optional horizon name or OSDU ID. If not provided, will use first available horizon.
     
     Returns:
         Success message with details about the built horizon surface
     """
+    from .response_templates import CloudscapeResponseBuilder
+    
     try:
         print(f"[WORKFLOW] Starting complete horizon surface workflow")
         
         # Step 1: Search for horizons
-        print(f"[WORKFLOW] Step 1/4: Searching for horizons...")
+        print(f"[WORKFLOW] Step 1/5: Searching for horizons...")
         horizons_result = search_horizons_live()
         
         if "error" in horizons_result.lower():
-            return f"Failed to find horizons: {horizons_result}"
+            return CloudscapeResponseBuilder.error_response(
+                "Search Horizons",
+                f"Failed to search for horizons: {horizons_result}",
+                [
+                    "Check OSDU platform connection",
+                    "Verify authentication credentials",
+                    "Check if horizon records exist in OSDU",
+                    "Try again in a few moments"
+                ]
+            )
         
-        # Parse horizon list and select one
-        # For now, use the first available horizon or the specified one
-        horizon_id = horizon_name or "default-horizon"
+        # Parse horizon list to get actual horizon IDs
+        try:
+            horizons_data = json.loads(horizons_result)
+            available_horizons = horizons_data.get("horizons", [])
+            
+            if not available_horizons:
+                return CloudscapeResponseBuilder.error_response(
+                    "Search Horizons",
+                    "No horizon records found in OSDU platform",
+                    [
+                        "Check if horizon data has been loaded into OSDU",
+                        "Verify data partition is correct",
+                        "Contact data administrator",
+                        "Try searching for wellbores instead"
+                    ]
+                )
+            
+            # Select horizon ID
+            if horizon_name and horizon_name.startswith("osdu:"):
+                # User provided full OSDU ID
+                horizon_id = horizon_name
+                print(f"[WORKFLOW] Using provided horizon ID: {horizon_id[:60]}...")
+            else:
+                # Use first available horizon
+                horizon_id = available_horizons[0]["id"]
+                print(f"[WORKFLOW] Using first available horizon: {horizon_id[:60]}...")
+                
+        except json.JSONDecodeError as e:
+            return CloudscapeResponseBuilder.error_response(
+                "Parse Horizon List",
+                f"Failed to parse horizon search results: {str(e)}",
+                [
+                    "Check horizon search response format",
+                    "Verify OSDU API compatibility",
+                    "Try again",
+                    "Check server logs for details"
+                ]
+            )
         
         # Step 2: Download horizon data
-        print(f"[WORKFLOW] Step 2/4: Downloading horizon data...")
+        print(f"[WORKFLOW] Step 2/5: Downloading horizon data...")
         horizon_data = download_horizon_data(horizon_id)
         
         if "error" in horizon_data.lower():
-            return f"Failed to download horizon data: {horizon_data}"
+            return CloudscapeResponseBuilder.error_response(
+                "Download Horizon Data",
+                f"Failed to download horizon data: {horizon_data}",
+                [
+                    "Check if horizon has associated dataset files",
+                    "Verify file download permissions",
+                    "Try a different horizon",
+                    "Contact data administrator"
+                ]
+            )
         
-        # Step 3: Convert to Minecraft coordinates
-        print(f"[WORKFLOW] Step 3/4: Converting to Minecraft coordinates...")
-        minecraft_coords = convert_horizon_to_minecraft(horizon_data)
+        # Step 3: Parse horizon file
+        print(f"[WORKFLOW] Step 3/5: Parsing horizon file...")
+        parsed_data = parse_horizon_file(horizon_data)
+        
+        if "error" in parsed_data.lower():
+            return CloudscapeResponseBuilder.error_response(
+                "Parse Horizon File",
+                f"Failed to parse horizon file: {parsed_data}",
+                [
+                    "Check horizon file format is supported",
+                    "Verify file contains coordinate data",
+                    "Try a different horizon",
+                    "Check file format documentation"
+                ]
+            )
+        
+        # Step 4: Convert to Minecraft coordinates
+        print(f"[WORKFLOW] Step 4/5: Converting to Minecraft coordinates...")
+        minecraft_coords = convert_horizon_to_minecraft(parsed_data)
         
         if "error" in minecraft_coords.lower():
-            return f"Failed to convert coordinates: {minecraft_coords}"
+            return CloudscapeResponseBuilder.error_response(
+                "Convert Coordinates",
+                f"Failed to convert coordinates: {minecraft_coords}",
+                [
+                    "Check coordinate values are valid",
+                    "Verify coordinate system is supported",
+                    "Try adjusting sample rate",
+                    "Check transformation parameters"
+                ]
+            )
         
-        # Step 4: Build surface in Minecraft
-        print(f"[WORKFLOW] Step 4/4: Building horizon surface in Minecraft...")
-        build_result = build_horizon_surface(minecraft_coords)
+        # Parse minecraft coordinates to get point count and coordinates
+        try:
+            coords_data = json.loads(minecraft_coords)
+            total_points = coords_data.get("total_minecraft_points", 0)
+            minecraft_points = coords_data.get("minecraft_coordinates", [])
+            print(f"[WORKFLOW] Converted {total_points} points to Minecraft coordinates")
+            
+            # Get first point for location reference
+            first_point = minecraft_points[0] if minecraft_points else {"x": 0, "y": 100, "z": 0}
+            coordinates = {
+                "x": first_point.get("x", 0),
+                "y": first_point.get("y", 100),
+                "z": first_point.get("z", 0)
+            }
+        except:
+            total_points = 0
+            coordinates = {"x": 0, "y": 100, "z": 0}
         
-        return f"""✅ Horizon Surface Built Successfully!
-
-Horizon: {horizon_id}
-Status: Complete
-
-The horizon surface has been visualized in Minecraft:
-- Horizon data fetched from OSDU platform
-- Coordinates converted to Minecraft world space
-- Surface built with appropriate blocks
-- Geological structure visible in 3D
-
-{build_result}
-
-You can now see the horizon surface in the Minecraft world!"""
+        # Step 5: Build surface in Minecraft
+        print(f"[WORKFLOW] Step 5/5: Building horizon surface in Minecraft...")
+        from .horizon_tools import build_horizon_in_minecraft
+        build_result = build_horizon_in_minecraft(minecraft_coords)
+        
+        # Parse build result to get blocks placed
+        try:
+            build_data = json.loads(build_result)
+            if not build_data.get("success", False):
+                error_msg = build_data.get("error", "Unknown error")
+                return CloudscapeResponseBuilder.error_response(
+                    "Build Horizon Surface",
+                    f"Failed to build surface in Minecraft: {error_msg}",
+                    [
+                        "Check Minecraft server connection",
+                        "Verify RCON is enabled and accessible",
+                        "Check coordinate values are within world bounds",
+                        "Try restarting Minecraft server"
+                    ]
+                )
+            
+            blocks_placed = build_data.get("total_blocks_placed", 0)
+            successful_commands = build_data.get("successful_commands", 0)
+            failed_commands = build_data.get("failed_commands", 0)
+            
+            print(f"[WORKFLOW] Horizon surface build complete! Blocks placed: {blocks_placed}")
+            
+        except json.JSONDecodeError:
+            # Fallback if build_result is not JSON
+            if "error" in build_result.lower():
+                return CloudscapeResponseBuilder.error_response(
+                    "Build Horizon Surface",
+                    f"Failed to build surface in Minecraft: {build_result}",
+                    [
+                        "Check Minecraft server connection",
+                        "Verify RCON is enabled and accessible",
+                        "Check coordinate values are within world bounds",
+                        "Try restarting Minecraft server"
+                    ]
+                )
+            blocks_placed = total_points
+            successful_commands = total_points
+            failed_commands = 0
+        
+        # Return success response with detailed information
+        return CloudscapeResponseBuilder.horizon_success(
+            horizon_id=horizon_id,
+            total_points=total_points,
+            blocks_placed=blocks_placed,
+            coordinates=coordinates,
+            successful_commands=successful_commands,
+            failed_commands=failed_commands
+        )
         
     except Exception as e:
-        return f"Error building horizon surface: {str(e)}"
+        print(f"[WORKFLOW] Unexpected error in horizon workflow: {str(e)}")
+        return CloudscapeResponseBuilder.error_response(
+            "Build Horizon Surface",
+            f"Unexpected error: {str(e)}",
+            [
+                "Check all system components are running",
+                "Verify configuration is correct",
+                "Try restarting the workflow",
+                "Check server logs for details",
+                "Contact system administrator if issue persists"
+            ]
+        )
 
 
 @tool
@@ -463,8 +607,8 @@ def clear_minecraft_environment(area: str = "all", preserve_terrain: bool = True
         clear_tool = ClearEnvironmentTool(config)
         
         # Execute clear operation using enhanced RCONExecutor
+        # Note: area parameter is ignored - tool always clears the configured region
         result = clear_tool.clear_minecraft_environment(
-            area=area,
             preserve_terrain=preserve_terrain
         )
         

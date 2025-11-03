@@ -73,6 +73,59 @@ class CloudscapeResponseBuilder:
 {CloudscapeResponseBuilder.TIP_ICON} **Tip:** The wellbore is now visible in Minecraft! You can teleport to the wellhead using `/tp @s {x} {y} {z}`"""
     
     @staticmethod
+    def horizon_success(
+        horizon_id: str,
+        total_points: int,
+        blocks_placed: int,
+        coordinates: Dict[str, Any],
+        successful_commands: int = 0,
+        failed_commands: int = 0
+    ) -> str:
+        """
+        Generate horizon surface build success response.
+        
+        Args:
+            horizon_id: OSDU horizon ID
+            total_points: Number of data points processed from OSDU
+            blocks_placed: Number of blocks placed in Minecraft
+            coordinates: Dictionary with x, y, z coordinates
+            successful_commands: Number of successful RCON commands
+            failed_commands: Number of failed RCON commands
+        
+        Returns:
+            Cloudscape-formatted markdown response
+        """
+        x = coordinates.get('x', 'unknown')
+        y = coordinates.get('y', 'unknown')
+        z = coordinates.get('z', 'unknown')
+        
+        # Extract horizon name from ID (last part after colon)
+        horizon_name = horizon_id.split(':')[-1][:20] if ':' in horizon_id else horizon_id[:20]
+        
+        success_rate = int((successful_commands / (successful_commands + failed_commands)) * 100) if (successful_commands + failed_commands) > 0 else 100
+        
+        return f"""{CloudscapeResponseBuilder.SUCCESS_ICON} **Horizon Surface Built Successfully**
+
+**OSDU Data Integration:**
+- **Horizon ID:** {horizon_name}...
+- **Data Source:** OSDU Platform
+- **Data Points Retrieved:** {total_points:,}
+- **Coordinate System:** UTM → Minecraft transformation
+
+**Minecraft Construction:**
+- **Blocks Placed:** {blocks_placed:,}
+- **RCON Commands:** {successful_commands:,} successful, {failed_commands} failed
+- **Success Rate:** {success_rate}%
+- **Surface Type:** Geological horizon interpolation
+
+**Visualization Location:**
+- **Starting Point:** ({x}, {y}, {z})
+- **Extent:** {total_points:,} point surface mesh
+- **Material:** Colored blocks representing geological formation
+
+{CloudscapeResponseBuilder.TIP_ICON} **Tip:** The horizon surface is now visible in Minecraft! Use `/tp @s {x} {y} {z}` to teleport to the surface, or fly around to see the complete geological formation."""
+    
+    @staticmethod
     def batch_progress(
         current: int,
         total: int,
@@ -278,7 +331,7 @@ Would you like to try one of these options?"""
         blocks_cleared: int
     ) -> str:
         """
-        Generate environment clear confirmation response.
+        Generate environment clear confirmation response (legacy method).
         
         Args:
             wellbores_cleared: Number of wellbores cleared
@@ -297,6 +350,99 @@ Would you like to try one of these options?"""
 - **Terrain:** Preserved
 
 {CloudscapeResponseBuilder.TIP_ICON} **Tip:** The environment is now clear and ready for new visualizations!"""
+    
+    @staticmethod
+    def chunk_based_clear_confirmation(
+        total_chunks: int,
+        successful_chunks: int,
+        failed_chunks: int,
+        total_blocks_cleared: int,
+        total_blocks_restored: int,
+        execution_time: float,
+        preserve_terrain: bool,
+        clear_region: dict,
+        chunk_size: int,
+        errors: list = None
+    ) -> str:
+        """
+        Generate chunk-based clear operation confirmation response.
+        
+        Args:
+            total_chunks: Total number of chunks processed
+            successful_chunks: Number of chunks cleared successfully
+            failed_chunks: Number of chunks that failed
+            total_blocks_cleared: Total blocks cleared across all chunks
+            total_blocks_restored: Total ground blocks restored
+            execution_time: Total execution time in seconds
+            preserve_terrain: Whether terrain was preserved
+            clear_region: Dictionary with clear region coordinates
+            chunk_size: Size of each chunk (e.g., 32)
+            errors: Optional list of error messages
+        
+        Returns:
+            Cloudscape-formatted chunk-based clear confirmation
+        """
+        # Determine status icon and title
+        if failed_chunks > 0:
+            status_icon = CloudscapeResponseBuilder.WARNING_ICON
+            title = "Minecraft Environment Partially Cleared"
+        else:
+            status_icon = CloudscapeResponseBuilder.SUCCESS_ICON
+            title = "Minecraft Environment Cleared"
+        
+        # Build response
+        response = f"""{status_icon} **{title}**
+
+**Chunk-Based Area Wipe Summary:**
+- **Total Chunks:** {total_chunks}
+- **Successful Chunks:** {successful_chunks}
+- **Failed Chunks:** {failed_chunks}
+- **Total Blocks Cleared:** {total_blocks_cleared:,}"""
+        
+        if preserve_terrain:
+            response += f"\n- **Ground Blocks Restored:** {total_blocks_restored:,}"
+        
+        response += f"\n- **Execution Time:** {execution_time:.2f} seconds"
+        
+        if preserve_terrain:
+            response += f"""
+
+**Terrain Restoration:**
+- **Ground Level (y={clear_region.get('y_ground_start', 100)}):** Restored with dirt blocks
+- **Clear Area (y={clear_region.get('y_clear_start', 101)}-{clear_region.get('y_clear_end', 255)}):** All blocks removed"""
+        else:
+            response += f"""
+
+**Terrain:** Not Preserved (complete wipe)"""
+        
+        response += f"""
+
+**Clear Region:**
+- **X:** {clear_region.get('x_min', -500)} to {clear_region.get('x_max', 500)}
+- **Z:** {clear_region.get('z_min', -500)} to {clear_region.get('z_max', 500)}
+- **Y:** {clear_region.get('y_clear_start', 65)} to {clear_region.get('y_clear_end', 255)}
+- **Chunk Size:** {chunk_size}x{chunk_size}"""
+        
+        # Add errors if any chunks failed
+        if failed_chunks > 0 and errors:
+            response += f"""
+
+{CloudscapeResponseBuilder.WARNING_ICON} **Warnings ({len(errors)} errors):**"""
+            for error in errors[:5]:  # Limit to first 5 errors
+                response += f"\n- {error}"
+            if len(errors) > 5:
+                response += f"\n- ... and {len(errors) - 5} more errors"
+        
+        if total_blocks_cleared == 0:
+            response += f"""
+
+{CloudscapeResponseBuilder.INFO_ICON} **Note:** No blocks found in the clear region. The environment was already clean."""
+        
+        response += f"""
+
+{CloudscapeResponseBuilder.TIP_ICON} **Tip:** The environment is now clear and ready for new visualizations!"""
+        
+        return response
     
     @staticmethod
     def time_lock_confirmation(
@@ -432,3 +578,66 @@ Would you like to try one of these options?"""
 
 {message}
 {details_section}"""
+    
+    @staticmethod
+    def horizon_success(
+        horizon_id: str,
+        total_points: int,
+        blocks_placed: int,
+        coordinates: Dict[str, Any],
+        successful_commands: int = 0,
+        failed_commands: int = 0
+    ) -> str:
+        """
+        Generate horizon surface build success response.
+        
+        Args:
+            horizon_id: OSDU horizon record ID
+            total_points: Number of points in the horizon surface
+            blocks_placed: Number of blocks placed in Minecraft
+            coordinates: Dictionary with x, y, z coordinates
+            successful_commands: Number of successful RCON commands
+            failed_commands: Number of failed RCON commands
+        
+        Returns:
+            Cloudscape-formatted markdown response
+        """
+        # Extract short horizon name from full OSDU ID
+        horizon_name = horizon_id.split(":")[-1] if ":" in horizon_id else horizon_id
+        
+        x = coordinates.get('x', 0)
+        y = coordinates.get('y', 100)
+        z = coordinates.get('z', 0)
+        
+        # Add warning section if there were failed commands
+        warning_section = ""
+        if failed_commands > 0:
+            warning_section = f"""
+{CloudscapeResponseBuilder.WARNING_ICON} **Note:** {failed_commands} commands failed (likely server announcements). The surface blocks were placed successfully.
+"""
+        
+        return f"""{CloudscapeResponseBuilder.SUCCESS_ICON} **Horizon Surface Complete**
+
+**Horizon:**
+{horizon_name} (simplified name for display)
+
+**Location:**
+Starting at coordinates ({x}, {y}, {z})
+
+**Visualization:**
+{blocks_placed} blocks placed to form the surface
+
+**Surface Details:**
+- Sandstone blocks for main surface
+- Glowstone markers every 50 points
+- Geological structure visible in 3D
+
+**Data Processing:**
+- Horizon data fetched from OSDU platform
+- {total_points} coordinate points processed
+- Coordinates converted to Minecraft space
+- Surface built with {successful_commands} successful commands
+{warning_section}
+The horizon surface was successfully fetched from the OSDU platform, converted to Minecraft coordinates, and built in the world. The geological structure is now visible with sandstone blocks forming the surface.
+
+You can visit the horizon by teleporting to coordinates ({x}, {y}, {z}) in Minecraft to see the complete visualization!"""

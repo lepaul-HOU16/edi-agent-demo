@@ -107,6 +107,22 @@ const ProfessionalResponseComponent: React.FC<ProfessionalResponseProps> = ({
     qualityMetrics: false,
     technicalDocumentation: false
   });
+  
+  const [isReady, setIsReady] = React.useState(false);
+  
+  // Delay rendering to prevent flash during rapid re-renders on initial load
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 50);
+    
+    return () => clearTimeout(timer);
+  }, [content]);
+  
+  // Don't render until ready (prevents flash during rapid initial renders)
+  if (!isReady) {
+    return null;
+  }
 
   // Parse professional response data
   let professionalData: ProfessionalData | null = null;
@@ -506,4 +522,5 @@ const ProfessionalResponseComponent: React.FC<ProfessionalResponseProps> = ({
   );
 };
 
-export default ProfessionalResponseComponent;
+// Memoize to prevent re-renders when parent re-renders
+export default React.memo(ProfessionalResponseComponent);

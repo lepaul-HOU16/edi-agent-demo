@@ -39,6 +39,7 @@ import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorr
 import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
 import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
 import RenewableEnergyGuidanceComponent from './messageComponents/RenewableEnergyGuidanceComponent';
+import EDIcraftResponseComponent from './messageComponents/EDIcraftResponseComponent';
 // New renewable energy artifact components
 import { 
   TerrainMapArtifact, 
@@ -1090,9 +1091,10 @@ const ChatMessage = (params: {
             // Check if message contains EDIcraft Cloudscape template response
             // Use consistent detection logic with EDIcraftResponseComponent
             const hasEDIcraftIndicator = messageText.includes('✅') || messageText.includes('❌') || 
-                                        messageText.includes('⏳') || messageText.includes('⚠️') || messageText.includes('💡');
-            const hasEDIcraftTerms = /wellbore|trajectory|minecraft|drilling|rig|rcon|blocks? placed|coordinates?|game rule|time lock|cleared|environment|clear.*confirmation/i.test(messageText);
-            const hasStructuredData = /\*\*[^*]+\*\*:\s*[^\n]+/i.test(messageText);
+                                        messageText.includes('⏳') || messageText.includes('⚠️') || 
+                                        messageText.includes('💡') || messageText.includes('ℹ️');
+            const hasEDIcraftTerms = /wellbore|trajectory|minecraft|drilling|rig|rcon|blocks? placed|coordinates?|game rule|time lock|cleared|environment|clear.*confirmation|visualization|capabilities/i.test(messageText);
+            const hasStructuredData = /\*\*[^*]+\*\*:?\s*[^\n]+/i.test(messageText);
             const isClearConfirmation = /✅.*\*\*Minecraft Environment Cleared\*\*/i.test(messageText) ||
                                        (messageText.includes('**Summary:**') && messageText.includes('**Wellbores Cleared:**'));
             
@@ -1100,18 +1102,22 @@ const ChatMessage = (params: {
                                       (hasEDIcraftIndicator && hasEDIcraftTerms) || 
                                       (hasStructuredData && hasEDIcraftTerms);
             
+            // Debug logging for EDIcraft detection
+            console.log('🔍 EDIcraft Detection:', {
+                messageText: messageText.substring(0, 200),
+                hasEDIcraftIndicator,
+                hasEDIcraftTerms,
+                hasStructuredData,
+                isClearConfirmation,
+                isEDIcraftResponse
+            });
+            
             if (isEDIcraftResponse) {
-                // Dynamically import EDIcraft response component
-                const EDIcraftResponseComponent = React.lazy(() => 
-                    import('./messageComponents/EDIcraftResponseComponent')
-                );
-                
+                console.log('✅ Rendering EDIcraftResponseComponent');
                 return (
                     <>
                         {progressComponents}
-                        <React.Suspense fallback={<div>Loading...</div>}>
-                            <EDIcraftResponseComponent content={messageText} />
-                        </React.Suspense>
+                        <EDIcraftResponseComponent content={messageText} />
                     </>
                 );
             }
@@ -1211,4 +1217,5 @@ const ChatMessage = (params: {
     }
 }
 
-export default ChatMessage;
+// Memoize to prevent re-renders when parent re-renders on every keystroke
+export default React.memo(ChatMessage);

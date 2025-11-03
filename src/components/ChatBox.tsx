@@ -722,4 +722,19 @@ const ChatBox = (params: {
   );
 };
 
-export default ChatBox;
+// Custom comparison function that ignores userInput changes to prevent re-renders on every keystroke
+const arePropsEqual = (prevProps: any, nextProps: any) => {
+  // Only re-render if these props change
+  return (
+    prevProps.chatSessionId === nextProps.chatSessionId &&
+    prevProps.showChainOfThought === nextProps.showChainOfThought &&
+    prevProps.messages === nextProps.messages &&
+    prevProps.setMessages === nextProps.setMessages &&
+    prevProps.selectedAgent === nextProps.selectedAgent &&
+    prevProps.onAgentChange === nextProps.onAgentChange &&
+    prevProps.onInputChange === nextProps.onInputChange
+    // Intentionally NOT comparing userInput to prevent re-renders on keystroke
+  );
+};
+
+export default React.memo(ChatBox, arePropsEqual);

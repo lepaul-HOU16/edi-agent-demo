@@ -18,7 +18,7 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
   const [clearResult, setClearResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const handleClearEnvironment = async () => {
-    console.log('[CLEAR BUTTON] Button clicked - executing clear directly without chat message');
+    console.log('[CLEAR BUTTON] Button clicked - executing chunk-based area wipe');
     setIsClearing(true);
     setClearResult(null);
 
@@ -26,11 +26,11 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
       // Always call agent directly without creating chat message
       const client = generateClient<Schema>();
 
-      console.log('[CLEAR BUTTON] Calling EDIcraft agent directly (silent mode)');
+      console.log('[CLEAR BUTTON] Calling EDIcraft agent for chunk-based clear operation');
 
       const result = await client.mutations.invokeEDIcraftAgent({
         chatSessionId: 'silent-clear-' + Date.now(),
-        message: 'Clear the Minecraft environment and fill any terrain holes',
+        message: 'Clear the Minecraft environment using chunk-based area wipe with terrain preservation',
         foundationModelId: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
         userId: 'system'
       });
@@ -73,9 +73,9 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
 
   const exampleWorkflows = [
     {
-      title: 'Wellbore Visualization',
-      description: 'Build 3D wellbore trajectory in Minecraft from OSDU data',
-      prompt: 'Build wellbore trajectory for WELL-001 in Minecraft'
+      title: 'Available Commands',
+      description: 'Learn what EDIcraft can do and available commands',
+      prompt: 'What can you help me with in Minecraft?'
     },
     {
       title: 'Horizon Surface Rendering',
@@ -267,12 +267,14 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
                 onClick={handleClearEnvironment}
                 fullWidth
               >
-                Clear Minecraft Environment
+                Clear Environment (Chunk-Based Wipe)
               </Button>
             </Box>
             <Box color="text-body-secondary" fontSize="body-s">
-              Remove all structures from the Minecraft world to start fresh. This is useful
-              before demo sessions or when you want to rebuild visualizations from scratch.
+              Performs aggressive chunk-based area wipe to remove ALL structures from the Minecraft world.
+              Processes the environment in 32×32 chunk sections, clearing all blocks from ground level to
+              build height, then restores terrain with grass blocks. Ideal for demo preparation or complete
+              environment reset.
             </Box>
           </SpaceBetween>
         </Box>

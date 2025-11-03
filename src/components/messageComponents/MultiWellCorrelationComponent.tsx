@@ -297,4 +297,5 @@ export const MultiWellCorrelationComponent: React.FC<MultiWellCorrelationProps> 
   );
 };
 
-export default MultiWellCorrelationComponent;
+// Memoize to prevent re-renders when parent re-renders
+export default React.memo(MultiWellCorrelationComponent);

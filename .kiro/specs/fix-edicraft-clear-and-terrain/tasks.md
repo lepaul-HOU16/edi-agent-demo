@@ -1,40 +1,51 @@
 # Implementation Plan
 
-- [x] 1. Fix block clearing to include all sign variants
-  - Add all sign block types to rig_blocks list in clear_environment_tool.py
-  - Include oak_sign, oak_wall_sign, wall_sign, and all wood type variants
-  - Test that signs are properly cleared
-  - _Requirements: 1.1, 1.2, 1.5_
+- [x] 1. Implement chunk-based clear algorithm
+  - Modify clear_environment_tool.py to divide region into 32x32 chunks
+  - Implement chunk clearing with single /fill command per chunk (y=65 to y=255)
+  - Add chunk coordinate calculation and iteration logic
+  - Add per-chunk timeout handling (30 seconds)
+  - Log each chunk's clear status and blocks cleared
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [x] 2. Implement layered terrain filling
-  - Add surface layer filling (y=61-70) with grass_block
-  - Add subsurface layer filling (y=50-60) with dirt
-  - Add deep layer filling (y=0-49) with stone
-  - Ensure only air blocks are replaced
-  - Log filling results for each layer
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.7_
-
-- [x] 3. Fix clear button UI duplication
-  - Review EDIcraftResponseComponent rendering logic
-  - Ensure clear confirmation responses are properly detected
-  - Verify button renders only once
-  - Add CSS class or unique key to prevent duplication
-  - Test with multiple clear operations
+- [x] 2. Implement ground restoration
+  - Add ground restoration after each chunk clear
+  - Use /fill command to place grass_block at y=60 to y=64
+  - Handle ground restoration failures gracefully
+  - Log ground restoration results per chunk
+  - Ensure ground restoration only happens when preserve_terrain=True
   - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
 
-- [x] 4. Test complete clear and terrain workflow
-  - Build test wellbore with drilling rig
-  - Execute clear operation
-  - Verify all blocks removed (including signs)
-  - Verify terrain filled correctly at all layers
-  - Verify UI shows single clear button
-  - Check for any visual artifacts or holes
-  - _Requirements: 1.3, 1.4, 3.6_
+- [x] 3. Add timeout and retry logic
+  - Implement 30-second timeout per chunk operation
+  - Add 3 retry attempts for failed chunks
+  - Implement 5-minute total operation timeout
+  - Continue with remaining chunks if one fails
+  - Add RCON connection retry logic (3 attempts)
+  - _Requirements: 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [x] 5. Deploy and validate in sandbox
-  - Deploy updated clear_environment_tool.py
-  - Deploy updated EDIcraftResponseComponent.tsx if changed
-  - Test with actual Minecraft server
-  - Verify no regressions in other EDIcraft features
-  - Document any issues found
+- [x] 4. Fix horizon visualization
+  - Verify OSDU horizon data fetching in horizon_tools.py
+  - Check coordinate parsing and transformation logic
+  - Verify RCON commands for horizon block placement
+  - Add error handling and logging for each step
+  - Test horizon build with actual OSDU data
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [x] 5. Update clear operation response and UI
+  - Modify response template to show chunk-based results
+  - Include successful/failed chunk counts
+  - Show total blocks cleared and ground blocks restored
+  - Display execution time and any errors
+  - Update landing page panel "Clear" button to use new chunk-based wipe operation
+  - Ensure button text and behavior reflect aggressive area wipe
+  - _Requirements: 1.4, 2.3, 4.3_
+
+- [x] 6. Test complete clear and restore workflow
+  - Build test structures (wellbores, rigs, horizons)
+  - Execute chunk-based clear operation
+  - Verify all blocks removed in cleared area
+  - Verify ground restored to flat surface
+  - Verify operation completes within timeout
+  - Check for any remaining structures or artifacts
   - _Requirements: All_

@@ -115,6 +115,7 @@ function generateContentHash(content: string): string {
 export const EDIcraftResponseComponent: React.FC<EDIcraftResponseProps> = ({ content }) => {
   const parsed = parseEDIcraftResponse(content);
   const renderCountRef = React.useRef(0);
+  const [isReady, setIsReady] = React.useState(false);
   
   // Generate a stable content hash for deduplication
   const contentHash = React.useMemo(() => {
@@ -124,6 +125,15 @@ export const EDIcraftResponseComponent: React.FC<EDIcraftResponseProps> = ({ con
   // Track render count for debugging
   renderCountRef.current += 1;
   
+  // Delay rendering to prevent flash during rapid re-renders on initial load
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      setIsReady(true);
+    }, 150); // Delay to batch rapid updates during initial load
+    
+    return () => clearTimeout(timer);
+  }, [contentHash]);
+  
   // Check if this content hash already exists in the DOM
   React.useEffect(() => {
     const existingElements = document.querySelectorAll(`[data-content-hash="${contentHash}"]`);
@@ -132,6 +142,11 @@ export const EDIcraftResponseComponent: React.FC<EDIcraftResponseProps> = ({ con
     }
     console.log(`🔄 EDIcraft response render #${renderCountRef.current} for hash: ${contentHash}`);
   }, [contentHash]);
+  
+  // Don't render until ready (prevents flash during rapid initial renders)
+  if (!isReady) {
+    return null;
+  }
   
   // If it's plain text (no template structure), render as-is
   if (parsed.type === 'plain' || !parsed.title) {
@@ -309,7 +324,8 @@ export const EDIcraftResponseComponent: React.FC<EDIcraftResponseProps> = ({ con
   );
 };
 
-export default EDIcraftResponseComponent;
+// Memoize to prevent re-renders when parent re-renders
+export default React.memo(EDIcraftResponseComponent);
 
 /**
  * Check if content looks like an EDIcraft response

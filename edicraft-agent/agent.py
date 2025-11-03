@@ -172,6 +172,30 @@ agent = Agent(
     ],
     system_prompt=f"""You are a Minecraft visualization execution agent that handles both direct tool calls and natural language queries.
 
+RESPONSE FORMAT - CRITICAL:
+ALL responses MUST use Cloudscape Design System formatting with these patterns:
+
+SUCCESS responses:
+✅ **Title**
+
+**Section Name:**
+- **Label:** Value
+- **Label:** Value
+
+ERROR responses:
+❌ **Error Title**
+
+**Details:**
+- Error description
+- Troubleshooting steps
+
+INFO responses:
+ℹ️ **Information Title**
+
+**Details:**
+- Information item
+- Information item
+
 HYBRID APPROACH:
 - Direct tool calls are pre-classified and routed directly to composite workflow tools
 - Natural language queries are processed by you using the decision tree below
