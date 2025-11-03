@@ -183,3 +183,14 @@ dist/
 
 # TernJS port file
 .tern-port
+
+# Separate repository directories
+/agentic-ai-for-renewable-site-design-mainline
+/renewable_generated_samples
+/EDIcraft-main
+
+# AWS Lambda layers
+amplify/layers/
+
+# Python layer build artifacts  
+python-layer/
