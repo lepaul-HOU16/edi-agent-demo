@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "builder-mcp": {
+      "command": "npx",
+      "args": ["-y", "@amazon-q/builder-mcp"]
+    },
+    "Context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": ["get-library-docs", "resolve-library-id"]
+    }
+  }
+}

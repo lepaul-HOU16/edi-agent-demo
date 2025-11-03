@@ -38,11 +38,18 @@ interface ContextLoadResult {
   loadTime?: number;
 }
 
+interface DataAccessValidation {
+  allowed: boolean;
+  requiresApproval: boolean;
+  outOfScopeItems: string[];
+  message?: string;
+}
+
 class CollectionContextService {
   private static instance: CollectionContextService;
   private contextCache = new Map<string, CollectionContext>();
   private cacheExpiry = new Map<string, number>();
-  private readonly CACHE_TTL = 30 * 60 * 1000; // 30 minutes
+  private readonly CACHE_TTL = 30 * 60 * 1000; // 30 minutes (as per requirements)
 
   private constructor() {}
 
@@ -51,6 +58,91 @@ class CollectionContextService {
       CollectionContextService.instance = new CollectionContextService();
     }
     return CollectionContextService.instance;
+  }
+
+  /**
+   * Load context for a canvas with collection linkage
+   * This is the primary method for data context inheritance
+   */
+  async loadCanvasContext(
+    chatSessionId: string,
+    collectionId?: string
+  ): Promise<CollectionContext | null> {
+    try {
+      console.log('🎨 Loading canvas context for session:', chatSessionId);
+      
+      // If collectionId is provided, use it directly
+      if (collectionId) {
+        console.log('🗂️ Using provided collection ID:', collectionId);
+        const result = await this.loadCollectionContext(collectionId, {}, {});
+        return result.success ? result.context || null : null;
+      }
+      
+      // Otherwise, check if chat session has a linked collection
+      const chatSession = await this.getChatSession(chatSessionId);
+      
+      if (chatSession?.linkedCollectionId) {
+        console.log('🗂️ Found linked collection:', chatSession.linkedCollectionId);
+        const result = await this.loadCollectionContext(
+          chatSession.linkedCollectionId,
+          {},
+          {}
+        );
+        return result.success ? result.context || null : null;
+      }
+      
+      console.log('ℹ️ No collection context for this canvas');
+      return null;
+    } catch (error) {
+      console.error('❌ Error loading canvas context:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Validate if requested data access is within collection context
+   */
+  validateDataAccess(
+    requestedDataIds: string[],
+    context: CollectionContext | null
+  ): DataAccessValidation {
+    // If no context, allow all access (no collection restrictions)
+    if (!context) {
+      return {
+        allowed: true,
+        requiresApproval: false,
+        outOfScopeItems: []
+      };
+    }
+    
+    // Build set of allowed data IDs from collection
+    const allowedDataIds = new Set<string>();
+    context.dataItems.forEach(item => {
+      if (item.id) allowedDataIds.add(item.id);
+      if (item.name) allowedDataIds.add(item.name);
+    });
+    
+    // Check which requested items are out of scope
+    const outOfScopeItems = requestedDataIds.filter(
+      id => !allowedDataIds.has(id)
+    );
+    
+    if (outOfScopeItems.length === 0) {
+      // All requested data is within collection scope
+      return {
+        allowed: true,
+        requiresApproval: false,
+        outOfScopeItems: []
+      };
+    }
+    
+    // Some data is out of scope - requires user approval
+    return {
+      allowed: false,
+      requiresApproval: true,
+      outOfScopeItems,
+      message: `This query requires access to ${outOfScopeItems.length} data points outside your collection "${context.name}". Do you want to proceed with expanded access?`
+    };
   }
 
   /**
@@ -283,6 +375,25 @@ class CollectionContextService {
   }
 
   /**
+   * Invalidate cache for a specific collection
+   * Call this when a collection is updated
+   */
+  invalidateCache(collectionId: string): void {
+    this.contextCache.delete(collectionId);
+    this.cacheExpiry.delete(collectionId);
+    console.log('🗑️ Cache invalidated for collection:', collectionId);
+  }
+
+  /**
+   * Clear all cached contexts
+   */
+  clearAllCache(): void {
+    this.contextCache.clear();
+    this.cacheExpiry.clear();
+    console.log('🗑️ All cache cleared');
+  }
+
+  /**
    * Utility functions for context enhancement
    */
   private inferRegion(bounds: any): string {
@@ -404,3 +515,22 @@ export async function loadChatContext(chatSessionId: string, userContext?: any):
   const context = userContext || { userId: 'current-user' };
   return await collectionContextLoader.loadContextForChat(chatSessionId, context);
 }
+
+// Convenience function for canvas context loading
+export async function loadCanvasContext(
+  chatSessionId: string,
+  collectionId?: string
+): Promise<CollectionContext | null> {
+  return await collectionContextLoader.loadCanvasContext(chatSessionId, collectionId);
+}
+
+// Convenience function for data access validation
+export function validateDataAccess(
+  requestedDataIds: string[],
+  context: CollectionContext | null
+): DataAccessValidation {
+  return collectionContextLoader.validateDataAccess(requestedDataIds, context);
+}
+
+// Export types for use in other modules
+export type { CollectionContext, ContextLoadResult, DataAccessValidation };

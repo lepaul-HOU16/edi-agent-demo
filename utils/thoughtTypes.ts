@@ -85,38 +85,22 @@ export const getThinkingContextFromStep = (step: ThoughtStep): string => {
   }
 };
 
-// Animation configuration
-export interface AnimationConfig {
-  duration: string;
-  scale: { min: number; max: number };
-  opacity: { min: number; max: number };
-}
-
-export const getAnimationIntensity = (step: ThoughtStep['type']): AnimationConfig => {
-  switch (step) {
+// Animation configuration for ThinkingIndicator
+export const getAnimationIntensity = (type: ThoughtStep['type']) => {
+  switch (type) {
     case 'intent_detection':
-      return {
-        duration: '8s', // Much slower: was 6s
-        scale: { min: 1, max: 1.002 }, // Ultra subtle: was 1.003
-        opacity: { min: 0.95, max: 1 } // Ultra subtle: was 0.92-1
-      };
+      return { duration: '2s', scale: { min: 1, max: 1.03 }, opacity: { min: 0.7, max: 1 } };
     case 'parameter_extraction':
-      return {
-        duration: '7.5s', // Much slower: was 5.5s
-        scale: { min: 1, max: 1.0025 }, // Ultra subtle: was 1.005
-        opacity: { min: 0.94, max: 1 } // Ultra subtle: was 0.9-1
-      };
+      return { duration: '2.2s', scale: { min: 1, max: 1.025 }, opacity: { min: 0.75, max: 1 } };
+    case 'tool_selection':
+      return { duration: '2.5s', scale: { min: 1, max: 1.02 }, opacity: { min: 0.8, max: 1 } };
     case 'execution':
-      return {
-        duration: '7s', // Much slower: was 5s
-        scale: { min: 1, max: 1.003 }, // Ultra subtle: was 1.006
-        opacity: { min: 0.93, max: 1 } // Ultra subtle: was 0.88-1
-      };
+      return { duration: '1.8s', scale: { min: 1, max: 1.04 }, opacity: { min: 0.65, max: 1 } };
+    case 'validation':
+      return { duration: '2.3s', scale: { min: 1, max: 1.025 }, opacity: { min: 0.75, max: 1 } };
+    case 'completion':
+      return { duration: '3s', scale: { min: 1, max: 1.01 }, opacity: { min: 0.9, max: 1 } };
     default:
-      return {
-        duration: '7.5s', // Much slower: was 5.5s
-        scale: { min: 1, max: 1.0025 }, // Ultra subtle: was 1.004
-        opacity: { min: 0.94, max: 1 } // Ultra subtle: was 0.9-1
-      };
+      return { duration: '2.5s', scale: { min: 1, max: 1.02 }, opacity: { min: 0.8, max: 1 } };
   }
 };

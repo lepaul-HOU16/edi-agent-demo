@@ -1,1 +1,1 @@
-{"httpMethod":"POST","path":"/mcp","headers":{"Content-Type":"application/json"},"body":"{\"jsonrpc\":\"2.0\",\"id\":\"1\",\"method\":\"tools/list\"}"}
+{"query":"__health_check__"}

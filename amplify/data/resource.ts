@@ -1,8 +1,14 @@
 import { type ClientSchema, a, defineData, defineFunction } from '@aws-amplify/backend';
+import { maintenanceAgentFunction } from '../functions/maintenanceAgent/resource';
+import { edicraftAgentFunction } from '../functions/edicraftAgent/resource';
+import { agentProgressFunction } from '../functions/agentProgress/resource';
 
-export const lightweightAgentFunction = defineFunction({
-  name: 'lightweightAgent',
-  entry: '../functions/lightweightAgent/handler.ts',
+// Main agent function with full routing capabilities (EnhancedStrandsAgent + RenewableProxyAgent)
+// NOTE: Dynamic environment variables (function names, bucket names) are set in backend.ts
+// after all resources are created. Only static config goes here.
+export const agentFunction = defineFunction({
+  name: 'agent',
+  entry: '../functions/agents/handler.ts',
   timeoutSeconds: 300,
   memoryMB: 1024,
   resourceGroupName: 'data',
@@ -11,9 +17,17 @@ export const lightweightAgentFunction = defineFunction({
     TEXT_TO_TABLE_MODEL_ID: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
     TEXT_TO_TABLE_CONCURRENCY: '5',
     ORIGIN_BASE_PATH: process.env.ORIGIN_BASE_PATH || '',
-    S3_BUCKET: 'amplify-digitalassistant--workshopstoragebucketd9b-1kur1xycq1xq',
     AMPLIFY_BRANCH: process.env.AMPLIFY_BRANCH || 'main',
-    AMPLIFY_APP_ID: process.env.AMPLIFY_APP_ID || 'unknown'
+    AMPLIFY_APP_ID: process.env.AMPLIFY_APP_ID || 'unknown',
+    // Renewable energy integration configuration
+    RENEWABLE_ENABLED: 'true',
+    NEXT_PUBLIC_RENEWABLE_ENABLED: process.env.NEXT_PUBLIC_RENEWABLE_ENABLED || 'false',
+    NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT: process.env.NEXT_PUBLIC_RENEWABLE_AGENTCORE_ENDPOINT || '',
+    NEXT_PUBLIC_RENEWABLE_AWS_REGION: process.env.NEXT_PUBLIC_RENEWABLE_AWS_REGION || 'us-west-2'
+    // REMOVED HARDCODED VALUES - These are now set dynamically in backend.ts:
+    // - S3_BUCKET (set from backend.storage.resources.bucket.bucketName)
+    // - RENEWABLE_ORCHESTRATOR_FUNCTION_NAME (set from backend.renewableOrchestrator)
+    // - NEXT_PUBLIC_RENEWABLE_S3_BUCKET (set from backend.storage.resources.bucket.bucketName)
   }
 });
 
@@ -39,6 +53,18 @@ export const catalogSearchFunction = defineFunction({
     OSDU_PARTITION_ID: 'opendes',
     STORAGE_BUCKET_NAME: 'amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
     // Add OSDU_ACCESS_TOKEN as environment variable when available
+  }
+});
+
+export const renewableToolsFunction = defineFunction({
+  name: 'renewableTools',
+  entry: '../functions/renewableTools/handler.ts',
+  timeoutSeconds: 60,
+  memoryMB: 512,
+  resourceGroupName: 'data',
+  environment: {
+    NREL_API_KEY: process.env.NREL_API_KEY || 'DEMO_KEY',
+    RENEWABLE_AWS_REGION: process.env.AWS_REGION || 'us-east-1',
   }
 });
 
@@ -78,6 +104,21 @@ export const schema = a.schema({
   })
     .authorization((allow) => [allow.owner(), allow.authenticated(), allow.guest()]),
 
+  // Well Equipment Model for Wells Equipment Dashboard
+  Well: a.model({
+    name: a.string().required(),
+    type: a.string().required(), // 'well'
+    location: a.string().required(),
+    operationalStatus: a.enum(["operational", "degraded", "critical", "offline"]),
+    healthScore: a.integer().required(),
+    lastMaintenanceDate: a.string().required(),
+    nextMaintenanceDate: a.string().required(),
+    sensors: a.json().required(), // Array of sensor objects
+    alerts: a.json().required(), // Array of alert objects
+    metadata: a.json().required(), // Field, operator, install date, depth, production data
+  })
+    .authorization((allow) => [allow.authenticated(), allow.guest()]),
+
   WorkStep: a.customType({
     name: a.string(),
     description: a.string(),
@@ -89,11 +130,16 @@ export const schema = a.schema({
     name: a.string(),
     messages: a.hasMany("ChatMessage", "chatSessionId"),
     workSteps: a.ref("WorkStep").array(),
-    // Phase 3: Collection integration
-    linkedCollectionId: a.string(),
-    collectionContext: a.json(), // Cached collection data for performance
+    // Collection integration fields (Task 9.1)
+    linkedCollectionId: a.string(), // Links canvas to a collection
+    collectionContext: a.json(), // Cached collection data for performance (30-min TTL)
+    dataAccessLog: a.json().array(), // Track data access approvals and expansions
   })
-    .authorization((allow) => [allow.owner(), allow.authenticated(), allow.guest()]),
+    .authorization((allow) => [
+      allow.owner(), 
+      allow.authenticated(), 
+      allow.guest()
+    ]),
 
   ChatMessage: a
     .model({
@@ -161,6 +207,7 @@ export const schema = a.schema({
       message: a.string().required(),
       foundationModelId: a.string(),
       userId: a.string(),
+      agentType: a.string(), // Optional: 'auto', 'petrophysics', 'maintenance', 'renewable'
     })
     .returns(a.customType({
       success: a.boolean().required(),
@@ -168,7 +215,44 @@ export const schema = a.schema({
       artifacts: a.json().array(),
       thoughtSteps: a.json().array() // CRITICAL FIX: Add thoughtSteps to return type
     }))
-    .handler(a.handler.function(lightweightAgentFunction))
+    .handler(a.handler.function(agentFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  // NEW: Maintenance Agent mutation
+  invokeMaintenanceAgent: a.mutation()
+    .arguments({
+      chatSessionId: a.id().required(),
+      message: a.string().required(),
+      foundationModelId: a.string(),
+      userId: a.string(),
+    })
+    .returns(a.customType({
+      success: a.boolean().required(),
+      message: a.string().required(),
+      artifacts: a.json().array(),
+      thoughtSteps: a.json().array(),
+      workflow: a.json(),
+      auditTrail: a.json()
+    }))
+    .handler(a.handler.function(maintenanceAgentFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  // NEW: EDIcraft Agent mutation
+  invokeEDIcraftAgent: a.mutation()
+    .arguments({
+      chatSessionId: a.id().required(),
+      message: a.string().required(),
+      foundationModelId: a.string(),
+      userId: a.string(),
+    })
+    .returns(a.customType({
+      success: a.boolean().required(),
+      message: a.string().required(),
+      artifacts: a.json().array(),
+      thoughtSteps: a.json().array(),
+      connectionStatus: a.string()
+    }))
+    .handler(a.handler.function(edicraftAgentFunction))
     .authorization((allow) => [allow.authenticated()]),
 
   // invokeReActAgent has been deprecated - use invokeLightweightAgent instead
@@ -213,9 +297,26 @@ export const schema = a.schema({
     .returns(a.string())
     .handler(a.handler.function(collectionServiceFunction))
     .authorization((allow) => [allow.authenticated()]),
+
+  // Agent Progress Polling (Task 4.3)
+  getAgentProgress: a.query()
+    .arguments({
+      requestId: a.string().required(),
+    })
+    .returns(a.customType({
+      success: a.boolean().required(),
+      requestId: a.string(),
+      steps: a.json().array(),
+      status: a.string(),
+      createdAt: a.float(),
+      updatedAt: a.float(),
+      error: a.string()
+    }))
+    .handler(a.handler.function(agentProgressFunction))
+    .authorization((allow) => [allow.authenticated()]),
 })
   .authorization((allow) => [
-    allow.resource(lightweightAgentFunction).to(["query", "mutate"])
+    allow.resource(agentFunction).to(["query", "mutate"])
   ]);
 
 export type Schema = ClientSchema<typeof schema>;
@@ -226,3 +327,6 @@ export const data = defineData({
     defaultAuthorizationMode: 'userPool',
   },
 });
+
+// Export agentProgressFunction for backend configuration
+export { agentProgressFunction };

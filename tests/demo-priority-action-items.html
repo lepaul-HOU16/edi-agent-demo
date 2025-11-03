@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Priority Action Items Component Demo</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        .header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #e5e7eb;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .header .badges {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+        }
+        .badge {
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .badge-red { background: #fee2e2; color: #dc2626; }
+        .badge-blue { background: #dbeafe; color: #2563eb; }
+        .badge-grey { background: #f3f4f6; color: #6b7280; }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+            padding: 16px;
+            background: #f9fafb;
+            border-radius: 6px;
+        }
+        .stat {
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+        .stat-value.error { color: #dc2626; }
+        .stat-value.warning { color: #f59e0b; }
+        
+        .action-item {
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            padding: 20px;
+            margin-bottom: 16px;
+            transition: box-shadow 0.2s;
+        }
+        .action-item:hover {
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .action-item.urgent {
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+        
+        .action-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+        .action-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #dc2626;
+            min-width: 30px;
+        }
+        .action-badges {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .action-well {
+            font-size: 12px;
+            color: #6b7280;
+            margin-bottom: 4px;
+        }
+        .action-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        .action-description {
+            color: #4b5563;
+            margin-bottom: 16px;
+            line-height: 1.5;
+        }
+        
+        .action-metadata {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 16px;
+            margin-bottom: 16px;
+            padding: 12px;
+            background: #f9fafb;
+            border-radius: 4px;
+        }
+        .metadata-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .metadata-label {
+            font-size: 12px;
+            color: #6b7280;
+        }
+        .metadata-value {
+            font-weight: 500;
+        }
+        .metadata-value.overdue {
+            color: #dc2626;
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+        }
+        .btn {
+            padding: 8px 16px;
+            border-radius: 4px;
+            border: none;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .btn-primary {
+            background: #2563eb;
+            color: white;
+        }
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        .btn-secondary {
+            background: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+        .btn-secondary:hover {
+            background: #f9fafb;
+        }
+        .btn-link {
+            background: none;
+            color: #2563eb;
+            padding: 4px 8px;
+        }
+        .btn-link:hover {
+            text-decoration: underline;
+        }
+        
+        .icon {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            vertical-align: middle;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 48px;
+            color: #6b7280;
+        }
+        .empty-state .icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <span class="icon">🎯</span>
+            <h1>Priority Action Items</h1>
+            <div class="badges">
+                <span class="badge badge-red">3 Urgent</span>
+                <span class="badge badge-red">5 High Priority</span>
+                <span class="badge badge-red">2 Overdue</span>
+            </div>
+        </div>
+        
+        <div class="stats">
+            <div class="stat">
+                <div class="stat-label">Total Actions</div>
+                <div class="stat-value">12</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Urgent</div>
+                <div class="stat-value error">3</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">High Priority</div>
+                <div class="stat-value warning">5</div>
+            </div>
+            <div class="stat">
+                <div class="stat-label">Overdue</div>
+                <div class="stat-value error">2</div>
+            </div>
+        </div>
+        
+        <!-- Action Item 1 - Urgent & Overdue -->
+        <div class="action-item urgent">
+            <div class="action-header">
+                <div class="action-number">1.</div>
+                <div class="action-badges">
+                    <span class="badge badge-red">🔴 URGENT</span>
+                    <span class="badge badge-grey">🔍 inspection</span>
+                    <span class="badge badge-red">⚠️ OVERDUE</span>
+                </div>
+            </div>
+            
+            <div class="action-well">Well: WELL-003 - Production Well Charlie</div>
+            <div class="action-title">Critical pressure alert - Immediate inspection required</div>
+            <div class="action-description">
+                Pressure readings 15% above critical threshold. Potential equipment failure risk. 
+                Immediate inspection required to prevent catastrophic failure.
+            </div>
+            
+            <div class="action-metadata">
+                <div class="metadata-item">
+                    <span class="icon">⏱️</span>
+                    <div>
+                        <div class="metadata-label">Estimated Time</div>
+                        <div class="metadata-value">2 hours</div>
+                    </div>
+                </div>
+                <div class="metadata-item">
+                    <span class="icon">📅</span>
+                    <div>
+                        <div class="metadata-label">Due Date</div>
+                        <div class="metadata-value overdue">Overdue by 1 day</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary">📅 Schedule</button>
+                <button class="btn btn-secondary">🔗 View Details</button>
+                <button class="btn btn-link">Show more ▼</button>
+            </div>
+        </div>
+        
+        <!-- Action Item 2 - High Priority -->
+        <div class="action-item">
+            <div class="action-header">
+                <div class="action-number" style="color: #f59e0b;">2.</div>
+                <div class="action-badges">
+                    <span class="badge badge-red">🟡 HIGH</span>
+                    <span class="badge badge-grey">⚙️ maintenance</span>
+                </div>
+            </div>
+            
+            <div class="action-well">Well: WELL-012 - Production Well Lima</div>
+            <div class="action-title">Health declining 15% in 7 days - Schedule diagnostic</div>
+            <div class="action-description">
+                Well health score has dropped from 82 to 68 over the past week. 
+                Recommend comprehensive diagnostic to identify root cause.
+            </div>
+            
+            <div class="action-metadata">
+                <div class="metadata-item">
+                    <span class="icon">⏱️</span>
+                    <div>
+                        <div class="metadata-label">Estimated Time</div>
+                        <div class="metadata-value">4 hours</div>
+                    </div>
+                </div>
+                <div class="metadata-item">
+                    <span class="icon">📅</span>
+                    <div>
+                        <div class="metadata-label">Due Date</div>
+                        <div class="metadata-value">Due in 2 days</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary">📅 Schedule</button>
+                <button class="btn btn-secondary">🔗 View Details</button>
+                <button class="btn btn-link">Show more ▼</button>
+            </div>
+        </div>
+        
+        <!-- Action Item 3 - Medium Priority -->
+        <div class="action-item">
+            <div class="action-header">
+                <div class="action-number" style="color: #2563eb;">3.</div>
+                <div class="action-badges">
+                    <span class="badge badge-blue">🔵 MEDIUM</span>
+                    <span class="badge badge-grey">⚙️ maintenance</span>
+                </div>
+            </div>
+            
+            <div class="action-well">Well: WELL-007 - Production Well Golf</div>
+            <div class="action-title">Maintenance overdue by 14 days - Schedule service</div>
+            <div class="action-description">
+                Scheduled maintenance was due 14 days ago. While well is still operational, 
+                service should be completed to prevent degradation.
+            </div>
+            
+            <div class="action-metadata">
+                <div class="metadata-item">
+                    <span class="icon">⏱️</span>
+                    <div>
+                        <div class="metadata-label">Estimated Time</div>
+                        <div class="metadata-value">6 hours</div>
+                    </div>
+                </div>
+                <div class="metadata-item">
+                    <span class="icon">📅</span>
+                    <div>
+                        <div class="metadata-label">Due Date</div>
+                        <div class="metadata-value overdue">Overdue by 14 days</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary">📅 Schedule</button>
+                <button class="btn btn-secondary">🔗 View Details</button>
+                <button class="btn btn-link">Show more ▼</button>
+            </div>
+        </div>
+        
+        <!-- Action Item 4 - Low Priority -->
+        <div class="action-item">
+            <div class="action-header">
+                <div class="action-number" style="color: #6b7280;">4.</div>
+                <div class="action-badges">
+                    <span class="badge badge-grey">⚪ LOW</span>
+                    <span class="badge badge-grey">🔍 inspection</span>
+                </div>
+            </div>
+            
+            <div class="action-well">Well: WELL-015 - Production Well Oscar</div>
+            <div class="action-title">Routine inspection - Vibration levels slightly elevated</div>
+            <div class="action-description">
+                Vibration levels have increased slightly but remain within acceptable range. 
+                Schedule routine inspection during next maintenance window.
+            </div>
+            
+            <div class="action-metadata">
+                <div class="metadata-item">
+                    <span class="icon">⏱️</span>
+                    <div>
+                        <div class="metadata-label">Estimated Time</div>
+                        <div class="metadata-value">1 hour</div>
+                    </div>
+                </div>
+                <div class="metadata-item">
+                    <span class="icon">📅</span>
+                    <div>
+                        <div class="metadata-label">Due Date</div>
+                        <div class="metadata-value">Due in 14 days</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="action-buttons">
+                <button class="btn btn-primary">📅 Schedule</button>
+                <button class="btn btn-secondary">🔗 View Details</button>
+                <button class="btn btn-link">Show more ▼</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Empty State Example -->
+    <div class="container">
+        <div class="header">
+            <span class="icon">🎯</span>
+            <h1>Priority Action Items</h1>
+        </div>
+        
+        <div class="empty-state">
+            <div class="icon">✅</div>
+            <h3>No priority actions required</h3>
+            <p>All wells are operating within acceptable parameters.</p>
+        </div>
+    </div>
+    
+    <script>
+        // Add click handlers for demo
+        document.querySelectorAll('.btn-primary').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const actionItem = e.target.closest('.action-item');
+                const title = actionItem.querySelector('.action-title').textContent;
+                const well = actionItem.querySelector('.action-well').textContent;
+                alert(`Schedule Action:\n\n${title}\n\n${well}`);
+            });
+        });
+        
+        document.querySelectorAll('.btn-secondary').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const actionItem = e.target.closest('.action-item');
+                const title = actionItem.querySelector('.action-title').textContent;
+                alert(`View Details:\n\n${title}`);
+            });
+        });
+        
+        document.querySelectorAll('.btn-link').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const text = e.target.textContent;
+                e.target.textContent = text.includes('more') ? 'Show less ▲' : 'Show more ▼';
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,93 @@
+/* Agent Switcher Styles */
+
+/* Base container styles */
+.agent-switcher-container {
+  display: inline-block;
+}
+
+/* Panel variant positioning */
+.agent-switcher-panel {
+  margin-right: 20px;
+}
+
+/* Input variant - fixed 28px height to match input initial state */
+.agent-switcher-input [class*="awsui-button-dropdown"] {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+}
+
+.agent-switcher-input [class*="awsui-button-dropdown"] button {
+  height: 28px !important;
+  min-height: 28px !important;
+  max-height: 28px !important;
+  padding: 0 8px !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  line-height: 1 !important;
+}
+
+/* Fix icon alignment in input variant */
+.agent-switcher-input [class*="awsui-button-dropdown"] [class*="awsui-icon"] {
+  display: flex !important;
+  align-items: center !important;
+  height: 16px !important;
+  width: 16px !important;
+}
+
+/* Fix text alignment in input variant */
+.agent-switcher-input [class*="awsui-button-dropdown"] [class*="awsui-button-dropdown__text"],
+.agent-switcher-input [class*="awsui-button-dropdown"] span {
+  line-height: 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  font-size: 14px !important;
+}
+
+/* Ensure dropdown trigger icon is properly aligned */
+.agent-switcher-input [class*="awsui-button-dropdown"] [class*="awsui-button-dropdown__trigger"] {
+  display: flex !important;
+  align-items: center !important;
+  height: 28px !important;
+}
+
+/* Target menu items that have a check icon (selected items) */
+.agent-switcher-container [role="menuitem"]:has([class*="icon"]) {
+  background-color: #0972d3 !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+/* Alternative selector for items with icons */
+.agent-switcher-container button[role="menuitem"]:has(svg),
+.agent-switcher-container [role="menuitem"]:has(span[class*="icon"]) {
+  background-color: #0972d3 !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+/* Hover state for selected items */
+.agent-switcher-container [role="menuitem"]:has([class*="icon"]):hover {
+  background-color: #0862c0 !important;
+  color: white !important;
+}
+
+/* Force background on the entire button element */
+.agent-switcher-container button[role="menuitem"] {
+  transition: background-color 0.2s ease;
+}
+
+/* Global selector for any menu item with check icon */
+[role="menu"] [role="menuitem"]:has(svg) {
+  background-color: #0972d3 !important;
+  color: white !important;
+  font-weight: 600 !important;
+}
+
+/* Ensure icon color is white when selected */
+.agent-switcher-container [role="menuitem"]:has([class*="icon"]) svg,
+.agent-switcher-container [role="menuitem"]:has([class*="icon"]) [class*="icon"] {
+  color: white !important;
+  fill: white !important;
+}

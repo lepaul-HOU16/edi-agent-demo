@@ -3,6 +3,15 @@ import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerCompone
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
 import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
+import RenewableEnergyGuidanceComponent from './messageComponents/RenewableEnergyGuidanceComponent';
+// New renewable energy artifact components
+import { 
+  TerrainMapArtifact, 
+  LayoutMapArtifact, 
+  SimulationChartArtifact, 
+  ReportArtifact 
+} from './renewable';
+import WakeAnalysisArtifact from './renewable/WakeAnalysisArtifact';
 
 interface Artifact {
   type: string;
@@ -15,9 +24,10 @@ interface Artifact {
 
 interface ArtifactRendererProps {
   artifacts: Artifact[];
+  onFollowUpAction?: (action: string) => void;
 }
 
-const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
+const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts, onFollowUpAction }) => {
   if (!artifacts || artifacts.length === 0) {
     return null;
   }
@@ -70,6 +80,58 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts }) => {
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
                 <UniversalResponseComponent data={artifact as any} />
+              </div>
+            );
+
+          case 'wind_farm_terrain_analysis':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <TerrainMapArtifact 
+                  data={artifact as any} 
+                  onFollowUpAction={onFollowUpAction}
+                />
+              </div>
+            );
+
+          case 'wind_farm_layout':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <LayoutMapArtifact data={artifact as any} />
+              </div>
+            );
+
+          case 'wind_farm_simulation':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <SimulationChartArtifact 
+                  data={artifact as any} 
+                  onFollowUpAction={onFollowUpAction}
+                />
+              </div>
+            );
+
+          case 'wake_simulation':
+          case 'wake_analysis':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <WakeAnalysisArtifact 
+                  data={artifact as any} 
+                  onFollowUpAction={onFollowUpAction}
+                />
+              </div>
+            );
+
+          case 'wind_farm_report':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <ReportArtifact data={artifact as any} />
+              </div>
+            );
+
+          case 'renewable_energy_guidance':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <RenewableEnergyGuidanceComponent data={artifact as any} />
               </div>
             );
             

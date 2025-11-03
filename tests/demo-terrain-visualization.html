@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terrain Feature Visualization Demo</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <style>
+        body {
+            font-family: 'Amazon Ember', Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        h1 {
+            color: #0972d3;
+            margin-top: 0;
+        }
+        .info-section {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 20px;
+            padding: 16px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+        .info-item {
+            text-align: center;
+        }
+        .info-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .info-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #333;
+        }
+        #map {
+            width: 100%;
+            height: 600px;
+            border: 1px solid #e9ebed;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .feature-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            padding: 16px;
+            background: #f0f0f0;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .stat-item {
+            text-align: center;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 4px;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #0972d3;
+        }
+        .instructions {
+            background: #e7f5ff;
+            border-left: 4px solid #0972d3;
+            padding: 16px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #0972d3;
+        }
+        .instructions ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .legend-demo {
+            background: white;
+            padding: 12px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            display: inline-block;
+            font-size: 12px;
+            line-height: 18px;
+        }
+        .legend-title {
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .legend-item {
+            margin-bottom: 4px;
+            display: flex;
+            align-items: center;
+        }
+        .legend-symbol {
+            display: inline-block;
+            width: 16px;
+            height: 12px;
+            margin-right: 6px;
+        }
+        .building-symbol {
+            background-color: rgba(255,0,0,0.3);
+            border: 1px solid #cc0000;
+        }
+        .road-symbol {
+            height: 2px;
+            background-color: #666666;
+            vertical-align: middle;
+        }
+        .water-symbol {
+            background-color: rgba(0,0,255,0.4);
+            border: 1px solid #0000cc;
+        }
+        .perimeter-symbol {
+            border: 2px dashed #333333;
+            background: transparent;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🗺️ Terrain Feature Visualization Demo</h1>
+        
+        <div class="instructions">
+            <h3>Interactive Demo</h3>
+            <ul>
+                <li>Click on any feature to see details</li>
+                <li>Use mouse wheel to zoom in/out</li>
+                <li>Drag to pan the map</li>
+                <li>Toggle between Satellite and Street Map views</li>
+                <li>Check the legend in the bottom-right corner</li>
+            </ul>
+        </div>
+
+        <div class="info-section">
+            <div class="info-item">
+                <div class="info-label">Turbine Count</div>
+                <div class="info-value">10</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Total Capacity</div>
+                <div class="info-value">25 MW</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Layout Type</div>
+                <div class="info-value">Intelligent</div>
+            </div>
+            <div class="info-item">
+                <div class="info-label">Wind Angle</div>
+                <div class="info-value">225°</div>
+            </div>
+        </div>
+
+        <div class="feature-stats">
+            <div class="stat-item">
+                <div class="stat-label">Buildings</div>
+                <div class="stat-value">5</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Roads</div>
+                <div class="stat-value">3</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Water Bodies</div>
+                <div class="stat-value">2</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-label">Other Features</div>
+                <div class="stat-value">1</div>
+            </div>
+        </div>
+
+        <div id="map"></div>
+
+        <div style="margin-top: 20px;">
+            <h3>Legend Reference</h3>
+            <div class="legend-demo">
+                <div class="legend-title">Map Legend</div>
+                <div class="legend-item">
+                    <span class="legend-symbol building-symbol"></span>
+                    Buildings
+                </div>
+                <div class="legend-item">
+                    <span class="legend-symbol road-symbol"></span>
+                    Roads
+                </div>
+                <div class="legend-item">
+                    <span class="legend-symbol water-symbol"></span>
+                    Water
+                </div>
+                <div class="legend-item">
+                    <span class="legend-symbol perimeter-symbol"></span>
+                    Perimeter
+                </div>
+                <div class="legend-item" style="margin-top: 8px;">
+                    <span style="margin-right: 6px;">📍</span>
+                    Turbines
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize map centered on Texas Panhandle
+        const map = L.map('map').setView([35.0675, -101.3954], 13);
+
+        // Add satellite basemap
+        const satelliteLayer = L.tileLayer(
+            'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+            {
+                attribution: 'Esri',
+                maxZoom: 19,
+            }
+        );
+
+        // Add OpenStreetMap tiles
+        const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19,
+        });
+
+        // Add satellite as default
+        satelliteLayer.addTo(map);
+
+        // Add layer control
+        L.control.layers(
+            {
+                'Satellite': satelliteLayer,
+                'Street Map': osmLayer,
+            },
+            {},
+            { position: 'topright' }
+        ).addTo(map);
+
+        // STEP 1: Add terrain features (perimeter, buildings, roads, water)
+        
+        // Perimeter polygon
+        const perimeter = L.polygon([
+            [35.075, -101.405],
+            [35.075, -101.385],
+            [35.060, -101.385],
+            [35.060, -101.405]
+        ], {
+            color: '#333333',
+            weight: 3,
+            dashArray: '10, 5',
+            fillOpacity: 0
+        }).addTo(map);
+        perimeter.bindPopup('<b>Perimeter</b><br>Site boundary');
+
+        // Buildings (red polygons)
+        const buildings = [
+            [[35.0720, -101.4000], [35.0720, -101.3995], [35.0715, -101.3995], [35.0715, -101.4000]],
+            [[35.0680, -101.3920], [35.0680, -101.3915], [35.0675, -101.3915], [35.0675, -101.3920]],
+            [[35.0640, -101.3980], [35.0640, -101.3975], [35.0635, -101.3975], [35.0635, -101.3980]],
+            [[35.0700, -101.3900], [35.0700, -101.3895], [35.0695, -101.3895], [35.0695, -101.3900]],
+            [[35.0660, -101.4020], [35.0660, -101.4015], [35.0655, -101.4015], [35.0655, -101.4020]]
+        ];
+
+        buildings.forEach((coords, i) => {
+            const building = L.polygon(coords, {
+                color: '#cc0000',
+                fillColor: '#ff0000',
+                fillOpacity: 0.3,
+                weight: 2
+            }).addTo(map);
+            building.bindPopup(`<b>Building</b><br>Structure ${i + 1}`);
+        });
+
+        // Roads (gray lines)
+        const roads = [
+            [[35.0750, -101.4050], [35.0600, -101.3850]],
+            [[35.0650, -101.4050], [35.0650, -101.3850]],
+            [[35.0750, -101.3950], [35.0600, -101.3950]]
+        ];
+
+        roads.forEach((coords, i) => {
+            const road = L.polyline(coords, {
+                color: '#666666',
+                weight: 3,
+                opacity: 0.7
+            }).addTo(map);
+            road.bindPopup(`<b>Road</b><br>Route ${i + 1}`);
+        });
+
+        // Water bodies (blue polygons)
+        const waterBodies = [
+            [[35.0710, -101.3880], [35.0710, -101.3870], [35.0700, -101.3870], [35.0700, -101.3880]],
+            [[35.0630, -101.4000], [35.0630, -101.3990], [35.0620, -101.3990], [35.0620, -101.4000]]
+        ];
+
+        waterBodies.forEach((coords, i) => {
+            const water = L.polygon(coords, {
+                color: '#0000cc',
+                fillColor: '#0000ff',
+                fillOpacity: 0.4,
+                weight: 2
+            }).addTo(map);
+            water.bindPopup(`<b>Water Body</b><br>Pond ${i + 1}`);
+        });
+
+        // STEP 2: Add turbine markers on top
+        const turbinePositions = [
+            [35.0730, -101.3970],
+            [35.0730, -101.3940],
+            [35.0730, -101.3910],
+            [35.0700, -101.3970],
+            [35.0700, -101.3940],
+            [35.0700, -101.3910],
+            [35.0670, -101.3970],
+            [35.0670, -101.3940],
+            [35.0670, -101.3910],
+            [35.0640, -101.3940]
+        ];
+
+        turbinePositions.forEach((coords, i) => {
+            const marker = L.marker(coords).addTo(map);
+            marker.bindPopup(`
+                <div style="min-width: 200px; padding: 12px;">
+                    <div style="font-size: 16px; font-weight: bold; color: #0972d3; margin-bottom: 8px;">
+                        Turbine T${String(i + 1).padStart(3, '0')}
+                    </div>
+                    <div style="font-size: 13px; color: #545b64;">
+                        <strong>Capacity:</strong> 2.5 MW<br/>
+                        <strong>Hub Height:</strong> 80m<br/>
+                        <strong>Rotor Diameter:</strong> 100m<br/>
+                        <strong>Position:</strong> ${coords[0].toFixed(6)}, ${coords[1].toFixed(6)}
+                    </div>
+                </div>
+            `);
+        });
+
+        // Add custom legend
+        const LegendControl = L.Control.extend({
+            options: {
+                position: 'bottomright'
+            },
+            
+            onAdd: function() {
+                const div = L.DomUtil.create('div', 'info legend');
+                div.style.backgroundColor = 'white';
+                div.style.padding = '10px';
+                div.style.borderRadius = '4px';
+                div.style.boxShadow = '0 2px 4px rgba(0,0,0,0.2)';
+                div.style.fontSize = '12px';
+                div.style.lineHeight = '18px';
+                
+                div.innerHTML = `
+                    <div style="font-weight: bold; margin-bottom: 8px;">Map Legend</div>
+                    <div style="margin-bottom: 4px;">
+                        <span style="display: inline-block; width: 16px; height: 12px; background-color: rgba(255,0,0,0.3); border: 1px solid #cc0000; margin-right: 6px;"></span>
+                        Buildings
+                    </div>
+                    <div style="margin-bottom: 4px;">
+                        <span style="display: inline-block; width: 16px; height: 2px; background-color: #666666; margin-right: 6px; vertical-align: middle;"></span>
+                        Roads
+                    </div>
+                    <div style="margin-bottom: 4px;">
+                        <span style="display: inline-block; width: 16px; height: 12px; background-color: rgba(0,0,255,0.4); border: 1px solid #0000cc; margin-right: 6px;"></span>
+                        Water
+                    </div>
+                    <div style="margin-bottom: 4px;">
+                        <span style="display: inline-block; width: 16px; height: 12px; border: 2px dashed #333333; margin-right: 6px;"></span>
+                        Perimeter
+                    </div>
+                    <div style="margin-top: 8px;">
+                        <span style="display: inline-block; width: 16px; height: 16px; margin-right: 6px;">📍</span>
+                        Turbines
+                    </div>
+                `;
+                
+                return div;
+            }
+        });
+
+        new LegendControl().addTo(map);
+
+        console.log('✅ Terrain visualization demo loaded successfully');
+        console.log('📊 Features rendered:');
+        console.log('   - Perimeter: 1');
+        console.log('   - Buildings: 5');
+        console.log('   - Roads: 3');
+        console.log('   - Water bodies: 2');
+        console.log('   - Turbines: 10');
+    </script>
+</body>
+</html>

@@ -1,0 +1,14 @@
+{
+  "passed": 0,
+  "failed": 1,
+  "warnings": 0,
+  "details": [
+    {
+      "test": "Workflow Test",
+      "status": "FAIL",
+      "message": "Test execution failed: Failed to find orchestrator: Renewable orchestrator Lambda not found",
+      "details": null,
+      "timestamp": "2025-10-27T13:02:19.499Z"
+    }
+  ]
+}

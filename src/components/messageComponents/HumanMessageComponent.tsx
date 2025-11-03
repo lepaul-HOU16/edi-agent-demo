@@ -26,7 +26,7 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
 
   const humanMessageStyle = {
     backgroundColor: 'rgb(0 108 224)',
-    color: theme.palette.primary.contrastText,
+    color: '#FFFFFF', // Force white text in all modes
     padding: theme.spacing(1),
     borderRadius: theme.shape.borderRadius,
     maxWidth: '80%',
@@ -34,16 +34,23 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
 
   const markdownStyle = {
     textAlign: 'left' as const,
+    color: '#FFFFFF', // Force white text for all markdown content
     '& ul, & ol': {
       marginLeft: theme.spacing(2),
       marginRight: 0,
       paddingLeft: theme.spacing(2),
+      color: '#FFFFFF',
     },
     '& li': {
       marginBottom: theme.spacing(0.5),
+      color: '#FFFFFF',
     },
     '& p': {
       margin: theme.spacing(1, 0),
+      color: '#FFFFFF',
+    },
+    '& *': {
+      color: '#FFFFFF !important',
     },
   };
 
@@ -69,11 +76,20 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
           }} 
         />
         <div style={humanMessageStyle}>
-          <div style={markdownStyle}>
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+          <Box sx={markdownStyle}>
+            <ReactMarkdown 
+              remarkPlugins={[remarkGfm]}
+              components={{
+                p: ({node, ...props}) => <p style={{color: '#FFFFFF'}} {...props} />,
+                span: ({node, ...props}) => <span style={{color: '#FFFFFF'}} {...props} />,
+                div: ({node, ...props}) => <div style={{color: '#FFFFFF'}} {...props} />,
+                li: ({node, ...props}) => <li style={{color: '#FFFFFF'}} {...props} />,
+                a: ({node, ...props}) => <a style={{color: '#FFFFFF'}} {...props} />,
+              }}
+            >
               {(message as any).content?.text}
             </ReactMarkdown>
-          </div>
+          </Box>
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: theme.spacing(0.5) }}>

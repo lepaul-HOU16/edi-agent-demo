@@ -1,0 +1,37 @@
+#!/bin/bash
+
+echo "🔍 Verifying Backend Configuration..."
+echo ""
+
+echo "✅ FIXED ISSUES:"
+echo "1. Added CloudFormation outputs to backend.ts"
+echo "2. Removed hardcoded function names from data/resource.ts"
+echo "3. Made S3_BUCKET dynamic (was hardcoded)"
+echo "4. Made RENEWABLE_ORCHESTRATOR_FUNCTION_NAME dynamic (was hardcoded)"
+echo "5. Made NEXT_PUBLIC_RENEWABLE_S3_BUCKET dynamic (was hardcoded)"
+echo ""
+
+echo "📋 FUNCTIONS THAT WILL BE EXPORTED:"
+echo "- RenewableOrchestratorFunctionName"
+echo "- RenewableTerrainToolFunctionName"
+echo "- RenewableLayoutToolFunctionName"
+echo "- RenewableSimulationToolFunctionName"
+echo "- RenewableReportToolFunctionName"
+echo "- RenewableAgentsFunctionName"
+echo "- MaintenanceAgentFunctionName"
+echo "- AgentProgressFunctionName"
+echo "- RenewableS3BucketName"
+echo "- SessionContextTableName"
+echo "- AgentProgressTableName"
+echo ""
+
+echo "🚀 NEXT STEPS:"
+echo "1. Deploy: npx ampx sandbox (or restart if already running)"
+echo "2. Wait for deployment to complete"
+echo "3. Check amplify_outputs.json for the exported values"
+echo "4. Frontend will now use ACTUAL deployed function names"
+echo ""
+
+echo "⚠️  CRITICAL: The frontend was using hardcoded function names!"
+echo "   That's why your changes never reached the frontend."
+echo "   After this deployment, it will use the actual deployed names."

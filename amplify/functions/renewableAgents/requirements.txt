@@ -1,0 +1,48 @@
+# AWS SDK
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Strands Agent Framework (REQUIRED for agent system)
+strands-agents>=0.1.8
+strands-agents-tools>=0.2.4
+mcp>=1.1.1
+
+# Scientific Computing (REQUIRED for agents)
+numpy>=2.2.0
+pandas>=2.2.0
+scipy>=1.15.0
+
+# Geospatial (REQUIRED for terrain analysis)
+geopandas>=0.14.0
+shapely>=2.1.0
+pyproj>=3.6.0
+Fiona>=1.9.0
+
+# Wind Farm Simulation (REQUIRED for layout and simulation agents)
+py-wake>=2.5.0
+turbine-models>=0.1.1
+networkx>=3.4.0
+
+# Visualization (REQUIRED for artifact generation)
+matplotlib>=3.8.0
+seaborn>=0.13.0
+folium>=0.20.0
+plotly>=5.18.0
+Pillow>=10.1.0
+
+# PDF Generation (report agent can work without PDF output)
+# weasyprint>=60.0  # Disabled - requires complex system dependencies (pango, cairo, gdk-pixbuf)
+markdown>=3.5.0
+PyPDF2>=3.0.0
+
+# Utilities
+requests>=2.31.0
+python-dateutil>=2.8.2
+termcolor>=3.1.0
+typing-extensions>=4.9.0
+
+# Observability (optional but recommended)
+opentelemetry-instrumentation>=0.43b0
+
+# Performance Monitoring (Task 2.3: Memory usage tracking)
+psutil>=5.9.0

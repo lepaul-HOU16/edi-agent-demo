@@ -1,0 +1,8 @@
+bedrock-agentcore
+strands-agents
+strands-agents-tools
+rcon
+requests
+pytest
+boto3
+botocore

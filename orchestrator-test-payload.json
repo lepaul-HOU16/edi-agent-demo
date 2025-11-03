@@ -1,0 +1,7 @@
+{
+  "query": "Analyze terrain at coordinates 35.067482, -101.395466 within 5km radius",
+  "context": {
+    "sessionId": "test-session",
+    "userId": "test-user"
+  }
+}

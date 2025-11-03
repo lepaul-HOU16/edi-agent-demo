@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Algorithm Info Box - Visual Demo</title>
+    <style>
+        body {
+            font-family: 'Amazon Ember', Arial, sans-serif;
+            padding: 20px;
+            background-color: #f5f5f5;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 24px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .header {
+            font-size: 24px;
+            font-weight: bold;
+            color: #16191f;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid #e9ebed;
+        }
+        
+        .alert-info {
+            background-color: #e7f2fa;
+            border: 1px solid #0972d3;
+            border-radius: 4px;
+            padding: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .alert-header {
+            font-size: 16px;
+            font-weight: bold;
+            color: #0972d3;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .alert-header::before {
+            content: "ℹ️";
+            margin-right: 8px;
+            font-size: 20px;
+        }
+        
+        .alert-content {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .info-item {
+            font-size: 14px;
+            color: #16191f;
+            line-height: 1.5;
+        }
+        
+        .info-item strong {
+            color: #0972d3;
+        }
+        
+        .info-item-secondary {
+            font-size: 13px;
+            color: #545b64;
+        }
+        
+        .layout-info {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+        
+        .info-card {
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        
+        .info-label {
+            font-size: 12px;
+            color: #545b64;
+            text-transform: uppercase;
+            margin-bottom: 4px;
+        }
+        
+        .info-value {
+            font-size: 16px;
+            font-weight: bold;
+            color: #16191f;
+        }
+        
+        .map-placeholder {
+            width: 100%;
+            height: 400px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 8px;
+        }
+        
+        .badge-blue {
+            background-color: #0972d3;
+            color: white;
+        }
+        
+        .badge-green {
+            background-color: #037f0c;
+            color: white;
+        }
+        
+        .note {
+            background: #fff9e6;
+            border: 1px solid #f0c000;
+            border-radius: 4px;
+            padding: 12px;
+            margin-top: 24px;
+            font-size: 13px;
+            color: #545b64;
+        }
+        
+        .note strong {
+            color: #f0c000;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            Wind Farm Layout - project-123
+            <span class="badge badge-blue">25 Turbines</span>
+            <span class="badge badge-green">62.5 MW</span>
+        </div>
+        
+        <!-- ALGORITHM INFO BOX - THIS IS WHAT WE IMPLEMENTED -->
+        <div class="alert-info">
+            <div class="alert-header">
+                Intelligent Placement Algorithm
+            </div>
+            <div class="alert-content">
+                <div class="info-item">
+                    <strong>Algorithm:</strong> intelligent_placement
+                </div>
+                <div class="info-item info-item-secondary">
+                    <strong>Verification:</strong> INTELLIGENT_PLACEMENT_ALGORITHM_EXECUTED
+                </div>
+                <div class="info-item">
+                    <strong>Constraints Applied:</strong> 47 terrain features
+                </div>
+                <div class="info-item">
+                    <strong>Features Considered:</strong> building, road, water, perimeter
+                </div>
+                <div class="info-item info-item-secondary">
+                    Site area: 19.63 km² | Average spacing: 500m
+                </div>
+            </div>
+        </div>
+        
+        <!-- LAYOUT INFORMATION -->
+        <div class="layout-info">
+            <div class="info-card">
+                <div class="info-label">Turbine Count</div>
+                <div class="info-value">25</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Total Capacity</div>
+                <div class="info-value">62.5 MW</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Layout Type</div>
+                <div class="info-value">Intelligent Placement</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Wind Angle</div>
+                <div class="info-value">N/A</div>
+            </div>
+        </div>
+        
+        <!-- MAP PLACEHOLDER -->
+        <div class="map-placeholder">
+            Interactive Leaflet Map
+            <br>
+            (Turbines + Terrain Features)
+        </div>
+        
+        <!-- NOTE -->
+        <div class="note">
+            <strong>⚠️ Note:</strong> This is a visual mockup of what the algorithm info box will look like in the actual application. 
+            The blue info box at the top shows the algorithm metadata that proves intelligent placement is running.
+        </div>
+    </div>
+    
+    <script>
+        console.log('Algorithm Info Box Visual Demo');
+        console.log('This shows what users will see when the layout map renders');
+        console.log('');
+        console.log('Key Features:');
+        console.log('✓ Blue info alert box');
+        console.log('✓ Algorithm name: intelligent_placement');
+        console.log('✓ Algorithm proof verification');
+        console.log('✓ Constraints applied count');
+        console.log('✓ Terrain features list');
+        console.log('✓ Site area and spacing info');
+    </script>
+</body>
+</html>

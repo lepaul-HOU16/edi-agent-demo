@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, Badge, BreadcrumbGroup, Cards, Container, ContentLayout, ExpandableSection, Grid, Header, Icon, SpaceBetween, Table, Box, Button, Pagination, SegmentedControl, Modal, FormField, Input, Textarea } from '@cloudscape-design/components';
+import { Alert, Badge, BreadcrumbGroup, Cards, Container, ContentLayout, ExpandableSection, Grid, Header, Icon, SpaceBetween, Table, Box, Button, Pagination, SegmentedControl } from '@cloudscape-design/components';
 import { useTheme, IconButton, Tooltip, List, ListItem, useMediaQuery } from '@mui/material';
 import FileDrawer from '@/components/FileDrawer';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -10,6 +10,7 @@ import CatalogChatBoxCloudscape from "@/components/CatalogChatBoxCloudscape";
 import ChatMessage from '@/components/ChatMessage';
 import GeoscientistDashboard from '@/components/GeoscientistDashboard';
 import GeoscientistDashboardErrorBoundary from '@/components/GeoscientistDashboardErrorBoundary';
+import CollectionCreationModal from '@/components/CollectionCreationModal';
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 import { sendMessage } from '../../../utils/amplifyUtils';
@@ -457,12 +458,21 @@ function CatalogPageBase() {
         const parsedResult = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
         
         if (parsedResult.success) {
+          // Extract collection ID from response
+          const collectionId = parsedResult.collectionId || parsedResult.id;
+          
+          console.log('✅ Collection created successfully:', {
+            collectionId,
+            name: collectionName,
+            wellCount: finalDataItems.length
+          });
+          
           // Show success message with final count
           const successMessage: Message = {
             id: uuidv4() as any,
             role: "ai" as any,
             content: {
-              text: `✅ **Collection Created Successfully!**\n\nCreated collection **"${collectionName}"** with ${finalDataItems.length} wells.\n\n📁 **Collection Features:**\n- Preserved exact search context and map state\n- Geographic bounds and analytics configuration saved\n- Available at [Collection Management](/collections)\n\n🚀 **Next Steps:**\n- Create new workspace canvases linked to this collection\n- Restore this exact data context anytime\n- Share collection with team members (coming soon)`
+              text: `✅ **Collection Created Successfully!**\n\nCreated collection **"${collectionName}"** with ${finalDataItems.length} wells.\n\n📁 **Collection Features:**\n- Preserved exact search context and map state\n- Geographic bounds and analytics configuration saved\n- Navigating to collection detail page...\n\n🚀 **Next Steps:**\n- Create new workspace canvases linked to this collection\n- Restore this exact data context anytime\n- Share collection with team members (coming soon)`
             } as any,
             responseComplete: true as any,
             createdAt: new Date().toISOString() as any,
@@ -476,6 +486,16 @@ function CatalogPageBase() {
           setCollectionDescription('');
           setSelectedDataItems([]);
           setTableSelection([]);
+          
+          // Navigate to collection detail page
+          if (collectionId) {
+            console.log('🔄 Navigating to collection detail page:', `/collections/${collectionId}`);
+            // Use window.location for navigation to ensure proper page load
+            window.location.href = `/collections/${collectionId}`;
+          } else {
+            console.warn('⚠️ No collection ID in response, navigating to collections list');
+            window.location.href = '/collections';
+          }
         } else {
           console.error('Collection creation failed:', parsedResult.error);
           alert('Failed to create collection: ' + parsedResult.error);
@@ -730,15 +750,23 @@ function CatalogPageBase() {
             setActiveWeatherLayers({});
           }
           
-          // ALWAYS save map state regardless of panel
-          setMapState({
+        // ALWAYS save map state regardless of panel
+        setMapState({
+          center: center,
+          zoom: 8,
+          bounds: bounds,
+          wellData: geoJsonData,
+          hasSearchResults: true,
+          weatherLayers: weatherLayers
+        });
+        
+        // Also update the map component's internal state for persistence
+        if (mapComponentRef.current && mapComponentRef.current.restoreMapState) {
+          mapComponentRef.current.restoreMapState({
             center: center,
-            zoom: 8,
-            bounds: bounds,
-            wellData: geoJsonData,
-            hasSearchResults: true,
-            weatherLayers: weatherLayers
+            zoom: 8
           });
+        }
             }
           }
           
@@ -1250,122 +1278,20 @@ function CatalogPageBase() {
 
       {/* Phase 2: Collection Creation Modal (Feature-Flagged) */}
       {creationEnabled && (
-        <Modal
-          onDismiss={() => setShowCreateCollectionModal(false)}
+        <CollectionCreationModal
           visible={showCreateCollectionModal}
-          closeAriaLabel="Close modal"
-          header="Create Data Collection from Search Results"
-          footer={
-            <Box float="right">
-              <SpaceBetween direction="horizontal" size="xs">
-                <Button 
-                  variant="link" 
-                  onClick={() => setShowCreateCollectionModal(false)}
-                  disabled={creatingCollection}
-                >
-                  Cancel
-                </Button>
-                <Button
-                  variant="primary"
-                  onClick={handleCreateCollection}
-                  loading={creatingCollection}
-                  disabled={!collectionName.trim()}
-                >
-                  Create Collection
-                </Button>
-              </SpaceBetween>
-            </Box>
-          }
-        >
-          <SpaceBetween direction="vertical" size="l">
-            <Alert
-              statusIconAriaLabel="Info"
-              type="info"
-              header="Beta Feature - Collection Management"
-            >
-              You're creating a collection to preserve your current search results, map state, and analytics configuration for future use.
-            </Alert>
-
-            <FormField
-              label="Collection Name"
-              description="Choose a descriptive name for your data collection"
-            >
-              <Input
-                value={collectionName}
-                onChange={({ detail }) => setCollectionName(detail.value)}
-                placeholder="e.g., Cuu Long Basin Production Wells"
-              />
-            </FormField>
-
-            <FormField
-              label="Description (Optional)"
-              description="Provide additional context about this collection"
-            >
-              <Textarea
-                value={collectionDescription}
-                onChange={({ detail }) => setCollectionDescription(detail.value)}
-                placeholder="Describe the purpose and contents of this collection..."
-                rows={3}
-              />
-            </FormField>
-
-            <Container
-              header={
-                <Header 
-                  variant="h3" 
-                  counter={`(${selectedDataItems.length} wells)`}
-                  actions={
-                    <SpaceBetween direction="horizontal" size="s">
-                      <Button
-                        variant="normal"
-                        iconName="remove"
-                        disabled={!tableSelection || tableSelection.length === 0}
-                        onClick={handleRemoveSelectedFromCollection}
-                      >
-                        Remove Selected ({tableSelection?.length || 0})
-                      </Button>
-                    </SpaceBetween>
-                  }
-                >
-                  Data Preview - Select Wells to Include
-                </Header>
-              }
-            >
-              {selectedDataItems.length > 0 ? (
-                <Table
-                  columnDefinitions={[
-                    { id: "name", header: "Well Name", cell: item => item.name },
-                    { id: "location", header: "Location", cell: item => item.location },
-                    { id: "depth", header: "Depth", cell: item => item.depth },
-                    { id: "operator", header: "Operator", cell: item => item.operator }
-                  ]}
-                  items={selectedDataItems}
-                  loadingText="Loading data"
-                  selectionType="multi"
-                  selectedItems={tableSelection}
-                  onSelectionChange={({ detail }) => setTableSelection(detail.selectedItems)}
-                  header={
-                    <Header
-                      counter={`(${selectedDataItems.length} wells available)`}
-                      description="Uncheck wells you don't want to include in the collection"
-                    >
-                      Wells for Collection
-                    </Header>
-                  }
-                  empty={
-                    <Box textAlign="center" color="inherit">
-                      <Box variant="strong" color="inherit">No data selected</Box>
-                    </Box>
-                  }
-                />
-              ) : (
-                <Box textAlign="center" color="inherit" padding="m">
-                  No data available to create collection
-                </Box>
-              )}
-            </Container>
-          </SpaceBetween>
-        </Modal>
+          onDismiss={() => setShowCreateCollectionModal(false)}
+          collectionName={collectionName}
+          collectionDescription={collectionDescription}
+          onNameChange={setCollectionName}
+          onDescriptionChange={setCollectionDescription}
+          onCreateCollection={handleCreateCollection}
+          creating={creatingCollection}
+          dataItems={selectedDataItems}
+          selectedItems={tableSelection}
+          onSelectionChange={setTableSelection}
+          showItemSelection={true}
+        />
       )}
     </div>
   );

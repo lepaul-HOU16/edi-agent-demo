@@ -1,0 +1,26 @@
+# AWS Configuration
+REGION="us-west-2"
+AGENT_NAME="edicraft"
+
+# Minecraft Server Configuration
+MINECRAFT_HOST="edicraft.example.com"
+MINECRAFT_RCON_PORT="22222"
+MINECRAFT_RCON_PASSWORD="superSECUREp@ss"
+
+# AWS Bedrock Configuration
+BEDROCK_MODEL_ID="global.anthropic.claude-4-5-sonnet-20250929-v1:0"
+
+# Container Configuration
+IMAGE_TAG="latest"
+NETWORK_MODE="PUBLIC"
+
+# EDI (Managed OSDU Service) Authentication
+EDI_USERNAME=username
+EDI_PASSWORD=password
+EDI_CLIENT_ID=longidvalue
+EDI_CLIENT_SECRET=longersecretvalue
+EDI_PARTITION=partitionname
+EDI_PLATFORM_URL=https://osdu.example.com
+
+
+

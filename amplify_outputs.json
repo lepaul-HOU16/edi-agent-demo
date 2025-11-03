@@ -190,6 +190,145 @@
             "sortKeyFieldNames": []
           }
         },
+        "Well": {
+          "name": "Well",
+          "fields": {
+            "id": {
+              "name": "id",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true,
+              "attributes": []
+            },
+            "name": {
+              "name": "name",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "type": {
+              "name": "type",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "location": {
+              "name": "location",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "operationalStatus": {
+              "name": "operationalStatus",
+              "isArray": false,
+              "type": {
+                "enum": "WellOperationalStatus"
+              },
+              "isRequired": false,
+              "attributes": []
+            },
+            "healthScore": {
+              "name": "healthScore",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": true,
+              "attributes": []
+            },
+            "lastMaintenanceDate": {
+              "name": "lastMaintenanceDate",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "nextMaintenanceDate": {
+              "name": "nextMaintenanceDate",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "sensors": {
+              "name": "sensors",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": true,
+              "attributes": []
+            },
+            "alerts": {
+              "name": "alerts",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": true,
+              "attributes": []
+            },
+            "metadata": {
+              "name": "metadata",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": true,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "AWSDateTime",
+              "isRequired": false,
+              "attributes": [],
+              "isReadOnly": true
+            }
+          },
+          "syncable": true,
+          "pluralName": "Wells",
+          "attributes": [
+            {
+              "type": "model",
+              "properties": {}
+            },
+            {
+              "type": "auth",
+              "properties": {
+                "rules": [
+                  {
+                    "allow": "private",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  },
+                  {
+                    "allow": "public",
+                    "provider": "iam",
+                    "operations": [
+                      "create",
+                      "update",
+                      "delete",
+                      "read"
+                    ]
+                  }
+                ]
+              }
+            }
+          ],
+          "primaryKeyInfo": {
+            "isCustomPrimaryKey": false,
+            "primaryKeyFieldName": "id",
+            "sortKeyFieldNames": []
+          }
+        },
         "ChatSession": {
           "name": "ChatSession",
           "fields": {
@@ -246,6 +385,14 @@
               "type": "AWSJSON",
               "isRequired": false,
               "attributes": []
+            },
+            "dataAccessLog": {
+              "name": "dataAccessLog",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
             },
             "createdAt": {
               "name": "createdAt",
@@ -598,6 +745,15 @@
             "failed"
           ]
         },
+        "WellOperationalStatus": {
+          "name": "WellOperationalStatus",
+          "values": [
+            "operational",
+            "degraded",
+            "critical",
+            "offline"
+          ]
+        },
         "ChatMessageRole": {
           "name": "ChatMessageRole",
           "values": [
@@ -790,6 +946,152 @@
               "isArrayNullable": true
             }
           }
+        },
+        "InvokeMaintenanceAgentReturnType": {
+          "name": "InvokeMaintenanceAgentReturnType",
+          "fields": {
+            "success": {
+              "name": "success",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "artifacts": {
+              "name": "artifacts",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "thoughtSteps": {
+              "name": "thoughtSteps",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "workflow": {
+              "name": "workflow",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": []
+            },
+            "auditTrail": {
+              "name": "auditTrail",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
+        "InvokeEDIcraftAgentReturnType": {
+          "name": "InvokeEDIcraftAgentReturnType",
+          "fields": {
+            "success": {
+              "name": "success",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true,
+              "attributes": []
+            },
+            "artifacts": {
+              "name": "artifacts",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "thoughtSteps": {
+              "name": "thoughtSteps",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "connectionStatus": {
+              "name": "connectionStatus",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
+        },
+        "GetAgentProgressReturnType": {
+          "name": "GetAgentProgressReturnType",
+          "fields": {
+            "success": {
+              "name": "success",
+              "isArray": false,
+              "type": "Boolean",
+              "isRequired": true,
+              "attributes": []
+            },
+            "requestId": {
+              "name": "requestId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "steps": {
+              "name": "steps",
+              "isArray": true,
+              "type": "AWSJSON",
+              "isRequired": false,
+              "attributes": [],
+              "isArrayNullable": true
+            },
+            "status": {
+              "name": "status",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            },
+            "createdAt": {
+              "name": "createdAt",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "updatedAt": {
+              "name": "updatedAt",
+              "isArray": false,
+              "type": "Float",
+              "isRequired": false,
+              "attributes": []
+            },
+            "error": {
+              "name": "error",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false,
+              "attributes": []
+            }
+          }
         }
       },
       "queries": {
@@ -846,6 +1148,22 @@
               "isRequired": false
             }
           }
+        },
+        "getAgentProgress": {
+          "name": "getAgentProgress",
+          "isArray": false,
+          "type": {
+            "nonModel": "GetAgentProgressReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "requestId": {
+              "name": "requestId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            }
+          }
         }
       },
       "mutations": {
@@ -882,6 +1200,80 @@
           "isArray": false,
           "type": {
             "nonModel": "InvokeLightweightAgentReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "chatSessionId": {
+              "name": "chatSessionId",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "foundationModelId": {
+              "name": "foundationModelId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "userId": {
+              "name": "userId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "agentType": {
+              "name": "agentType",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            }
+          }
+        },
+        "invokeMaintenanceAgent": {
+          "name": "invokeMaintenanceAgent",
+          "isArray": false,
+          "type": {
+            "nonModel": "InvokeMaintenanceAgentReturnType"
+          },
+          "isRequired": false,
+          "arguments": {
+            "chatSessionId": {
+              "name": "chatSessionId",
+              "isArray": false,
+              "type": "ID",
+              "isRequired": true
+            },
+            "message": {
+              "name": "message",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "foundationModelId": {
+              "name": "foundationModelId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "userId": {
+              "name": "userId",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            }
+          }
+        },
+        "invokeEDIcraftAgent": {
+          "name": "invokeEDIcraftAgent",
+          "isArray": false,
+          "type": {
+            "nonModel": "InvokeEDIcraftAgentReturnType"
           },
           "isRequired": false,
           "arguments": {
@@ -998,6 +1390,30 @@
             ]
           },
           "global/*": {
+            "authenticated": [
+              "get",
+              "list",
+              "write",
+              "delete"
+            ],
+            "guest": [
+              "get",
+              "list"
+            ]
+          },
+          "renewable/*": {
+            "authenticated": [
+              "get",
+              "list",
+              "write",
+              "delete"
+            ],
+            "guest": [
+              "get",
+              "list"
+            ]
+          },
+          "renewable/projects/*": {
             "authenticated": [
               "get",
               "list",

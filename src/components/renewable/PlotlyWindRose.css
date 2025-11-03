@@ -1,0 +1,26 @@
+/* Force Plotly text elements to respect theme colors */
+.plotly-windrose-light .plotly text {
+  fill: #000000 !important;
+}
+
+.plotly-windrose-dark .plotly text {
+  fill: #ffffff !important;
+}
+
+/* Ensure legend background matches theme - target the rect element inside legend */
+.plotly-windrose-light .plotly .legend .bg {
+  fill: rgba(255, 255, 255, 0.9) !important;
+}
+
+.plotly-windrose-dark .plotly .legend .bg {
+  fill: rgba(26, 26, 26, 0.9) !important;
+}
+
+/* Also target any rect elements in the legend group */
+.plotly-windrose-light .plotly g.legend > rect {
+  fill: rgba(255, 255, 255, 0.9) !important;
+}
+
+.plotly-windrose-dark .plotly g.legend > rect {
+  fill: rgba(26, 26, 26, 0.9) !important;
+}

@@ -12,10 +12,12 @@ import { defaultPrompts } from '@/constants/defaultPrompts';
 
 import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
 import ExpandablePromptInput from './ExpandablePromptInput';
+import AgentSwitcher from './AgentSwitcher';
 
 import { generateClient } from "aws-amplify/data";
 import { type Schema } from "@/../amplify/data/resource";
 import { getThinkingContextFromStep } from '../../utils/thoughtTypes';
+import { useRenewableJobPolling, useChatMessagePolling } from '@/hooks';
 
 const ChatBox = (params: {
   chatSessionId: string,
@@ -23,7 +25,9 @@ const ChatBox = (params: {
   onInputChange: (input: string) => void,
   userInput: string,
   messages?: Message[],
-  setMessages?: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void
+  setMessages?: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void,
+  selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft',
+  onAgentChange?: (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft') => void
 }) => {
   const { chatSessionId, showChainOfThought } = params
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -32,6 +36,22 @@ const ChatBox = (params: {
   // Use provided messages and setMessages if available, otherwise use local state
   const messages = params.messages || localMessages;
   const setMessages = params.setMessages || setLocalMessages;
+  
+  // Create stable callback using useCallback with proper dependencies
+  const handleMessagesUpdated = useCallback((updatedMessages: any[]) => {
+    console.log('🔄 ChatBox: Messages updated from polling, refreshing UI');
+    setMessages((prevMessages) => combineAndSortMessages(prevMessages, updatedMessages as Message[]));
+  }, [setMessages]);
+  
+  // POLLING: Disabled due to infinite loop issues
+  // TODO: Implement proper GraphQL subscription instead
+  // useChatMessagePolling({
+  //   chatSessionId,
+  //   enabled: false,
+  //   interval: 3000,
+  //   onMessagesUpdated: handleMessagesUpdated,
+  // });
+
 
   // Initialize Amplify client after component mounts
   useEffect(() => {
@@ -75,6 +95,44 @@ const ChatBox = (params: {
 
   // CRITICAL FIX: Add ref for thinking timeout management
   const thinkingTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+
+  // ASYNC RENEWABLE JOBS: Poll for results from background processing
+  const {
+    isProcessing: isRenewableJobProcessing,
+    hasNewResults: hasNewRenewableResults,
+    latestMessage: latestRenewableMessage,
+  } = useRenewableJobPolling({
+    chatSessionId,
+    enabled: true, // Always poll when chat is open
+    pollingInterval: 3000, // Poll every 3 seconds
+    onNewMessage: (message) => {
+      console.log('🌱 ChatBox: New renewable job results received', {
+        messageId: message?.id,
+        role: message?.role,
+        hasArtifacts: !!(message as any)?.artifacts?.length
+      });
+      // Manually add the message to trigger UI update
+      if (message) {
+        setMessages((prevMessages) => {
+          // Check if message already exists
+          const exists = prevMessages.some(m => m.id === message.id);
+          console.log('🌱 ChatBox: Checking if message exists', {
+            messageId: message.id,
+            exists,
+            currentMessageCount: prevMessages.length,
+            currentMessageIds: prevMessages.map(m => m.id)
+          });
+          if (!exists) {
+            console.log('🌱 ChatBox: Adding new renewable message to UI');
+            return [...prevMessages, message as Message];
+          } else {
+            console.log('🌱 ChatBox: Message already exists, skipping add');
+          }
+          return prevMessages;
+        });
+      }
+    },
+  });
 
   // Unified message filter function to ensure consistency
   const shouldDisplayMessage = useCallback((message: Message) => {
@@ -153,15 +211,38 @@ const ChatBox = (params: {
     }, 800); // Increased delay for slower animation
   }, [autoScroll]);
 
-  // Memoized displayed messages
+  // Memoized displayed messages with deduplication
   const displayedMessages = React.useMemo(() => {
     console.log('ChatBox: Calculating displayed messages', {
       messagesLength: messages?.length || 0,
       hasStreamChunk: !!streamChunkMessage
     });
     
+    // CRITICAL FIX: Deduplicate messages by ID before processing
+    const deduplicatedMessages = messages ? Array.from(
+      new Map(messages.map(m => [m.id, m])).values()
+    ) : [];
+    
+    // Check if deduplication removed any messages
+    if (messages && deduplicatedMessages.length < messages.length) {
+      console.warn('⚠️ DUPLICATE MESSAGES REMOVED!', {
+        originalCount: messages.length,
+        deduplicatedCount: deduplicatedMessages.length,
+        removedCount: messages.length - deduplicatedMessages.length
+      });
+      
+      // Log which IDs were duplicated
+      const messageIds = messages.map(m => m.id);
+      const idCounts = messageIds.reduce((acc, id) => {
+        acc[id] = (acc[id] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+      const duplicates = Object.entries(idCounts).filter(([_, count]) => count > 1);
+      console.warn('Removed duplicate message IDs:', duplicates);
+    }
+    
     const allMessages = [
-      ...(messages ? messages : []),
+      ...deduplicatedMessages,
       ...(streamChunkMessage ? [streamChunkMessage] : [])
     ];
     
@@ -203,7 +284,8 @@ const ChatBox = (params: {
       const messagesSub = amplifyClient.models.ChatMessage.observeQuery({
         filter: {
           chatSessionId: { eq: params.chatSessionId }
-        }
+        },
+        selectionSet: ['id', 'role', 'content.*', 'chatSessionId', 'createdAt', 'responseComplete', 'artifacts', 'thoughtSteps']
       }).subscribe({
         next: ({ items }) => {
         setMessages((prevMessages) => {
@@ -239,7 +321,8 @@ const ChatBox = (params: {
       const result = await amplifyClient.models.ChatMessage.list({
         filter: {
           chatSessionId: { eq: params.chatSessionId }
-        }
+        },
+        selectionSet: ['id', 'role', 'content.*', 'chatSessionId', 'createdAt', 'responseComplete', 'artifacts', 'thoughtSteps']
       });
 
       if (result.data) {
@@ -410,7 +493,8 @@ const ChatBox = (params: {
     try {
       const { data: messagesToDelete } = await amplifyClient.models.ChatMessage.listChatMessageByChatSessionIdAndCreatedAt({
         chatSessionId: params.chatSessionId as any,
-        createdAt: { ge: messageToRegenerate.createdAt as any }
+        createdAt: { ge: messageToRegenerate.createdAt as any },
+        selectionSet: ['id', 'role', 'content.*', 'chatSessionId', 'createdAt', 'responseComplete', 'artifacts', 'thoughtSteps']
       });
 
       if (!messagesToDelete || messagesToDelete.length === 0) {
@@ -476,7 +560,8 @@ const ChatBox = (params: {
       try {
         const result = await sendMessage({
           chatSessionId: params.chatSessionId as any,
-          newMessage: newMessage as any
+          newMessage: newMessage as any,
+          agentType: params.selectedAgent || 'auto'
         });
         
         console.log('=== CHATBOX DEBUG: Send message result ===', result);
@@ -538,6 +623,7 @@ const ChatBox = (params: {
                 <ChatMessage
                   message={message}
                   onRegenerateMessage={(message as any).role === 'human' ? handleRegenerateMessage : undefined}
+                  onSendMessage={handleSend}
                 />
               </ListItem>
             );
@@ -595,30 +681,21 @@ const ChatBox = (params: {
             placeholder="Ask a question"
             onTypingStateChange={handleTypingStateChange}
           />
-          <Typography
-            variant="inherit"
-            color="white"
-            style={{ lineHeight: '14px', width: '50px', marginRight: '-13px', marginLeft: '10px' }}
-            fontSize={11}
-          >
-            AI Agent Switcher
-          </Typography>
-          <ButtonDropdown
-            items={[
-            {
-              text: 'General AI Assistant - Weather, regulations, general knowledge',
-              id: 'generalAgent',
-            },
-            {
-              text: 'Petrophysics Agent - Well data analysis & formation evaluation',
-              id: 'petroAgent',
-            },
-            {
-              text: 'Catalog Explorer - Geographic well search & mapping',
-              id: 'catalogAgent',
-            },
-            ]}
-          ></ButtonDropdown>
+          {params.selectedAgent !== undefined && params.onAgentChange && (
+            <>
+              <Typography
+                style={{ lineHeight: '14px', width: '50px', marginRight: '-13px', marginLeft: '10px' }}
+                fontSize={11}
+              >
+                AI Agent Switcher
+              </Typography>
+              <AgentSwitcher
+                selectedAgent={params.selectedAgent}
+                onAgentChange={params.onAgentChange}
+                variant="input"
+              />
+            </>
+          )}
         </div>
       </div>
       

@@ -133,12 +133,25 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
       
       // Handle root directory specially to include global folder
       if (!path) {
-        const result = await list({
-          path: basePath,
-          options: {
-            subpathStrategy: { strategy: 'exclude' }
-          },
-        });
+        let result;
+        try {
+          result = await list({
+            path: basePath,
+            options: {
+              subpathStrategy: { strategy: 'exclude' }
+            },
+          });
+        } catch (listError: any) {
+          // If the path doesn't exist (404/500), treat as empty directory
+          console.warn(`Path ${basePath} not found or inaccessible:`, listError);
+          if (listError?.message?.includes('404') || listError?.message?.includes('500') || listError?.statusCode === 404 || listError?.statusCode === 500) {
+            setFileStructure([]);
+            setIsLoading(false);
+            loadingRef.current = false;
+            return;
+          }
+          throw listError;
+        }
         
         const items: FileItem[] = [];
 
@@ -214,12 +227,25 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
           : `${basePath}${path}`; // Use chat session path
         
         console.log(`Full path: ${fullPath}`);
-        const result = await list({
-          path: fullPath,
-          options: {
-            subpathStrategy: { strategy: 'exclude' }
-          },
-        });
+        let result;
+        try {
+          result = await list({
+            path: fullPath,
+            options: {
+              subpathStrategy: { strategy: 'exclude' }
+            },
+          });
+        } catch (listError: any) {
+          // If the path doesn't exist (404/500), treat as empty directory
+          console.warn(`Path ${fullPath} not found or inaccessible:`, listError);
+          if (listError?.message?.includes('404') || listError?.message?.includes('500') || listError?.statusCode === 404 || listError?.statusCode === 500) {
+            setFileStructure([]);
+            setIsLoading(false);
+            loadingRef.current = false;
+            return;
+          }
+          throw listError;
+        }
         
         const items: FileItem[] = [];
 
@@ -281,9 +307,18 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
       console.log(`File structure loaded for path: ${path}`);
       console.log(fileStructure);
 
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error loading files:', err);
-      setError('Failed to load files. Please try again later.');
+      // Provide more specific error messages
+      if (err?.statusCode === 403 || err?.message?.includes('403')) {
+        setError('Access denied. You may not have permission to view these files.');
+      } else if (err?.statusCode === 404 || err?.message?.includes('404')) {
+        setError('Folder not found. It may have been deleted.');
+      } else if (err?.statusCode === 500 || err?.message?.includes('500')) {
+        setError('Server error. The folder may not exist yet.');
+      } else {
+        setError('Failed to load files. Please try again later.');
+      }
     } finally {
       setIsLoading(false);
       loadingRef.current = false;

@@ -121,6 +121,11 @@ function RootLayoutContent({
     // Apply the mode when component mounts and when darkMode changes
     applyMode(darkMode ? Mode.Dark : Mode.Light);
     
+    // Also set a custom data attribute on the body for our CSS
+    if (typeof window !== 'undefined') {
+      document.body.setAttribute('data-theme', darkMode ? 'dark' : 'light');
+    }
+    
     // Try to load the preference from localStorage if available
     if (typeof window !== 'undefined') {
       const savedMode = localStorage.getItem('darkMode');
@@ -148,6 +153,9 @@ function RootLayoutContent({
     // Save preference to localStorage if available
     if (typeof window !== 'undefined') {
       localStorage.setItem('darkMode', String(newMode));
+      
+      // Dispatch custom event for components to react to theme changes
+      window.dispatchEvent(new Event('themechange'));
     }
   };
   
@@ -182,6 +190,12 @@ function RootLayoutContent({
                   href: '/catalog',
                 },
                 {
+                  id: 'view-collections',
+                  text: 'View All Collections',
+                  href: '/collections',
+                  iconName: 'folder',
+                },
+                {
                   id: 'dc',
                   text: 'Data Collections',
                   items: [
@@ -203,8 +217,14 @@ function RootLayoutContent({
               iconName: 'gen-ai',
               items: [
                 {
-                  id: 'list',
+                  id: 'view-all-canvases',
                   text: 'View All Canvases',
+                  href: '/canvases',
+                  iconName: 'view-full',
+                },
+                {
+                  id: 'list',
+                  text: 'List Chats (Deprecated)',
                   href: '/listChats',
                 },
                 {

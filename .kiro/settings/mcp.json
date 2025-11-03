@@ -1,22 +1,12 @@
 {
   "mcpServers": {
-    "petrophysical-analysis": {
-      "command": "./start_mcp_with_venv.sh",
-      "args": [],
+    "fetch": {
+      "command": "/Users/lepaul/.local/bin/uvx",
+      "args": ["mcp-server-fetch"],
       "env": {},
       "disabled": false,
       "autoApprove": [
-        "list_wells",
-        "get_well_info",
-        "get_curve_data",
-        "calculate_statistics",
-        "calculate_porosity",
-        "calculate_shale_volume",
-        "calculate_saturation",
-        "assess_curve_quality",
-        "calculate_data_completeness",
-        "validate_environmental_corrections",
-        "assess_well_data_quality"
+        "fetch"
       ]
     }
   }

@@ -1,0 +1,15 @@
+import { defineFunction } from '@aws-amplify/backend';
+
+export const renewableOrchestrator = defineFunction({
+  name: 'renewableOrchestrator',
+  entry: './handler.ts',
+  timeoutSeconds: 300, // 5 minutes - needs to wait for report Lambda which can take up to 5 min
+  memoryMB: 512,
+  resourceGroupName: 'data', // Assign to data stack to access ChatMessage table
+  environment: {
+    RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME: process.env.RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME || '',
+    RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME: process.env.RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME || '',
+    RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME: process.env.RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME || '',
+    RENEWABLE_REPORT_TOOL_FUNCTION_NAME: process.env.RENEWABLE_REPORT_TOOL_FUNCTION_NAME || ''
+  }
+});

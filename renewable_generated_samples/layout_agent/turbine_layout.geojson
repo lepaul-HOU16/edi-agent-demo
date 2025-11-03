@@ -1,0 +1,146 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "turbine_id": "T1",
+        "turbine_model": "IEA_Reference_3.4MW_130",
+        "capacity_MW": 3.4
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.395466,
+          35.067482
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "turbine_id": "T2",
+        "turbine_model": "IEA_Reference_3.4MW_130",
+        "capacity_MW": 3.4
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.39106915024786,
+          35.06559387544047
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "turbine_id": "T3",
+        "turbine_model": "IEA_Reference_3.4MW_130",
+        "capacity_MW": 3.4
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.40104185703392,
+          35.07152342040544
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "turbine_id": "T4",
+        "turbine_model": "IEA_Reference_3.4MW_130",
+        "capacity_MW": 3.4
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.38679709921783,
+          35.06297039156262
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "turbine_id": "T5",
+        "turbine_model": "IEA_Reference_3.4MW_130",
+        "capacity_MW": 3.4
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.38700913667334,
+          35.073721774266104
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "turbine_id": "T6",
+        "turbine_model": "IEA_Reference_3.4MW_130",
+        "capacity_MW": 3.4
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.39155777450291,
+          35.07660699118388
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "turbine_id": "T7",
+        "turbine_model": "IEA_Reference_3.4MW_130",
+        "capacity_MW": 3.4
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.4068354590242,
+          35.07266232954999
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "turbine_id": "T8",
+        "turbine_model": "IEA_Reference_3.4MW_130",
+        "capacity_MW": 3.4
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.40768934303135,
+          35.062119509683676
+        ]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "turbine_id": "T9",
+        "turbine_model": "IEA_Reference_3.4MW_130",
+        "capacity_MW": 3.4
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -101.40328602509244,
+          35.05768626805562
+        ]
+      }
+    }
+  ],
+  "properties": {
+    "layout_type": "spiral",
+    "total_capacity_MW": 30.599999999999998,
+    "num_turbines": 9,
+    "turbine_model": "IEA_Reference_3.4MW_130"
+  }
+}

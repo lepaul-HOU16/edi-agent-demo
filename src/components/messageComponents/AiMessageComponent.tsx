@@ -117,6 +117,59 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme,
               </>
             )}
             
+            {/* Show fallback warning if advanced AI was unavailable */}
+            {(message as any).metadata?.fallbackUsed && (
+              <Box
+                sx={{
+                  backgroundColor: theme.palette.mode === 'dark' 
+                    ? 'rgba(33, 150, 243, 0.1)' 
+                    : 'rgba(33, 150, 243, 0.08)',
+                  border: `1px solid ${theme.palette.mode === 'dark' 
+                    ? 'rgba(33, 150, 243, 0.3)' 
+                    : 'rgba(33, 150, 243, 0.2)'}`,
+                  borderRadius: theme.shape.borderRadius,
+                  padding: theme.spacing(1.5),
+                  marginTop: theme.spacing(1),
+                  marginBottom: theme.spacing(1),
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: theme.spacing(1)
+                }}
+              >
+                <Box
+                  sx={{
+                    color: theme.palette.info.main,
+                    fontSize: '1.2rem',
+                    lineHeight: 1,
+                    marginTop: '2px'
+                  }}
+                >
+                  ℹ️
+                </Box>
+                <Box sx={{ flex: 1 }}>
+                  <Typography 
+                    variant="body2" 
+                    sx={{ 
+                      color: theme.palette.text.primary,
+                      fontWeight: 500,
+                      marginBottom: 0.5
+                    }}
+                  >
+                    Advanced AI unavailable, using basic mode
+                  </Typography>
+                  <Typography 
+                    variant="caption" 
+                    sx={{ 
+                      color: theme.palette.text.secondary,
+                      display: 'block'
+                    }}
+                  >
+                    {(message as any).metadata?.fallbackReason || 'The intelligent agent system is temporarily unavailable. Results generated using direct tool invocation.'}
+                  </Typography>
+                </Box>
+              </Box>
+            )}
+            
             {(message as any).toolCalls && (message as any).toolCalls !== '[]' && (
               <div style={{
                 backgroundColor: theme.palette.mode === 'dark' ? theme.palette.grey[800] : theme.palette.grey[100],

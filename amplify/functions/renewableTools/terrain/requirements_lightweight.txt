@@ -1,0 +1,8 @@
+# Lightweight dependencies - no visualization libraries
+# Only what's needed for data fetching and processing
+
+# AWS SDK (already included in Lambda runtime, but explicit for clarity)
+boto3>=1.26.0
+
+# HTTP requests (standard library urllib is used, so this is optional)
+requests>=2.28.0

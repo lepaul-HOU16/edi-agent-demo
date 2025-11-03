@@ -90,12 +90,12 @@ const LandingPage = () => {
                   </Button>
                   <Button onClick={() => {
                     if (authStatus === 'authenticated') {
-                      router.push('/listChats');
+                      router.push('/canvases');
                     } else {
                       router.push('/auth');
                     }
                   }}>
-                    Browse chats
+                    Browse canvases
                   </Button>
                   <Button variant="primary" onClick={async () => {
                     if (authStatus === 'authenticated') {

@@ -1,0 +1,7 @@
+bedrock-agentcore
+bedrock-agentcore-starter-toolkit
+strands-agents
+rcon
+osdu-client
+pytest
+boto3

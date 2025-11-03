@@ -90,8 +90,8 @@ const TopNavBar: React.FC = () => {
             <>
               <Button color="inherit" onClick={handleCreateNewChat}>Workspace</Button>
               <Button color="inherit" onClick={handleCreatePetrophysicsChat}>Petrophysical Analysis</Button>
-              <Link href="/listChats" passHref>
-                <Button color="inherit">List Chats</Button>
+              <Link href="/canvases" passHref>
+                <Button color="inherit">Canvases</Button>
               </Link>
               <Button color="inherit" onClick={handleCreateNewChat}>Create</Button>
             </>

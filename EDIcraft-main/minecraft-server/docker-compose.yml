@@ -1,0 +1,28 @@
+services:
+  minecraft:
+    image: itzg/minecraft-server
+    tty: true
+    stdin_open: true
+    ports:
+      - "49000:25565"
+      - "49001:25575"
+    environment:
+      EULA: "TRUE"
+      RCON_PASSWORD: # replace with rcon password
+      WHITELIST: |
+        rastaruby3
+        DarkDragnet
+        naginata9     
+        LEPAUL337
+        LePaul337
+        Fantaros
+        LEPAUL337
+      RCON_CMDS_STARTUP:  |-
+        /time set noon
+        /gamerule doDaylightCycle false
+      INIT_MEMORY: 1G
+      MAX_MEMORY: 4G
+    volumes:
+      # attach the relative directory 'data' to the container's /data path
+      - ./edi:/data
+    restart: unless-stopped
