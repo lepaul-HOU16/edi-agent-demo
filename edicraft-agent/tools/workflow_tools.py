@@ -1333,75 +1333,93 @@ Set `confirm=True` when calling this tool.
 
 {CloudscapeResponseBuilder.TIP_ICON} **Tip:** This is a safety check to prevent accidental resets during active demonstrations."""
         
-        print(f"[DEMO_RESET] Reset confirmed, starting sequence...")
+        print(f"[DEMO_RESET] Reset confirmed, starting FAST reset sequence...")
         
-        # Step 2: Clear all wellbores, rigs, and markers
-        print(f"[DEMO_RESET] Step 1/4: Clearing Minecraft environment...")
-        try:
-            clear_result = clear_minecraft_environment(area="all", preserve_terrain=True)
-            
-            if CloudscapeResponseBuilder.ERROR_ICON in clear_result:
-                print(f"[DEMO_RESET] Clear operation failed: {clear_result}")
-                return CloudscapeResponseBuilder.error_response(
-                    "Demo Reset",
-                    "Failed to clear Minecraft environment during reset",
-                    [
-                        "Check Minecraft server connection",
-                        "Verify RCON is enabled and accessible",
-                        "Try clearing manually first",
-                        "Check server logs for errors"
-                    ]
-                )
-            
-            print(f"[DEMO_RESET] Environment cleared successfully")
-            
-        except Exception as e:
-            print(f"[DEMO_RESET] Error during clear: {str(e)}")
-            return CloudscapeResponseBuilder.error_response(
-                "Demo Reset - Clear Failed",
-                f"Error clearing environment: {str(e)}",
-                [
-                    "Check Minecraft server status",
-                    "Verify RCON connection",
-                    "Try clearing manually",
-                    "Check server logs for details"
-                ]
-            )
+        # Track what succeeds for detailed reporting
+        time_lock_success = False
+        teleport_success = False
+        clear_initiated = False
         
-        # Step 3: Lock world time to daytime
-        print(f"[DEMO_RESET] Step 2/4: Locking world time to daytime...")
+        # Step 1: Lock world time to daytime (FAST - do this first)
+        print(f"[DEMO_RESET] Step 1/3: Locking world time to daytime...")
+        print(f"[DEMO_RESET] [THOUGHT] Setting time to day and disabling daylight cycle")
         try:
             time_result = lock_world_time(time="day", enabled=True)
             
             if CloudscapeResponseBuilder.ERROR_ICON in time_result:
-                print(f"[DEMO_RESET] Time lock failed (non-critical): {time_result}")
-                # Don't fail the whole reset if time lock fails
+                print(f"[DEMO_RESET] [THOUGHT] Time lock failed: {time_result}")
             else:
-                print(f"[DEMO_RESET] World time locked to daytime")
+                print(f"[DEMO_RESET] [THOUGHT] Time lock succeeded - world locked to daytime")
+                time_lock_success = True
                 
         except Exception as e:
-            print(f"[DEMO_RESET] Error during time lock (non-critical): {str(e)}")
-            # Don't fail the whole reset if time lock fails
+            print(f"[DEMO_RESET] [THOUGHT] Time lock error: {str(e)}")
         
-        # Step 4: Teleport players to spawn
-        print(f"[DEMO_RESET] Step 3/4: Teleporting players to spawn...")
+        # Step 2: Teleport players to spawn (FAST - do this second)
+        print(f"[DEMO_RESET] Step 2/3: Teleporting players to spawn...")
+        print(f"[DEMO_RESET] [THOUGHT] Getting player list and teleporting to spawn (0, 100, 0)")
         try:
             # Get list of online players
             player_list_result = execute_rcon_command("list")
-            print(f"[DEMO_RESET] Player list: {player_list_result}")
+            print(f"[DEMO_RESET] [THOUGHT] Player list: {player_list_result}")
             
             # Teleport all players to spawn (0, 100, 0)
             tp_command = "tp @a 0 100 0"
             tp_result = execute_rcon_command(tp_command)
-            print(f"[DEMO_RESET] Teleport result: {tp_result}")
+            print(f"[DEMO_RESET] [THOUGHT] Teleport result: {tp_result}")
+            teleport_success = True
             
         except Exception as e:
-            print(f"[DEMO_RESET] Error during teleport (non-critical): {str(e)}")
-            # Don't fail the whole reset if teleport fails
+            print(f"[DEMO_RESET] [THOUGHT] Teleport error: {str(e)}")
         
-        # Step 5: Return success confirmation
-        print(f"[DEMO_RESET] Step 4/4: Demo reset complete!")
-        return CloudscapeResponseBuilder.demo_reset_confirmation()
+        # Step 3: Initiate clear operation in background (SLOW - start but don't wait)
+        print(f"[DEMO_RESET] Step 3/3: Initiating clear operation...")
+        print(f"[DEMO_RESET] [THOUGHT] Starting clear operation in background - will complete in 30-60 seconds")
+        try:
+            # Start clear operation but don't wait for it
+            # Use threading to run in background
+            import threading
+            
+            def background_clear():
+                try:
+                    print(f"[DEMO_RESET] [BACKGROUND] Clear operation starting...")
+                    print(f"[DEMO_RESET] [BACKGROUND] Calling clear_minecraft_environment(area='all', preserve_terrain=True)")
+                    clear_result = clear_minecraft_environment(area="all", preserve_terrain=True)
+                    print(f"[DEMO_RESET] [BACKGROUND] Clear operation completed")
+                    print(f"[DEMO_RESET] [BACKGROUND] Result preview: {clear_result[:500] if clear_result else 'None'}")
+                    
+                    # Check if clear was successful
+                    if CloudscapeResponseBuilder.SUCCESS_ICON in str(clear_result):
+                        print(f"[DEMO_RESET] [BACKGROUND] ✅ Clear operation SUCCEEDED")
+                    elif CloudscapeResponseBuilder.ERROR_ICON in str(clear_result):
+                        print(f"[DEMO_RESET] [BACKGROUND] ❌ Clear operation FAILED")
+                        print(f"[DEMO_RESET] [BACKGROUND] Full error: {clear_result}")
+                    else:
+                        print(f"[DEMO_RESET] [BACKGROUND] ⚠️  Clear operation status unclear")
+                        
+                except Exception as e:
+                    print(f"[DEMO_RESET] [BACKGROUND] ❌ Clear operation exception: {str(e)}")
+                    import traceback
+                    print(f"[DEMO_RESET] [BACKGROUND] Traceback: {traceback.format_exc()}")
+            
+            clear_thread = threading.Thread(target=background_clear, daemon=True)
+            clear_thread.start()
+            clear_initiated = True
+            print(f"[DEMO_RESET] [THOUGHT] Clear operation initiated in background")
+            
+        except Exception as e:
+            print(f"[DEMO_RESET] [THOUGHT] Failed to initiate clear operation: {str(e)}")
+        
+        # Return immediate success confirmation
+        print(f"[DEMO_RESET] Demo reset initiated!")
+        print(f"[DEMO_RESET] [THOUGHT] Summary - Time Lock: {time_lock_success}, Teleport: {teleport_success}, Clear: initiated in background")
+        
+        return CloudscapeResponseBuilder.demo_reset_confirmation(
+            clear_success=False,  # Not complete yet
+            time_lock_success=time_lock_success,
+            teleport_success=teleport_success,
+            clear_details={'status': 'initiated', 'message': 'Clear operation running in background (30-60 seconds)'}
+        )
         
     except Exception as e:
         print(f"[DEMO_RESET] Unexpected error in demo reset: {str(e)}")

@@ -200,25 +200,76 @@ Would you like to try one of these options?"""
 {data_rows}"""
     
     @staticmethod
-    def demo_reset_confirmation() -> str:
+    def demo_reset_confirmation(
+        clear_success: bool = True,
+        time_lock_success: bool = True,
+        teleport_success: bool = True,
+        clear_details: dict = None
+    ) -> str:
         """
-        Generate demo reset confirmation response.
+        Generate demo reset confirmation response with detailed status.
+        
+        Args:
+            clear_success: Whether the clear operation succeeded
+            time_lock_success: Whether time lock succeeded
+            teleport_success: Whether teleport succeeded
+            clear_details: Optional details about clear operation
         
         Returns:
-            Cloudscape-formatted reset confirmation
+            Cloudscape-formatted reset confirmation with detailed status
         """
-        return f"""{CloudscapeResponseBuilder.SUCCESS_ICON} **Demo Environment Reset Complete**
+        clear_icon = CloudscapeResponseBuilder.SUCCESS_ICON if clear_success else CloudscapeResponseBuilder.WARNING_ICON
+        time_icon = CloudscapeResponseBuilder.SUCCESS_ICON if time_lock_success else CloudscapeResponseBuilder.WARNING_ICON
+        teleport_icon = CloudscapeResponseBuilder.SUCCESS_ICON if teleport_success else CloudscapeResponseBuilder.WARNING_ICON
+        
+        clear_status = "All wellbores cleared" if clear_success else "Clear operation failed"
+        rig_status = "All drilling rigs removed" if clear_success else "Rig removal failed"
+        marker_status = "All markers cleared" if clear_success else "Marker clearing failed"
+        time_status = "World time locked to daytime" if time_lock_success else "Time lock failed"
+        teleport_status = "Players teleported to spawn" if teleport_success else "Teleport failed"
+        
+        # Determine overall status
+        all_success = clear_success and time_lock_success and teleport_success
+        partial_success = time_lock_success or teleport_success
+        
+        if all_success:
+            status_message = "Ready for Demo"
+            tip_message = "The Minecraft world is now clean and ready for your next demonstration!"
+        elif partial_success:
+            status_message = "Partially Complete (see details below)"
+            tip_message = "Some operations succeeded. Check the status above and retry failed operations if needed."
+        else:
+            status_message = "Reset Failed"
+            tip_message = "All operations failed. Check Minecraft server connection and RCON configuration."
+        
+        # Build detailed message
+        message = f"""{CloudscapeResponseBuilder.SUCCESS_ICON} **Demo Environment Reset Complete**
 
 **Actions Performed:**
-- {CloudscapeResponseBuilder.SUCCESS_ICON} All wellbores cleared
-- {CloudscapeResponseBuilder.SUCCESS_ICON} All drilling rigs removed
-- {CloudscapeResponseBuilder.SUCCESS_ICON} All markers cleared
-- {CloudscapeResponseBuilder.SUCCESS_ICON} World time locked to daytime
-- {CloudscapeResponseBuilder.SUCCESS_ICON} Players teleported to spawn
+- {clear_icon} {clear_status}
+- {clear_icon} {rig_status}
+- {clear_icon} {marker_status}
+- {time_icon} {time_status}
+- {teleport_icon} {teleport_status}
 
-**Status:** Ready for Demo
+**Status:** {status_message}
 
-{CloudscapeResponseBuilder.TIP_ICON} **Tip:** The Minecraft world is now clean and ready for your next demonstration!"""
+{CloudscapeResponseBuilder.TIP_ICON} **Tip:** {tip_message}"""
+        
+        # Add clear details if available
+        if clear_details:
+            if clear_details.get('status') == 'initiated':
+                message += f"\n\n**Clear Operation Status:**\n"
+                message += f"🔄 {clear_details.get('message', 'Clear operation running in background')}\n"
+                message += f"The environment will be fully cleared in 30-60 seconds."
+            elif clear_details.get('status') == 'error':
+                message += f"\n\n**Clear Operation Details:**\n"
+                message += f"Error: {clear_details.get('message', 'Unknown error')}"
+            elif clear_details.get('status') == 'failed':
+                message += f"\n\n**Clear Operation Details:**\n"
+                message += f"Failed: {clear_details.get('message', 'Operation did not complete')}"
+        
+        return message
     
     @staticmethod
     def clear_confirmation(
