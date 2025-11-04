@@ -4,7 +4,7 @@ agents:
     name: edicraft
     entrypoint: /Users/lepaul/Dev/prototypes/edi-agent-demo/edicraft-agent/agent.py
     platform: linux/arm64
-    container_runtime: docker
+    container_runtime: none
     source_path: /Users/lepaul/Dev/prototypes/edi-agent-demo/edicraft-agent
     aws:
       execution_role: arn:aws:iam::484907533441:role/AmazonBedrockAgentCoreSDKRuntime-us-east-1-e947ba7ac5

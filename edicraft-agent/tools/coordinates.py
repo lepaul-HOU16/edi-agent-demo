@@ -63,14 +63,14 @@ def transform_surface_to_minecraft(coordinates: list) -> list:
         mc_z = int((y - scaling['y_min']) * scaling['scale_factor'])  # Real Y -> MC Z
         
         # Handle flat surfaces (z_span == 0) by placing at fixed height
-        # Place horizons SUBSURFACE at Y=50-90 (below ground at Y=100)
+        # Place horizons SUBSURFACE at Y=50-90 (below ground at Y=100, geological surfaces)
         if z_span > 0:
             mc_y = int(50 + (z - scaling['z_min']) / z_span * 40)  # Real Z -> MC Y (50-90 range)
         else:
             mc_y = 70  # Fixed height for flat surfaces (middle of subsurface range)
         
         # Ensure Y is within valid Minecraft range (subsurface)
-        mc_y = max(10, min(99, mc_y))  # Y=10-99 (subsurface, below ground at Y=100)
+        mc_y = max(50, min(90, mc_y))  # Y=50-90 (subsurface, below ground at Y=100)
         
         result.append((mc_x, mc_y, mc_z))
     

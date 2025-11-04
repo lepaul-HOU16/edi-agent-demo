@@ -115,12 +115,12 @@ class ClearEnvironmentTool:
         ]
         
         # Define clear region (centered around spawn)
-        # 150x150 area focused on center (25% smaller than 200x200)
+        # 300x300 area to accommodate large horizon surfaces (100x100 blocks with margin)
         self.clear_region = {
-            "x_min": -75,
-            "x_max": 75,
-            "z_min": -75,
-            "z_max": 75,
+            "x_min": -150,
+            "x_max": 150,
+            "z_min": -150,
+            "z_max": 150,
             "y_clear_start": 10,     # Start clearing from subsurface (includes horizons at Y=50-90 and trajectories)
             "y_clear_end": 130,      # Clear to Y=130 (includes rigs up to 18 blocks tall at Y=118)
             "y_ground_start": 100,   # Ground level (single layer at y=100)
@@ -129,12 +129,12 @@ class ClearEnvironmentTool:
         
         # Chunk configuration - Use 32x32x32 to stay under Minecraft's 32,768 block limit
         # 32x32x32 = 32,768 blocks (exactly at limit)
-        # With 150x150x190 region (y=65-255): 25 horizontal chunks × 6 vertical slices = 150 operations
+        # With 300x300x120 region (y=10-130): 100 horizontal chunks × 4 vertical slices = 400 operations
         self.chunk_size = 32
         self.chunk_height = 32  # Vertical slice height
         self.chunk_timeout = 30  # 30 seconds per chunk
         self.max_chunk_retries = 2
-        self.total_timeout = 180  # 3 minutes total (reduced from 5)
+        self.total_timeout = 300  # 5 minutes total (increased for larger area)
 
     def _create_rcon_executor(self) -> RCONExecutor:
         """Create RCON executor with connection retry logic.

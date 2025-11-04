@@ -27,6 +27,9 @@ import { edicraftAgentFunction } from './functions/edicraftAgent/resource';
 // Import Strands Agent System
 import { renewableAgentsFunction } from './functions/renewableAgents/resource';
 
+// Import OSDU Proxy
+import { osduProxyFunction } from './functions/osduProxy/resource';
+
 const backend = defineBackend({
   auth,
   data,
@@ -48,7 +51,9 @@ const backend = defineBackend({
   // EDIcraft Agent
   edicraftAgentFunction,
   // Strands Agent System (COMPLETE AGENT ARCHITECTURE)
-  renewableAgentsFunction // ✅ ENABLED - Intelligent layout optimization with py-wake
+  renewableAgentsFunction, // ✅ ENABLED - Intelligent layout optimization with py-wake
+  // OSDU Proxy
+  osduProxyFunction
 });
 
 backend.stack.tags.setTag('Project', 'workshop-a4e');
@@ -328,6 +333,28 @@ backend.edicraftAgentFunction.addEnvironment(
 
 console.log('✅ EDIcraft Agent configured with Bedrock and Lambda invoke permissions');
 console.log('✅ EDIcraft Agent environment variables configured (Bedrock, Minecraft, OSDU)');
+
+// ============================================
+// OSDU Proxy Configuration
+// ============================================
+
+// Configure OSDU API configuration from environment variables
+// CRITICAL: API key must be set in environment variables, never hardcoded
+// Note: OSDU_API_URL is already set in resource.ts, only override if env var is set
+if (process.env.OSDU_API_URL) {
+  backend.osduProxyFunction.addEnvironment(
+    'OSDU_API_URL',
+    process.env.OSDU_API_URL
+  );
+}
+
+// OSDU_API_KEY must be set via environment variable or deployment configuration
+backend.osduProxyFunction.addEnvironment(
+  'OSDU_API_KEY',
+  process.env.OSDU_API_KEY || ''
+);
+
+console.log('✅ OSDU Proxy function configured with API URL and key from environment');
 
 // CRITICAL: Also add EDIcraft environment variables to the main agent Lambda
 // since the EDIcraft handler code runs in the main agent Lambda context

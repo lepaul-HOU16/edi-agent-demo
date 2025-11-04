@@ -1164,6 +1164,32 @@
               "isRequired": true
             }
           }
+        },
+        "osduSearch": {
+          "name": "osduSearch",
+          "isArray": false,
+          "type": "AWSJSON",
+          "isRequired": false,
+          "arguments": {
+            "query": {
+              "name": "query",
+              "isArray": false,
+              "type": "String",
+              "isRequired": true
+            },
+            "dataPartition": {
+              "name": "dataPartition",
+              "isArray": false,
+              "type": "String",
+              "isRequired": false
+            },
+            "maxResults": {
+              "name": "maxResults",
+              "isArray": false,
+              "type": "Int",
+              "isRequired": false
+            }
+          }
         }
       },
       "mutations": {

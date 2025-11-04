@@ -286,7 +286,13 @@ export const EDIcraftResponseComponent: React.FC<EDIcraftResponseProps> = ({ con
                   {section.items.map((item, itemIdx) => (
                     <div key={itemIdx}>
                       <Box variant="awsui-key-label">{item.label}</Box>
-                      <div>{item.value}</div>
+                      <div style={{ 
+                        wordBreak: 'break-all',
+                        overflowWrap: 'break-word',
+                        maxWidth: '100%'
+                      }}>
+                        {item.value}
+                      </div>
                     </div>
                   ))}
                 </ColumnLayout>

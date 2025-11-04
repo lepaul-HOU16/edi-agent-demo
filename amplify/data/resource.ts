@@ -2,6 +2,7 @@ import { type ClientSchema, a, defineData, defineFunction } from '@aws-amplify/b
 import { maintenanceAgentFunction } from '../functions/maintenanceAgent/resource';
 import { edicraftAgentFunction } from '../functions/edicraftAgent/resource';
 import { agentProgressFunction } from '../functions/agentProgress/resource';
+import { osduProxyFunction } from '../functions/osduProxy/resource';
 
 // Main agent function with full routing capabilities (EnhancedStrandsAgent + RenewableProxyAgent)
 // NOTE: Dynamic environment variables (function names, bucket names) are set in backend.ts
@@ -313,6 +314,17 @@ export const schema = a.schema({
       error: a.string()
     }))
     .handler(a.handler.function(agentProgressFunction))
+    .authorization((allow) => [allow.authenticated()]),
+
+  // OSDU Search Integration
+  osduSearch: a.query()
+    .arguments({
+      query: a.string().required(),
+      dataPartition: a.string(),
+      maxResults: a.integer(),
+    })
+    .returns(a.json())
+    .handler(a.handler.function(osduProxyFunction))
     .authorization((allow) => [allow.authenticated()]),
 })
   .authorization((allow) => [

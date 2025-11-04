@@ -22,10 +22,13 @@ y_coords = [c[1] for c in result]
 print(f'\nY-coordinate range: {min(y_coords)} to {max(y_coords)}')
 print(f'All Y-coords < 100 (subsurface): {all(c[1] < 100 for c in result)}')
 print(f'All Y-coords >= 10 (within clear zone): {all(c[1] >= 10 for c in result)}')
+print(f'Ground level: Y=100')
+print(f'Clear zone: Y=10 to Y=130')
 
-# Verify they're subsurface and within clear zone (Y=10-99)
-if all(10 <= c[1] < 100 for c in result):
-    print('\n✅ SUCCESS: All horizon Y-coordinates are SUBSURFACE (10-99) and within clear zone')
+# Verify they're subsurface and within clear zone (Y=50-90)
+if all(50 <= c[1] <= 90 for c in result):
+    print('\n✅ SUCCESS: All horizon Y-coordinates are SUBSURFACE (50-90) and within clear zone')
+    print('   Horizons are geological surfaces below ground!')
 else:
-    print('\n❌ FAILURE: Some horizon Y-coordinates are not subsurface or outside clear zone')
+    print('\n❌ FAILURE: Some horizon Y-coordinates are outside the subsurface range (50-90)')
     sys.exit(1)

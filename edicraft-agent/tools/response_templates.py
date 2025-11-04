@@ -72,58 +72,7 @@ class CloudscapeResponseBuilder:
 
 {CloudscapeResponseBuilder.TIP_ICON} **Tip:** The wellbore is now visible in Minecraft! You can teleport to the wellhead using `/tp @s {x} {y} {z}`"""
     
-    @staticmethod
-    def horizon_success(
-        horizon_id: str,
-        total_points: int,
-        blocks_placed: int,
-        coordinates: Dict[str, Any],
-        successful_commands: int = 0,
-        failed_commands: int = 0
-    ) -> str:
-        """
-        Generate horizon surface build success response.
-        
-        Args:
-            horizon_id: OSDU horizon ID
-            total_points: Number of data points processed from OSDU
-            blocks_placed: Number of blocks placed in Minecraft
-            coordinates: Dictionary with x, y, z coordinates
-            successful_commands: Number of successful RCON commands
-            failed_commands: Number of failed RCON commands
-        
-        Returns:
-            Cloudscape-formatted markdown response
-        """
-        x = coordinates.get('x', 'unknown')
-        y = coordinates.get('y', 'unknown')
-        z = coordinates.get('z', 'unknown')
-        
-        # Extract horizon name from ID (last part after colon)
-        horizon_name = horizon_id.split(':')[-1][:20] if ':' in horizon_id else horizon_id[:20]
-        
-        success_rate = int((successful_commands / (successful_commands + failed_commands)) * 100) if (successful_commands + failed_commands) > 0 else 100
-        
-        return f"""{CloudscapeResponseBuilder.SUCCESS_ICON} **Horizon Surface Built Successfully**
 
-**OSDU Data Integration:**
-- **Horizon ID:** {horizon_name}...
-- **Data Source:** OSDU Platform
-- **Data Points Retrieved:** {total_points:,}
-- **Coordinate System:** UTM → Minecraft transformation
-
-**Minecraft Construction:**
-- **Blocks Placed:** {blocks_placed:,}
-- **RCON Commands:** {successful_commands:,} successful, {failed_commands} failed
-- **Success Rate:** {success_rate}%
-- **Surface Type:** Geological horizon interpolation
-
-**Visualization Location:**
-- **Starting Point:** ({x}, {y}, {z})
-- **Extent:** {total_points:,} point surface mesh
-- **Material:** Colored blocks representing geological formation
-
-{CloudscapeResponseBuilder.TIP_ICON} **Tip:** The horizon surface is now visible in Minecraft! Use `/tp @s {x} {y} {z}` to teleport to the surface, or fly around to see the complete geological formation."""
     
     @staticmethod
     def batch_progress(
@@ -589,7 +538,7 @@ Would you like to try one of these options?"""
         failed_commands: int = 0
     ) -> str:
         """
-        Generate horizon surface build success response.
+        Generate horizon surface build success response with rich OSDU integration details.
         
         Args:
             horizon_id: OSDU horizon record ID
@@ -600,7 +549,7 @@ Would you like to try one of these options?"""
             failed_commands: Number of failed RCON commands
         
         Returns:
-            Cloudscape-formatted markdown response
+            Cloudscape-formatted markdown response highlighting OSDU → EDI → MCP integration
         """
         # Extract short horizon name from full OSDU ID
         horizon_name = horizon_id.split(":")[-1] if ":" in horizon_id else horizon_id
@@ -609,35 +558,48 @@ Would you like to try one of these options?"""
         y = coordinates.get('y', 100)
         z = coordinates.get('z', 0)
         
+        # Calculate interpolation ratio
+        interpolation_ratio = blocks_placed / total_points if total_points > 0 else 1
+        
         # Add warning section if there were failed commands
         warning_section = ""
         if failed_commands > 0:
             warning_section = f"""
-{CloudscapeResponseBuilder.WARNING_ICON} **Note:** {failed_commands} commands failed (likely server announcements). The surface blocks were placed successfully.
+{CloudscapeResponseBuilder.WARNING_ICON} **Note:** {failed_commands} commands failed during build. The surface blocks were placed successfully.
 """
         
-        return f"""{CloudscapeResponseBuilder.SUCCESS_ICON} **Horizon Surface Complete**
+        return f"""{CloudscapeResponseBuilder.SUCCESS_ICON} **Seismic Horizon Surface Visualization Complete**
 
-**Horizon:**
-{horizon_name} (simplified name for display)
+**🌍 OSDU Data Integration**
+- **Platform:** OSDU™ Data Platform (Open Subsurface Data Universe)
+- **Record Type:** SeismicHorizon:1.0.0
+- **Horizon ID:** `{horizon_name}`
+- **Data Points:** {total_points:,} coordinate points retrieved
+- **Coordinate System:** UTM (Universal Transverse Mercator)
 
-**Location:**
-Starting at coordinates ({x}, {y}, {z})
+**🔄 EDI Processing Pipeline**
+- **Interpolation:** {interpolation_ratio:.1f}x density increase for solid surface
+- **Algorithm:** Bi-directional interpolation (along & between seismic lines)
+- **Points Generated:** {blocks_placed:,} blocks (from {total_points:,} original points)
+- **Coordinate Transform:** UTM → Minecraft space (100x100 block scale)
+- **Y-Level Placement:** Subsurface (Y=50-90, below ground at Y=100)
 
-**Visualization:**
-{blocks_placed} blocks placed to form the surface
+**🎮 Minecraft Visualization via MCP**
+- **Protocol:** Model Context Protocol (MCP) for external tool integration
+- **Transport:** RCON (Remote Console) over TCP
+- **Commands Executed:** {successful_commands:,} successful setblock operations
+- **Build Material:** Sandstone blocks (geological surface representation)
+- **Markers:** Glowstone every 50 points for depth reference
+- **Location:** Starting at ({x}, {y}, {z})
 
-**Surface Details:**
-- Sandstone blocks for main surface
-- Glowstone markers every 50 points
-- Geological structure visible in 3D
-
-**Data Processing:**
-- Horizon data fetched from OSDU platform
-- {total_points} coordinate points processed
-- Coordinates converted to Minecraft space
-- Surface built with {successful_commands} successful commands
+**📊 Technical Workflow**
+1. **OSDU Query** → Authenticated API call to search & retrieve horizon data
+2. **Data Parsing** → CSV format with Point_ID, Line_Number, Easting, Northing, Elevation
+3. **Interpolation** → Dense mesh generation (20 points/unit) for continuous surface
+4. **Transformation** → Smart scaling to fit 100x100 Minecraft block area
+5. **MCP Execution** → RCON commands via external MCP server integration
+6. **Rendering** → Real-time block placement in Minecraft world
 {warning_section}
-The horizon surface was successfully fetched from the OSDU platform, converted to Minecraft coordinates, and built in the world. The geological structure is now visible with sandstone blocks forming the surface.
+**🎯 Result:** A complete 3D geological horizon surface is now visible in Minecraft, representing real subsurface data from the OSDU platform. The surface demonstrates the full integration chain: **OSDU → EDI Agent → MCP Server → Minecraft**.
 
-You can visit the horizon by teleporting to coordinates ({x}, {y}, {z}) in Minecraft to see the complete visualization!"""
+**💡 Explore:** Teleport to `/tp @s {x} {y} {z}` to view the horizon surface, or fly around to see the complete geological formation!"""

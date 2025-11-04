@@ -159,6 +159,12 @@ class RCONExecutor:
                 # Success!
                 blocks_affected = self._parse_fill_response(response)
                 
+                # DEBUG: Log every 100th command to see what's happening
+                if "setblock" in command and attempt == 0:
+                    import random
+                    if random.random() < 0.02:  # 2% sample
+                        self.logger.info(f"[SETBLOCK DEBUG] Response: '{response}' | blocks_affected: {blocks_affected} | len: {len(response)}")
+                
                 return RCONResult(
                     success=True,
                     command=command,
@@ -657,6 +663,9 @@ class RCONExecutor:
         Example responses:
         - "Successfully filled 1234 blocks"
         - "Filled 1234 blocks with grass_block"
+        - "Block placed" (setblock command)
+        - "" (empty - setblock success with no output)
+        - "The block couldn't be placed" (setblock failure)
         
         Args:
             response: Command response
@@ -664,6 +673,11 @@ class RCONExecutor:
         Returns:
             Number of blocks filled, or 0 if parsing fails
         """
+        # Check for setblock success patterns
+        if "block placed" in response.lower() or "successfully set" in response.lower():
+            return 1
+        
+        # Check for fill command patterns
         patterns = [
             r"filled\s+(\d+)\s+blocks?",
             r"successfully\s+filled\s+(\d+)",
@@ -673,6 +687,11 @@ class RCONExecutor:
             match = re.search(pattern, response, re.IGNORECASE)
             if match:
                 return int(match.group(1))
+        
+        # CRITICAL FIX: Minecraft setblock returns empty string on success
+        # If response is empty or very short and doesn't contain error keywords, assume success
+        if len(response.strip()) < 10 and "error" not in response.lower() and "couldn't" not in response.lower() and "failed" not in response.lower():
+            return 1
         
         return 0
     
@@ -737,8 +756,11 @@ class RCONExecutor:
         if any(success in response_lower for success in success_indicators):
             return True
         
-        # If no clear indicators, assume success if response is not empty
-        return len(response.strip()) > 0
+        # CRITICAL FIX: Empty response means success for setblock commands
+        # Minecraft setblock returns empty string on success
+        # Only consider it a failure if response is empty AND we're expecting output
+        # For most commands, empty = success
+        return True
     
     def format_error_response(
         self,

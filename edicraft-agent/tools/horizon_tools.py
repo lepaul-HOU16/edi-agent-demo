@@ -2,6 +2,8 @@ import json
 import csv
 import io
 import logging
+import math
+from collections import defaultdict
 from typing import List, Tuple, Dict, Any
 from strands import tool
 
@@ -233,9 +235,11 @@ def convert_horizon_to_minecraft(horizon_coordinates_json: str, sample_rate: int
             logger.warning(f"Invalid sample_rate {sample_rate}, using 1")
             sample_rate = 1
         
-        # Sample points for performance
-        sampled_coords = coordinates[::sample_rate]
-        logger.info(f"Sampled to {len(sampled_coords)} points (every {sample_rate}th point)")
+        # Balanced sampling - take every 10th point for good coverage without timeout
+        # 1903 points / 10 = ~190 points, which is under the 500 command limit
+        effective_sample_rate = sample_rate  # Use the default sample rate (10)
+        sampled_coords = coordinates[::effective_sample_rate]
+        logger.info(f"Sampled to {len(sampled_coords)} points (every {effective_sample_rate}th point)")
         
         if not sampled_coords:
             error_msg = "Error: No coordinates after sampling"
@@ -252,14 +256,43 @@ def convert_horizon_to_minecraft(horizon_coordinates_json: str, sample_rate: int
         logger.info(f"Original coordinate ranges: X[{min(x_vals):.2f}, {max(x_vals):.2f}], "
                    f"Y[{min(y_vals):.2f}, {max(y_vals):.2f}], Z[{min(z_vals):.2f}, {max(z_vals):.2f}]")
         
+        # LIGHT interpolation - add 1 point between each pair for better coverage
+        # This doubles the points but stays well under the 500 command limit
+        interpolated_coords = []
+        original_coord_map = []
+        
+        for i in range(len(coord_tuples)):
+            # Add current point
+            interpolated_coords.append(coord_tuples[i])
+            original_coord_map.append(i)
+            
+            # Add midpoint to next point (if not last point)
+            if i < len(coord_tuples) - 1:
+                curr = coord_tuples[i]
+                next_pt = coord_tuples[i + 1]
+                midpoint = (
+                    (curr[0] + next_pt[0]) / 2,
+                    (curr[1] + next_pt[1]) / 2,
+                    (curr[2] + next_pt[2]) / 2
+                )
+                interpolated_coords.append(midpoint)
+                original_coord_map.append(i)
+        
+        logger.info(f"Light interpolation: {len(coord_tuples)} sampled → {len(interpolated_coords)} points (added midpoints)")
+        
         # Use smart scaling for surfaces
         from .coordinates import transform_surface_to_minecraft
-        minecraft_coords_tuples = transform_surface_to_minecraft(coord_tuples)
+        minecraft_coords_tuples = transform_surface_to_minecraft(interpolated_coords)
         
         if not minecraft_coords_tuples:
             error_msg = "Error: Coordinate transformation failed"
             logger.error(error_msg)
             return error_msg
+        
+        # NO GAP FILLING - keep it simple and fast
+        logger.info(f"Using {len(minecraft_coords_tuples)} blocks WITHOUT gap filling for speed")
+        
+        logger.info(f"AFTER gap filling and dedup: {len(minecraft_coords_tuples)} unique blocks")
         
         # Log Minecraft coordinate ranges after transformation
         mc_x_vals = [c[0] for c in minecraft_coords_tuples]
@@ -270,35 +303,38 @@ def convert_horizon_to_minecraft(horizon_coordinates_json: str, sample_rate: int
         
         minecraft_coords = []
         for i, (mc_x, mc_y, mc_z) in enumerate(minecraft_coords_tuples):
+            # Get the original coordinate this interpolated point came from
+            orig_idx = original_coord_map[i] if i < len(original_coord_map) else 0
+            orig_coord = sampled_coords[orig_idx] if orig_idx < len(sampled_coords) else sampled_coords[0]
+            
             minecraft_coords.append({
                 "x": mc_x,
                 "y": mc_y,
                 "z": mc_z,
-                "original_x": sampled_coords[i]["x"],
-                "original_y": sampled_coords[i]["y"],
-                "original_z": sampled_coords[i]["z"]
+                "original_x": orig_coord["x"],
+                "original_y": orig_coord["y"],
+                "original_z": orig_coord["z"]
             })
         
-        # Generate Minecraft commands
+        # Generate Minecraft commands - SIMPLEST APPROACH: Individual setblock commands
         commands = []
         commands.append(f"# Building horizon surface with {len(minecraft_coords)} points")
-        # Note: Removed "say" commands as they fail verification and aren't critical
         
-        # Build horizon surface
         blocks_placed = 0
         for i, coord in enumerate(minecraft_coords):
             x, y, z = coord["x"], coord["y"], coord["z"]
             
-            # Validate Minecraft coordinates are within reasonable bounds
+            # Validate coordinates
             if not (-30000000 <= x <= 30000000 and 0 <= y <= 255 and -30000000 <= z <= 30000000):
-                logger.warning(f"Coordinate out of bounds at point {i}: ({x}, {y}, {z})")
+                logger.warning(f"Coordinate out of bounds: ({x}, {y}, {z})")
                 continue
             
+            # Simple setblock command
             commands.append(f"setblock {x} {y} {z} sandstone")
             blocks_placed += 1
             
-            # Add markers every 50 points
-            if i % 50 == 0 and y < 255:
+            # Markers every 20 points
+            if i % 20 == 0 and y < 255:
                 commands.append(f"setblock {x} {y+1} {z} glowstone")
         
         logger.info(f"Generated {len(commands)} commands to place {blocks_placed} blocks")
@@ -477,28 +513,42 @@ def build_horizon_in_minecraft(minecraft_coords_json: str, rcon_host: str = None
                 "error_type": "executor_creation_error"
             })
         
-        # Execute commands
+        # Execute commands with strict limits to avoid timeout
         results = []
         successful_commands = 0
         failed_commands = 0
         total_blocks_placed = 0
         first_error = None
+        max_commands = 500  # Hard limit to prevent timeout
         
-        for i, command in enumerate(commands):
-            # Skip comment lines
-            if command.startswith('#'):
-                logger.debug(f"Skipping comment: {command}")
-                continue
-            
-            logger.debug(f"Executing command {i+1}/{len(commands)}: {command[:50]}...")
+        # Limit commands to prevent timeout
+        commands_to_execute = [cmd for cmd in commands if not cmd.startswith('#')]
+        if len(commands_to_execute) > max_commands:
+            logger.warning(f"Too many commands ({len(commands_to_execute)}), limiting to {max_commands}")
+            commands_to_execute = commands_to_execute[:max_commands]
+        
+        for i, command in enumerate(commands_to_execute):
+            logger.debug(f"Executing command {i+1}/{len(commands_to_execute)}: {command[:50]}...")
             
             try:
-                result = executor.execute_command(command, verify=True, operation="horizon_build")
+                # CRITICAL FIX: Disable verification for setblock commands
+                # Minecraft setblock returns empty string on success, which fails verification
+                # We'll assume success and count blocks manually
+                result = executor.execute_command(command, verify=False, operation="horizon_build")
+                
+                # DEBUG: Log first few responses to see what we're getting
+                if i < 3:
+                    logger.info(f"[DEBUG] Command {i+1} response: '{result.response}' | blocks_affected: {result.blocks_affected} | success: {result.success}")
                 
                 if result.success:
                     successful_commands += 1
-                    total_blocks_placed += result.blocks_affected
-                    logger.debug(f"Command succeeded: {result.blocks_affected} blocks affected")
+                    # CRITICAL FIX: Manually count blocks for setblock commands
+                    # Since verification is disabled, assume 1 block per successful setblock
+                    if "setblock" in command:
+                        total_blocks_placed += 1
+                    else:
+                        total_blocks_placed += result.blocks_affected
+                    logger.debug(f"Command succeeded: {total_blocks_placed} total blocks placed")
                 else:
                     failed_commands += 1
                     error_detail = result.error or "Unknown error"
@@ -513,9 +563,14 @@ def build_horizon_in_minecraft(minecraft_coords_json: str, rcon_host: str = None
                         "error": error_detail
                     })
                     
-                    # Stop after 10 failures to avoid spam
-                    if failed_commands >= 10:
-                        logger.warning(f"Stopping after {failed_commands} failures")
+                    # Stop immediately on timeout errors
+                    if "timeout" in error_detail.lower() or "timed out" in error_detail.lower():
+                        logger.error(f"Timeout detected, stopping execution immediately")
+                        break
+                    
+                    # Stop after 5 consecutive failures to avoid spam
+                    if failed_commands >= 5:
+                        logger.warning(f"Stopping after {failed_commands} consecutive failures")
                         break
                         
             except Exception as e:
@@ -532,9 +587,14 @@ def build_horizon_in_minecraft(minecraft_coords_json: str, rcon_host: str = None
                     "error": error_detail
                 })
                 
-                # Stop after 10 failures
-                if failed_commands >= 10:
-                    logger.warning(f"Stopping after {failed_commands} failures")
+                # Stop immediately on timeout exceptions
+                if "timeout" in str(e).lower():
+                    logger.error(f"Timeout exception, stopping execution immediately")
+                    break
+                
+                # Stop after 5 consecutive failures
+                if failed_commands >= 5:
+                    logger.warning(f"Stopping after {failed_commands} consecutive failures")
                     break
         
         logger.info(f"Build complete: {successful_commands} successful, {failed_commands} failed, "

@@ -365,6 +365,12 @@ export class EDIcraftMCPClient {
       const jsonData = JSON.parse(responseText);
       console.log('[EDIcraft MCP Client] Parsed as JSON, keys:', Object.keys(jsonData));
       
+      // CRITICAL FIX: Check for response field as STRING first (from Python agent)
+      if (jsonData.response && typeof jsonData.response === 'string') {
+        console.log('[EDIcraft MCP Client] Found response string field');
+        return jsonData.response;
+      }
+      
       // Handle nested response format: {response: {role: "assistant", content: [{text: "..."}]}}
       if (jsonData.response && typeof jsonData.response === 'object') {
         console.log('[EDIcraft MCP Client] Found nested response object');
@@ -378,11 +384,6 @@ export class EDIcraftMCPClient {
             console.log('[EDIcraft MCP Client] Extracted from response.content array');
             return texts.join('\n');
           }
-        }
-        // If response is a string, use it directly
-        if (typeof jsonData.response === 'string') {
-          console.log('[EDIcraft MCP Client] Found response string');
-          return jsonData.response;
         }
       }
       

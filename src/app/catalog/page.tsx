@@ -509,6 +509,21 @@ function CatalogPageBase() {
     }
   };
   
+  // Intent detection function for routing queries
+  const detectSearchIntent = useCallback((query: string): 'osdu' | 'catalog' => {
+    const lowerQuery = query.toLowerCase().trim();
+    
+    // OSDU intent detection - check for "OSDU" keyword
+    if (lowerQuery.includes('osdu')) {
+      console.log('🔍 OSDU search intent detected');
+      return 'osdu';
+    }
+    
+    // Default to catalog search
+    console.log('🔍 Catalog search intent detected');
+    return 'catalog';
+  }, []);
+
   // Function to handle catalog search with enhanced context management
   const handleChatSearch = useCallback(async (prompt: string) => {
     setIsLoadingMapData(true);
@@ -517,7 +532,253 @@ function CatalogPageBase() {
     try {
       console.log('🚀 PROCESSING CATALOG SEARCH:', prompt);
       
-      // Enhanced context determination for filtering
+      // Detect search intent (OSDU vs catalog)
+      const searchIntent = detectSearchIntent(prompt);
+      console.log('🎯 Search intent:', searchIntent);
+      
+      // Handle OSDU search intent
+      if (searchIntent === 'osdu') {
+        console.log('🔍 Executing OSDU search');
+        
+        // Add loading message
+        const loadingMessage: Message = {
+          id: uuidv4() as any,
+          role: "ai" as any,
+          content: {
+            text: `🔍 **Searching OSDU data...**\n\nQuerying external OSDU data sources for: *"${prompt}"*`
+          } as any,
+          responseComplete: false as any,
+          createdAt: new Date().toISOString() as any,
+          chatSessionId: '' as any,
+          owner: '' as any
+        } as any;
+        
+        setMessages(prevMessages => [...prevMessages, loadingMessage]);
+        
+        try {
+          const osduResponse = await amplifyClient.queries.osduSearch({
+            query: prompt,
+            dataPartition: 'osdu',
+            maxResults: 10
+          });
+          
+          console.log('✅ OSDU search response:', osduResponse);
+          
+          // Handle GraphQL errors
+          if (osduResponse.errors && osduResponse.errors.length > 0) {
+            console.error('❌ GraphQL errors:', osduResponse.errors);
+            const errorMessage = osduResponse.errors[0].message || 'GraphQL query failed';
+            throw new Error(errorMessage);
+          }
+          
+          if (!osduResponse.data) {
+            console.error('❌ No data in OSDU response');
+            throw new Error('No data received from OSDU API');
+          }
+          
+          let osduData;
+          try {
+            osduData = typeof osduResponse.data === 'string' 
+              ? JSON.parse(osduResponse.data) 
+              : osduResponse.data;
+            console.log('📊 Parsed OSDU data:', osduData);
+            console.log('📊 OSDU data keys:', Object.keys(osduData));
+            console.log('📊 Has answer:', !!osduData.answer);
+            console.log('📊 Has recordCount:', osduData.recordCount);
+            console.log('📊 Has records:', !!osduData.records);
+          } catch (parseError) {
+            console.error('❌ JSON parse error:', parseError);
+            console.error('❌ Raw data type:', typeof osduResponse.data);
+            console.error('❌ Raw data preview:', String(osduResponse.data).substring(0, 500));
+            throw new Error(`Failed to parse OSDU response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
+          }
+          
+          // Check if this is an error response from Lambda
+          if (osduData.error) {
+            console.error('❌ OSDU Lambda error:', osduData.error);
+            throw new Error(osduData.error);
+          }
+          
+          // Validate response has required fields
+          if (typeof osduData !== 'object' || osduData === null) {
+            console.error('❌ Invalid OSDU response type:', typeof osduData);
+            throw new Error('Invalid response format from OSDU API');
+          }
+          
+          // Ensure we have at least the answer field
+          if (!osduData.answer && osduData.recordCount === undefined && !osduData.records) {
+            console.error('❌ Missing required fields in OSDU response:', osduData);
+            throw new Error('Incomplete response from OSDU API');
+          }
+          
+          // Format OSDU records for table display
+          const recordsTable = osduData.records && osduData.records.length > 0
+            ? osduData.records.slice(0, 10).map((r: any, i: number) => {
+                // Extract key fields for table display
+                const record: any = {
+                  id: r.id || `osdu-${i}`,
+                  name: r.name || r.data?.name || r.id || 'Unknown',
+                  type: r.type || r.kind || 'OSDU Record'
+                };
+                
+                // Add additional relevant fields if present
+                if (r.data) {
+                  if (r.data.location) record.location = r.data.location;
+                  if (r.data.operator) record.operator = r.data.operator;
+                  if (r.data.status) record.status = r.data.status;
+                  if (r.data.depth) record.depth = r.data.depth;
+                }
+                
+                // Add any top-level fields that aren't already included
+                Object.keys(r).forEach(key => {
+                  if (!['id', 'name', 'type', 'kind', 'data', 'meta', 'acl', 'legal', 'ancestry'].includes(key)) {
+                    record[key] = r[key];
+                  }
+                });
+                
+                return record;
+              })
+            : [];
+          
+          // Build message text with safe defaults and enhanced formatting
+          const answer = osduData.answer || 'Search completed';
+          const recordCount = osduData.recordCount || 0;
+          
+          // Format the main response with markdown
+          let messageText = `**🔍 OSDU Search Results**\n\n${answer}\n\n`;
+          
+          // Display record count prominently with visual emphasis
+          if (recordCount > 0) {
+            messageText += `📊 **Found ${recordCount} record${recordCount !== 1 ? 's' : ''}**`;
+            
+            if (recordsTable.length < recordCount) {
+              messageText += ` *(showing first ${recordsTable.length})*`;
+            }
+            messageText += `\n\n`;
+          } else {
+            messageText += `📊 **No records found**\n\n`;
+          }
+          
+          // Add table if we have records
+          if (recordsTable.length > 0) {
+            messageText += `**📋 Record Details:**\n\n\`\`\`json-table-data\n${JSON.stringify(recordsTable, null, 2)}\n\`\`\``;
+          } else if (recordCount === 0) {
+            messageText += `💡 **Tip**: Try different search terms or check with your OSDU administrator about available data.`;
+          }
+          
+          // Create OSDU results message
+          const osduMessage: Message = {
+            id: uuidv4() as any,
+            role: "ai" as any,
+            content: {
+              text: messageText
+            } as any,
+            responseComplete: true as any,
+            createdAt: new Date().toISOString() as any,
+            chatSessionId: '' as any,
+            owner: '' as any
+          } as any;
+          
+          // Remove loading message and add result
+          setMessages(prevMessages => {
+            const filtered = prevMessages.filter(m => m.id !== loadingMessage.id);
+            return [...filtered, osduMessage];
+          });
+        } catch (osduError) {
+          console.error('❌ OSDU search failed:', osduError);
+          
+          // Determine error type for better user messaging
+          const errorMsg = osduError instanceof Error ? osduError.message : String(osduError);
+          let userMessage = `⚠️ **OSDU Search Unavailable**\n\n`;
+          let errorIcon = '⚠️';
+          
+          // Categorize errors and provide specific guidance
+          if (errorMsg.includes('not configured') || errorMsg.includes('503')) {
+            errorIcon = '🔧';
+            userMessage = `${errorIcon} **OSDU Service Not Configured**\n\n`;
+            userMessage += `The OSDU API is not yet configured. Please contact your administrator to set up the OSDU integration.\n\n`;
+            userMessage += `**Required Configuration:**\n`;
+            userMessage += `- OSDU_API_URL: External OSDU API endpoint\n`;
+            userMessage += `- OSDU_API_KEY: Authentication key for OSDU service\n\n`;
+          } else if (errorMsg.includes('401') || errorMsg.includes('authentication failed')) {
+            errorIcon = '🔐';
+            userMessage = `${errorIcon} **Authentication Failed**\n\n`;
+            userMessage += `The OSDU API key is invalid or has expired. Please contact your administrator to update the API credentials.\n\n`;
+          } else if (errorMsg.includes('403') || errorMsg.includes('forbidden')) {
+            errorIcon = '🚫';
+            userMessage = `${errorIcon} **Access Denied**\n\n`;
+            userMessage += `You do not have permission to access the OSDU API. Please verify your access rights with your administrator.\n\n`;
+          } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
+            errorIcon = '🔍';
+            userMessage = `${errorIcon} **OSDU Endpoint Not Found**\n\n`;
+            userMessage += `The OSDU API endpoint could not be found. The service URL may be incorrect or the service may be unavailable.\n\n`;
+            userMessage += `Please contact your administrator to verify the OSDU_API_URL configuration.\n\n`;
+          } else if (errorMsg.includes('429') || errorMsg.includes('too many requests')) {
+            errorIcon = '⏱️';
+            userMessage = `${errorIcon} **Rate Limit Exceeded**\n\n`;
+            userMessage += `Too many requests have been made to the OSDU API. Please wait a moment and try again.\n\n`;
+            userMessage += `**Suggestion:** Try a more specific search query to reduce API load.\n\n`;
+          } else if (errorMsg.includes('timeout') || errorMsg.includes('504')) {
+            errorIcon = '⏰';
+            userMessage = `${errorIcon} **Request Timeout**\n\n`;
+            userMessage += `The OSDU search request took too long to complete. This may be due to a complex query or service issues.\n\n`;
+            userMessage += `**Suggestions:**\n`;
+            userMessage += `- Try a more specific search query\n`;
+            userMessage += `- Reduce the search scope\n`;
+            userMessage += `- Try again in a few moments\n\n`;
+          } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
+            errorIcon = '🌐';
+            userMessage = `${errorIcon} **Network Error**\n\n`;
+            userMessage += `Unable to reach the OSDU service. This may be a temporary network issue.\n\n`;
+            userMessage += `**Suggestions:**\n`;
+            userMessage += `- Check your internet connection\n`;
+            userMessage += `- Try again in a few moments\n`;
+            userMessage += `- Contact your administrator if the problem persists\n\n`;
+          } else if (errorMsg.includes('Invalid') || errorMsg.includes('parse')) {
+            errorIcon = '📋';
+            userMessage = `${errorIcon} **Invalid Response**\n\n`;
+            userMessage += `Received an invalid response from the OSDU API. The service may be experiencing issues.\n\n`;
+            userMessage += `Please try again later or contact your administrator if the problem persists.\n\n`;
+          } else if (errorMsg.includes('Query parameter is required')) {
+            errorIcon = '❓';
+            userMessage = `${errorIcon} **Invalid Search Query**\n\n`;
+            userMessage += `Please provide a valid search query. Empty queries are not allowed.\n\n`;
+          } else {
+            // Generic error
+            errorIcon = '❌';
+            userMessage = `${errorIcon} **OSDU Search Error**\n\n`;
+            userMessage += `Unable to search OSDU data at this time.\n\n`;
+            userMessage += `**Error Details:** ${errorMsg}\n\n`;
+          }
+          
+          // Add fallback suggestion for all errors
+          userMessage += `💡 **Alternative:** Try a regular catalog search by removing "OSDU" from your query to search local data instead.`;
+          
+          // Remove loading message and show error
+          const errorMessage: Message = {
+            id: uuidv4() as any,
+            role: "ai" as any,
+            content: {
+              text: userMessage
+            } as any,
+            responseComplete: true as any,
+            createdAt: new Date().toISOString() as any,
+            chatSessionId: '' as any,
+            owner: '' as any
+          } as any;
+          
+          setMessages(prevMessages => {
+            const filtered = prevMessages.filter(m => m.id !== loadingMessage.id);
+            return [...filtered, errorMessage];
+          });
+        } finally {
+          setIsLoadingMapData(false);
+        }
+        
+        return; // Exit early for OSDU search
+      }
+      
+      // Enhanced context determination for filtering (catalog search only)
       const isFirstQuery = !analysisData || analysisData.length === 0;
       const lowerPrompt = prompt.toLowerCase().trim();
       
@@ -869,7 +1130,7 @@ function CatalogPageBase() {
           disableGutters
           gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
         >
-          <div className='panel-header'>
+          <div className='panel-header' style={{ display: 'flex', alignItems: 'flex-start', gap: '20px' }}>
             <SegmentedControl
               selectedId={selectedId}
               onChange={({ detail }) =>

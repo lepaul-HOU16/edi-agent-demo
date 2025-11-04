@@ -555,7 +555,7 @@ def build_horizon_surface_complete(horizon_name: str = None) -> str:
             failed_commands = 0
         
         # Return success response with detailed information
-        return CloudscapeResponseBuilder.horizon_success(
+        response = CloudscapeResponseBuilder.horizon_success(
             horizon_id=horizon_id,
             total_points=total_points,
             blocks_placed=blocks_placed,
@@ -563,6 +563,13 @@ def build_horizon_surface_complete(horizon_name: str = None) -> str:
             successful_commands=successful_commands,
             failed_commands=failed_commands
         )
+        
+        # DEBUG: Log response length and preview
+        print(f"[WORKFLOW] Response length: {len(response)} characters")
+        print(f"[WORKFLOW] Response preview (first 200 chars): {response[:200]}")
+        print(f"[WORKFLOW] Response preview (last 200 chars): {response[-200:]}")
+        
+        return response
         
     except Exception as e:
         print(f"[WORKFLOW] Unexpected error in horizon workflow: {str(e)}")
