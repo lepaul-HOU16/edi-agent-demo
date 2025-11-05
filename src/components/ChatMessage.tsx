@@ -37,9 +37,9 @@ import CloudscapePorosityDisplay from './cloudscape/CloudscapePorosityDisplay';
 import CloudscapeShaleVolumeDisplay from './cloudscape/CloudscapeShaleVolumeDisplay';
 import CloudscapeDataQualityDisplay from './cloudscape/CloudscapeDataQualityDisplay';
 import CloudscapeCurveQualityDisplay from './cloudscape/CloudscapeCurveQualityDisplay';
+import CloudscapeMultiWellCorrelationDisplay from './cloudscape/CloudscapeMultiWellCorrelationDisplay';
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerComponent';
-import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorrelationComponent';
 import UniversalResponseComponent from './messageComponents/UniversalResponseComponent';
 import InteractiveEducationalComponent from './messageComponents/InteractiveEducationalComponent';
 import RenewableEnergyGuidanceComponent from './messageComponents/RenewableEnergyGuidanceComponent';
@@ -445,15 +445,16 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                 />;
             }
             
-            // Check for multi-well correlation
+            // Check for multi-well correlation - CLOUDSCAPE VERSION
             if (parsedArtifact && typeof parsedArtifact === 'object' && 
                 (parsedArtifact.messageContentType === 'comprehensive_multi_well_correlation' || 
-                 parsedArtifact.messageContentType === 'multi_well_correlation')) {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering MultiWellCorrelationComponent from S3 artifact!');
+                 parsedArtifact.messageContentType === 'multi_well_correlation' ||
+                 parsedArtifact.messageContentType === 'multi_well_correlation_analysis')) {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapeMultiWellCorrelationDisplay from S3 artifact!');
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<MultiWellCorrelationComponent data={parsedArtifact} />}
+                    enhancedComponent={<CloudscapeMultiWellCorrelationDisplay data={parsedArtifact} />}
                 />;
             }
             

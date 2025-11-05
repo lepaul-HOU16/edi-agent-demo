@@ -97,7 +97,7 @@ export const CloudscapeCurveQualityDisplay: React.FC<CloudscapeCurveQualityDispl
           {/* Large Completeness Progress Bar */}
           <Box margin={{ top: 's' }}>
             <ProgressBar
-              value={artifact.completeness}
+              value={artifact.completeness < 1 && artifact.completeness > 0 ? 1 : artifact.completeness}
               status={getProgressBarStatus(artifact.completeness)}
               label="Data Completeness"
               description={`${artifact.completeness.toFixed(2)}% of data points are valid`}

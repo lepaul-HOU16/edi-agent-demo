@@ -56,60 +56,70 @@ const nextConfig = {
     ];
   },
   webpack: (config, { isServer, dev }) => {
-    // Memory optimization for builds
-    if (!dev) {
+    // Fix chunk loading issues in development
+    if (dev) {
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: 'named',
+        chunkIds: 'named',
+      };
+      
+      // Ensure proper chunk loading in development
+      config.output = {
+        ...config.output,
+        publicPath: '/_next/',
+        chunkFilename: 'static/chunks/[name].js',
+      };
+    } else {
+      // Memory optimization for production builds only
       config.cache = false;
-      // Reduce parallelism to save memory
       config.parallelism = 1;
-    }
-    
-    // Aggressive memory optimization
-    config.optimization = {
-      ...config.optimization,
-      moduleIds: 'deterministic',
-      // Reduce memory usage
-      minimize: !dev ? false : config.optimization.minimize, // Disable minification to save memory during build
-      splitChunks: {
-        chunks: 'all',
-        minSize: 10000,
-        maxSize: 100000, // Smaller chunks
-        maxAsyncRequests: 5,
-        maxInitialRequests: 3,
-        cacheGroups: {
-          default: false,
-          vendors: false,
-          // Create separate chunks for heavy libraries
-          plotly: {
-            name: 'plotly',
-            test: /[\\/]node_modules[\\/](plotly\.js|react-plotly\.js)/,
-            chunks: 'async',
-            priority: 40,
-            reuseExistingChunk: true,
-          },
-          langchain: {
-            name: 'langchain',
-            test: /[\\/]node_modules[\\/](@langchain)/,
-            chunks: 'async', 
-            priority: 35,
-            reuseExistingChunk: true,
-          },
-          aws: {
-            name: 'aws-vendor',
-            test: /[\\/]node_modules[\\/](@aws-sdk|aws-amplify|@aws-amplify)/,
-            chunks: 'async',
-            priority: 30,
-            reuseExistingChunk: true,
-          },
-          vendor: {
-            name: 'vendor',
-            chunks: 'async',
-            test: /[\\/]node_modules[\\/]/,
-            priority: 20,
-            maxSize: 100000,
+      
+      config.optimization = {
+        ...config.optimization,
+        moduleIds: 'deterministic',
+        minimize: false, // Disable minification to save memory
+        splitChunks: {
+          chunks: 'all',
+          minSize: 10000,
+          maxSize: 100000,
+          maxAsyncRequests: 5,
+          maxInitialRequests: 3,
+          cacheGroups: {
+            default: false,
+            vendors: false,
+            plotly: {
+              name: 'plotly',
+              test: /[\\/]node_modules[\\/](plotly\.js|react-plotly\.js)/,
+              chunks: 'async',
+              priority: 40,
+              reuseExistingChunk: true,
+            },
+            langchain: {
+              name: 'langchain',
+              test: /[\\/]node_modules[\\/](@langchain)/,
+              chunks: 'async', 
+              priority: 35,
+              reuseExistingChunk: true,
+            },
+            aws: {
+              name: 'aws-vendor',
+              test: /[\\/]node_modules[\\/](@aws-sdk|aws-amplify|@aws-amplify)/,
+              chunks: 'async',
+              priority: 30,
+              reuseExistingChunk: true,
+            },
+            vendor: {
+              name: 'vendor',
+              chunks: 'async',
+              test: /[\\/]node_modules[\\/]/,
+              priority: 20,
+              maxSize: 100000,
+            },
           },
         },
-      },
-    };
+      };
+    }
     
     // Exclude problematic modules on server side
     if (isServer) {

@@ -147,21 +147,73 @@ export const CloudscapeDataQualityDisplay: React.FC<CloudscapeDataQualityDisplay
         }
       >
         <SpaceBetween size="m">
-          {sortedCurves.map((curve) => (
-            <div key={curve.curve}>
-              <SpaceBetween size="xs">
-                <Box variant="awsui-key-label" fontSize="body-m" fontWeight="bold">
-                  {curve.curve}
-                </Box>
-                <ProgressBar
-                  value={curve.completeness}
-                  status={getProgressBarStatus(curve.completeness)}
-                  description={`${curve.validPoints.toLocaleString()} / ${curve.totalPoints.toLocaleString()} valid points`}
-                  additionalInfo={`${curve.completeness.toFixed(2)}%`}
-                />
-              </SpaceBetween>
-            </div>
-          ))}
+          {sortedCurves.map((curve) => {
+            // Ensure minimum visible value for progress bar (at least 2% for visibility)
+            // Cloudscape ProgressBar doesn't show bars below ~2%
+            const displayValue = curve.completeness < 2 && curve.completeness > 0 
+              ? 2 
+              : curve.completeness;
+            
+            return (
+              <div key={curve.curve}>
+                <SpaceBetween size="xs">
+                  <Box variant="awsui-key-label" fontSize="body-m" fontWeight="bold">
+                    {curve.curve}
+                  </Box>
+                  <Box>
+                    <div style={{ marginBottom: '4px', fontSize: '14px', color: '#5f6b7a' }}>
+                      {curve.validPoints.toLocaleString()} / {curve.totalPoints.toLocaleString()} valid points
+                    </div>
+                    <div style={{ 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: '8px',
+                      width: '100%'
+                    }}>
+                      <div style={{ 
+                        flex: 1,
+                        height: '8px',
+                        backgroundColor: '#e9ebed',
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        position: 'relative'
+                      }}>
+                        <div style={{
+                          height: '100%',
+                          width: `${displayValue}%`,
+                          backgroundColor: 
+                            curve.completeness > 90 ? '#037f0c' : 
+                            curve.completeness >= 50 ? '#0972d3' : 
+                            '#d91515',
+                          transition: 'width 0.3s ease',
+                          minWidth: curve.completeness > 0 ? '4px' : '0'
+                        }} />
+                      </div>
+                      <div style={{ 
+                        fontSize: '14px', 
+                        fontWeight: 'bold',
+                        color: '#000716',
+                        minWidth: '50px',
+                        textAlign: 'right'
+                      }}>
+                        {curve.completeness.toFixed(2)}%
+                      </div>
+                    </div>
+                    {curve.completeness > 90 && (
+                      <div style={{ marginTop: '4px', fontSize: '12px', color: '#037f0c' }}>
+                        ✓ Good quality
+                      </div>
+                    )}
+                    {curve.completeness < 50 && (
+                      <div style={{ marginTop: '4px', fontSize: '12px', color: '#d91515' }}>
+                        ✗ Poor quality
+                      </div>
+                    )}
+                  </Box>
+                </SpaceBetween>
+              </div>
+            );
+          })}
         </SpaceBetween>
       </Container>
       
