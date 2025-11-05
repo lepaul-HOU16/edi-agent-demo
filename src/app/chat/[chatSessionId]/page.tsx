@@ -36,8 +36,10 @@ import FileDrawer from '@/components/FileDrawer';
 import AgentSwitcher from '@/components/AgentSwitcher';
 import AgentLandingPage from '@/components/AgentLandingPage';
 import CollectionContextBadge from '@/components/CollectionContextBadge';
+import ChainOfThoughtDisplay from '@/components/ChainOfThoughtDisplay';
 import { sendMessage } from '../../../../utils/amplifyUtils';
 import zIndex from '@mui/material/styles/zIndex';
+import { getCanvasCollectionContext, type CollectionData, getCollectionSummary } from '@/utils/collectionInheritance';
 
 function Page({
     params,
@@ -53,6 +55,10 @@ function Page({
     const [messages, setMessages] = useState<Message[]>([]);
     const router = useRouter();
     const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
+    
+    // Collection context state
+    const [collectionContext, setCollectionContext] = useState<CollectionData | null>(null);
+    const [loadingCollection, setLoadingCollection] = useState(false);
     
     // Agent selection state - updated to include 'edicraft'
     const [selectedAgent, setSelectedAgent] = useState<'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft'>('auto');
@@ -86,13 +92,13 @@ function Page({
             };
             
             // Add user message to UI immediately
-            setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
+            setMessages((prevMessages) => [...prevMessages, newMessage as any as Message]);
             
             // Send to backend
             await sendMessage({
                 chatSessionId: activeChatSession.id,
                 newMessage: newMessage as any,
-                selectedAgent: selectedAgent,
+                agentType: selectedAgent,
             });
             
             // Clear input
@@ -268,7 +274,7 @@ function Page({
         }
     }
 
-    //Get the chat session info
+    //Get the chat session info and load collection context
     useEffect(() => {
         if (!amplifyClient) return;
         
@@ -305,6 +311,30 @@ function Page({
                 } else {
                     if (isMounted) {
                         setActiveChatSession(newChatSessionData);
+                    }
+                }
+                
+                // Load collection context if this canvas is linked to a collection
+                if (newChatSessionData.linkedCollectionId && isMounted) {
+                    console.log('🔗 Canvas linked to collection:', newChatSessionData.linkedCollectionId);
+                    setLoadingCollection(true);
+                    
+                    try {
+                        const collectionData = await getCanvasCollectionContext(chatSessionId);
+                        if (collectionData && isMounted) {
+                            console.log('✅ Collection context loaded:', {
+                                name: collectionData.name,
+                                wellCount: collectionData.dataItems?.length || 0,
+                                dataSource: collectionData.dataSourceType
+                            });
+                            setCollectionContext(collectionData);
+                        }
+                    } catch (error) {
+                        console.error('❌ Error loading collection context:', error);
+                    } finally {
+                        if (isMounted) {
+                            setLoadingCollection(false);
+                        }
                     }
                 }
             } catch (error) {
@@ -466,15 +496,24 @@ function Page({
                         />
                     </div>
                     <div className='brea'>
-                        <BreadcrumbGroup
-                            items={[
-                                { text: 'Data Catalog', href: '/catalog' },
-                                { text: 'Data Collection: Cuu Long Basin', href: '#' },
-                                { text: 'Workspace', href: '#' },
-                                { text: 'Canvas: Petrophysical Analysis', href: '#' }
-                            ]}
-                            ariaLabel="Breadcrumbs"
-                        />
+                        {collectionContext ? (
+                            <BreadcrumbGroup
+                                items={[
+                                    { text: 'Collections', href: '/collections' },
+                                    { text: collectionContext.name, href: `/collections/${collectionContext.id}` },
+                                    { text: 'Canvas', href: '#' }
+                                ]}
+                                ariaLabel="Breadcrumbs"
+                            />
+                        ) : (
+                            <BreadcrumbGroup
+                                items={[
+                                    { text: 'Workspace', href: '#' },
+                                    { text: 'Canvas', href: '#' }
+                                ]}
+                                ariaLabel="Breadcrumbs"
+                            />
+                        )}
                     </div>
                 </Grid>
             </div>
@@ -669,269 +708,9 @@ function Page({
                         </Container>
                     </div>
                 ) : (
-                    // Chain of Thought here
+                    // Chain of Thought here - using reusable ChainOfThoughtDisplay component
                     <div className='panel'>
-                        <Container
-                            footer=""
-                            header={
-                                <SpaceBetween direction="horizontal" size="m" alignItems="center">
-                                    <Box variant="h2">Chain of Thought - AI Reasoning Process</Box>
-                                    {/* <SpaceBetween direction="horizontal" size="xs">
-                                        <Button 
-                                            variant="inline-icon"
-                                            iconName="refresh"
-                                            onClick={() => scrollChainOfThoughtToBottom()}
-                                        >
-                                            Manual Scroll
-                                        </Button>
-                                        <Button 
-                                            variant="inline-icon"
-                                            iconName={chainOfThoughtAutoScroll ? "status-positive" : "status-warning"}
-                                            onClick={() => setChainOfThoughtAutoScroll(!chainOfThoughtAutoScroll)}
-                                        >
-                                            Auto-scroll {chainOfThoughtAutoScroll ? 'On' : 'Off'}
-                                        </Button>
-                                    </SpaceBetween> */}
-                                </SpaceBetween>
-                            }
-                        >
-                            {/* Create a proper scrollable container within the panel */}
-                            <div 
-                                ref={chainOfThoughtContainerRef}
-                                onScroll={handleChainOfThoughtScroll}
-                                style={{ 
-                                    overflowY: 'auto',
-                                    maxHeight: 'calc(100vh - 300px)',
-                                    position: 'relative',
-                                    paddingBottom: '60px'
-                                }}
-                            >
-                                {(() => {
-                                    // ENHANCED: Extract thought steps with better debugging and data handling
-                                    console.log('🧠 Chain of Thought: Processing messages for thought steps...');
-                                    console.log('🔍 Total messages:', messages.length);
-                                    
-                                    // Debug each message
-                                    messages.forEach((message, index) => {
-                                        if (message.role === 'ai') {
-                                            console.log(`🔍 AI Message ${index}:`, {
-                                                id: (message as any).id,
-                                                hasThoughtSteps: !!(message as any).thoughtSteps,
-                                                thoughtStepsLength: (message as any).thoughtSteps?.length || 0,
-                                                thoughtStepsType: typeof (message as any).thoughtSteps,
-                                                rawThoughtSteps: (message as any).thoughtSteps
-                                            });
-                                        }
-                                    });
-
-                                    // Extract thought steps with enhanced error handling
-                                    let thoughtStepsFromMessages: any[] = [];
-                                    
-                                    try {
-                                        thoughtStepsFromMessages = messages
-                                            .filter(message => {
-                                                const hasSteps = message.role === 'ai' && (message as any).thoughtSteps;
-                                                if (hasSteps) {
-                                                    console.log('🎯 Found AI message with thought steps:', (message as any).thoughtSteps);
-                                                }
-                                                return hasSteps;
-                                            })
-                                            .flatMap(message => {
-                                                const steps = (message as any).thoughtSteps || [];
-                                                console.log('📦 Extracting steps from message:', steps.length, 'steps');
-                                                
-                                                // CRITICAL FIX: Parse JSON strings stored in database
-                                                const parsedSteps = Array.isArray(steps) ? steps.map(step => {
-                                                    if (typeof step === 'string') {
-                                                        try {
-                                                            const parsed = JSON.parse(step);
-                                                            console.log('✅ Parsed JSON step:', parsed.title);
-                                                            return parsed;
-                                                        } catch (e) {
-                                                            console.error('❌ Failed to parse step JSON:', step);
-                                                            return null;
-                                                        }
-                                                    }
-                                                    return step; // Already an object
-                                                }) : [];
-                                                
-                                                return parsedSteps.filter(Boolean); // Remove nulls
-                                            })
-                                            .filter(step => step && typeof step === 'object') // Ensure valid step objects
-                                            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                                            
-                                        console.log('✅ Final thought steps array:', thoughtStepsFromMessages.length, 'steps');
-                                        thoughtStepsFromMessages.forEach((step, index) => {
-                                            console.log(`🔍 Step ${index + 1}:`, {
-                                                id: step.id,
-                                                title: step.title,
-                                                summary: step.summary,
-                                                status: step.status,
-                                                hasDetails: !!step.details
-                                            });
-                                        });
-                                    } catch (error) {
-                                        console.error('❌ Error extracting thought steps:', error);
-                                        thoughtStepsFromMessages = [];
-                                    }
-
-                                    // If we have real thought steps, show them with Cloudscape Design components
-                                    if (thoughtStepsFromMessages.length > 0) {
-                                        console.log('🎉 Rendering', thoughtStepsFromMessages.length, 'thought steps');
-                                        return (
-                                            <SpaceBetween direction="vertical" size="m">
-                                                {thoughtStepsFromMessages.map((step, index) => {
-                                                    // ENHANCED: Provide fallback values for missing data
-                                                    const stepTitle = step.title || `Step ${index + 1}`;
-                                                    const stepSummary = step.summary || 'Processing...';
-                                                    const stepId = step.id || `step-${index}`;
-                                                    const stepStatus = step.status || 'complete';
-                                                    const stepType = step.type || 'processing';
-                                                    
-                                                    // Get appropriate Cloudscape icon and status for each step type
-                                                    const getStepConfig = (type: string, status: string) => {
-                                                        const configs = {
-                                                            intent_detection: {
-                                                                iconName: 'search',
-                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
-                                                                variant: 'blue'
-                                                            },
-                                                            parameter_extraction: {
-                                                                iconName: 'edit',
-                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
-                                                                variant: 'severity-medium'
-                                                            },
-                                                            tool_selection: {
-                                                                iconName: 'folder',
-                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
-                                                                variant: 'green'
-                                                            },
-                                                            execution: {
-                                                                iconName: 'status-in-progress',
-                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
-                                                                variant: 'blue'
-                                                            },
-                                                            validation: {
-                                                                iconName: 'status-positive',
-                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
-                                                                variant: 'green'
-                                                            },
-                                                            completion: {
-                                                                iconName: 'tick',
-                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
-                                                                variant: 'green'
-                                                            }
-                                                        };
-                                                        
-                                                        return configs[type] || {
-                                                            iconName: 'refresh',
-                                                            statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
-                                                            variant: 'blue'
-                                                        };
-                                                    };
-                                                    
-                                                    const config = getStepConfig(stepType, stepStatus);
-                                                    
-                                                    return (
-                                                        <Container
-                                                            key={stepId}
-                                                            header={
-                                                                <SpaceBetween direction="horizontal" size="m" alignItems="center">
-                                                                    <SpaceBetween direction="horizontal" size="s" alignItems="center">
-                                                                        <Icon name={config.iconName} />
-                                                                        <Box variant="h3" fontWeight="bold">
-                                                                            {stepTitle}
-                                                                        </Box>
-                                                                        <StatusIndicator type={config.statusType}>
-                                                                            {stepStatus === 'complete' ? 'Complete' : 
-                                                                             stepStatus === 'error' ? 'Error' : 
-                                                                             stepStatus === 'thinking' ? 'Processing' : 'Complete'}
-                                                                        </StatusIndicator>
-                                                                    </SpaceBetween>
-                                                                    <SpaceBetween direction="horizontal" size="xs">
-                                                                        <Badge color={config.variant}>
-                                                                            {stepType.replace('_', ' ').toUpperCase()}
-                                                                        </Badge>
-                                                                        {step.confidence && (
-                                                                            <Badge color="green">
-                                                                                {Math.round((step.confidence || 0) * 100)}% confidence
-                                                                            </Badge>
-                                                                        )}
-                                                                        {step.duration && (
-                                                                            <Badge>
-                                                                                {step.duration}ms
-                                                                            </Badge>
-                                                                        )}
-                                                                    </SpaceBetween>
-                                                                </SpaceBetween>
-                                                            }
-                                                        >
-                                                            <SpaceBetween direction="vertical" size="m">
-                                                                <Box>
-                                                                    {stepSummary}
-                                                                </Box>
-                                                                {step.details && (
-                                                                    <ExpandableSection
-                                                                        headerText="Technical Details"
-                                                                        defaultExpanded={false}
-                                                                        variant="footer"
-                                                                    >
-                                                                        <Box 
-                                                                            padding={{ left: 'm' }}
-                                                                            color="text-body-secondary"
-                                                                        >
-                                                                            <pre style={{ 
-                                                                                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                                                                                fontSize: '12px',
-                                                                                whiteSpace: 'pre-wrap',
-                                                                                margin: 0,
-                                                                                backgroundColor: '#fafbfc',
-                                                                                padding: '12px',
-                                                                                borderRadius: '4px',
-                                                                                border: '1px solid #e9ecef'
-                                                                            }}>
-                                                                                {step.details}
-                                                                            </pre>
-                                                                        </Box>
-                                                                    </ExpandableSection>
-                                                                )}
-                                                            </SpaceBetween>
-                                                        </Container>
-                                                    );
-                                                })}
-                                            </SpaceBetween>
-                                        );
-                                    }
-
-                                    // ENHANCED: Show debug info in empty state using Cloudscape components
-                                    console.log('📝 No thought steps found - showing empty state');
-                                    const debugInfo = `Messages: ${messages.length}, AI messages: ${messages.filter(m => m.role === 'ai').length}`;
-                                    
-                                    return (
-                                        <Container>
-                                            <SpaceBetween direction="vertical" size="l" alignItems="center">
-                                                <Icon name="gen-ai" size="large" />
-                                                <SpaceBetween direction="vertical" size="m" alignItems="center">
-                                                    <Box variant="h2" textAlign="center">
-                                                        No AI reasoning process active
-                                                    </Box>
-                                                    <Box variant="p" textAlign="center" color="text-body-secondary">
-                                                        Submit a query to see the AI's step-by-step decision-making process.
-                                                        The chain of thought will show confidence levels, timing, and complete
-                                                        technical details for full transparency and verification.
-                                                    </Box>
-                                                    <Box variant="small" textAlign="center" color="text-body-secondary">
-                                                        Debug: {debugInfo}
-                                                    </Box>
-                                                </SpaceBetween>
-                                            </SpaceBetween>
-                                        </Container>
-                                    );
-                                })()}
-                                {/* Auto-scroll anchor point */}
-                                <div ref={chainOfThoughtEndRef} style={{ height: '1px' }} />
-                            </div>
-                        </Container>
+                        <ChainOfThoughtDisplay messages={messages} />
                     </div>
                 )}
 
@@ -957,6 +736,36 @@ function Page({
                             />
                             <CollectionContextBadge chatSessionId={activeChatSession.id} />
                         </div>
+                        
+                        {/* Collection Context Alert */}
+                        {collectionContext && (
+                            <Box margin={{ bottom: 'm' }}>
+                                <Alert
+                                    type="info"
+                                    header={`Collection: ${collectionContext.name}`}
+                                >
+                                    <SpaceBetween direction="vertical" size="xs">
+                                        <Box>
+                                            {getCollectionSummary(collectionContext)}
+                                        </Box>
+                                        {collectionContext.dataSourceType === 'S3' && (
+                                            <Box>
+                                                <strong>📁 File Access:</strong> All {collectionContext.dataItems?.length || 0} well files are accessible in the Session Files panel under <strong>global/well-data/</strong>
+                                            </Box>
+                                        )}
+                                        <Box>
+                                            <Button 
+                                                variant="inline-link" 
+                                                iconName="external"
+                                                onClick={() => router.push(`/collections/${collectionContext.id}`)}
+                                            >
+                                                View Collection Details
+                                            </Button>
+                                        </Box>
+                                    </SpaceBetween>
+                                </Alert>
+                            </Box>
+                        )}
                         <div style={{
                             paddingBottom: '160px',
                         }}>

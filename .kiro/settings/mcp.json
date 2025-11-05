@@ -8,6 +8,25 @@
       "autoApprove": [
         "fetch"
       ]
+    },
+    "petrophysical-analysis": {
+      "command": "python3",
+      "args": ["/Users/lepaul/Dev/prototypes/edi-agent-demo/scripts/mcp-well-data-server.py"],
+      "env": {},
+      "disabled": false,
+      "autoApprove": [
+        "list_wells",
+        "get_well_info",
+        "get_curve_data",
+        "calculate_statistics",
+        "calculate_porosity",
+        "calculate_shale_volume",
+        "calculate_saturation",
+        "assess_curve_quality",
+        "calculate_data_completeness",
+        "validate_environmental_corrections",
+        "assess_well_data_quality"
+      ]
     }
   }
 }

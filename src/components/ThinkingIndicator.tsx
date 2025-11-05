@@ -155,6 +155,43 @@ const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({
                 {step}
               </Typography>
               
+              {/* Verbose thought step details */}
+              {currentThoughtStep && currentThoughtStep.summary && (
+                <Typography 
+                  variant="body2" 
+                  color="text.secondary" 
+                  sx={{ 
+                    mt: 0.5, 
+                    fontSize: '0.875rem',
+                    fontStyle: 'italic',
+                    opacity: 0.9
+                  }}
+                >
+                  {currentThoughtStep.summary}
+                </Typography>
+              )}
+              
+              {/* Show context details if available */}
+              {currentThoughtStep?.context && (
+                <Box sx={{ mt: 0.5 }}>
+                  {currentThoughtStep.context.wellName && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      Well: {currentThoughtStep.context.wellName}
+                    </Typography>
+                  )}
+                  {currentThoughtStep.context.dataSource && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      Source: {currentThoughtStep.context.dataSource}
+                    </Typography>
+                  )}
+                  {currentThoughtStep.context.method && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                      Method: {currentThoughtStep.context.method}
+                    </Typography>
+                  )}
+                </Box>
+              )}
+              
               {/* Progress indicator */}
               {progress > 0 && (
                 <Box 
@@ -178,14 +215,14 @@ const ThinkingIndicator: React.FC<ThinkingIndicatorProps> = ({
                 </Box>
               )}
               
-              {/* Estimated time */}
-              {estimatedTime && (
+              {/* Estimated time or duration */}
+              {(estimatedTime || currentThoughtStep?.duration) && (
                 <Typography 
                   variant="caption" 
                   color="text.secondary" 
                   sx={{ mt: 0.5, display: 'block' }}
                 >
-                  {estimatedTime}
+                  {estimatedTime || (currentThoughtStep?.duration ? `${currentThoughtStep.duration}ms` : '')}
                 </Typography>
               )}
             </Box>

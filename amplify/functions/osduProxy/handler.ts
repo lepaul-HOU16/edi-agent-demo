@@ -61,7 +61,7 @@ export const handler: Handler = async (event) => {
     
     // Call OSDU API with server-side API key and timeout
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+    const timeoutId = setTimeout(() => controller.abort(), 50000); // 50 second timeout (within Lambda's 60s limit)
     
     let response;
     try {
@@ -83,7 +83,7 @@ export const handler: Handler = async (event) => {
       
       // Handle network errors
       if (fetchError.name === 'AbortError') {
-        console.error('❌ OSDU API timeout after 30 seconds');
+        console.error('❌ OSDU API timeout after 50 seconds');
         return JSON.stringify({
           error: 'Request timeout',
           answer: 'The OSDU search request timed out. Please try again with a more specific query.',

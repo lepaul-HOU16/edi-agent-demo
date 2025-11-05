@@ -21,6 +21,9 @@ interface DataItem {
   depth?: string;
   operator?: string;
   coordinates?: [number, number];
+  dataSource?: 'OSDU' | 'catalog' | string; // Track data source
+  osduId?: string; // OSDU record ID if from OSDU
+  _osduOriginal?: any; // Original OSDU record data
   [key: string]: any;
 }
 
@@ -45,9 +48,13 @@ interface CollectionCreationModalProps {
  * Styling:
  * - 60% viewport width on desktop (90% on mobile)
  * - Centered horizontally
- * - 100px top and bottom margins from viewport
- * - Max height: calc(100vh - 200px)
+ * - 150px top and bottom margins from viewport
+ * - Max height: calc(100vh - 300px)
  * - Responsive behavior for different screen sizes
+ * - No beta alerts
+ * - Individual checkbox selection enabled
+ * 
+ * Version: 2.0 (Updated 2025-01-15)
  */
 export default function CollectionCreationModal({
   visible,
@@ -71,13 +78,13 @@ export default function CollectionCreationModal({
         .collection-modal-container .awsui-modal-container {
           width: 60% !important;
           max-width: 60% !important;
-          max-height: calc(100vh - 200px) !important;
-          margin-top: 100px !important;
-          margin-bottom: 100px !important;
+          max-height: calc(100vh - 300px) !important;
+          margin-top: 150px !important;
+          margin-bottom: 150px !important;
         }
         
         .collection-modal-container .awsui-modal-content {
-          max-height: calc(100vh - 300px) !important;
+          max-height: calc(100vh - 400px) !important;
           overflow-y: auto !important;
         }
         
@@ -134,15 +141,6 @@ export default function CollectionCreationModal({
           }
         >
           <SpaceBetween direction="vertical" size="l">
-            <Alert
-              statusIconAriaLabel="Info"
-              type="info"
-              header="Collection Management (Beta)"
-            >
-              Collections help you organize and manage curated datasets for AI-powered analysis. 
-              This feature is currently in beta testing.
-            </Alert>
-
             <FormField
               label="Collection Name"
               description="Choose a descriptive name for your data collection"
@@ -192,6 +190,41 @@ export default function CollectionCreationModal({
                       header: 'Location',
                       cell: item => item.location || '-',
                       sortingField: 'location'
+                    },
+                    {
+                      id: 'dataSource',
+                      header: 'Source',
+                      cell: item => {
+                        const source = item.dataSource || 'catalog';
+                        return (
+                          <Box>
+                            {source === 'OSDU' ? (
+                              <span style={{ 
+                                backgroundColor: '#0972d3', 
+                                color: 'white', 
+                                padding: '2px 8px', 
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                              }}>
+                                OSDU
+                              </span>
+                            ) : (
+                              <span style={{ 
+                                backgroundColor: '#037f0c', 
+                                color: 'white', 
+                                padding: '2px 8px', 
+                                borderRadius: '4px',
+                                fontSize: '12px',
+                                fontWeight: 'bold'
+                              }}>
+                                Catalog
+                              </span>
+                            )}
+                          </Box>
+                        );
+                      },
+                      sortingField: 'dataSource'
                     }
                   ]}
                   items={dataItems}
@@ -213,14 +246,34 @@ export default function CollectionCreationModal({
               </FormField>
             )}
 
-            {!showItemSelection && dataItems.length > 0 && (
-              <Alert
-                type="info"
-                header={`${dataItems.length} data items will be included`}
-              >
-                All current search results will be added to this collection.
-              </Alert>
-            )}
+            {!showItemSelection && dataItems.length > 0 && (() => {
+              const osduCount = dataItems.filter(item => item.dataSource === 'OSDU').length;
+              const catalogCount = dataItems.length - osduCount;
+              
+              return (
+                <Alert
+                  type="info"
+                  header={`${dataItems.length} data items will be included`}
+                >
+                  All current search results will be added to this collection.
+                  {osduCount > 0 && catalogCount > 0 && (
+                    <Box margin={{ top: 'xs' }}>
+                      <strong>Data Sources:</strong> {catalogCount} catalog records + {osduCount} OSDU records
+                    </Box>
+                  )}
+                  {osduCount > 0 && catalogCount === 0 && (
+                    <Box margin={{ top: 'xs' }}>
+                      <strong>Data Source:</strong> {osduCount} OSDU records
+                    </Box>
+                  )}
+                  {catalogCount > 0 && osduCount === 0 && (
+                    <Box margin={{ top: 'xs' }}>
+                      <strong>Data Source:</strong> {catalogCount} catalog records
+                    </Box>
+                  )}
+                </Alert>
+              );
+            })()}
           </SpaceBetween>
         </Modal>
       </div>

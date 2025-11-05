@@ -4,6 +4,7 @@
  * Integrates with catalog system for geographic queries
  */
 
+import { BaseEnhancedAgent } from './BaseEnhancedAgent';
 import { webBrowserTool } from '../tools/webBrowserTool';
 import { 
   ThoughtStep, 
@@ -38,7 +39,7 @@ interface AgentResponse {
   };
 }
 
-export class GeneralKnowledgeAgent {
+export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
   private trustedSources = {
     weather: {
       domains: ['weather.gov', 'weather.com', 'openweathermap.org', 'worldweather.org', 'metoffice.gov.uk'],
@@ -97,6 +98,7 @@ export class GeneralKnowledgeAgent {
   };
 
   constructor() {
+    super(); // Initialize BaseEnhancedAgent
     console.log('General Knowledge Agent initialized with trusted source validation');
   }
 
@@ -203,10 +205,13 @@ export class GeneralKnowledgeAgent {
       // Check for geographic integration triggers
       const triggerActions = this.checkForTriggerActions(queryIntent, searchResults);
 
+      // Merge with BaseEnhancedAgent thought steps
+      const allThoughtSteps = [...this.thoughtSteps, ...thoughtSteps] as any;
+      
       return {
         success: true,
         message: synthesizedResponse.content,
-        thoughtSteps: thoughtSteps,
+        thoughtSteps: allThoughtSteps,
         artifacts: synthesizedResponse.artifacts || [],
         sourceAttribution: searchResults.sources,
         triggerActions: triggerActions
@@ -228,10 +233,13 @@ export class GeneralKnowledgeAgent {
       errorStep.status = 'error';
       thoughtSteps.push(errorStep);
 
+      // Merge with BaseEnhancedAgent thought steps
+      const allThoughtSteps = [...this.thoughtSteps, ...thoughtSteps] as any;
+      
       return {
         success: false,
         message: `I encountered an error while processing your request: ${error instanceof Error ? error.message : 'Unknown error'}. Please try rephrasing your question.`,
-        thoughtSteps: thoughtSteps,
+        thoughtSteps: allThoughtSteps,
         artifacts: []
       };
     }

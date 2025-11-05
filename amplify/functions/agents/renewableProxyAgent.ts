@@ -9,6 +9,7 @@
  * - Error handling and user-friendly messages
  */
 
+import { BaseEnhancedAgent } from './BaseEnhancedAgent';
 import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
 import { getRenewableConfig } from '../shared/renewableConfig';
 import { 
@@ -31,12 +32,13 @@ interface RouterResponse {
  * Renewable Proxy Agent
  * Bridges EDI Platform with Python renewable energy backend
  */
-export class RenewableProxyAgent {
+export class RenewableProxyAgent extends BaseEnhancedAgent {
   private lambdaClient: LambdaClient;
   private orchestratorFunctionName: string;
   private sessionId?: string;
 
   constructor() {
+    super(); // Initialize BaseEnhancedAgent
     console.log('🌱 RenewableProxyAgent: Initializing');
     
     try {

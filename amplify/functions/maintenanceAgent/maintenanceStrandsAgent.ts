@@ -4,6 +4,7 @@
  * Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 4.1, 4.2, 4.3, 4.4, 4.5
  */
 
+import { BaseEnhancedAgent } from '../agents/BaseEnhancedAgent';
 import { S3Client } from '@aws-sdk/client-s3';
 
 // Type definitions for maintenance agent functionality
@@ -48,7 +49,7 @@ interface MethodologyDocumentation {
 /**
  * Maintenance Strands Agent with equipment monitoring and predictive maintenance
  */
-export class MaintenanceStrandsAgent {
+export class MaintenanceStrandsAgent extends BaseEnhancedAgent {
   private modelId: string;
   private s3Client: S3Client;
   private s3Bucket: string;
@@ -60,6 +61,7 @@ export class MaintenanceStrandsAgent {
   private methodologyDocumentation: Map<string, MethodologyDocumentation>;
 
   constructor(modelId?: string, s3Bucket?: string) {
+    super(); // Initialize BaseEnhancedAgent
     this.modelId = modelId || 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
     this.s3Bucket = s3Bucket || process.env.S3_BUCKET || '';
     this.s3Client = new S3Client({ region: 'us-east-1' });

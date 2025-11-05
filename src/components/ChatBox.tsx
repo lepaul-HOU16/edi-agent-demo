@@ -547,6 +547,12 @@ const ChatBox = (params: {
       console.log('=== CHATBOX DEBUG: Sending message ===');
       console.log('User message:', userMessage);
       
+      // INSTANT INPUT CLEARING: Clear input IMMEDIATELY before any async operations
+      const clearStartTime = performance.now();
+      params.onInputChange('');
+      const clearDuration = performance.now() - clearStartTime;
+      console.log(`⚡ Input cleared in ${clearDuration.toFixed(2)}ms`);
+      
       setIsLoading(true);
 
       const newMessage: Schema['ChatMessage']['createType'] = {
@@ -575,9 +581,9 @@ const ChatBox = (params: {
       } catch (error) {
         console.error('=== CHATBOX DEBUG: Send message error ===', error);
         setIsLoading(false);
+        // VALIDATION ERROR HANDLING: Restore input on error
+        params.onInputChange(userMessage);
       }
-
-      params.onInputChange('');
     }
   }, [messages, params.chatSessionId]);
 

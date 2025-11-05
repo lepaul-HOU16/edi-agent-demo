@@ -12,6 +12,10 @@ import {
   ReportArtifact 
 } from './renewable';
 import WakeAnalysisArtifact from './renewable/WakeAnalysisArtifact';
+// Petrophysics Cloudscape components
+import { CloudscapePorosityDisplay } from './cloudscape/CloudscapePorosityDisplay';
+import { CloudscapeShaleVolumeDisplay } from './cloudscape/CloudscapeShaleVolumeDisplay';
+import { CloudscapeSaturationDisplay } from './cloudscape/CloudscapeSaturationDisplay';
 
 interface Artifact {
   type: string;
@@ -132,6 +136,27 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts, onFollow
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
                 <RenewableEnergyGuidanceComponent data={artifact as any} />
+              </div>
+            );
+
+          case 'comprehensive_porosity_analysis':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <CloudscapePorosityDisplay data={artifact as any} />
+              </div>
+            );
+
+          case 'comprehensive_shale_analysis':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <CloudscapeShaleVolumeDisplay data={artifact as any} />
+              </div>
+            );
+
+          case 'water_saturation_analysis':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <CloudscapeSaturationDisplay data={artifact as any} />
               </div>
             );
             

@@ -1365,6 +1365,12 @@
               "type": "AWSJSON",
               "isRequired": false
             },
+            "dataItems": {
+              "name": "dataItems",
+              "isArray": false,
+              "type": "AWSJSON",
+              "isRequired": false
+            },
             "collectionId": {
               "name": "collectionId",
               "isArray": false,

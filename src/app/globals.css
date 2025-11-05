@@ -777,7 +777,10 @@ div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
-
+.panel > div {
+  margin-top: 1px;
+  padding: 10px 20px 10px;
+}
 /* Enhanced Map Control Styles - 3D Toggle and Weather Controls */
 
 /* 3D Toggle Button - Enhanced Styling */

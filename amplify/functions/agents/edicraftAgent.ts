@@ -15,8 +15,11 @@ export interface EDIcraftResponse {
   error?: string;
 }
 
-export class EDIcraftAgent {
+import { BaseEnhancedAgent } from './BaseEnhancedAgent';
+
+export class EDIcraftAgent extends BaseEnhancedAgent {
   constructor() {
+    super(); // Initialize BaseEnhancedAgent
     console.log('✅ EDIcraftAgent initialized');
   }
 

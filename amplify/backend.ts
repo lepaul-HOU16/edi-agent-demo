@@ -30,6 +30,9 @@ import { renewableAgentsFunction } from './functions/renewableAgents/resource';
 // Import OSDU Proxy
 import { osduProxyFunction } from './functions/osduProxy/resource';
 
+// Import Petrophysics Calculator
+import { petrophysicsCalculator } from './functions/petrophysicsCalculator/resource';
+
 const backend = defineBackend({
   auth,
   data,
@@ -53,7 +56,9 @@ const backend = defineBackend({
   // Strands Agent System (COMPLETE AGENT ARCHITECTURE)
   renewableAgentsFunction, // ✅ ENABLED - Intelligent layout optimization with py-wake
   // OSDU Proxy
-  osduProxyFunction
+  osduProxyFunction,
+  // Petrophysics Calculator
+  petrophysicsCalculator
 });
 
 backend.stack.tags.setTag('Project', 'workshop-a4e');
@@ -198,6 +203,24 @@ backend.agentFunction.resources.lambda.addToRolePolicy(
     ],
   })
 );
+
+// Add Bedrock Agent Runtime permissions for Petrophysics AgentCore
+backend.agentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "bedrock:InvokeAgent",
+      "bedrock-agent-runtime:InvokeAgent",
+      "bedrock-agent:GetAgent",
+      "bedrock-agent:GetAgentAlias",
+    ],
+    resources: [
+      `arn:aws:bedrock:*:${backend.stack.account}:agent/*`,
+      `arn:aws:bedrock:*:${backend.stack.account}:agent-alias/*/*`,
+    ],
+  })
+);
+
+console.log('✅ Bedrock Agent Runtime permissions added for Petrophysics AgentCore');
 
 // Add Bedrock permissions to Maintenance Agent
 backend.maintenanceAgentFunction.resources.lambda.addToRolePolicy(
@@ -487,6 +510,20 @@ backend.agentFunction.resources.lambda.addToRolePolicy(
   })
 );
 
+// Add Lambda invoke permissions for TypeScript Lambda to call petrophysicsCalculator
+backend.agentFunction.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      "lambda:InvokeFunction",
+    ],
+    resources: [
+      backend.petrophysicsCalculator.resources.lambda.functionArn,
+    ],
+  })
+);
+
+console.log('✅ Lambda invoke permissions added for petrophysicsCalculator');
+
 // Add environment variable to TypeScript Lambda with Python proxy function name
 backend.agentFunction.addEnvironment(
   'RENEWABLE_PROXY_FUNCTION_NAME',
@@ -510,6 +547,24 @@ backend.agentFunction.addEnvironment(
   'NEXT_PUBLIC_RENEWABLE_S3_BUCKET',
   backend.storage.resources.bucket.bucketName
 );
+
+// Add Bedrock Agent configuration for Petrophysics AgentCore
+backend.agentFunction.addEnvironment(
+  'PETROPHYSICS_AGENT_ID',
+  'QUQKELPKM2'
+);
+backend.agentFunction.addEnvironment(
+  'PETROPHYSICS_AGENT_ALIAS_ID',
+  'S5YWIUZOGB'
+);
+
+// Add Petrophysics Calculator Lambda function name
+backend.agentFunction.addEnvironment(
+  'PETROPHYSICS_CALCULATOR_FUNCTION_NAME',
+  backend.petrophysicsCalculator.resources.lambda.functionName
+);
+
+console.log('✅ Petrophysics AgentCore configuration added to main agent');
 
 // ============================================
 // NEW: Lambda-Based Renewable Energy Configuration
@@ -904,3 +959,40 @@ new CfnOutput(backend.stack, 'AgentProgressTableName', {
 
 console.log('✅ Exported all function names and resource names as CloudFormation outputs');
 console.log('✅ Frontend can now access actual deployed function names via amplify_outputs.json');
+
+
+// ============================================
+// Petrophysics Calculator Configuration
+// ============================================
+
+// Grant petrophysicsCalculator S3 permissions for well data
+backend.petrophysicsCalculator.resources.lambda.addToRolePolicy(
+  new iam.PolicyStatement({
+    actions: [
+      's3:GetObject',
+      's3:ListBucket'
+    ],
+    resources: [
+      backend.storage.resources.bucket.bucketArn,
+      `${backend.storage.resources.bucket.bucketArn}/*`,
+      // Also grant access to the actual well data bucket
+      'arn:aws:s3:::amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m',
+      'arn:aws:s3:::amplify-d1eeg2gu6ddc3z-ma-workshopstoragebucketd9b-lzf4vwokty7m/*'
+    ]
+  })
+);
+
+// Add S3 bucket environment variable
+backend.petrophysicsCalculator.addEnvironment(
+  'S3_BUCKET',
+  backend.storage.resources.bucket.bucketName
+);
+
+// Export petrophysicsCalculator function name
+new CfnOutput(backend.stack, 'PetrophysicsCalculatorFunctionName', {
+  value: backend.petrophysicsCalculator.resources.lambda.functionName,
+  description: 'Petrophysics Calculator Lambda function name',
+  exportName: 'PetrophysicsCalculatorFunctionName'
+});
+
+console.log('✅ Petrophysics Calculator configured with S3 permissions');

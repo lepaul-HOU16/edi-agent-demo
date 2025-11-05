@@ -11,6 +11,7 @@ interface ExpandablePromptInputProps {
   actionButtonIconName?: string;
   ariaLabel?: string;
   onTypingStateChange?: (isTyping: boolean) => void;
+  isSending?: boolean;
 }
 
 const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
@@ -21,9 +22,11 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
   actionButtonAriaLabel = "Send message",
   actionButtonIconName = "send",
   ariaLabel = "Prompt input with action button",
-  onTypingStateChange
+  onTypingStateChange,
+  isSending = false
 }) => {
   const [isTyping, setIsTyping] = useState(false);
+  const [justCleared, setJustCleared] = useState(false);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Simple input change handler
@@ -66,6 +69,10 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
       clearTimeout(typingTimeoutRef.current);
     }
     
+    // Visual feedback: show clearing animation
+    setJustCleared(true);
+    setTimeout(() => setJustCleared(false), 300);
+    
     onAction();
   }, [onAction, onTypingStateChange, isTyping]);
 
@@ -85,6 +92,8 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
       boxSizing: 'border-box',
       '& .awsui-prompt-input': {
         width: '100%',
+        transition: justCleared ? 'opacity 0.2s ease-out' : 'none',
+        opacity: justCleared ? 0.7 : 1,
       },
       '& .awsui-prompt-input__input': {
         width: '100% !important',
@@ -118,9 +127,24 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
         actionButtonAriaLabel={actionButtonAriaLabel}
         actionButtonIconName="send"
         ariaLabel={ariaLabel}
-        placeholder={placeholder}
+        placeholder={isSending ? "Sending..." : placeholder}
         maxRows={10}
+        disabled={isSending}
       />
+      {isSending && (
+        <Box sx={{
+          position: 'absolute',
+          top: '50%',
+          right: '60px',
+          transform: 'translateY(-50%)',
+          fontSize: '12px',
+          color: '#0073bb',
+          fontWeight: 500,
+          pointerEvents: 'none'
+        }}>
+          Sending...
+        </Box>
+      )}
     </Box>
   );
 };

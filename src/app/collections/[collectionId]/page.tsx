@@ -392,10 +392,20 @@ function CollectionDetailPageBase() {
                 <Button variant="primary" iconName="external" href="/catalog">
                   View Collection Data in Catalog
                 </Button>
-                <Button variant="normal" iconName="add-plus" href="/create-new-chat">
+                <Button variant="normal" iconName="add-plus" onClick={() => handleCreateCanvas()}>
                   Create New Canvas from Collection
                 </Button>
               </SpaceBetween>
+              
+              {/* Collection Data Access Information */}
+              {collection.dataSourceType === 'S3' && collection.dataItems && collection.dataItems.length > 0 && (
+                <Box>
+                  <Alert type="info" header="Data Access in Canvases">
+                    When you create a canvas from this collection, all {collection.dataItems.length} well files will be accessible in the Session Files panel under the <strong>global/well-data/</strong> directory. 
+                    These LAS files contain complete log data for analysis.
+                  </Alert>
+                </Box>
+              )}
             </SpaceBetween>
           </Container>
 
@@ -481,6 +491,101 @@ function CollectionDetailPageBase() {
               </SpaceBetween>
             )}
           </Container>
+
+          {/* Data Items Section */}
+          {collection.dataItems && collection.dataItems.length > 0 && (
+            <Container
+              header={
+                <Header 
+                  variant="h2"
+                  counter={`(${collection.dataItems.length})`}
+                >
+                  Collection Data Items
+                </Header>
+              }
+            >
+              <Cards
+                items={collection.dataItems}
+                cardDefinition={{
+                  header: (item: any) => (
+                    <Box fontSize="heading-s" fontWeight="bold">
+                      <SpaceBetween direction="horizontal" size="xs" alignItems="center">
+                        <span>{item.name}</span>
+                        {item.dataSource === 'OSDU' && (
+                          <Badge color="blue">OSDU</Badge>
+                        )}
+                        {item.dataSource !== 'OSDU' && (
+                          <Badge color="green">Catalog</Badge>
+                        )}
+                      </SpaceBetween>
+                    </Box>
+                  ),
+                  sections: [
+                    {
+                      id: "details",
+                      content: (item: any) => (
+                        <SpaceBetween direction="vertical" size="xs">
+                          {item.type && (
+                            <Box>
+                              <Box variant="small" color="text-label">Type:</Box>
+                              <Box variant="small">{item.type}</Box>
+                            </Box>
+                          )}
+                          {item.location && (
+                            <Box>
+                              <Box variant="small" color="text-label">Location:</Box>
+                              <Box variant="small">{item.location}</Box>
+                            </Box>
+                          )}
+                          {item.depth && (
+                            <Box>
+                              <Box variant="small" color="text-label">Depth:</Box>
+                              <Box variant="small">{item.depth}</Box>
+                            </Box>
+                          )}
+                          {item.operator && (
+                            <Box>
+                              <Box variant="small" color="text-label">Operator:</Box>
+                              <Box variant="small">{item.operator}</Box>
+                            </Box>
+                          )}
+                          {item.osduId && (
+                            <Box>
+                              <Box variant="small" color="text-label">OSDU ID:</Box>
+                              <Box variant="small" fontSize="body-s" color="text-body-secondary">
+                                {item.osduId.length > 50 ? `${item.osduId.substring(0, 50)}...` : item.osduId}
+                              </Box>
+                            </Box>
+                          )}
+                          {item.osduMetadata && (
+                            <Box>
+                              <Box variant="small" color="text-label">OSDU Metadata:</Box>
+                              <SpaceBetween direction="horizontal" size="xs">
+                                {item.osduMetadata.basin && (
+                                  <Badge color="grey">{item.osduMetadata.basin}</Badge>
+                                )}
+                                {item.osduMetadata.country && (
+                                  <Badge color="grey">{item.osduMetadata.country}</Badge>
+                                )}
+                                {item.osduMetadata.logType && (
+                                  <Badge color="grey">{item.osduMetadata.logType}</Badge>
+                                )}
+                              </SpaceBetween>
+                            </Box>
+                          )}
+                        </SpaceBetween>
+                      )
+                    }
+                  ]
+                }}
+                cardsPerRow={[
+                  { cards: 1 },
+                  { minWidth: 400, cards: 3 }
+                ]}
+                variant="container"
+              />
+            </Container>
+          )}
 
           {/* Collection Metadata */}
           {collection.previewMetadata && (

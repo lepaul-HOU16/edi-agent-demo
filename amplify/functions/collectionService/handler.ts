@@ -14,52 +14,93 @@ declare global {
 function getCollections() {
   if (!global.persistentCollections) {
     console.log('🔄 Initializing persistent collections storage');
+    
+    // Generate 24 numbered wells from S3 global/well-data directory
+    const numberedWells = Array.from({ length: 24 }, (_, i) => {
+      const wellNum = String(i + 1).padStart(3, '0');
+      return {
+        id: `well_${wellNum}`,
+        name: `WELL-${wellNum}`,
+        type: 'wellbore',
+        dataSource: 'S3',
+        s3Key: `global/well-data/WELL-${wellNum}.las`,
+        location: 'South China Sea',
+        operator: 'Production Operator',
+        depth: '2000-3500m',
+        curves: ['GR', 'RHOB', 'NPHI', 'DTC', 'CALI', 'Resistivity']
+      };
+    });
+    
     global.persistentCollections = [
       {
         id: 'demo_collection_1',
-        name: 'Cuu Long Basin Wells',
-        description: 'Production wells from the Cuu Long Basin area',
+        name: 'South China Sea Production Wells (24 Wells)',
+        description: '24 numbered production wells (WELL-001 through WELL-024) with complete LAS files from the South China Sea',
+        dataSourceType: 'S3',
+        previewMetadata: {
+          wellCount: 24,
+          dataPointCount: 24,
+          dataSources: ['S3'],
+          operators: ['Production Operator'],
+          createdFrom: 'demo',
+          location: 'South China Sea',
+          wellRange: 'WELL-001 to WELL-024'
+        },
+        dataItems: numberedWells,
+        createdAt: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(),
+        lastAccessedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
+        owner: 'current-user'
+      },
+      {
+        id: 'demo_collection_osdu',
+        name: 'Cuu Long Basin Wells (OSDU)',
+        description: 'Production wells from the Cuu Long Basin area via OSDU',
         dataSourceType: 'Mixed',
         previewMetadata: {
-          wellCount: 15,
-          dataPointCount: 15,
+          wellCount: 5,
+          dataPointCount: 5,
           dataSources: ['OSDU', 'S3'],
           operators: ['PetroVietnam', 'Total'],
           createdFrom: 'demo'
         },
         dataItems: [
           {
-            id: 'well_001',
+            id: 'well_osdu_001',
             name: 'AKM-12',
             type: 'wellbore',
+            dataSource: 'OSDU',
             s3Key: 'wells/akm-12/trajectory.csv',
             osduId: 'osdu:work-product-component--WellboreTrajectory:6ec4485cfed716a909ccabf93cbc658fe7ba2a1bd971d33041ba505d43b949d5'
           },
           {
-            id: 'well_002',
+            id: 'well_osdu_002',
             name: 'ANN-04-S1',
             type: 'trajectory',
+            dataSource: 'OSDU',
             s3Key: 'wells/ann-04-s1/trajectory.csv',
             osduId: 'osdu:work-product-component--WellboreTrajectory:4f1c114b29ff8baee976b0ec2c54927e2519bf67b5a3a021aad7b926edeecfa2'
           },
           {
-            id: 'well_003',
+            id: 'well_osdu_003',
             name: 'KDZ-02-S1',
             type: 'wellbore',
+            dataSource: 'OSDU',
             s3Key: 'wells/kdz-02-s1/trajectory.csv',
             osduId: 'osdu:work-product-component--WellboreTrajectory:9ca70981081a141c8abf442b27c72ff8df17dda8f9f8a5d29557a7cc650036b9'
           },
           {
-            id: 'well_004',
+            id: 'well_osdu_004',
             name: 'VRS-401',
             type: 'trajectory',
+            dataSource: 'OSDU',
             s3Key: 'wells/vrs-401/trajectory.csv',
             osduId: 'osdu:work-product-component--WellboreTrajectory:7dc159bda77d41c8aa99cd08b13acb3178236f824c913c83d3844bf603fc1dee'
           },
           {
-            id: 'well_005',
+            id: 'well_osdu_005',
             name: 'LIR-31',
             type: 'wellbore',
+            dataSource: 'OSDU',
             s3Key: 'wells/lir-31/trajectory.csv',
             osduId: 'osdu:work-product-component--WellboreTrajectory:4fdcc38ba9036b76fc499723bd8164f412762985490'
           }
@@ -68,45 +109,7 @@ function getCollections() {
         lastAccessedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString(),
         owner: 'current-user'
       },
-      {
-        id: 'demo_collection_2', 
-        name: 'Deep Water Exploration',
-        description: 'High-potential deep water exploration targets',
-        dataSourceType: 'S3',
-        previewMetadata: {
-          wellCount: 8,
-          dataPointCount: 8,
-          dataSources: ['S3'],
-          operators: ['Shell', 'Chevron'],
-          createdFrom: 'demo'
-        },
-        dataItems: [
-          {
-            id: 'well_006',
-            name: 'WELL-006',
-            type: 'wellbore',
-            s3Key: 'wells/well-006/trajectory.csv',
-            osduId: 'osdu:work-product-component--WellboreTrajectory:example006'
-          },
-          {
-            id: 'well_007',
-            name: 'WELL-007',
-            type: 'trajectory',
-            s3Key: 'wells/well-007/trajectory.csv',
-            osduId: 'osdu:work-product-component--WellboreTrajectory:example007'
-          },
-          {
-            id: 'well_008',
-            name: 'WELL-008',
-            type: 'wellbore',
-            s3Key: 'wells/well-008/trajectory.csv',
-            osduId: 'osdu:work-product-component--WellboreTrajectory:example008'
-          }
-        ],
-        createdAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString(),
-        lastAccessedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString(),
-        owner: 'current-user'
-      }
+
     ];
   }
   return global.persistentCollections;
@@ -137,12 +140,29 @@ async function handleCreateCollection(args: any) {
     }
   }
   
+  // Safely handle dataItems - could be string or already parsed array
+  let parsedDataItems = [];
+  if (args.dataItems) {
+    try {
+      if (typeof args.dataItems === 'string') {
+        parsedDataItems = JSON.parse(args.dataItems);
+      } else if (Array.isArray(args.dataItems)) {
+        parsedDataItems = args.dataItems;
+      }
+      console.log('✅ Parsed dataItems:', parsedDataItems.length, 'items');
+    } catch (parseError) {
+      console.error('⚠️ Failed to parse dataItems, using empty array:', parseError);
+      parsedDataItems = [];
+    }
+  }
+  
   const newCollection = {
     id: `collection_${Date.now()}`,
     name: args.name,
     description: args.description || '',
     dataSourceType: args.dataSourceType,
     previewMetadata: parsedMetadata,
+    dataItems: parsedDataItems, // Store the actual data items with OSDU metadata
     createdAt: new Date().toISOString(),
     lastAccessedAt: new Date().toISOString(),
     owner: 'current-user'
@@ -151,9 +171,18 @@ async function handleCreateCollection(args: any) {
   // Store the collection in persistent global storage
   addCollection(newCollection);
   
+  console.log('✅ Collection created with data items:', {
+    id: newCollection.id,
+    name: newCollection.name,
+    itemCount: parsedDataItems.length,
+    osduCount: parsedDataItems.filter((item: any) => item.dataSource === 'OSDU').length,
+    catalogCount: parsedDataItems.filter((item: any) => item.dataSource !== 'OSDU').length
+  });
+  
   return JSON.stringify({
     success: true,
     collection: newCollection,
+    collectionId: newCollection.id, // Include ID for navigation
     message: 'Collection created successfully'
   });
 }
@@ -187,12 +216,29 @@ export const handler: Handler = async (event) => {
           }
         }
         
+        // Safely handle dataItems - could be string or already parsed array
+        let parsedDataItems = [];
+        if (createArgs.dataItems) {
+          try {
+            if (typeof createArgs.dataItems === 'string') {
+              parsedDataItems = JSON.parse(createArgs.dataItems);
+            } else if (Array.isArray(createArgs.dataItems)) {
+              parsedDataItems = createArgs.dataItems;
+            }
+            console.log('✅ Parsed dataItems:', parsedDataItems.length, 'items');
+          } catch (parseError) {
+            console.error('⚠️ Failed to parse dataItems, using empty array:', parseError);
+            parsedDataItems = [];
+          }
+        }
+        
         const newCollection = {
           id: `collection_${Date.now()}`,
           name: createArgs.name,
           description: createArgs.description || '',
           dataSourceType: createArgs.dataSourceType,
           previewMetadata: parsedMetadata,
+          dataItems: parsedDataItems, // Store the actual data items with OSDU metadata
           createdAt: new Date().toISOString(),
           lastAccessedAt: new Date().toISOString(),
           owner: 'current-user'
@@ -201,9 +247,18 @@ export const handler: Handler = async (event) => {
         // Store the collection in persistent global storage
         addCollection(newCollection);
         
+        console.log('✅ Collection created with data items:', {
+          id: newCollection.id,
+          name: newCollection.name,
+          itemCount: parsedDataItems.length,
+          osduCount: parsedDataItems.filter((item: any) => item.dataSource === 'OSDU').length,
+          catalogCount: parsedDataItems.filter((item: any) => item.dataSource !== 'OSDU').length
+        });
+        
         return JSON.stringify({
           success: true,
           collection: newCollection,
+          collectionId: newCollection.id, // Include ID for navigation
           message: 'Collection created successfully'
         });
 

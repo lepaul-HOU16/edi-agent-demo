@@ -15,6 +15,7 @@ import {
 import ExpandablePromptInput from './ExpandablePromptInput';
 import GeoscientistDashboard from './GeoscientistDashboard';
 import GeoscientistDashboardErrorBoundary from './GeoscientistDashboardErrorBoundary';
+import { OSDUSearchResponse, OSDUErrorResponse } from './OSDUSearchResponse';
 import { v4 as uuidv4 } from 'uuid';
 
 // Enhanced component to render professional geoscientist content instead of boring tables
@@ -107,7 +108,7 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
   const [queryType, setQueryType] = useState<string>('general');
   const [weatherData, setWeatherData] = useState<any>(null);
   
-  // Parse the message content to extract table data and determine query type
+  // Parse the message content to extract table data, OSDU responses, and determine query type
   useEffect(() => {
     // Access the text content safely
     const messageText = typeof message.content === 'object' && message.content && 'text' in message.content 
@@ -116,6 +117,25 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
     
     if (messageText) {
       try {
+        // Check for OSDU search response format
+        const osduResponseMatch = messageText.match(/```osdu-search-response\n([\s\S]*?)\n```/);
+        if (osduResponseMatch && osduResponseMatch[1]) {
+          const osduData = JSON.parse(osduResponseMatch[1]);
+          setQueryType('osdu-search');
+          setTableData(osduData.records || []);
+          console.log('🔍 OSDU search response detected:', osduData.recordCount, 'records');
+          return;
+        }
+        
+        // Check for OSDU error response format
+        const osduErrorMatch = messageText.match(/```osdu-error-response\n([\s\S]*?)\n```/);
+        if (osduErrorMatch && osduErrorMatch[1]) {
+          const errorData = JSON.parse(osduErrorMatch[1]);
+          setQueryType('osdu-error');
+          console.log('❌ OSDU error response detected:', errorData.errorType);
+          return;
+        }
+        
         // Look for JSON table data marker in the message
         const tableDataMatch = messageText.match(/```json-table-data\n([\s\S]*?)\n```/);
         if (tableDataMatch && tableDataMatch[1]) {
@@ -146,12 +166,12 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
           console.log('📊 Table data:', parsedData.length, 'items');
         }
       } catch (error) {
-        console.error("Error parsing table data:", error);
+        console.error("Error parsing message data:", error);
       }
     }
   }, [message.content, originalSearchQuery]);
   
-  // Get clean text without the JSON table data
+  // Get clean text without the JSON table data or OSDU response markers
   const getCleanText = () => {
     // Access the text content safely
     const messageText = typeof message.content === 'object' && message.content && 'text' in message.content 
@@ -159,8 +179,48 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
       : '';
     
     if (!messageText) return "";
-    return messageText.replace(/```json-table-data\n[\s\S]*?\n```/g, "");
+    return messageText
+      .replace(/```json-table-data\n[\s\S]*?\n```/g, "")
+      .replace(/```osdu-search-response\n[\s\S]*?\n```/g, "")
+      .replace(/```osdu-error-response\n[\s\S]*?\n```/g, "");
   };
+  
+  // Extract OSDU response data if present
+  const getOSDUResponseData = () => {
+    const messageText = typeof message.content === 'object' && message.content && 'text' in message.content 
+      ? String(message.content.text)
+      : '';
+    
+    const osduResponseMatch = messageText.match(/```osdu-search-response\n([\s\S]*?)\n```/);
+    if (osduResponseMatch && osduResponseMatch[1]) {
+      try {
+        return JSON.parse(osduResponseMatch[1]);
+      } catch (error) {
+        console.error("Error parsing OSDU response:", error);
+      }
+    }
+    return null;
+  };
+  
+  // Extract OSDU error data if present
+  const getOSDUErrorData = () => {
+    const messageText = typeof message.content === 'object' && message.content && 'text' in message.content 
+      ? String(message.content.text)
+      : '';
+    
+    const osduErrorMatch = messageText.match(/```osdu-error-response\n([\s\S]*?)\n```/);
+    if (osduErrorMatch && osduErrorMatch[1]) {
+      try {
+        return JSON.parse(osduErrorMatch[1]);
+      } catch (error) {
+        console.error("Error parsing OSDU error:", error);
+      }
+    }
+    return null;
+  };
+  
+  const osduResponseData = getOSDUResponseData();
+  const osduErrorData = getOSDUErrorData();
   
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
@@ -180,18 +240,36 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
           <Icon name="gen-ai" />
         </div>
         <div style={{ flex: 1 }}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {getCleanText()}
-          </ReactMarkdown>
-          
-          {/* Render simple data table only - visualizations moved to analytics tab */}
-          {tableData && tableData.length > 0 && (
-            <ProfessionalGeoscientistDisplay 
-              tableData={tableData} 
-              searchQuery={originalSearchQuery || 'wells analysis'}
-              queryType={queryType}
-              weatherData={weatherData}
+          {/* Render OSDU search response with Cloudscape components */}
+          {osduResponseData ? (
+            <OSDUSearchResponse
+              answer={osduResponseData.answer}
+              recordCount={osduResponseData.recordCount}
+              records={osduResponseData.records}
+              query={osduResponseData.query}
             />
+          ) : osduErrorData ? (
+            <OSDUErrorResponse
+              errorType={osduErrorData.errorType}
+              errorMessage={osduErrorData.errorMessage}
+              query={osduErrorData.query}
+            />
+          ) : (
+            <>
+              <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                {getCleanText()}
+              </ReactMarkdown>
+              
+              {/* Render simple data table only - visualizations moved to analytics tab */}
+              {tableData && tableData.length > 0 && (
+                <ProfessionalGeoscientistDisplay 
+                  tableData={tableData} 
+                  searchQuery={originalSearchQuery || 'wells analysis'}
+                  queryType={queryType}
+                  weatherData={weatherData}
+                />
+              )}
+            </>
           )}
         </div>
       </div>
@@ -268,6 +346,12 @@ const CatalogChatBoxCloudscape = (params: {
 
   const handleSend = useCallback(async (userMessage: string) => {
     if (userMessage.trim()) {
+      // INSTANT INPUT CLEARING: Clear input IMMEDIATELY before any async operations
+      const clearStartTime = performance.now();
+      onInputChange('');
+      const clearDuration = performance.now() - clearStartTime;
+      console.log(`⚡ Catalog input cleared in ${clearDuration.toFixed(2)}ms`);
+      
       setIsLoading(true);
       
       // Store the search query for context in dashboard rendering
@@ -275,15 +359,12 @@ const CatalogChatBoxCloudscape = (params: {
 
       // Add user message to the chat
       const newUserMessage: Message = {
-        id: uuidv4(),
         role: 'human',
         content: {
           text: userMessage
         },
         responseComplete: true,
-        createdAt: new Date().toISOString(),
-        chatSessionId: '',
-        owner: ''
+        chatSessionId: ''
       } as any;
       
       // Defer the state update to avoid setState-during-render warning
@@ -291,13 +372,16 @@ const CatalogChatBoxCloudscape = (params: {
         setMessages(prevMessages => [...prevMessages, newUserMessage]);
       }, 0);
       
-      // Clear the input field
-      onInputChange('');
-      
-      // Process the message (this will be handled by the parent component's onSendMessage)
-      await onSendMessage(userMessage);
-      
-      setIsLoading(false);
+      try {
+        // Process the message (this will be handled by the parent component's onSendMessage)
+        await onSendMessage(userMessage);
+      } catch (error) {
+        console.error('Error sending message:', error);
+        // VALIDATION ERROR HANDLING: Restore input on error
+        onInputChange(userMessage);
+      } finally {
+        setIsLoading(false);
+      }
     }
   }, [onInputChange, setMessages, onSendMessage]);
 

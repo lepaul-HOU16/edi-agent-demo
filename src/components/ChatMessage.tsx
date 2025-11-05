@@ -33,6 +33,10 @@ import InteractiveAgentSummaryComponent from './messageComponents/InteractiveAge
 import ProfessionalResponseComponent from './messageComponents/ProfessionalResponseComponent';
 import { ComprehensiveShaleAnalysisComponent } from './messageComponents/ComprehensiveShaleAnalysisComponent';
 import { ComprehensivePorosityAnalysisComponent } from './messageComponents/ComprehensivePorosityAnalysisComponent';
+import CloudscapePorosityDisplay from './cloudscape/CloudscapePorosityDisplay';
+import CloudscapeShaleVolumeDisplay from './cloudscape/CloudscapeShaleVolumeDisplay';
+import CloudscapeDataQualityDisplay from './cloudscape/CloudscapeDataQualityDisplay';
+import CloudscapeCurveQualityDisplay from './cloudscape/CloudscapeCurveQualityDisplay';
 import { ComprehensiveWellDataDiscoveryComponent } from './messageComponents/ComprehensiveWellDataDiscoveryComponent';
 import { LogPlotViewerComponent } from './messageComponents/LogPlotViewerComponent';
 import { MultiWellCorrelationComponent } from './messageComponents/MultiWellCorrelationComponent';
@@ -401,23 +405,43 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                 );
             }
             
-            // Check for comprehensive shale analysis
+            // Check for comprehensive shale analysis - CLOUDSCAPE VERSION
             if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_shale_analysis') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering ComprehensiveShaleAnalysisComponent from S3 artifact!');
+                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapeShaleVolumeDisplay from S3 artifact!');
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<ComprehensiveShaleAnalysisComponent data={parsedArtifact} />}
+                    enhancedComponent={<CloudscapeShaleVolumeDisplay data={parsedArtifact} />}
                 />;
             }
             
-            // Check for comprehensive porosity analysis
+            // Check for comprehensive porosity analysis - CLOUDSCAPE VERSION
             if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_porosity_analysis') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering ComprehensivePorosityAnalysisComponent from S3 artifact!');
+                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapePorosityDisplay from S3 artifact!');
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<ComprehensivePorosityAnalysisComponent data={parsedArtifact} />}
+                    enhancedComponent={<CloudscapePorosityDisplay data={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for data quality assessment - CLOUDSCAPE VERSION
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'data_quality_assessment') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapeDataQualityDisplay from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<CloudscapeDataQualityDisplay artifact={parsedArtifact} />}
+                />;
+            }
+            
+            // Check for curve quality assessment - CLOUDSCAPE VERSION
+            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'curve_quality_assessment') {
+                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapeCurveQualityDisplay from S3 artifact!');
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<CloudscapeCurveQualityDisplay artifact={parsedArtifact} />}
                 />;
             }
             

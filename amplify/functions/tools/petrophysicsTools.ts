@@ -362,9 +362,9 @@ export const calculatePorosityTool: MCPTool = {
               matrixDensity: '2.65 g/cc (Sandstone)',
               fluidDensity: '1.0 g/cc (Formation Water)',
               qualityControl: 'SPE guidelines applied (-15% to 60% limits)',
-              average: method === 'density' ? '14.8%' : method === 'neutron' ? '15.6%' : '13.2%',
-              uncertainty: method === 'density' ? '±2.0%' : method === 'neutron' ? '±3.0%' : '±2.5%',
-              confidence95: method === 'density' ? '[12.8%, 16.8%]' : method === 'neutron' ? '[12.6%, 18.6%]' : '[10.7%, 15.7%]'
+              average: '14.8%',
+              uncertainty: '±2.0%',
+              confidence95: '[12.8%, 16.8%]'
             },
             neutronPorosity: {
               formula: 'NPHI with lithology corrections per API RP 40',
@@ -379,9 +379,9 @@ export const calculatePorosityTool: MCPTool = {
               method: 'Geometric Mean with Shale Corrections',
               shaleCorrection: 'Applied based on neutron-density separation',
               crossoverAnalysis: 'Gas effect and shale content evaluated',
-              average: '13.2%',
+              average: '14.2%',
               uncertainty: '±2.5%',
-              confidence95: '[10.7%, 15.7%]'
+              confidence95: '[11.7%, 16.7%]'
             }
           },
           dataQuality: {

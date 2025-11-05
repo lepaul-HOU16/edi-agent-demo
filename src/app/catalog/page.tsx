@@ -8,6 +8,7 @@ import FolderIcon from '@mui/icons-material/Folder';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import CatalogChatBoxCloudscape from "@/components/CatalogChatBoxCloudscape";
 import ChatMessage from '@/components/ChatMessage';
+import ChainOfThoughtDisplay from '@/components/ChainOfThoughtDisplay';
 import GeoscientistDashboard from '@/components/GeoscientistDashboard';
 import GeoscientistDashboardErrorBoundary from '@/components/GeoscientistDashboardErrorBoundary';
 import CollectionCreationModal from '@/components/CollectionCreationModal';
@@ -399,10 +400,18 @@ function CatalogPageBase() {
     try {
       setCreatingCollection(true);
       
+      // Count OSDU vs catalog data in collection
+      const osduItems = finalDataItems.filter(item => item.dataSource === 'OSDU');
+      const catalogItems = finalDataItems.filter(item => item.dataSource !== 'OSDU');
+      
       console.log('📊 Creating collection with final selection:', {
         originalItems: selectedDataItems.length,
         finalItems: finalDataItems.length,
-        removed: selectedDataItems.length - finalDataItems.length
+        removed: selectedDataItems.length - finalDataItems.length,
+        osduCount: osduItems.length,
+        catalogCount: catalogItems.length,
+        dataSources: osduItems.length > 0 && catalogItems.length > 0 ? 'Mixed (OSDU + Catalog)' : 
+                     osduItems.length > 0 ? 'OSDU Only' : 'Catalog Only'
       });
       
       // Debug: Log the exact input fields
@@ -431,13 +440,43 @@ function CatalogPageBase() {
         metadataString = `{"wellCount":${finalDataItems.length},"createdFrom":"catalog_search"}`;
       }
       
+      // Prepare data items for storage - convert to format suitable for collection
+      const dataItemsForStorage = finalDataItems.map((item, index) => ({
+        id: item.id || `item-${index}`,
+        name: item.name,
+        type: item.type || 'well',
+        location: item.location,
+        depth: item.depth,
+        operator: item.operator,
+        coordinates: item.coordinates,
+        // OSDU-specific fields
+        dataSource: item.dataSource || 'catalog',
+        osduId: item.osduId, // Preserve OSDU record ID
+        // Store original OSDU data for reference (without circular refs)
+        osduMetadata: item.dataSource === 'OSDU' ? {
+          basin: item.basin,
+          country: item.country,
+          logType: item.logType,
+          recordType: item.type
+        } : undefined
+      }));
+      
+      console.log('📦 Prepared data items for storage:', {
+        totalItems: dataItemsForStorage.length,
+        osduItems: dataItemsForStorage.filter(i => i.dataSource === 'OSDU').length,
+        catalogItems: dataItemsForStorage.filter(i => i.dataSource !== 'OSDU').length,
+        sampleItem: dataItemsForStorage[0]
+      });
+      
       // Debug: Test all mutation parameters individually
       const mutationParams = {
         operation: 'createCollection',
         name: collectionName.trim(),
         description: collectionDescription.trim(),
-        dataSourceType: 'Mixed',
-        previewMetadata: metadataString
+        dataSourceType: osduItems.length > 0 && catalogItems.length > 0 ? 'Mixed' : 
+                       osduItems.length > 0 ? 'OSDU' : 'Catalog',
+        previewMetadata: metadataString,
+        dataItems: dataItemsForStorage // Include actual data items with OSDU metadata
       };
       
       console.log('🧪 Testing mutation parameters:');
@@ -446,6 +485,7 @@ function CatalogPageBase() {
       console.log('  description:', typeof mutationParams.description, mutationParams.description);
       console.log('  dataSourceType:', typeof mutationParams.dataSourceType, mutationParams.dataSourceType);
       console.log('  previewMetadata:', typeof mutationParams.previewMetadata, metadataString.length, 'chars');
+      console.log('  dataItems:', typeof mutationParams.dataItems, mutationParams.dataItems.length, 'items');
       
       // Create collection through real backend service
       console.log('🔄 Calling collectionManagement mutation...');
@@ -467,12 +507,19 @@ function CatalogPageBase() {
             wellCount: finalDataItems.length
           });
           
-          // Show success message with final count
+          // Build data source summary for success message
+          const dataSourceSummary = osduItems.length > 0 && catalogItems.length > 0 
+            ? `${catalogItems.length} catalog wells + ${osduItems.length} OSDU records`
+            : osduItems.length > 0 
+            ? `${osduItems.length} OSDU records`
+            : `${catalogItems.length} catalog wells`;
+          
+          // Show success message with final count and data sources
           const successMessage: Message = {
             id: uuidv4() as any,
             role: "ai" as any,
             content: {
-              text: `✅ **Collection Created Successfully!**\n\nCreated collection **"${collectionName}"** with ${finalDataItems.length} wells.\n\n📁 **Collection Features:**\n- Preserved exact search context and map state\n- Geographic bounds and analytics configuration saved\n- Navigating to collection detail page...\n\n🚀 **Next Steps:**\n- Create new workspace canvases linked to this collection\n- Restore this exact data context anytime\n- Share collection with team members (coming soon)`
+              text: `✅ **Collection Created Successfully!**\n\nCreated collection **"${collectionName}"** with ${finalDataItems.length} items (${dataSourceSummary}).\n\n📁 **Collection Features:**\n- Preserved exact search context and map state\n- Geographic bounds and analytics configuration saved\n- ${osduItems.length > 0 ? 'OSDU data source attribution maintained\n- ' : ''}Navigating to collection detail page...\n\n🚀 **Next Steps:**\n- Create new workspace canvases linked to this collection\n- Restore this exact data context anytime\n- Share collection with team members (coming soon)`
             } as any,
             responseComplete: true as any,
             createdAt: new Date().toISOString() as any,
@@ -578,14 +625,30 @@ function CatalogPageBase() {
           
           let osduData;
           try {
-            osduData = typeof osduResponse.data === 'string' 
-              ? JSON.parse(osduResponse.data) 
-              : osduResponse.data;
-            console.log('📊 Parsed OSDU data:', osduData);
-            console.log('📊 OSDU data keys:', Object.keys(osduData));
-            console.log('📊 Has answer:', !!osduData.answer);
-            console.log('📊 Has recordCount:', osduData.recordCount);
-            console.log('📊 Has records:', !!osduData.records);
+            // Handle potential double-stringification
+            let parsedData = osduResponse.data;
+            
+            // First parse if it's a string
+            if (typeof parsedData === 'string') {
+              parsedData = JSON.parse(parsedData);
+              console.log('📊 First parse complete, type:', typeof parsedData);
+            }
+            
+            // Check if it's still a string (double-stringified)
+            if (typeof parsedData === 'string') {
+              parsedData = JSON.parse(parsedData);
+              console.log('📊 Second parse complete (was double-stringified), type:', typeof parsedData);
+            }
+            
+            osduData = parsedData;
+            
+            console.log('📊 Final parsed OSDU data:', osduData);
+            console.log('📊 OSDU data type:', typeof osduData);
+            console.log('📊 OSDU data keys:', Object.keys(osduData || {}));
+            console.log('📊 Has answer:', !!osduData?.answer);
+            console.log('📊 Has recordCount:', osduData?.recordCount);
+            console.log('📊 Has records:', !!osduData?.records);
+            console.log('📊 Records length:', osduData?.records?.length);
           } catch (parseError) {
             console.error('❌ JSON parse error:', parseError);
             console.error('❌ Raw data type:', typeof osduResponse.data);
@@ -611,6 +674,56 @@ function CatalogPageBase() {
             throw new Error('Incomplete response from OSDU API');
           }
           
+          // Convert OSDU records to well data format for collection context
+          const convertOSDUToWellData = (osduRecord: any, index: number) => {
+            // Extract coordinates from various possible OSDU structures
+            let latitude = null;
+            let longitude = null;
+            
+            // Try different coordinate field patterns (based on actual OSDU API response)
+            if (osduRecord.location?.lat && osduRecord.location?.lon) {
+              // Direct location object (most common in OSDU)
+              latitude = osduRecord.location.lat;
+              longitude = osduRecord.location.lon;
+            } else if (osduRecord.data?.SpatialLocation?.coordinates) {
+              [longitude, latitude] = osduRecord.data.SpatialLocation.coordinates;
+            } else if (osduRecord.data?.location?.coordinates) {
+              [longitude, latitude] = osduRecord.data.location.coordinates;
+            } else if (osduRecord.data?.location?.lat && osduRecord.data?.location?.lon) {
+              latitude = osduRecord.data.location.lat;
+              longitude = osduRecord.data.location.lon;
+            } else if (osduRecord.coordinates) {
+              [longitude, latitude] = osduRecord.coordinates;
+            } else if (osduRecord.latitude && osduRecord.longitude) {
+              latitude = osduRecord.latitude;
+              longitude = osduRecord.longitude;
+            }
+            
+            // Build well data object compatible with catalog format
+            return {
+              id: osduRecord.recordId || osduRecord.osduRecordId || osduRecord.id || `osdu-${index}`,
+              name: osduRecord.WellName || osduRecord.name || osduRecord.Name || `OSDU-${index}`,
+              type: osduRecord.recordType || osduRecord.kind || osduRecord.type || 'OSDU Record',
+              location: osduRecord.field || osduRecord.location?.region || osduRecord.location || 'Unknown',
+              operator: osduRecord.company || osduRecord.operator || 'Unknown',
+              status: osduRecord.complianceStatus || osduRecord.status || 'Unknown',
+              depth: osduRecord.TopDepth && osduRecord.BottomDepth 
+                ? `${osduRecord.TopDepth}-${osduRecord.BottomDepth}m`
+                : osduRecord.depth || 'Unknown',
+              latitude: latitude,
+              longitude: longitude,
+              // Additional OSDU-specific fields
+              basin: osduRecord.basin,
+              country: osduRecord.country,
+              logType: osduRecord.LogType,
+              // Mark as OSDU source for tracking
+              dataSource: 'OSDU',
+              osduId: osduRecord.recordId || osduRecord.osduRecordId,
+              // Preserve original OSDU data for reference
+              _osduOriginal: osduRecord
+            };
+          };
+          
           // Format OSDU records for table display
           const recordsTable = osduData.records && osduData.records.length > 0
             ? osduData.records.slice(0, 10).map((r: any, i: number) => {
@@ -618,7 +731,8 @@ function CatalogPageBase() {
                 const record: any = {
                   id: r.id || `osdu-${i}`,
                   name: r.name || r.data?.name || r.id || 'Unknown',
-                  type: r.type || r.kind || 'OSDU Record'
+                  type: r.type || r.kind || 'OSDU Record',
+                  dataSource: 'OSDU' // Mark source
                 };
                 
                 // Add additional relevant fields if present
@@ -640,31 +754,31 @@ function CatalogPageBase() {
               })
             : [];
           
+          // Convert OSDU records to well data format for analysis
+          const osduWellData = osduData.records && osduData.records.length > 0
+            ? osduData.records.map(convertOSDUToWellData)
+            : [];
+          
+          console.log('🔄 Converted OSDU records to well data:', {
+            originalCount: osduData.records?.length || 0,
+            convertedCount: osduWellData.length,
+            withCoordinates: osduWellData.filter(w => w.latitude && w.longitude).length
+          });
+          
           // Build message text with safe defaults and enhanced formatting
           const answer = osduData.answer || 'Search completed';
           const recordCount = osduData.recordCount || 0;
           
-          // Format the main response with markdown
-          let messageText = `**🔍 OSDU Search Results**\n\n${answer}\n\n`;
+          // Use Cloudscape component format for OSDU responses
+          const osduResponseData = {
+            answer,
+            recordCount,
+            records: osduWellData,
+            query: prompt
+          };
           
-          // Display record count prominently with visual emphasis
-          if (recordCount > 0) {
-            messageText += `📊 **Found ${recordCount} record${recordCount !== 1 ? 's' : ''}**`;
-            
-            if (recordsTable.length < recordCount) {
-              messageText += ` *(showing first ${recordsTable.length})*`;
-            }
-            messageText += `\n\n`;
-          } else {
-            messageText += `📊 **No records found**\n\n`;
-          }
-          
-          // Add table if we have records
-          if (recordsTable.length > 0) {
-            messageText += `**📋 Record Details:**\n\n\`\`\`json-table-data\n${JSON.stringify(recordsTable, null, 2)}\n\`\`\``;
-          } else if (recordCount === 0) {
-            messageText += `💡 **Tip**: Try different search terms or check with your OSDU administrator about available data.`;
-          }
+          // Format as special OSDU response marker for frontend component
+          const messageText = `\`\`\`osdu-search-response\n${JSON.stringify(osduResponseData, null, 2)}\n\`\`\``;
           
           // Create OSDU results message
           const osduMessage: Message = {
@@ -679,6 +793,69 @@ function CatalogPageBase() {
             owner: '' as any
           } as any;
           
+          // Add OSDU well data to analysis data for collection context
+          if (osduWellData.length > 0) {
+            console.log('📊 Adding OSDU data to analysis context:', osduWellData.length, 'records');
+            
+            // Merge with existing analysis data if present
+            setAnalysisData(prevData => {
+              const merged = prevData ? [...prevData, ...osduWellData] : osduWellData;
+              console.log('✅ Analysis data updated:', {
+                previousCount: prevData?.length || 0,
+                osduCount: osduWellData.length,
+                totalCount: merged.length
+              });
+              return merged;
+            });
+            
+            // Update query type to indicate mixed data
+            setAnalysisQueryType(prevType => {
+              const newType = prevType ? `${prevType}+osdu` : 'osdu';
+              console.log('🏷️ Query type updated:', prevType, '→', newType);
+              return newType;
+            });
+            
+            // Update map with OSDU data if we have coordinates
+            const osduWithCoords = osduWellData.filter(w => w.latitude && w.longitude);
+            if (osduWithCoords.length > 0) {
+              console.log('🗺️ Updating map with OSDU locations:', osduWithCoords.length, 'points');
+              
+              // Calculate bounds for OSDU data
+              const lats = osduWithCoords.map(w => w.latitude).filter(Boolean) as number[];
+              const lons = osduWithCoords.map(w => w.longitude).filter(Boolean) as number[];
+              
+              if (lats.length > 0 && lons.length > 0) {
+                const bounds = {
+                  minLat: Math.min(...lats),
+                  maxLat: Math.max(...lats),
+                  minLon: Math.min(...lons),
+                  maxLon: Math.max(...lons)
+                };
+                
+                // Calculate center
+                const center: [number, number] = [
+                  (bounds.minLon + bounds.maxLon) / 2,
+                  (bounds.minLat + bounds.maxLat) / 2
+                ];
+                
+                // Update map state with OSDU data
+                setMapState(prevState => ({
+                  ...prevState,
+                  wellData: osduWithCoords,
+                  bounds: bounds,
+                  center: center,
+                  hasSearchResults: true
+                }));
+                
+                console.log('✅ Map state updated with OSDU data:', {
+                  center,
+                  bounds,
+                  wellCount: osduWithCoords.length
+                });
+              }
+            }
+          }
+          
           // Remove loading message and add result
           setMessages(prevMessages => {
             const filtered = prevMessages.filter(m => m.id !== loadingMessage.id);
@@ -687,72 +864,28 @@ function CatalogPageBase() {
         } catch (osduError) {
           console.error('❌ OSDU search failed:', osduError);
           
-          // Determine error type for better user messaging
+          // Determine error type for better user messaging using Cloudscape format
           const errorMsg = osduError instanceof Error ? osduError.message : String(osduError);
-          let userMessage = `⚠️ **OSDU Search Unavailable**\n\n`;
-          let errorIcon = '⚠️';
+          let errorType: 'timeout' | 'auth' | 'network' | 'config' | 'rate-limit' | 'generic' = 'generic';
+          let userMessage = '';
           
-          // Categorize errors and provide specific guidance
+          // Categorize errors and use Cloudscape component format
           if (errorMsg.includes('not configured') || errorMsg.includes('503')) {
-            errorIcon = '🔧';
-            userMessage = `${errorIcon} **OSDU Service Not Configured**\n\n`;
-            userMessage += `The OSDU API is not yet configured. Please contact your administrator to set up the OSDU integration.\n\n`;
-            userMessage += `**Required Configuration:**\n`;
-            userMessage += `- OSDU_API_URL: External OSDU API endpoint\n`;
-            userMessage += `- OSDU_API_KEY: Authentication key for OSDU service\n\n`;
-          } else if (errorMsg.includes('401') || errorMsg.includes('authentication failed')) {
-            errorIcon = '🔐';
-            userMessage = `${errorIcon} **Authentication Failed**\n\n`;
-            userMessage += `The OSDU API key is invalid or has expired. Please contact your administrator to update the API credentials.\n\n`;
-          } else if (errorMsg.includes('403') || errorMsg.includes('forbidden')) {
-            errorIcon = '🚫';
-            userMessage = `${errorIcon} **Access Denied**\n\n`;
-            userMessage += `You do not have permission to access the OSDU API. Please verify your access rights with your administrator.\n\n`;
-          } else if (errorMsg.includes('404') || errorMsg.includes('not found')) {
-            errorIcon = '🔍';
-            userMessage = `${errorIcon} **OSDU Endpoint Not Found**\n\n`;
-            userMessage += `The OSDU API endpoint could not be found. The service URL may be incorrect or the service may be unavailable.\n\n`;
-            userMessage += `Please contact your administrator to verify the OSDU_API_URL configuration.\n\n`;
-          } else if (errorMsg.includes('429') || errorMsg.includes('too many requests')) {
-            errorIcon = '⏱️';
-            userMessage = `${errorIcon} **Rate Limit Exceeded**\n\n`;
-            userMessage += `Too many requests have been made to the OSDU API. Please wait a moment and try again.\n\n`;
-            userMessage += `**Suggestion:** Try a more specific search query to reduce API load.\n\n`;
+            errorType = 'config';
+          } else if (errorMsg.includes('401') || errorMsg.includes('403') || errorMsg.includes('forbidden') || errorMsg.includes('authentication')) {
+            errorType = 'auth';
           } else if (errorMsg.includes('timeout') || errorMsg.includes('504')) {
-            errorIcon = '⏰';
-            userMessage = `${errorIcon} **Request Timeout**\n\n`;
-            userMessage += `The OSDU search request took too long to complete. This may be due to a complex query or service issues.\n\n`;
-            userMessage += `**Suggestions:**\n`;
-            userMessage += `- Try a more specific search query\n`;
-            userMessage += `- Reduce the search scope\n`;
-            userMessage += `- Try again in a few moments\n\n`;
+            errorType = 'timeout';
+          } else if (errorMsg.includes('429') || errorMsg.includes('too many requests')) {
+            errorType = 'rate-limit';
           } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
-            errorIcon = '🌐';
-            userMessage = `${errorIcon} **Network Error**\n\n`;
-            userMessage += `Unable to reach the OSDU service. This may be a temporary network issue.\n\n`;
-            userMessage += `**Suggestions:**\n`;
-            userMessage += `- Check your internet connection\n`;
-            userMessage += `- Try again in a few moments\n`;
-            userMessage += `- Contact your administrator if the problem persists\n\n`;
-          } else if (errorMsg.includes('Invalid') || errorMsg.includes('parse')) {
-            errorIcon = '📋';
-            userMessage = `${errorIcon} **Invalid Response**\n\n`;
-            userMessage += `Received an invalid response from the OSDU API. The service may be experiencing issues.\n\n`;
-            userMessage += `Please try again later or contact your administrator if the problem persists.\n\n`;
-          } else if (errorMsg.includes('Query parameter is required')) {
-            errorIcon = '❓';
-            userMessage = `${errorIcon} **Invalid Search Query**\n\n`;
-            userMessage += `Please provide a valid search query. Empty queries are not allowed.\n\n`;
+            errorType = 'network';
           } else {
-            // Generic error
-            errorIcon = '❌';
-            userMessage = `${errorIcon} **OSDU Search Error**\n\n`;
-            userMessage += `Unable to search OSDU data at this time.\n\n`;
-            userMessage += `**Error Details:** ${errorMsg}\n\n`;
+            errorType = 'generic';
           }
           
-          // Add fallback suggestion for all errors
-          userMessage += `💡 **Alternative:** Try a regular catalog search by removing "OSDU" from your query to search local data instead.`;
+          // Format error response for Cloudscape component
+          userMessage = `\`\`\`osdu-error-response\n${JSON.stringify({ errorType, errorMessage: errorMsg, query: prompt }, null, 2)}\n\`\`\``;
           
           // Remove loading message and show error
           const errorMessage: Message = {
@@ -826,21 +959,33 @@ function CatalogPageBase() {
         collectionsEnabled: creationEnabled
       });
       
-      // Prepare context for backend - only if we have data and this looks like a filter
+      // Prepare context for backend - includes both catalog and OSDU data
       let searchContextForBackend = null;
       if (!isFirstQuery && analysisData && analysisData.length > 0) {
+        // Separate OSDU and catalog wells for tracking
+        const osduWells = analysisData.filter(w => w.dataSource === 'OSDU');
+        const catalogWells = analysisData.filter(w => w.dataSource !== 'OSDU');
+        
         searchContextForBackend = {
-          wells: analysisData,
+          wells: analysisData, // Includes both OSDU and catalog data
           queryType: analysisQueryType,
           timestamp: new Date().toISOString(),
-          isFilterOperation: isLikelyFilter
+          isFilterOperation: isLikelyFilter,
+          // Add metadata about data sources
+          dataSources: {
+            osdu: osduWells.length,
+            catalog: catalogWells.length,
+            total: analysisData.length
+          }
         };
         
         console.log('📤 Sending context to backend:', {
           wellCount: searchContextForBackend.wells.length,
+          osduCount: osduWells.length,
+          catalogCount: catalogWells.length,
           previousQueryType: searchContextForBackend.queryType,
           isFilterOperation: isLikelyFilter,
-          contextWells: searchContextForBackend.wells.slice(0, 3).map(w => w.name)
+          contextWells: searchContextForBackend.wells.slice(0, 3).map(w => `${w.name} (${w.dataSource || 'catalog'})`)
         });
       } else {
         console.log('📤 No context sent - fresh search');
@@ -1260,191 +1405,9 @@ function CatalogPageBase() {
             </Container>
           </div>
         ) : (
-          // Chain of Thought Panel (seg-3)
+          // Chain of Thought Panel (seg-3) - using reusable ChainOfThoughtDisplay component
           <div className='panel'>
-            <Container
-              footer=""
-              header={
-                <SpaceBetween direction="horizontal" size="m" alignItems="center">
-                  <Box variant="h2">Chain of Thought - AI Reasoning Process</Box>
-                  {/* <SpaceBetween direction="horizontal" size="xs">
-                    <Button 
-                      variant="inline-icon"
-                      iconName="refresh"
-                      onClick={() => scrollChainOfThoughtToBottom()}
-                    >
-                      Manual Scroll
-                    </Button>
-                    <Button 
-                      variant="inline-icon"
-                      iconName={chainOfThoughtAutoScroll ? "status-positive" : "status-warning"}
-                      onClick={() => setChainOfThoughtAutoScroll(!chainOfThoughtAutoScroll)}
-                    >
-                      Auto-scroll {chainOfThoughtAutoScroll ? 'On' : 'Off'}
-                    </Button>
-                  </SpaceBetween> */}
-                </SpaceBetween>
-              }
-            >
-              <div 
-                ref={chainOfThoughtContainerRef}
-                onScroll={handleChainOfThoughtScroll}
-                style={{ 
-                  overflowY: 'auto',
-                  maxHeight: 'calc(100vh - 300px)',
-                  position: 'relative',
-                  paddingBottom: '60px'
-                }}
-              >
-                {(() => {
-                  console.log('🧠 Chain of Thought: Processing messages for thought steps...');
-                  console.log('🔍 Total messages:', messages.length);
-                  
-                  messages.forEach((message, index) => {
-                    if (message.role === 'ai') {
-                      console.log(`🔍 AI Message ${index}:`, {
-                        id: (message as any).id,
-                        hasThoughtSteps: !!(message as any).thoughtSteps,
-                        thoughtStepsLength: (message as any).thoughtSteps?.length || 0,
-                        thoughtStepsType: typeof (message as any).thoughtSteps,
-                        rawThoughtSteps: (message as any).thoughtSteps
-                      });
-                    }
-                  });
-
-                  let thoughtStepsFromMessages: any[] = [];
-                  
-                  try {
-                    thoughtStepsFromMessages = messages
-                      .filter(message => {
-                        const hasSteps = message.role === 'ai' && (message as any).thoughtSteps;
-                        if (hasSteps) {
-                          console.log('🎯 Found AI message with thought steps:', (message as any).thoughtSteps);
-                        }
-                        return hasSteps;
-                      })
-                      .flatMap(message => {
-                        const steps = (message as any).thoughtSteps || [];
-                        console.log('📦 Extracting steps from message:', steps.length, 'steps');
-                        
-                        const parsedSteps = Array.isArray(steps) ? steps.map(step => {
-                          if (typeof step === 'string') {
-                            try {
-                              const parsed = JSON.parse(step);
-                              console.log('✅ Parsed JSON step:', parsed.title);
-                              return parsed;
-                            } catch (e) {
-                              console.error('❌ Failed to parse step JSON:', step);
-                              return null;
-                            }
-                          }
-                          return step;
-                        }) : [];
-                        
-                        return parsedSteps.filter(Boolean);
-                      })
-                      .filter(step => step && typeof step === 'object')
-                      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-                      
-                    console.log('✅ Final thought steps array:', thoughtStepsFromMessages.length, 'steps');
-                    thoughtStepsFromMessages.forEach((step, index) => {
-                      console.log(`🔍 Step ${index + 1}:`, {
-                        id: step.id,
-                        title: step.title,
-                        summary: step.summary,
-                        status: step.status,
-                        hasDetails: !!step.details
-                      });
-                    });
-                  } catch (error) {
-                    console.error('❌ Error extracting thought steps:', error);
-                    thoughtStepsFromMessages = [];
-                  }
-
-                  if (thoughtStepsFromMessages.length > 0) {
-                    console.log('🎉 Rendering', thoughtStepsFromMessages.length, 'thought steps');
-                    return (
-                      <SpaceBetween direction="vertical" size="m">
-                        {thoughtStepsFromMessages.map((step, index) => {
-                          const stepTitle = step.title || `Step ${index + 1}`;
-                          const stepSummary = step.summary || 'Processing...';
-                          const stepId = step.id || `step-${index}`;
-                          const stepStatus = step.status || 'complete';
-                          const stepType = step.type || 'processing';
-                          
-                          return (
-                            <Container
-                              key={stepId}
-                              header={
-                                <Box variant="h3" fontWeight="bold">
-                                  {stepTitle}
-                                </Box>
-                              }
-                            >
-                              <SpaceBetween direction="vertical" size="m">
-                                <Box>
-                                  {stepSummary}
-                                </Box>
-                                {step.details && (
-                                  <ExpandableSection
-                                    headerText="Technical Details"
-                                    defaultExpanded={false}
-                                    variant="footer"
-                                  >
-                                    <Box 
-                                      padding={{ left: 'm' }}
-                                      color="text-body-secondary"
-                                    >
-                                      <pre style={{ 
-                                        fontFamily: 'Monaco, Consolas, "Courier New", monospace',
-                                        fontSize: '12px',
-                                        whiteSpace: 'pre-wrap',
-                                        margin: 0,
-                                        backgroundColor: '#fafbfc',
-                                        padding: '12px',
-                                        borderRadius: '4px',
-                                        border: '1px solid #e9ecef'
-                                      }}>
-                                        {step.details}
-                                      </pre>
-                                    </Box>
-                                  </ExpandableSection>
-                                )}
-                              </SpaceBetween>
-                            </Container>
-                          );
-                        })}
-                      </SpaceBetween>
-                    );
-                  }
-
-                  console.log('📝 No thought steps found - showing empty state');
-                  const debugInfo = `Messages: ${messages.length}, AI messages: ${messages.filter(m => m.role === 'ai').length}`;
-                  
-                  return (
-                    <Container>
-                      <SpaceBetween direction="vertical" size="l" alignItems="center">
-                        <Icon name="gen-ai" size="large" />
-                        <SpaceBetween direction="vertical" size="m" alignItems="center">
-                          <Box variant="h2" textAlign="center">
-                            No AI reasoning process active
-                          </Box>
-                          <Box variant="p" textAlign="center" color="text-body-secondary">
-                            Submit a query to see the AI's step-by-step decision-making process.
-                            The chain of thought will show confidence levels, timing, and complete
-                            technical details for full transparency and verification.
-                          </Box>
-                          <Box variant="small" textAlign="center" color="text-body-secondary">
-                            Debug: {debugInfo}
-                          </Box>
-                        </SpaceBetween>
-                      </SpaceBetween>
-                    </Container>
-                  );
-                })()}
-                <div ref={chainOfThoughtEndRef} style={{ height: '1px' }} />
-              </div>
-            </Container>
+            <ChainOfThoughtDisplay messages={messages} />
           </div>
         )}
 

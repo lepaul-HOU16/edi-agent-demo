@@ -284,6 +284,7 @@ export const schema = a.schema({
       description: a.string(),
       dataSourceType: a.string(),
       previewMetadata: a.json(),
+      dataItems: a.json(), // Array of data items with OSDU metadata
       collectionId: a.string(),
     })
     .returns(a.string())

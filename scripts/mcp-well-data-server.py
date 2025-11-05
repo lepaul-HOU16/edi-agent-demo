@@ -7,6 +7,7 @@ Connects to S3 bucket for .las file storage
 """
 import json
 import os
+import math
 import pandas as pd
 from typing import List, Dict, Any, Optional
 from mcp.server import Server
@@ -554,6 +555,30 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
             # Calculate porosity
             result = porosity_calc.calculate_porosity(method, input_data, parameters, depth_range)
             
+            # Include raw curve data for visualization
+            curve_data = {
+                "DEPT": result.depths,
+                "POROSITY": result.values
+            }
+            
+            # Add input curves if available
+            if 'rhob' in input_data:
+                curve_data["RHOB"] = input_data['rhob'][:len(result.depths)]
+            if 'nphi' in input_data:
+                curve_data["NPHI"] = input_data['nphi'][:len(result.depths)]
+            if 'GR' in well.data:
+                curve_data["GR"] = well.data['GR'][:len(result.depths)]
+            
+            # Convert NaN values to None for JSON serialization
+            def clean_nan(obj):
+                if isinstance(obj, dict):
+                    return {k: clean_nan(v) for k, v in obj.items()}
+                elif isinstance(obj, list):
+                    return [clean_nan(v) for v in obj]
+                elif isinstance(obj, float) and (math.isnan(obj) or math.isinf(obj)):
+                    return None
+                return obj
+            
             # Convert result to JSON-serializable format
             response = {
                 "well_name": well_name,
@@ -563,8 +588,9 @@ async def call_tool(name: str, arguments: Dict[str, Any]) -> List[TextContent]:
                 "uncertainty": result.uncertainty,
                 "methodology": result.methodology,
                 "parameters": result.parameters,
-                "statistics": result.statistics,
-                "quality_metrics": result.quality_metrics
+                "statistics": clean_nan(result.statistics),
+                "quality_metrics": clean_nan(result.quality_metrics),
+                "curve_data": curve_data
             }
             
             return [TextContent(type="text", text=json.dumps(response))]

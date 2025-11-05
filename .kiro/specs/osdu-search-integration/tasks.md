@@ -85,3 +85,24 @@
   - Add CloudWatch dashboard for OSDU search metrics
   - Document how to check OSDU search logs
   - _Requirements: 9.5, 10.4_
+
+- [x] 13. Integrate OSDU results into collection context
+  - Parse OSDU search results and convert to well data format
+  - Add OSDU records to analysisData state alongside catalog wells
+  - Include OSDU data in searchContext when filtering/refining queries
+  - Mark OSDU records with source identifier for tracking
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 8.1, 8.2_
+
+- [x] 14. Enable OSDU data in collection creation
+  - Allow OSDU records to be selected in collection modal
+  - Store OSDU source metadata in collection records
+  - Preserve OSDU data when saving collections to database
+  - Display OSDU records in collection detail views
+  - _Requirements: 1.4, 8.1, 8.2, 8.3_
+
+- [x] 15. Implement OSDU data inheritance in canvases
+  - Load OSDU records when opening collections in workspaces
+  - Display OSDU data on maps alongside catalog wells
+  - Enable analysis and visualization of OSDU records
+  - Maintain OSDU source attribution in all views
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 8.1, 8.2_
