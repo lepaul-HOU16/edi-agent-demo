@@ -32,6 +32,7 @@ const ChatBox = (params: {
   const { chatSessionId, showChainOfThought } = params
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
+  const [isInputVisible, setIsInputVisible] = useState<boolean>(true);
   
   // Use provided messages and setMessages if available, otherwise use local state
   const messages = params.messages || localMessages;
@@ -670,7 +671,14 @@ const ChatBox = (params: {
 
       </Box>
 
-      <div className='controls'>
+      {/* Controls with sliding animation */}
+      <div 
+        className='controls'
+        style={{
+          transform: isInputVisible ? 'translateX(0)' : 'translateX(calc(100vw - 50% + 24.95%))',
+          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
         <div 
           className='input-bkgd'
           style={{
@@ -704,6 +712,48 @@ const ChatBox = (params: {
           )}
         </div>
       </div>
+      
+      {/* Toggle button fixed on right edge - never moves */}
+      <button
+        onClick={() => setIsInputVisible(!isInputVisible)}
+        className="input-toggle-button"
+        data-visible={isInputVisible}
+        aria-label={isInputVisible ? "Hide search input" : "Show search input"}
+        style={{
+          position: 'fixed',
+          right: '15px',
+          bottom: '81px',
+          width: '48px',
+          height: '48px',
+          borderRadius: '50%',
+          border: 'none',
+          backgroundColor: isInputVisible ? 'rgba(200, 200, 200, 0.9)' : '#006ce0',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1001,
+          transition: 'background-color 0.3s ease',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+        }}
+      >
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          viewBox="0 0 16 16" 
+          width="24" 
+          height="24"
+          focusable="false" 
+          aria-hidden="true"
+          style={{
+            fill: isInputVisible ? '#333' : 'white',
+            transition: 'fill 0.3s ease',
+          }}
+        >
+          <path d="M11.3 9.9c.7-1 1.1-2.2 1.1-3.4C12.4 3.5 9.9 1 6.9 1S1.4 3.5 1.4 6.5s2.5 5.5 5.5 5.5c1.2 0 2.4-.4 3.4-1.1l3.8 3.8 1.4-1.4-3.8-3.8-.4-.6zm-4.4.6c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4z"/>
+        </svg>
+      </button>
       
       {!isScrolledToBottom && (
         <Fab

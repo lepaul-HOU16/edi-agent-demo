@@ -78,25 +78,26 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme,
         minWidth: 0
       }}>
         <div style={{ 
-          display: 'flex', 
-          alignItems: 'flex-start', 
+          display: 'grid',
+          gridTemplateColumns: '32px 1fr',
           gap: '8px',
-          width: '100%',
-          marginBottom: '0' // Remove bottom margin from header
+          marginBottom: '0'
         }}>
-          <SupportAgentIcon 
-            sx={{ 
-              color: theme.palette.primary.main,
-              width: 32, 
-              height: 32,
-              minWidth: 32,
-              aspectRatio: '1',
-              flexShrink: 0,
-              display: 'block'
-            }} 
-          />
+          <div style={{
+            width: '32px',
+            height: '32px',
+            flexShrink: 0
+          }}>
+            <SupportAgentIcon 
+              sx={{ 
+                color: theme.palette.primary.main,
+                width: '32px', 
+                height: '32px',
+                display: 'block'
+              }} 
+            />
+          </div>
           <div style={{ 
-            width: '100%',
             minWidth: 0 // Allows flex child to shrink below content size
           }}>
             {/* Enhanced component takes priority and renders full width */}

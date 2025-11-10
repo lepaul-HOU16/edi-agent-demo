@@ -497,22 +497,17 @@ function Page({
                     </div>
                     <div className='brea'>
                         {collectionContext ? (
-                            <BreadcrumbGroup
-                                items={[
-                                    { text: 'Collections', href: '/collections' },
-                                    { text: collectionContext.name, href: `/collections/${collectionContext.id}` },
-                                    { text: 'Canvas', href: '#' }
-                                ]}
-                                ariaLabel="Breadcrumbs"
-                            />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                                <a href={`/collections/${collectionContext.id}`} style={{ color: '#0073bb', textDecoration: 'none' }}>{collectionContext.name}</a>
+                                <span style={{ color: '#5f6b7a' }}>›</span>
+                                <span style={{ color: '#000716', fontWeight: 600 }}>{activeChatSession?.name?.replace(/\s*-\s*\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M\s*$/, '') || 'Canvas'}</span>
+                            </div>
                         ) : (
-                            <BreadcrumbGroup
-                                items={[
-                                    { text: 'Workspace', href: '#' },
-                                    { text: 'Canvas', href: '#' }
-                                ]}
-                                ariaLabel="Breadcrumbs"
-                            />
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
+                                <span style={{ color: '#5f6b7a' }}>No Collection</span>
+                                <span style={{ color: '#5f6b7a' }}>›</span>
+                                <span style={{ color: '#000716', fontWeight: 600 }}>{activeChatSession?.name?.replace(/\s*-\s*\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M\s*$/, '') || 'Canvas'}</span>
+                            </div>
                         )}
                     </div>
                 </Grid>

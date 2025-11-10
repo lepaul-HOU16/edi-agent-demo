@@ -9,7 +9,7 @@
 }
 
 .controls {
-    width: 51%;
+    width: 49.9%;
     height: auto;
     background-color: var(--bg-light);
     box-shadow: var(--shadow-light);
@@ -139,15 +139,43 @@
     align-items: center;
     margin-left: 40px;
 
-    /* Fix for Cloudscape BreadcrumbGroup */
-    .awsui-breadcrumb-group {
-        width: auto;
-        display: inline-block;
+    /* Fix for Cloudscape BreadcrumbGroup - Force full breadcrumb display */
+    [class*="awsui_breadcrumb-group"] {
+        width: auto !important;
+        display: inline-flex !important;
+        gap: 0 !important;
     }
 
-    /* Ensure breadcrumb items display properly */
-    .awsui-breadcrumb-group-item {
-        display: inline-block;
+    /* Completely remove dropdown trigger from layout */
+    [class*="awsui_breadcrumb-group"] button[class*="dropdown-trigger"],
+    [class*="awsui_breadcrumb-group"] [class*="dropdown-trigger"],
+    [class*="awsui_breadcrumb-group"] [class*="dropdown"] {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        position: absolute !important;
+        visibility: hidden !important;
+    }
+
+    /* Force breadcrumb list to always show */
+    [class*="awsui_breadcrumb-group"] ol,
+    [class*="awsui_breadcrumb-group"] [class*="list"] {
+        display: flex !important;
+        flex-wrap: nowrap !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        gap: 0 !important;
+        margin: 0 !important;
+    }
+
+    /* Ensure all breadcrumb items are visible */
+    [class*="awsui_breadcrumb-group"] li,
+    [class*="awsui_breadcrumb-group"] [class*="item"] {
+        display: inline-flex !important;
+        visibility: visible !important;
+        margin: 0 !important;
     }
 }
 

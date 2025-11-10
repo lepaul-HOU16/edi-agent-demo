@@ -777,9 +777,16 @@ div[class*="awsui_layout_"]>div[class*="awsui_background_"] {
   max-width: 100% !important;
   box-sizing: border-box !important;
 }
+
+/* Default padding for workspace/chat panels */
 .panel > div {
   margin-top: 1px;
   padding: 10px 20px 10px;
+}
+
+/* Catalog-specific: remove padding */
+[data-page="catalog"] .panel > div {
+  padding: 0;
 }
 /* Enhanced Map Control Styles - 3D Toggle and Weather Controls */
 
@@ -1698,4 +1705,37 @@ select:disabled {
   display: flex;
   align-items: center;
   gap: 20px;
+}
+
+/* 
+===================================================================
+   Sliding Input Toggle Button Styles
+   =================================================================== */
+
+/* Hover state */
+.input-toggle-button:hover {
+  transform: scale(1.1) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Active/pressed state */
+.input-toggle-button:active {
+  transform: scale(0.95) !important;
+}
+
+/* Focus state for accessibility */
+.input-toggle-button:focus {
+  outline: 2px solid #0972D3;
+  outline-offset: 2px;
+}
+
+/* Dark mode adjustments */
+@media (prefers-color-scheme: dark) {
+  .input-toggle-button[data-visible="true"] {
+    background-color: rgba(100, 100, 100, 0.9) !important;
+  }
+
+  .input-toggle-button[data-visible="true"] svg {
+    fill: #e0e0e0 !important;
+  }
 }

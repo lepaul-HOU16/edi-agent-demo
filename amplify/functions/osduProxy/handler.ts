@@ -16,7 +16,7 @@ export const handler: Handler = async (event) => {
   console.log('🔍 OSDU Proxy: Received request');
   
   try {
-    const { query, dataPartition = 'osdu', maxResults = 10 } = event.arguments as OSDUSearchRequest;
+    const { query, dataPartition = 'osdu', maxResults = 1000 } = event.arguments as OSDUSearchRequest;
     
     // Validate inputs
     if (!query || query.trim().length === 0) {
@@ -30,10 +30,10 @@ export const handler: Handler = async (event) => {
     }
     
     // Validate maxResults is within reasonable bounds
-    if (maxResults < 1 || maxResults > 100) {
+    if (maxResults < 1 || maxResults > 10000) {
       console.error('❌ OSDU Proxy: Invalid maxResults parameter:', maxResults);
       return JSON.stringify({
-        error: 'maxResults must be between 1 and 100',
+        error: 'maxResults must be between 1 and 10000',
         answer: 'Invalid search parameters. Please try again.',
         recordCount: 0,
         records: []

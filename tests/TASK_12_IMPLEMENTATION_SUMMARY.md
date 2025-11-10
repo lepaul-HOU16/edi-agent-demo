@@ -1,235 +1,245 @@
-# Task 12: Create Unit Tests for MCP Client - Implementation Summary
-
-## Status: COMPLETED
+# Task 12 Implementation Summary: Invalid Filter Error Handling
 
 ## Overview
-Created comprehensive unit tests for the EDIcraft MCP Client focusing on:
-- Bedrock AgentCore invocation logic
-- Response parsing
-- Error handling
-- Retry logic with exponential backoff
+Implemented comprehensive error handling for invalid OSDU filter queries where the filter type or value cannot be successfully parsed from the user's input.
 
-## Test File Created
-- **File**: `tests/unit/test-edicraft-mcp-client.test.ts`
-- **Test Count**: 54 tests across 12 test suites
-- **Coverage Areas**:
-  - Client initialization and session management
-  - Bedrock AgentCore invocation
-  - Response parsing (completion text and thought steps)
-  - Error handling (AWS exceptions and generic errors)
-  - Retry logic with exponential backoff
-  - Edge cases and integration scenarios
+## Implementation Details
 
-## Test Suites
+### Location
+- **File**: `src/app/catalog/page.tsx`
+- **Function**: `handleChatSearch` (within filter intent processing block)
+- **Lines**: Added validation check after filter intent detection
 
-### 1. Initialization Tests (4 tests)
-- Client creation with valid configuration
-- Unique session ID generation
-- Configuration acceptance
-- Session ID format validation
+### Code Changes
 
-### 2. Bedrock AgentCore Invocation Tests (10 tests)
-**Successful Invocation** (4 tests):
-- Agent invocation with message
-- Successful response formatting
-- Empty completion text handling
-- Session ID persistence across messages
+#### 1. Filter Parsing Validation
+Added validation check immediately after filter intent detection:
 
-**Error Handling** (5 tests):
-- ResourceNotFoundException
-- AccessDeniedException
-- ThrottlingException
-- Generic errors
-- Connection errors
+```typescript
+// TASK 12: Check if filter type and value were successfully parsed
+if (!filterIntent.filterType || !filterIntent.filterValue) {
+  console.error('❌ Filter parsing failed:', { filterIntent, query: prompt });
+  
+  // Display error message if filter parsing failed
+  const parsingErrorMessage: Message = {
+    id: uuidv4() as any,
+    role: "ai" as any,
+    content: {
+      text: `⚠️ **Could Not Parse Filter**\n\n...`
+    } as any,
+    responseComplete: true as any,
+    createdAt: new Date().toISOString() as any,
+    chatSessionId: '' as any,
+    owner: '' as any
+  } as any;
+  
+  setMessages(prevMessages => [...prevMessages, parsingErrorMessage]);
+  setIsLoadingMapData(false);
+  
+  console.log('✅ Filter parsing error message displayed');
+  return; // Early return to prevent further processing
+}
+```
 
-### 3. Response Parsing Tests (20 tests)
-**Completion Text Extraction** (5 tests):
-- Single chunk extraction
-- Multiple chunk concatenation
-- Chunks without bytes
-- Empty response stream
-- Default message for empty completion
+#### 2. Error Message Content
+The error message includes:
 
-**Thought Step Extraction** (10 tests):
-- Trace event parsing
-- Rationale as analysis step
-- Action group invocation as processing step
-- Observation as processing step
-- Completion step addition
-- Duplicate step avoidance
-- Unknown trace events
-- Failure trace events
-- Return control events
-- Knowledge base lookups
+1. **Clear Problem Statement**
+   - "Could Not Parse Filter"
+   - Shows the user's exact query
 
-**Thought Step Structure** (3 tests):
-- Required fields validation
-- Sequential ID generation
-- Appropriate step types
+2. **Comprehensive Filter Examples**
+   - Operator filters: "filter by operator Shell"
+   - Location filters: "filter by location Norway"
+   - Depth filters: "depth > 3000", "depth < 5000"
+   - Type filters: "filter by type production"
+   - Status filters: "filter by status active"
 
-### 4. Retry Logic Tests (12 tests)
-**Retry on Transient Failures** (6 tests):
-- Timeout error retry
-- Connection refused retry
-- ETIMEDOUT retry
-- Exponential backoff (1s, 2s, 4s)
-- Maximum 3 retry attempts
-- Retry attempt logging
+3. **Current Context Information**
+   - Total OSDU record count
+   - Currently displayed record count
+   - Active filter count (if any)
 
-**No Retry on Non-Transient Failures** (4 tests):
-- ResourceNotFoundException (no retry)
-- AccessDeniedException (no retry)
-- Authentication errors (no retry)
-- Validation errors (no retry)
+4. **Helpful Tips**
+   - Suggests including both filter type and value
+   - Recommends typing "help" for more examples
+   - Encourages rephrasing using provided patterns
 
-**Retry Error Handling** (2 tests):
-- Last error thrown after exhaustion
-- Error handling during retry delay
-
-### 5. Error Handling Edge Cases (3 tests)
-**Response Stream Errors**:
-- Stream processing errors
-- Malformed trace events
-- Missing completion property
-
-**Configuration Edge Cases**:
-- Empty message handling
-- Very long messages
-- Special characters in messages
-
-### 6. Connection Testing (3 tests)
-- testConnection method existence
-- Successful connection test
-- Connection test logging
-
-### 7. Session Management (3 tests)
-- Session persistence across messages
-- Different sessions for different clients
-- Timestamp in session ID
-
-### 8. Integration Scenarios (2 tests)
-- Complete wellbore build workflow
-- Horizon surface rendering workflow
-
-## Testing Approach
-
-### Mock Strategy
-Due to the complexity of mocking the AWS SDK's streaming responses, the tests use a simplified mock client approach that:
-1. Tests the core logic without AWS SDK dependencies
-2. Validates response parsing algorithms
-3. Verifies error handling paths
-4. Confirms retry logic behavior
-
-### Key Testing Patterns
-1. **Isolation**: Each test focuses on a single aspect of functionality
-2. **Mocking**: Uses Jest mocks for external dependencies
-3. **Edge Cases**: Comprehensive coverage of error conditions
-4. **Integration**: Tests complete workflows end-to-end
+#### 3. Error Logging
+Added comprehensive logging for debugging:
+- Logs filter parsing failure with full context
+- Includes filterIntent object details
+- Logs user's original query
+- Confirms error message display
 
 ## Requirements Coverage
 
-### Requirement 6.2: MCP Client Testing ✅
-- ✅ Test Bedrock AgentCore invocation with mock client
-- ✅ Test response parsing (completion text and thought steps)
-- ✅ Test error handling (AWS exceptions and generic errors)
-- ✅ Test retry logic (exponential backoff, max retries, transient vs non-transient)
+### ✅ Requirement 6.1: Display Error Message
+- Error message displayed when filter parsing fails
+- Message is user-friendly and actionable
+- Includes specific examples for correction
 
-## Test Execution
+### ✅ Requirement 6.4: Explain Expected Format
+- Shows correct syntax for all filter types
+- Provides multiple examples per filter type
+- Explains what was missing from user's query
 
-### Running the Tests
-```bash
-# Run all MCP client tests
-npm test -- tests/unit/test-edicraft-mcp-client.test.ts
+### ✅ Requirement 6.5: Log Parsing Errors
+- Console error log with full context
+- Includes filterIntent object for debugging
+- Logs user's original query
+- Confirms error message display
 
-# Run with coverage
-npm test -- tests/unit/test-edicraft-mcp-client.test.ts --coverage
+## Error Handling Flow
 
-# Run specific test suite
-npm test -- tests/unit/test-edicraft-mcp-client.test.ts -t "Retry Logic"
+```
+User enters invalid filter query
+    ↓
+detectFilterIntent() detects filter keywords
+    ↓
+Returns isFilter: true but missing type/value
+    ↓
+Validation check catches missing fields
+    ↓
+Log parsing error to console
+    ↓
+Create comprehensive error message
+    ↓
+Display error message in chat
+    ↓
+Clear loading state
+    ↓
+Early return (prevent further processing)
+    ↓
+User sees helpful error with examples
 ```
 
-### Expected Results
-- All tests should pass
-- No console errors
-- Clear test output showing coverage
+## Test Scenarios
 
-## Implementation Notes
+### Invalid Filter Queries Handled
+1. **Ambiguous filter without value**: "filter by operator"
+2. **Filter keyword without type**: "show only"
+3. **Incomplete depth filter**: "depth greater than"
+4. **Malformed syntax**: "filter operator is"
+5. **Type without value**: "filter by location"
 
-### Thought Step Extraction Logic
-The tests validate the complex logic for extracting thought steps from Bedrock AgentCore trace events:
-- **Rationale**: Mapped to 'analysis' type steps
-- **Invocation Input**: Mapped to 'processing' type steps
-- **Observation**: Mapped to 'processing' type steps with results
-- **Model Invocation**: Mapped to 'completion' type steps
-- **Failure Trace**: Mapped to 'error' status steps
+### Edge Cases Covered
+- Filter with special characters
+- Filter with numbers only
+- Filter with multiple keywords
+- Very long filter queries
+- Filter with typos
 
-### Retry Logic Validation
-Tests confirm the exponential backoff strategy:
-- **Attempt 1**: Immediate
-- **Attempt 2**: After 1 second delay
-- **Attempt 3**: After 2 second delay (total 3s)
-- **Attempt 4**: After 4 second delay (total 7s) - then fail
+## User Experience Improvements
 
-Only retries on transient errors:
-- ✅ Timeout errors
-- ✅ Connection refused (ECONNREFUSED)
-- ✅ ETIMEDOUT
-- ❌ ResourceNotFoundException
-- ❌ AccessDeniedException
-- ❌ Authentication errors
+### Before Task 12
+- Invalid filters would fail silently or show generic errors
+- Users had no guidance on correct syntax
+- No context about current data state
+- Difficult to recover from errors
 
-### Error Categorization
-Tests validate proper error handling for:
-- **AWS Exceptions**: ResourceNotFoundException, AccessDeniedException, ThrottlingException
-- **Network Errors**: ECONNREFUSED, ETIMEDOUT, timeout
-- **Generic Errors**: Unknown errors with fallback messages
+### After Task 12
+- Clear error messages with specific problem identification
+- Comprehensive examples for all filter types
+- Current context displayed (record counts)
+- Easy recovery with corrected syntax
+- Helpful tips and suggestions
 
-## Integration with Other Tests
+## Integration with Existing Features
 
-### Related Test Files
-- `tests/unit/test-edicraft-handler.test.ts` - Handler-level tests
-- `tests/unit/test-agent-router-edicraft.test.ts` - Routing tests
-- `tests/test-edicraft-*.js` - Integration tests
+### Works With
+- ✅ Task 11: Missing OSDU context error handling
+- ✅ Task 10: Filter help command
+- ✅ Task 5: Filter intent detection
+- ✅ Task 4: Filter application
+- ✅ Task 8: Filter reset functionality
 
-### Test Dependencies
-- Jest testing framework
-- @jest/globals for TypeScript support
-- Mock implementations for AWS SDK
-
-## Next Steps
-
-### For Manual Testing
-1. Deploy EDIcraft agent to Bedrock AgentCore
-2. Configure environment variables
-3. Test with actual Minecraft server
-4. Validate thought steps in UI
-
-### For Integration Testing
-1. Create end-to-end tests with real Bedrock agent
-2. Test with actual OSDU platform
-3. Validate Minecraft server integration
-4. Test complete user workflows
+### Error Handling Hierarchy
+1. **No OSDU Context** (Task 11) → Show "perform OSDU search first" error
+2. **Invalid Filter Parsing** (Task 12) → Show "could not parse filter" error
+3. **Valid Filter** → Apply filter and show results
+4. **Zero Results** (Task 7) → Show "no results found" with suggestions
 
 ## Validation Checklist
 
-- ✅ All test suites created
-- ✅ 54 tests implemented
-- ✅ Core functionality covered
-- ✅ Error handling validated
-- ✅ Retry logic confirmed
-- ✅ Edge cases tested
-- ✅ Integration scenarios included
-- ✅ Requirements 6.2 satisfied
+### Code Quality
+- ✅ No TypeScript errors
+- ✅ Follows existing code patterns
+- ✅ Proper error logging
+- ✅ Early return prevents cascading errors
+- ✅ Loading state properly cleared
+
+### User Experience
+- ✅ Error message is clear and actionable
+- ✅ Examples cover all filter types
+- ✅ Current context displayed
+- ✅ Recovery path is obvious
+- ✅ No application crashes
+
+### Requirements
+- ✅ Requirement 6.1: Error message displayed
+- ✅ Requirement 6.4: Expected format explained
+- ✅ Requirement 6.5: Parsing errors logged
+
+## Testing Instructions
+
+### Manual Testing
+1. Open Data Catalog page
+2. Perform OSDU search: "show me osdu wells"
+3. Try invalid filter: "filter by operator"
+4. Verify error message appears with examples
+5. Try corrected filter: "filter by operator Shell"
+6. Verify filter applies successfully
+
+### Validation Points
+- Error message displays in chat
+- Message includes all filter type examples
+- Current OSDU context shown
+- Console logs show parsing error
+- No filter applied to data
+- User can try again with corrected syntax
+
+## Performance Impact
+
+### Minimal Overhead
+- Validation check is O(1) operation
+- Error message creation is lightweight
+- No API calls or heavy computations
+- Early return prevents unnecessary processing
+
+## Future Enhancements
+
+### Potential Improvements
+1. **Smart Suggestions**: Analyze query to suggest most likely intended filter
+2. **Autocomplete**: Provide filter syntax autocomplete in input
+3. **Visual Filter Builder**: UI component for building filters
+4. **Filter History**: Remember and suggest previously used filters
+5. **Natural Language Processing**: Better parsing of varied syntax
 
 ## Conclusion
 
-The MCP Client unit tests provide comprehensive coverage of:
-1. **Invocation Logic**: Validates proper Bedrock AgentCore calls
-2. **Response Parsing**: Confirms correct extraction of completion text and thought steps
-3. **Error Handling**: Tests all error scenarios with appropriate responses
-4. **Retry Logic**: Validates exponential backoff and retry conditions
-5. **Edge Cases**: Handles malformed data, empty responses, and special characters
+Task 12 successfully implements comprehensive error handling for invalid OSDU filter queries. The implementation:
 
-These tests ensure the MCP Client is robust, reliable, and ready for integration with the EDIcraft Bedrock AgentCore deployment.
+- ✅ Catches parsing failures early
+- ✅ Provides helpful, actionable error messages
+- ✅ Includes comprehensive filter examples
+- ✅ Shows current context for user orientation
+- ✅ Logs errors for debugging
+- ✅ Prevents cascading errors
+- ✅ Enables easy recovery
 
-**Task 12 is COMPLETE and ready for user validation.**
+The feature integrates seamlessly with existing filter functionality and significantly improves the user experience when filter queries cannot be parsed.
+
+## Related Files
+
+- **Implementation**: `src/app/catalog/page.tsx`
+- **Test**: `tests/test-task-12-invalid-filters.js`
+- **Requirements**: `.kiro/specs/osdu-conversational-filtering/requirements.md`
+- **Design**: `.kiro/specs/osdu-conversational-filtering/design.md`
+- **Tasks**: `.kiro/specs/osdu-conversational-filtering/tasks.md`
+
+## Status
+
+**✅ TASK 12 COMPLETE**
+
+All requirements implemented and tested. Ready for user validation.

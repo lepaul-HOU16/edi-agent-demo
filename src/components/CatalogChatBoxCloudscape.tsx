@@ -17,6 +17,9 @@ import GeoscientistDashboard from './GeoscientistDashboard';
 import GeoscientistDashboardErrorBoundary from './GeoscientistDashboardErrorBoundary';
 import { OSDUSearchResponse, OSDUErrorResponse } from './OSDUSearchResponse';
 import { v4 as uuidv4 } from 'uuid';
+import { OSDUQueryBuilder } from './OSDUQueryBuilder';
+import type { QueryCriterion } from './OSDUQueryBuilder';
+import { ExpandableSection } from '@cloudscape-design/components';
 
 // Enhanced component to render professional geoscientist content instead of boring tables
 function ProfessionalGeoscientistDisplay({ 
@@ -228,6 +231,8 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
         <div style={{ 
           width: '32px', 
           height: '32px', 
+          minWidth: '32px',
+          minHeight: '32px',
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'center',
@@ -235,11 +240,12 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
           borderRadius: '50%',
           color: 'white',
           fontSize: '16px',
-          fontWeight: 'bold'
+          fontWeight: 'bold',
+          flexShrink: 0
         }}>
           <Icon name="gen-ai" />
         </div>
-        <div style={{ flex: 1 }}>
+        <div style={{ flex: 1, minWidth: 0, maxWidth: 'calc(100% - 40px)' }}>
           {/* Render OSDU search response with Cloudscape components */}
           {osduResponseData ? (
             <OSDUSearchResponse
@@ -286,15 +292,19 @@ const CatalogChatBoxCloudscape = (params: {
   userInput: string,
   messages: Message[],
   setMessages: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void,
-  onSendMessage: (message: string) => Promise<void>
+  onSendMessage: (message: string) => Promise<void>,
+  onOpenQueryBuilder?: () => void,
+  showQueryBuilder?: boolean,
+  onExecuteQuery?: (query: string, criteria: any[]) => void
 }) => {
-  const { onInputChange, userInput, messages, setMessages, onSendMessage } = params;
+  const { onInputChange, userInput, messages, setMessages, onSendMessage, onOpenQueryBuilder, showQueryBuilder, onExecuteQuery } = params;
   
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [lastSearchQuery, setLastSearchQuery] = useState<string>('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
+  const [isInputVisible, setIsInputVisible] = useState<boolean>(true);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
@@ -393,7 +403,7 @@ const CatalogChatBoxCloudscape = (params: {
       flexDirection: 'column',
       position: 'relative'
     }}>
-      {/* Messages container */}
+      {/* Messages container with query builder at top */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
@@ -408,6 +418,39 @@ const CatalogChatBoxCloudscape = (params: {
         }}
       >
         <div>
+          {/* Query Builder - Inline at top of messages, full width */}
+          {showQueryBuilder && (
+            <div style={{ 
+              width: '100%',
+              marginBottom: '16px',
+              backgroundColor: '#ffffff'
+            }}>
+              <ExpandableSection
+                headerText="OSDU Query Builder"
+                variant="container"
+                defaultExpanded={true}
+                headerDescription="Build structured OSDU queries with dropdown selections - guaranteed to succeed"
+              >
+                <OSDUQueryBuilder
+                  onExecute={(query: string, criteria: QueryCriterion[]) => {
+                    if (onExecuteQuery) {
+                      onExecuteQuery(query, criteria);
+                    }
+                    if (onOpenQueryBuilder) {
+                      onOpenQueryBuilder(); // Close the query builder
+                    }
+                  }}
+                  onClose={() => {
+                    if (onOpenQueryBuilder) {
+                      onOpenQueryBuilder(); // Toggle to close
+                    }
+                  }}
+                />
+              </ExpandableSection>
+            </div>
+          )}
+          
+          {/* Chat Messages */}
           {messages.map((message, index) => (
             <div 
               key={Array.isArray(message.id) ? message.id[0] || `message-${index}` : message.id || `message-${index}`}
@@ -424,8 +467,14 @@ const CatalogChatBoxCloudscape = (params: {
         </div>
       </div>
 
-      {/* Controls */}
-      <div className='controls'>
+      {/* Controls with sliding animation */}
+      <div 
+        className='controls' 
+        style={{
+          transform: isInputVisible ? 'translateX(0)' : 'translateX(calc(100vw - 50% + 24.95%))',
+          transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        }}
+      >
         <div className='input-bkgd'>
           <ExpandablePromptInput
             onChange={(value) => onInputChange(value)}
@@ -498,6 +547,48 @@ const CatalogChatBoxCloudscape = (params: {
           />
         </div>
       </div>
+      
+      {/* Toggle button fixed on right edge - never moves */}
+      <button
+        onClick={() => setIsInputVisible(!isInputVisible)}
+        className="input-toggle-button"
+        data-visible={isInputVisible}
+        aria-label={isInputVisible ? "Hide search input" : "Show search input"}
+        style={{
+          position: 'fixed',
+          right: '15px',
+          bottom: '81px',
+          width: '48px',
+          height: '48px',
+          borderRadius: '50%',
+          border: 'none',
+          backgroundColor: isInputVisible ? 'rgba(200, 200, 200, 0.9)' : '#006ce0',
+          backdropFilter: 'blur(4px)',
+          WebkitBackdropFilter: 'blur(4px)',
+          cursor: 'pointer',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 1001,
+          transition: 'background-color 0.3s ease',
+          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
+        }}
+      >
+        <svg 
+          xmlns="http://www.w3.org/2000/svg" 
+          viewBox="0 0 16 16" 
+          width="24" 
+          height="24"
+          focusable="false" 
+          aria-hidden="true"
+          style={{
+            fill: isInputVisible ? '#333' : 'white',
+            transition: 'fill 0.3s ease',
+          }}
+        >
+          <path d="M11.3 9.9c.7-1 1.1-2.2 1.1-3.4C12.4 3.5 9.9 1 6.9 1S1.4 3.5 1.4 6.5s2.5 5.5 5.5 5.5c1.2 0 2.4-.4 3.4-1.1l3.8 3.8 1.4-1.4-3.8-3.8-.4-.6zm-4.4.6c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4z"/>
+        </svg>
+      </button>
       
       {/* Scroll to bottom button */}
       {!isScrolledToBottom && (
