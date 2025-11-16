@@ -63,11 +63,16 @@ jobs:
         working-directory: cdk
         run: |
           echo "Building Lambda functions..."
-          npm run build:lambda || npm run build
+          npm run build:lambda
+          echo "Lambda functions built successfully"
+          ls -la dist/lambda-functions/ || echo "dist directory not found"
 
       - name: Build CDK
         working-directory: cdk
-        run: npm run build
+        run: |
+          echo "Building CDK TypeScript..."
+          npm run build
+          echo "CDK built successfully"
 
       - name: CDK Diff
         working-directory: cdk
