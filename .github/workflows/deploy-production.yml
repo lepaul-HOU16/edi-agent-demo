@@ -66,6 +66,12 @@ jobs:
         working-directory: cdk
         run: npm ci
 
+      - name: Build Lambda functions
+        working-directory: cdk
+        run: |
+          echo "Building Lambda functions..."
+          npm run build:lambda || npm run build
+
       - name: Build CDK
         working-directory: cdk
         run: npm run build
