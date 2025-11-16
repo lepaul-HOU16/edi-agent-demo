@@ -1,10 +1,11 @@
 /**
  * EDIcraft Agent Wrapper
- * Simplified wrapper that delegates to the EDIcraft handler
+ * Simplified wrapper for EDIcraft agent
  * Requirements: 2.1, 2.3, 5.1, 5.2
+ * 
+ * Note: The actual EDIcraft handler is in JavaScript and invoked separately.
+ * This wrapper provides a TypeScript interface for the agent router.
  */
-
-import { handler } from './edicraftAgent/handler';
 
 export interface EDIcraftResponse {
   success: boolean;
@@ -25,30 +26,22 @@ export class EDIcraftAgent extends BaseEnhancedAgent {
 
   /**
    * Process a message through the EDIcraft agent
-   * Delegates to the actual handler which invokes Bedrock AgentCore
    * Requirements: 2.1, 2.3, 5.1, 5.2
    */
   async processMessage(message: string): Promise<EDIcraftResponse> {
     console.log('🎮 EDIcraftAgent: Processing message:', message);
 
     try {
-      // Create event structure expected by handler
-      const event = {
-        arguments: {
-          userId: 'router-user', // Will be overridden by actual user context
-          message: message
-        },
-        identity: {
-          sub: 'router-user'
-        }
+      // EDIcraft functionality is currently disabled in this build
+      // The actual handler is in JavaScript and would need to be invoked separately
+      return {
+        success: false,
+        message: 'EDIcraft agent is currently unavailable. Please use the general knowledge agent for subsurface data queries.',
+        artifacts: [],
+        thoughtSteps: [],
+        connectionStatus: 'disabled',
+        error: 'EDIcraft agent not available in this build'
       };
-
-      // Call the actual handler
-      const response = await handler(event as any, {} as any);
-      
-      console.log('🎮 EDIcraftAgent: Handler response:', JSON.stringify(response, null, 2));
-      
-      return response;
 
     } catch (error) {
       console.error('❌ EDIcraftAgent error:', error);
