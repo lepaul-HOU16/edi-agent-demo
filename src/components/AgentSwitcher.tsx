@@ -1,4 +1,3 @@
-'use client';
 
 import React from 'react';
 import ButtonDropdown from '@cloudscape-design/components/button-dropdown';

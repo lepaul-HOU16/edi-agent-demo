@@ -1,4 +1,3 @@
-"use client"
 import React, { createContext, useContext, useState, ReactNode, useCallback, useRef } from 'react';
 
 // Interface for file system context

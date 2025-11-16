@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent Landing Page Scroll Fix Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .test-container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 5fr 7fr;
+            gap: 20px;
+            height: 600px;
+        }
+
+        /* Original panel style (with issues) */
+        .panel-old {
+            width: 100% !important;
+            height: 100%;
+            min-height: 500px !important;
+            overflow: auto !important;
+            position: relative !important;
+            background: #ffffff !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 8px !important;
+            border-top-left-radius: 0 !important;
+            border-top-right-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Fixed panel style */
+        .panel {
+            width: 100% !important;
+            height: 100%;
+            min-height: 500px !important;
+            overflow-y: auto !important;
+            overflow-x: hidden !important;
+            position: relative !important;
+            background: #ffffff !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 8px !important;
+            border-top-left-radius: 0 !important;
+            border-top-right-radius: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            box-sizing: border-box !important;
+        }
+
+        /* Fix for containers inside panel */
+        .panel > .container {
+            border: none !important;
+            box-shadow: none !important;
+            max-width: 100% !important;
+            overflow-x: hidden !important;
+        }
+
+        .panel * {
+            max-width: 100%;
+            box-sizing: border-box;
+        }
+
+        .container {
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background: white;
+        }
+
+        .header {
+            font-size: 20px;
+            font-weight: 600;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .content {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .capabilities {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .capability {
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+
+        .capability-title {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+
+        .capability-desc {
+            font-size: 14px;
+            color: #666;
+        }
+
+        .test-section {
+            margin-bottom: 40px;
+        }
+
+        .test-label {
+            background: #333;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            margin-bottom: 10px;
+            display: inline-block;
+        }
+
+        .status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 10px;
+        }
+
+        .status.fixed {
+            background: #d4edda;
+            color: #155724;
+        }
+
+        .status.issue {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        .right-panel {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            overflow: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="test-container">
+        <h1>Agent Landing Page Scroll Fix Test</h1>
+        
+        <div class="test-section">
+            <div class="test-label">
+                ❌ BEFORE (with issues)
+                <span class="status issue">Horizontal Scroll + Double Border</span>
+            </div>
+            <div class="grid">
+                <div class="panel-old">
+                    <div class="container">
+                        <div class="header">
+                            <span>📊</span>
+                            <span>Petrophysics Agent</span>
+                        </div>
+                        <div class="content">
+                            <h3>Well Log Analysis & Reservoir Characterization</h3>
+                            <p>The Petrophysics Agent specializes in analyzing well log data to characterize subsurface reservoirs. It performs industry-standard calculations for porosity, shale volume, water saturation, and permeability.</p>
+                            
+                            <div class="capabilities">
+                                <div class="capability">
+                                    <div class="capability-title">✓ Porosity Calculation</div>
+                                    <div class="capability-desc">Density-neutron crossplot analysis and effective porosity determination</div>
+                                </div>
+                                <div class="capability">
+                                    <div class="capability-title">✓ Shale Volume Analysis</div>
+                                    <div class="capability-desc">Gamma ray-based shale volume estimation using linear and non-linear methods</div>
+                                </div>
+                                <div class="capability">
+                                    <div class="capability-title">✓ Multi-Well Correlation</div>
+                                    <div class="capability-desc">Cross-well correlation to identify geological markers and formation tops</div>
+                                </div>
+                                <div class="capability">
+                                    <div class="capability-title">✓ Data Quality Assessment</div>
+                                    <div class="capability-desc">Completeness analysis, outlier detection, and data validation</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="right-panel">
+                    <h3>Chat Area</h3>
+                    <p>This is where the conversation would appear...</p>
+                </div>
+            </div>
+            <p style="margin-top: 10px; color: #666;">
+                <strong>Issues:</strong> Container inside panel has its own border, creating a double border effect with the panel's border. 
+                Also using <code>overflow: auto</code> allows horizontal scrolling.
+            </p>
+        </div>
+
+        <div class="test-section">
+            <div class="test-label">
+                ✅ AFTER (fixed)
+                <span class="status fixed">No Horizontal Scroll + No Double Border</span>
+            </div>
+            <div class="grid">
+                <div class="panel">
+                    <div class="container">
+                        <div class="header">
+                            <span>📊</span>
+                            <span>Petrophysics Agent</span>
+                        </div>
+                        <div class="content">
+                            <h3>Well Log Analysis & Reservoir Characterization</h3>
+                            <p>The Petrophysics Agent specializes in analyzing well log data to characterize subsurface reservoirs. It performs industry-standard calculations for porosity, shale volume, water saturation, and permeability.</p>
+                            
+                            <div class="capabilities">
+                                <div class="capability">
+                                    <div class="capability-title">✓ Porosity Calculation</div>
+                                    <div class="capability-desc">Density-neutron crossplot analysis and effective porosity determination</div>
+                                </div>
+                                <div class="capability">
+                                    <div class="capability-title">✓ Shale Volume Analysis</div>
+                                    <div class="capability-desc">Gamma ray-based shale volume estimation using linear and non-linear methods</div>
+                                </div>
+                                <div class="capability">
+                                    <div class="capability-title">✓ Multi-Well Correlation</div>
+                                    <div class="capability-desc">Cross-well correlation to identify geological markers and formation tops</div>
+                                </div>
+                                <div class="capability">
+                                    <div class="capability-title">✓ Data Quality Assessment</div>
+                                    <div class="capability-desc">Completeness analysis, outlier detection, and data validation</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="right-panel">
+                    <h3>Chat Area</h3>
+                    <p>This is where the conversation would appear...</p>
+                </div>
+            </div>
+            <p style="margin-top: 10px; color: #666;">
+                <strong>Fixes Applied:</strong>
+            </p>
+            <ul style="margin-left: 20px; color: #666;">
+                <li>Kept panel border (1px solid #e5e7eb) for visual definition</li>
+                <li>Changed <code>overflow: auto</code> to <code>overflow-y: auto; overflow-x: hidden</code> (prevents horizontal scroll)</li>
+                <li>Added <code>.panel > [class*="awsui_root"] { border: none !important; }</code> to remove Container's border (eliminates double border)</li>
+                <li>Added <code>.panel * { max-width: 100%; }</code> to prevent content overflow</li>
+            </ul>
+        </div>
+
+        <div style="background: #e3f2fd; padding: 20px; border-radius: 8px; margin-top: 20px;">
+            <h3 style="margin-bottom: 10px;">Summary of Changes</h3>
+            <ol style="margin-left: 20px; line-height: 1.8;">
+                <li><strong>Kept panel border:</strong> Maintained <code>border: 1px solid #e5e7eb</code> on <code>.panel</code> class for visual definition</li>
+                <li><strong>Fixed overflow behavior:</strong> Changed from <code>overflow: auto</code> to <code>overflow-y: auto; overflow-x: hidden</code></li>
+                <li><strong>Removed Container border:</strong> Added <code>.panel > [class*="awsui_root"] { border: none !important; }</code> to eliminate double border</li>
+                <li><strong>Prevented content overflow:</strong> Added <code>.panel * { max-width: 100%; box-sizing: border-box; }</code></li>
+            </ol>
+        </div>
+    </div>
+</body>
+</html>

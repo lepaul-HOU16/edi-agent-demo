@@ -1,7 +1,7 @@
 import React from 'react';
 import { Theme } from '@mui/material/styles';
 import CalculateIcon from '@mui/icons-material/Calculate';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 interface CalculatorToolComponentProps {
   content: Message['content'];

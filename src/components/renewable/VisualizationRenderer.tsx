@@ -8,7 +8,7 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Button, Spinner, ButtonDropdown } from '@cloudscape-design/components';
 import FullScreenVisualizationModal from './FullScreenVisualizationModal';
-import VisualizationExporter from '../../utils/VisualizationExporter';
+import VisualizationExporter from '@/utils/VisualizationExporter';
 
 export interface VisualizationRendererProps {
   imageUrl?: string;

@@ -1,4 +1,3 @@
-'use client';
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -22,7 +21,7 @@ import {
   FeatureUnlock,
   ComplexityGate
 } from '../../types/workflow';
-import { ProgressiveDisclosureService } from '../../services/workflow/ProgressiveDisclosureService';
+import { ProgressiveDisclosureService } from '@/services/workflow/ProgressiveDisclosureService';
 
 /**
  * Props for ProgressiveDisclosurePanel component

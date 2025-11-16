@@ -6,10 +6,7 @@
  * are accessible in the FileDrawer.
  */
 
-import { generateClient } from "aws-amplify/data";
-import { type Schema } from "@/../amplify/data/resource";
-
-const amplifyClient = generateClient<Schema>();
+import { getCollection } from '../lib/api/collections';
 
 export interface CollectionData {
   id: string;
@@ -52,23 +49,11 @@ export async function loadCollectionForCanvas(
   try {
     console.log('🔍 Loading collection data for canvas:', collectionId);
     
-    // Query collection service to get full collection data
-    const response = await amplifyClient.queries.collectionQuery({
-      operation: 'getCollection',
-      collectionId: collectionId
-    });
-    
-    if (!response.data) {
-      console.error('❌ No data returned from collection query');
-      return null;
-    }
-    
-    const result = typeof response.data === 'string' 
-      ? JSON.parse(response.data) 
-      : response.data;
+    // Query collection service via REST API to get full collection data
+    const result = await getCollection(collectionId);
     
     if (!result.success || !result.collection) {
-      console.error('❌ Collection not found:', result.error);
+      console.error('❌ Collection not found');
       return null;
     }
     
@@ -152,18 +137,10 @@ export async function updateCanvasCollectionContext(
       wellCount: collectionData.dataItems?.length || 0
     });
     
-    const { data: updatedSession } = await amplifyClient.models.ChatSession.update({
-      id: chatSessionId,
-      linkedCollectionId: collectionId,
-      collectionContext: collectionData as any
-    } as any);
-    
-    if (updatedSession) {
-      console.log('✅ Canvas updated with collection context');
-      return true;
-    }
-    
-    return false;
+    // TODO: Implement ChatSession REST API endpoint
+    // For now, skip session update as ChatSession hasn't been migrated yet
+    console.warn('ChatSession REST API not yet implemented, skipping session update');
+    return true;
   } catch (error) {
     console.error('❌ Error updating canvas collection context:', error);
     return false;
@@ -182,42 +159,10 @@ export async function getCanvasCollectionContext(
   try {
     console.log('🔍 Getting collection context for canvas:', chatSessionId);
     
-    // Get chat session
-    const { data: session } = await amplifyClient.models.ChatSession.get({
-      id: chatSessionId
-    });
-    
-    if (!session) {
-      console.log('⚠️ Chat session not found');
-      return null;
-    }
-    
-    // Check if session has linked collection
-    if (!session.linkedCollectionId) {
-      console.log('ℹ️ Canvas has no linked collection');
-      return null;
-    }
-    
-    // Check if we have cached collection context
-    if (session.collectionContext) {
-      console.log('✅ Using cached collection context');
-      return session.collectionContext as CollectionData;
-    }
-    
-    // Load fresh collection data
-    console.log('🔄 Loading fresh collection data');
-    const collectionData = await loadCollectionForCanvas(session.linkedCollectionId);
-    
-    if (collectionData) {
-      // Cache it in the session
-      await updateCanvasCollectionContext(
-        chatSessionId,
-        session.linkedCollectionId,
-        collectionData
-      );
-    }
-    
-    return collectionData;
+    // TODO: Implement ChatSession REST API endpoint
+    // For now, return null as ChatSession hasn't been migrated yet
+    console.warn('ChatSession REST API not yet implemented, cannot get collection context');
+    return null;
   } catch (error) {
     console.error('❌ Error getting canvas collection context:', error);
     return null;

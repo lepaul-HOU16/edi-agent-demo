@@ -3,7 +3,7 @@ import { Theme } from '@mui/material/styles';
 import { Typography, Paper, Box, Alert, Button } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 interface WebBrowserResponse {
   content?: string;

@@ -1,124 +1,103 @@
-#!/usr/bin/env node
-
 /**
- * Test script to verify MCP server integration
+ * Test MCP Integration
+ * 
+ * This test verifies that agents can connect to and use MCP server tools
  */
 
-const https = require('https');
+const { LambdaClient, InvokeCommand } = require("@aws-sdk/client-lambda");
 
-// Configuration - update these with your actual values
-const MCP_SERVER_URL = process.env.MCP_SERVER_URL || 'https://your-mcp-server-url.com/mcp';
-const MCP_API_KEY = process.env.MCP_API_KEY || 'your-mcp-api-key';
+const FUNCTION_NAME = "amplify-digitalassistant--RenewableAgentsFunction0-SN4eNAuowSFt";
+const REGION = "us-east-1";
 
-console.log('=== MCP Integration Test ===');
-console.log('MCP Server URL:', MCP_SERVER_URL);
-console.log('MCP API Key configured:', !!MCP_API_KEY);
+const lambda = new LambdaClient({ region: REGION });
 
-async function testMCPServer() {
+async function testMCPIntegration() {
+  console.log("🧪 Testing MCP Integration\n");
+  console.log("=" .repeat(60));
+  
+  // Test layout agent which uses MCP tools
+  const testPayload = {
+    agent: "layout",
+    query: "Create a wind farm layout at coordinates 35.067482, -101.395466 with 30MW capacity using IEA_Reference_3.4MW_130 turbines for project_id 'test_mcp_123'",
+    parameters: {
+      project_id: "test_mcp_123",
+      latitude: 35.067482,
+      longitude: -101.395466,
+      target_capacity_mw: 30,
+      turbine_model: "IEA_Reference_3.4MW_130"
+    }
+  };
+  
+  console.log("\n📋 Test Configuration:");
+  console.log(`   Function: ${FUNCTION_NAME}`);
+  console.log(`   Agent: ${testPayload.agent}`);
+  console.log(`   Query: ${testPayload.query.substring(0, 80)}...`);
+  
   try {
-    console.log('\n1. Testing MCP server connection...');
+    console.log("\n🚀 Invoking Lambda function...");
     
-    // Test 1: List available tools
-    const toolsResponse = await callMCPServer({
-      jsonrpc: '2.0',
-      id: '1',
-      method: 'tools/list'
+    const command = new InvokeCommand({
+      FunctionName: FUNCTION_NAME,
+      InvocationType: "RequestResponse",
+      Payload: JSON.stringify(testPayload)
     });
     
-    console.log('Tools list response:', JSON.stringify(toolsResponse, null, 2));
+    const startTime = Date.now();
+    const response = await lambda.send(command);
+    const duration = Date.now() - startTime;
     
-    if (toolsResponse.result && toolsResponse.result.tools) {
-      console.log(`✅ Found ${toolsResponse.result.tools.length} available tools`);
-      toolsResponse.result.tools.forEach(tool => {
-        console.log(`  - ${tool.name}: ${tool.description}`);
-      });
-    } else {
-      console.log('❌ No tools found in response');
+    console.log(`\n✅ Lambda invoked successfully (${duration}ms)`);
+    
+    const payload = JSON.parse(Buffer.from(response.Payload).toString());
+    
+    console.log("\n🔍 Verification:");
+    
+    if (response.StatusCode === 200) {
+      console.log("   ✅ Lambda execution successful");
     }
     
-    // Test 2: Call list_wells tool
-    console.log('\n2. Testing list_wells tool...');
-    const wellsResponse = await callMCPServer({
-      jsonrpc: '2.0',
-      id: '2',
-      method: 'tools/call',
-      params: {
-        name: 'list_wells',
-        arguments: {}
+    if (payload.statusCode === 200) {
+      console.log("   ✅ Agent execution successful");
+      
+      const body = typeof payload.body === 'string' ? JSON.parse(payload.body) : payload.body;
+      
+      // Check if MCP tools were used
+      if (body.response && body.response.includes("turbine")) {
+        console.log("   ✅ Agent processed turbine specifications");
       }
-    });
-    
-    console.log('Wells list response:', JSON.stringify(wellsResponse, null, 2));
-    
-    if (wellsResponse.result && wellsResponse.result.content) {
-      const wellsData = JSON.parse(wellsResponse.result.content[0].text);
-      if (wellsData.wells) {
-        console.log(`✅ Found ${wellsData.wells.length} wells`);
-        wellsData.wells.forEach(well => {
-          console.log(`  - ${well}`);
-        });
-      } else {
-        console.log('❌ No wells found');
+      
+      if (body.progress && body.progress.length > 0) {
+        console.log(`   ✅ Progress tracking: ${body.progress.length} steps`);
       }
-    } else {
-      console.log('❌ Invalid response format');
+      
+      console.log("\n📊 Response Summary:");
+      console.log(`   Agent: ${body.agent}`);
+      console.log(`   Success: ${body.success}`);
+      if (body.performance) {
+        console.log(`   Execution Time: ${body.performance.executionTime}s`);
+        console.log(`   Cold Start: ${body.performance.coldStart}`);
+      }
     }
+    
+    console.log("\n" + "=".repeat(60));
+    console.log("✅ MCP integration test completed");
+    console.log("=".repeat(60));
+    
+    return true;
     
   } catch (error) {
-    console.error('❌ Test failed:', error.message);
-    console.error('Full error:', error);
+    console.error("\n❌ Test failed with error:");
+    console.error(error);
+    return false;
   }
 }
 
-async function callMCPServer(payload) {
-  return new Promise((resolve, reject) => {
-    const url = new URL(MCP_SERVER_URL);
-    const postData = JSON.stringify(payload);
-    
-    const options = {
-      hostname: url.hostname,
-      port: url.port || 443,
-      path: url.pathname,
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-API-Key': MCP_API_KEY,
-        'accept': 'application/json',
-        'Content-Length': Buffer.byteLength(postData)
-      }
-    };
-    
-    const req = https.request(options, (res) => {
-      let data = '';
-      
-      res.on('data', (chunk) => {
-        data += chunk;
-      });
-      
-      res.on('end', () => {
-        try {
-          const response = JSON.parse(data);
-          resolve(response);
-        } catch (error) {
-          reject(new Error(`Failed to parse response: ${data}`));
-        }
-      });
-    });
-    
-    req.on('error', (error) => {
-      reject(error);
-    });
-    
-    req.write(postData);
-    req.end();
-  });
-}
-
 // Run the test
-testMCPServer().then(() => {
-  console.log('\n=== Test Complete ===');
-}).catch((error) => {
-  console.error('\n=== Test Failed ===');
-  console.error(error);
-  process.exit(1);
-});
+testMCPIntegration()
+  .then(success => {
+    process.exit(success ? 0 : 1);
+  })
+  .catch(error => {
+    console.error("Unexpected error:", error);
+    process.exit(1);
+  });

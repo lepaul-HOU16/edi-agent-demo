@@ -7,7 +7,7 @@
 
 import React from 'react';
 import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Button, ButtonDropdown } from '@cloudscape-design/components';
-import { VisualizationDataParser, VisualizationData, CategorizedVisualizations } from '../../utils/VisualizationDataParser';
+import { VisualizationDataParser, VisualizationData, CategorizedVisualizations } from '@/utils/VisualizationDataParser';
 import VisualizationRenderer from './VisualizationRenderer';
 import { SafeVisualizationWrapper } from './VisualizationErrorBoundary';
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';

@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catalog Page Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 4px;
+        }
+        .pass {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .fail {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        .pending {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Catalog Page Styling & Functionality Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Instructions</h2>
+        <p>This test verifies the CatalogPage styling and functionality fixes:</p>
+        <ol>
+            <li>Map control positioning</li>
+            <li>Button alignment and spacing</li>
+            <li>Map loads correctly</li>
+            <li>Search functionality works</li>
+        </ol>
+        <button onclick="runTests()">Run Tests</button>
+        <button onclick="openCatalogPage()">Open Catalog Page</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const BASE_URL = 'http://localhost:3001';
+        
+        function addResult(testName, status, message) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${status}`;
+            resultDiv.innerHTML = `<strong>${testName}:</strong> ${message}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function openCatalogPage() {
+            window.open(`${BASE_URL}/catalog`, '_blank');
+        }
+
+        async function runTests() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>Test Results</h2>';
+            
+            // Test 1: Check if dev server is running
+            addResult('Dev Server', 'pending', 'Checking if server is running...');
+            try {
+                const response = await fetch(BASE_URL);
+                if (response.ok) {
+                    addResult('Dev Server', 'pass', 'Server is running on port 3001');
+                } else {
+                    addResult('Dev Server', 'fail', `Server returned status ${response.status}`);
+                    return;
+                }
+            } catch (error) {
+                addResult('Dev Server', 'fail', `Cannot connect to server: ${error.message}`);
+                return;
+            }
+
+            // Test 2: Check if catalog page loads
+            addResult('Catalog Page Load', 'pending', 'Checking if catalog page loads...');
+            try {
+                const response = await fetch(`${BASE_URL}/catalog`);
+                if (response.ok) {
+                    addResult('Catalog Page Load', 'pass', 'Catalog page loads successfully');
+                } else {
+                    addResult('Catalog Page Load', 'fail', `Page returned status ${response.status}`);
+                }
+            } catch (error) {
+                addResult('Catalog Page Load', 'fail', `Error loading page: ${error.message}`);
+            }
+
+            // Test 3: Check if CSS is loaded
+            addResult('CSS Loading', 'pending', 'Checking if styles are loaded...');
+            try {
+                const response = await fetch(`${BASE_URL}/src/globals.css`);
+                if (response.ok) {
+                    const css = await response.text();
+                    if (css.includes('maplibregl-ctrl-top-right') && 
+                        css.includes('[data-page="catalog"]')) {
+                        addResult('CSS Loading', 'pass', 'All required styles are present');
+                    } else {
+                        addResult('CSS Loading', 'fail', 'Some required styles are missing');
+                    }
+                } else {
+                    addResult('CSS Loading', 'fail', 'Could not load CSS file');
+                }
+            } catch (error) {
+                addResult('CSS Loading', 'fail', `Error loading CSS: ${error.message}`);
+            }
+
+            // Test 4: Manual verification instructions
+            addResult('Manual Tests', 'pending', 'Please verify manually:');
+            const manualTests = [
+                '1. Map controls are positioned correctly (top-right corner)',
+                '2. Buttons are properly aligned with consistent spacing',
+                '3. Map loads and displays correctly',
+                '4. Search functionality works (try searching for wells)',
+                '5. Panel switching works (Map, Analysis, Chain of Thought)',
+                '6. No console errors appear'
+            ];
+            
+            const manualDiv = document.createElement('div');
+            manualDiv.className = 'test-result pending';
+            manualDiv.innerHTML = '<strong>Manual Verification Checklist:</strong><ul>' + 
+                manualTests.map(test => `<li>${test}</li>`).join('') + 
+                '</ul><p><button onclick="openCatalogPage()">Open Catalog Page to Verify</button></p>';
+            document.getElementById('results').appendChild(manualDiv);
+        }
+    </script>
+</body>
+</html>

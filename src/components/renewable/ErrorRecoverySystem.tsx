@@ -20,7 +20,7 @@ import {
   StatusIndicator,
   ProgressBar
 } from '@cloudscape-design/components';
-import { useRenewableErrorHandler, type FormattedError } from '../../utils/renewable/ErrorHandlingUtils';
+import { useRenewableErrorHandler, type FormattedError } from '@/utils/renewable/ErrorHandlingUtils';
 
 interface ErrorRecoverySystemProps {
   error: Error | FormattedError;

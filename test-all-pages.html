@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test All Pages - Vite Migration</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #0073bb;
+            padding-bottom: 10px;
+        }
+        .test-section {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            color: #0073bb;
+            margin-top: 0;
+        }
+        .page-link {
+            display: inline-block;
+            padding: 10px 20px;
+            margin: 10px 10px 10px 0;
+            background: #0073bb;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            transition: background 0.3s;
+        }
+        .page-link:hover {
+            background: #005a8c;
+        }
+        .status {
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+            margin-left: 10px;
+        }
+        .status.pass {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status.pending {
+            background: #fff3cd;
+            color: #856404;
+        }
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .checklist li:before {
+            content: "☐ ";
+            color: #0073bb;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .note {
+            background: #e7f3ff;
+            border-left: 4px solid #0073bb;
+            padding: 15px;
+            margin: 15px 0;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px;
+            margin: 15px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test All Pages - Vite Migration</h1>
+    
+    <div class="note">
+        <strong>Testing Instructions:</strong>
+        <ol>
+            <li>Click each page link below to open it in a new tab</li>
+            <li>Check the browser console for errors (F12 → Console)</li>
+            <li>Verify the page renders correctly with proper styling</li>
+            <li>Test the functionality described in each section</li>
+            <li>Mark items as complete in your testing checklist</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>1. CollectionsPage <span class="status pending">PENDING</span></h2>
+        <a href="/collections" target="_blank" class="page-link">Open CollectionsPage</a>
+        
+        <h3>Test Checklist:</h3>
+        <ul class="checklist">
+            <li>Page loads without console errors</li>
+            <li>Cloudscape components render correctly</li>
+            <li>Collections list displays (or empty state shows)</li>
+            <li>"Create New Collection" button works (if enabled)</li>
+            <li>Collection cards are clickable</li>
+            <li>Pagination works if there are many collections</li>
+            <li>Mock authentication works (no 401 errors)</li>
+            <li>API calls to /api/collections/list succeed</li>
+        </ul>
+
+        <div class="note">
+            <strong>Expected Behavior:</strong> Should display a grid of collection cards with proper styling. 
+            If no collections exist, should show an empty state with a "Create New Collection" button.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. ProjectsPage <span class="status pending">PENDING</span></h2>
+        <a href="/projects" target="_blank" class="page-link">Open ProjectsPage</a>
+        
+        <h3>Test Checklist:</h3>
+        <ul class="checklist">
+            <li>Page loads without console errors</li>
+            <li>MUI components render correctly</li>
+            <li>Summary statistics display at top</li>
+            <li>Plotly scatter plot renders</li>
+            <li>Projects list displays (or empty state shows)</li>
+            <li>Clicking a project shows details</li>
+            <li>Status dropdown works</li>
+            <li>Delete project button works</li>
+            <li>Mock authentication works (no 401 errors)</li>
+            <li>API calls to /api/projects succeed</li>
+        </ul>
+
+        <div class="note">
+            <strong>Expected Behavior:</strong> Should display summary cards at top, a Plotly scatter plot 
+            of projects, and project details when a project is selected.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. PreviewPage <span class="status pending">PENDING</span></h2>
+        <a href="/preview/test.txt" target="_blank" class="page-link">Open PreviewPage (test file)</a>
+        
+        <h3>Test Checklist:</h3>
+        <ul class="checklist">
+            <li>Page loads without console errors</li>
+            <li>File path displays in header</li>
+            <li>FileViewer component renders</li>
+            <li>Download button works</li>
+            <li>Open in New Tab button works</li>
+            <li>Print button works</li>
+            <li>Edit button shows for editable files</li>
+            <li>Save button works in edit mode</li>
+            <li>Mock authentication works (no 401 errors)</li>
+            <li>S3 file access works</li>
+        </ul>
+
+        <div class="note">
+            <strong>Expected Behavior:</strong> Should display file content with action buttons. 
+            For text files, should allow editing. For images/PDFs, should display inline.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. ListChatsPage <span class="status pending">PENDING</span></h2>
+        <a href="/listChats" target="_blank" class="page-link">Open ListChatsPage</a>
+        
+        <h3>Test Checklist:</h3>
+        <ul class="checklist">
+            <li>Page loads without console errors</li>
+            <li>User info loads (or mock user shows)</li>
+            <li>Cloudscape Cards component renders</li>
+            <li>Chat sessions list displays (or empty state shows)</li>
+            <li>"Select All" button works</li>
+            <li>"Delete Selected" button works</li>
+            <li>Individual delete buttons work</li>
+            <li>"Open Chat" buttons work</li>
+            <li>Mock authentication works (no 401 errors)</li>
+            <li>API calls to /api/chat/sessions succeed</li>
+        </ul>
+
+        <div class="note">
+            <strong>Expected Behavior:</strong> Should display a grid of chat session cards with 
+            selection checkboxes. Should allow bulk deletion and individual chat opening.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>5. CreateNewChatPage <span class="status pending">PENDING</span></h2>
+        <a href="/create-new-chat" target="_blank" class="page-link">Open CreateNewChatPage</a>
+        
+        <h3>Test Checklist:</h3>
+        <ul class="checklist">
+            <li>Page loads without console errors</li>
+            <li>Shows "Creating new chat session..." message</li>
+            <li>Automatically creates a new chat session</li>
+            <li>Redirects to the new chat page</li>
+            <li>Collection context loads if collectionId provided</li>
+            <li>Mock authentication works (no 401 errors)</li>
+            <li>API call to /api/chat/sessions (POST) succeeds</li>
+        </ul>
+
+        <div class="note">
+            <strong>Expected Behavior:</strong> Should show a loading message briefly, then 
+            automatically create a new chat session and redirect to /chat/{sessionId}.
+        </div>
+
+        <div class="warning">
+            <strong>Note:</strong> This page will redirect immediately. Check the Network tab 
+            to verify the API call succeeds before redirect.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>6. CollectionDetailPage <span class="status pending">PENDING</span></h2>
+        <a href="/collections/test-collection-id" target="_blank" class="page-link">Open CollectionDetailPage (test ID)</a>
+        
+        <h3>Test Checklist:</h3>
+        <ul class="checklist">
+            <li>Page loads without console errors</li>
+            <li>Breadcrumb navigation displays</li>
+            <li>Collection details load (or error shows)</li>
+            <li>Collection overview section displays</li>
+            <li>Data summary shows correct counts</li>
+            <li>Linked canvases section displays</li>
+            <li>"Create New Canvas" button works</li>
+            <li>"Back to Collections" button works</li>
+            <li>Mock authentication works (no 401 errors)</li>
+            <li>API call to /api/collections/{id} succeeds</li>
+        </ul>
+
+        <div class="note">
+            <strong>Expected Behavior:</strong> Should display detailed information about a specific 
+            collection including metadata, linked canvases, and data items.
+        </div>
+
+        <div class="warning">
+            <strong>Note:</strong> You'll need a valid collection ID to test this page properly. 
+            Create a collection first or use an existing one.
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>📋 Overall Testing Summary</h2>
+        
+        <h3>Common Issues to Check:</h3>
+        <ul class="checklist">
+            <li>No console errors in any page</li>
+            <li>All Cloudscape components styled correctly</li>
+            <li>All MUI components styled correctly</li>
+            <li>Mock authentication works (no 401 errors)</li>
+            <li>All API calls succeed</li>
+            <li>Navigation between pages works</li>
+            <li>Responsive layout works on different screen sizes</li>
+            <li>Dark mode works (if applicable)</li>
+        </ul>
+
+        <h3>Success Criteria:</h3>
+        <div class="note">
+            All pages should:
+            <ul>
+                <li>✅ Load without console errors</li>
+                <li>✅ Render with proper Cloudscape/MUI styling</li>
+                <li>✅ Make successful API calls with mock authentication</li>
+                <li>✅ Display data correctly (or show appropriate empty states)</li>
+                <li>✅ Have working buttons and interactions</li>
+                <li>✅ Navigate correctly to other pages</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Debugging Tips</h2>
+        
+        <h3>If you encounter errors:</h3>
+        <ol>
+            <li><strong>Console Errors:</strong> Open DevTools (F12) → Console tab</li>
+            <li><strong>Network Errors:</strong> Open DevTools → Network tab → Filter by XHR</li>
+            <li><strong>Authentication Errors:</strong> Check if mock token is being sent in Authorization header</li>
+            <li><strong>Styling Issues:</strong> Check if Cloudscape CSS is loaded in globals.css</li>
+            <li><strong>Component Errors:</strong> Check if all imports are correct</li>
+        </ol>
+
+        <h3>Common Fixes:</h3>
+        <ul>
+            <li><strong>401 Unauthorized:</strong> Backend needs to accept mock tokens</li>
+            <li><strong>CSS not loading:</strong> Check globals.css imports Cloudscape CSS first</li>
+            <li><strong>Component not rendering:</strong> Check for TypeScript errors</li>
+            <li><strong>API call fails:</strong> Check API_BASE_URL in client.ts</li>
+        </ul>
+    </div>
+
+    <script>
+        console.log('🧪 Test All Pages - Ready for testing');
+        console.log('📝 Open each page link and verify functionality');
+        console.log('✅ Check console for errors on each page');
+    </script>
+</body>
+</html>

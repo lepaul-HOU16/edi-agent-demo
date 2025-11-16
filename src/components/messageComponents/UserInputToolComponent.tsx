@@ -3,7 +3,7 @@ import { Theme } from '@mui/material/styles';
 import { Button, Typography } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 interface UserInputToolComponentProps {
   content: Message['content'];

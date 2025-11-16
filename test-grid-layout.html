@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Grid Layout Test - 5:7 Split</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        h2 {
+            margin-top: 0;
+            color: #333;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .pass { background: #d4edda; color: #155724; }
+        .fail { background: #f8d7da; color: #721c24; }
+        .info { background: #d1ecf1; color: #0c5460; }
+        
+        /* Test grid styles */
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 16px;
+            background: #e9ecef;
+            padding: 16px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .test-grid > div {
+            background: #007bff;
+            color: white;
+            padding: 20px;
+            border-radius: 4px;
+            text-align: center;
+            font-weight: bold;
+        }
+        .col-5 {
+            grid-column: span 5;
+        }
+        .col-7 {
+            grid-column: span 7;
+        }
+        
+        .measurement {
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 5px 10px;
+            border-radius: 3px;
+            display: inline-block;
+            margin: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Grid Layout Test - 5:7 Column Split</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: CSS Grid 12-Column System</h2>
+        <p>Testing if the 12-column grid system works correctly with 5:7 split</p>
+        
+        <div class="test-grid">
+            <div class="col-5">Column 1 (5/12)</div>
+            <div class="col-7">Column 2 (7/12)</div>
+        </div>
+        
+        <div id="test1-result" class="status info">Measuring...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 2: Cloudscape Grid Component</h2>
+        <p>Navigate to <a href="http://localhost:3001/catalog" target="_blank">http://localhost:3001/catalog</a></p>
+        <p>Check if the map panel (left) and chat panel (right) are side-by-side in a 5:7 ratio</p>
+        
+        <div class="status info">
+            <strong>Expected Layout:</strong><br>
+            • Left panel (Map): ~41.67% width (5/12)<br>
+            • Right panel (Chat): ~58.33% width (7/12)<br>
+            • Both panels should be side-by-side, not stacked
+        </div>
+        
+        <div class="status info">
+            <strong>How to verify:</strong><br>
+            1. Open browser DevTools (F12)<br>
+            2. Inspect the Grid element with class containing "awsui-grid"<br>
+            3. Check computed styles for "grid-template-columns"<br>
+            4. Should see: "repeat(12, 1fr)"<br>
+            5. First child should have "grid-column: span 5"<br>
+            6. Second child should have "grid-column: span 7"
+        </div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 3: CSS Rules Applied</h2>
+        <p>Checking if the CSS rules from globals.css are present</p>
+        <div id="test3-result" class="status info">Checking...</div>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test 4: Visual Verification Checklist</h2>
+        <div class="status info">
+            <strong>✓ Checklist for CatalogPage:</strong><br>
+            □ Map panel visible on the left<br>
+            □ Chat panel visible on the right<br>
+            □ Map panel is narrower than chat panel<br>
+            □ Panels are side-by-side (not stacked)<br>
+            □ No horizontal scrolling<br>
+            □ Layout looks balanced<br>
+            □ Responsive on different screen sizes
+        </div>
+    </div>
+    
+    <script>
+        // Test 1: Measure the test grid
+        function test1() {
+            const grid = document.querySelector('.test-grid');
+            const col1 = grid.children[0];
+            const col2 = grid.children[1];
+            
+            const col1Width = col1.offsetWidth;
+            const col2Width = col2.offsetWidth;
+            const totalWidth = grid.offsetWidth - 32; // minus padding
+            
+            const col1Percent = (col1Width / totalWidth * 100).toFixed(2);
+            const col2Percent = (col2Width / totalWidth * 100).toFixed(2);
+            
+            const expectedCol1 = 41.67; // 5/12
+            const expectedCol2 = 58.33; // 7/12
+            
+            const col1Diff = Math.abs(parseFloat(col1Percent) - expectedCol1);
+            const col2Diff = Math.abs(parseFloat(col2Percent) - expectedCol2);
+            
+            const tolerance = 2; // 2% tolerance
+            const pass = col1Diff < tolerance && col2Diff < tolerance;
+            
+            const result = document.getElementById('test1-result');
+            result.className = `status ${pass ? 'pass' : 'fail'}`;
+            result.innerHTML = `
+                <strong>${pass ? '✅ PASS' : '❌ FAIL'}</strong><br>
+                Column 1: <span class="measurement">${col1Width}px (${col1Percent}%)</span> 
+                Expected: ~41.67%<br>
+                Column 2: <span class="measurement">${col2Width}px (${col2Percent}%)</span> 
+                Expected: ~58.33%<br>
+                ${pass ? 'Grid layout is working correctly!' : 'Grid layout ratios are off!'}
+            `;
+        }
+        
+        // Test 3: Check if CSS rules exist
+        function test3() {
+            const result = document.getElementById('test3-result');
+            
+            // Check if we can access the stylesheet
+            let rulesFound = {
+                gridTemplateColumns: false,
+                firstChildSpan: false,
+                secondChildSpan: false
+            };
+            
+            try {
+                // Check computed styles on our test grid
+                const grid = document.querySelector('.test-grid');
+                const computedStyle = window.getComputedStyle(grid);
+                const gridTemplate = computedStyle.gridTemplateColumns;
+                
+                rulesFound.gridTemplateColumns = gridTemplate.includes('fr');
+                
+                const col1 = grid.children[0];
+                const col1Style = window.getComputedStyle(col1);
+                rulesFound.firstChildSpan = col1Style.gridColumn === 'span 5' || col1Style.gridColumnEnd === 'span 5';
+                
+                const col2 = grid.children[1];
+                const col2Style = window.getComputedStyle(col2);
+                rulesFound.secondChildSpan = col2Style.gridColumn === 'span 7' || col2Style.gridColumnEnd === 'span 7';
+                
+                const allPass = Object.values(rulesFound).every(v => v);
+                
+                result.className = `status ${allPass ? 'pass' : 'info'}`;
+                result.innerHTML = `
+                    <strong>CSS Rules Check:</strong><br>
+                    ${rulesFound.gridTemplateColumns ? '✅' : '⚠️'} Grid template columns: ${gridTemplate}<br>
+                    ${rulesFound.firstChildSpan ? '✅' : '⚠️'} First child span 5<br>
+                    ${rulesFound.secondChildSpan ? '✅' : '⚠️'} Second child span 7<br>
+                    <br>
+                    <strong>Note:</strong> The actual Cloudscape components use different class names,
+                    so check the browser DevTools on the actual CatalogPage.
+                `;
+            } catch (e) {
+                result.className = 'status fail';
+                result.innerHTML = `<strong>❌ Error checking CSS:</strong> ${e.message}`;
+            }
+        }
+        
+        // Run tests
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                test1();
+                test3();
+            }, 100);
+        });
+        
+        // Re-run on resize
+        window.addEventListener('resize', () => {
+            test1();
+        });
+    </script>
+</body>
+</html>

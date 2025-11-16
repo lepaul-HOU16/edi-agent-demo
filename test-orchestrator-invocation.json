@@ -1,0 +1,5 @@
+{
+  "query": "analyze terrain at coordinates 35.0, -101.0",
+  "sessionId": "test-session-123",
+  "context": {}
+}

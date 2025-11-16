@@ -1,5 +1,5 @@
 import React from 'react';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 interface DefaultToolMessageComponentProps {
   message: Message;

@@ -1,0 +1,779 @@
+/* Import Cloudscape Design System styles first */
+@import '@cloudscape-design/global-styles/index.css';
+
+/* ============================================
+   CLOUDSCAPE COMPONENT STYLING FIXES
+   ============================================ */
+
+/* Button Styling - Consistent dimensions and spacing */
+[class*="awsui-button"] {
+  min-height: 32px !important;
+  padding: 6px 16px !important;
+  font-size: 14px !important;
+  line-height: 20px !important;
+  border-radius: 4px !important;
+}
+
+/* Button spacing in groups */
+[class*="awsui-space-between"] > [class*="awsui-button"]:not(:last-child) {
+  margin-right: 8px !important;
+}
+
+/* Primary button styling */
+[class*="awsui-button-variant-primary"] {
+  background-color: #0972d3 !important;
+  border-color: #0972d3 !important;
+  color: #ffffff !important;
+}
+
+[class*="awsui-button-variant-primary"]:hover:not(:disabled) {
+  background-color: #0862c0 !important;
+  border-color: #0862c0 !important;
+}
+
+/* Secondary button styling */
+[class*="awsui-button-variant-normal"] {
+  background-color: #ffffff !important;
+  border-color: #d1d5db !important;
+  color: #000716 !important;
+}
+
+[class*="awsui-button-variant-normal"]:hover:not(:disabled) {
+  background-color: #f3f4f6 !important;
+  border-color: #9ca3af !important;
+}
+
+/* Dropdown/Select Positioning and Styling */
+[class*="awsui-select-trigger"] {
+  min-height: 32px !important;
+  padding: 6px 32px 6px 12px !important;
+  border-radius: 4px !important;
+}
+
+[class*="awsui-select-dropdown"] {
+  margin-top: 4px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+  z-index: 1000 !important;
+}
+
+[class*="awsui-select-option"] {
+  padding: 8px 12px !important;
+  min-height: 36px !important;
+}
+
+[class*="awsui-select-option"]:hover {
+  background-color: #f3f4f6 !important;
+}
+
+/* Table Layout Fixes */
+[class*="awsui-table"] {
+  width: 100% !important;
+  border-collapse: separate !important;
+  border-spacing: 0 !important;
+}
+
+[class*="awsui-table-header"] {
+  background-color: #f9fafb !important;
+  border-bottom: 2px solid #e5e7eb !important;
+}
+
+[class*="awsui-table-header-cell"] {
+  padding: 12px 16px !important;
+  font-weight: 600 !important;
+  font-size: 14px !important;
+  color: #000716 !important;
+  text-align: left !important;
+}
+
+[class*="awsui-table-row"] {
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+[class*="awsui-table-row"]:hover {
+  background-color: #f9fafb !important;
+}
+
+[class*="awsui-table-body-cell"] {
+  padding: 12px 16px !important;
+  font-size: 14px !important;
+  color: #000716 !important;
+  vertical-align: middle !important;
+}
+
+/* Container Styling */
+[class*="awsui-container"] {
+  border-radius: 8px !important;
+  border: 1px solid #e5e7eb !important;
+  background-color: #ffffff !important;
+  padding: 20px !important;
+}
+
+[class*="awsui-container-header"] {
+  padding-bottom: 16px !important;
+  border-bottom: 1px solid #e5e7eb !important;
+  margin-bottom: 16px !important;
+}
+
+/* SpaceBetween Component */
+[class*="awsui-space-between-horizontal"] {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 8px !important;
+  align-items: center !important;
+}
+
+[class*="awsui-space-between-vertical"] {
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+}
+
+/* Grid Layout - Cloudscape Design System */
+/* Cloudscape Grid uses flexbox, not CSS Grid */
+/* The Grid component automatically applies colspan classes like awsui_colspan-5, awsui_colspan-7 */
+/* These classes set flex: 0 0 41.67% and flex: 0 0 58.33% respectively */
+
+/* Ensure Grid container uses flexbox (Cloudscape default) */
+[class*="awsui_grid_"] {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  width: 100% !important;
+}
+
+/* Ensure grid columns don't overflow and maintain proper sizing */
+[class*="awsui_grid-column_"] {
+  box-sizing: border-box !important;
+  min-width: 0 !important;
+  /* Let Cloudscape handle flex sizing via colspan classes */
+}
+
+/* Fix for panels inside grid columns to fill available space */
+[class*="awsui_grid-column_"] > .panel {
+  width: 100% !important;
+  min-height: 500px !important; /* Ensure panels have minimum height */
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+/* Ensure map and other content fills the panel */
+/* [class*="awsui_grid-column_"] > .panel > div {
+  flex: 1 !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+} */
+
+/* Agent landing pages */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.agent-switcher-panel {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+.content-area {
+  height: calc(100% - 50px);
+
+  &>div {
+    height: 100%;
+  }
+}
+
+
+/* CatalogPage specific panel and convo styling */
+.panel {
+  width: 100% !important;
+  min-height: 500px !important;
+  height: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+}
+
+.convo {
+  width: calc(100% - 40px);
+  min-height: 500px !important;
+  height: 100%;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  padding: 16px 0 !important;
+}
+
+/* Cards Component */
+[class*="awsui-cards-card"] {
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  padding: 16px 0 !important;
+  background-color: #ffffff !important;
+  transition: box-shadow 0.2s ease !important;
+}
+
+[class*="awsui-cards-card"]:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
+}
+
+/* Modal Styling */
+[class*="awsui-modal"] {
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+}
+
+[class*="awsui-modal-header"] {
+  padding: 20px 24px !important;
+  border-bottom: 1px solid #e5e7eb !important;
+}
+
+[class*="awsui-modal-body"] {
+  padding: 24px !important;
+}
+
+[class*="awsui-modal-footer"] {
+  padding: 16px 24px !important;
+  border-top: 1px solid #e5e7eb !important;
+  display: flex !important;
+  justify-content: flex-end !important;
+  gap: 8px !important;
+}
+
+/* Alert Component */
+[class*="awsui-alert"] {
+  border-radius: 4px !important;
+  padding: 12px 16px !important;
+  margin-bottom: 16px !important;
+}
+
+[class*="awsui-alert-type-error"] {
+  background-color: #fef2f2 !important;
+  border-left: 4px solid #dc2626 !important;
+}
+
+[class*="awsui-alert-type-warning"] {
+  background-color: #fffbeb !important;
+  border-left: 4px solid #f59e0b !important;
+}
+
+[class*="awsui-alert-type-success"] {
+  background-color: #f0fdf4 !important;
+  border-left: 4px solid #10b981 !important;
+}
+
+[class*="awsui-alert-type-info"] {
+  background-color: #eff6ff !important;
+  border-left: 4px solid #3b82f6 !important;
+}
+
+/* Pagination Component */
+[class*="awsui-pagination"] {
+  display: flex !important;
+  align-items: center !important;
+  gap: 8px !important;
+  padding: 12px 0 !important;
+}
+
+[class*="awsui-pagination-button"] {
+  min-width: 32px !important;
+  min-height: 32px !important;
+  padding: 6px !important;
+}
+
+/* Badge Component */
+[class*="awsui-badge"] {
+  display: inline-flex !important;
+  align-items: center !important;
+  padding: 2px 8px !important;
+  border-radius: 12px !important;
+  font-size: 12px !important;
+  font-weight: 500 !important;
+  line-height: 16px !important;
+}
+
+/* Icon Sizing */
+[class*="awsui-icon"] {
+  width: 16px !important;
+  height: 16px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Panel constraints for analysis components */
+.panel [class*="awsui"],
+.panel [class*="MuiTable"],
+.panel [class*="MuiTableContainer"] {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+.panel [class*="geoscientist"] *,
+.panel .MuiTableContainer-root,
+.panel .MuiTable-root {
+  max-width: 100% !important;
+  width: 100% !important;
+}
+
+.panel .MuiTableCell-root {
+  max-width: 150px !important;
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  padding: 6px 12px !important;
+  font-size: 13px !important;
+}
+
+.panel .MuiTable-root {
+  table-layout: fixed !important;
+}
+
+.panel [data-awsui-table] {
+  max-width: 100% !important;
+}
+
+.panel [data-awsui-table-container] {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.panel div[style*="grid"],
+.panel div[style*="display: grid"],
+.panel div[style*="flex"] {
+  max-width: 100% !important;
+}
+
+.panel [class*="awsui-container"] {
+  max-width: 100% !important;
+  overflow: hidden !important;
+}
+
+.panel [class*="awsui-container"] * {
+  max-width: 100% !important;
+  box-sizing: border-box !important;
+}
+
+/* .panel > div {
+  margin-top: 1px;
+  padding: 10px 20px 10px;
+} */
+
+
+
+/* Map controls - Fixed positioning */
+.maplibregl-ctrl-top-right {
+  top: 10px !important;
+  right: 10px !important;
+}
+
+.maplibregl-ctrl-top-left {
+  top: 10px !important;
+  left: 10px !important;
+}
+
+.maplibregl-ctrl-bottom-right {
+  bottom: 10px !important;
+  right: 10px !important;
+}
+
+.maplibregl-ctrl-bottom-left {
+  bottom: 10px !important;
+  left: 10px !important;
+}
+
+.maplibregl-ctrl-group {
+  background: white !important;
+  border-radius: 4px !important;
+  box-shadow: 0 0 0 2px rgba(0,0,0,.1) !important;
+}
+
+.maplibregl-ctrl-icon.toggle3d-btn {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 5px !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  width: 29px !important;
+  height: 29px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #333 !important;
+}
+
+.maplibregl-ctrl-icon.toggle3d-btn:hover {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.maplibregl-ctrl-icon.toggle3d-btn.active {
+  background-color: rgba(25, 118, 210, 0.2) !important;
+  color: #1976d2 !important;
+}
+
+/* Weather controls */
+.weather-control {
+  position: relative !important;
+}
+
+.weather-toggle-btn {
+  background-color: transparent !important;
+  background-image: none !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 5px !important;
+  border-radius: 4px !important;
+  transition: all 0.2s ease !important;
+  width: 29px !important;
+  height: 29px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #333 !important;
+}
+
+.weather-toggle-btn:hover:not(.disabled) {
+  background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.weather-toggle-btn.active {
+  background-color: rgba(25, 118, 210, 0.2) !important;
+  color: #1976d2 !important;
+}
+
+.weather-layers-panel {
+  position: absolute !important;
+  top: 0 !important;
+  left: 35px !important;
+  background: white !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15) !important;
+  padding: 8px !important;
+  min-width: 180px !important;
+  max-width: 220px !important;
+  z-index: 1000 !important;
+}
+
+.leaflet-popup-content-wrapper,
+.leaflet-popup-tip {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.panel-header {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  width: 100% !important;
+}
+
+.breadcrumb-header {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  width: 100% !important;
+}
+
+.reset-chat {
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: -1px;
+  padding-bottom: 10px;
+  position: relative;
+  z-index: 100;
+}
+
+/* Content grid below header - panel and convo */
+.reset-chat + [class*="awsui_grid_"],  .content-area [class*="awsui_grid_"] {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 40px !important;
+  /* min-height: calc(100vh - 250px) !important; */
+  width: calc(100% - 40px);
+}
+
+/* Header row - title and controls on left, breadcrumb and icons on right */
+.reset-chat [class*="awsui_grid_"] {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  gap: 40px !important;
+  align-items: center !important;
+  margin-bottom: 0 !important;
+}
+
+.toggles {
+  position: relative;
+  z-index: 0;
+}
+
+.main-container {
+  height: 100%;
+}
+
+/* Panel (left side - 5/12 width = ~41.67%) */
+.panel {
+  width: 100% !important;
+  height: 100%;
+  min-height: 500px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  position: relative !important;
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  border-radius: 8px !important;
+  border-top-left-radius: 0 !important;
+  border-top-right-radius: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+/* Conversation (right side - 7/12 width = ~58.33%) */
+.convo {
+  width: calc(100% - 40px);
+  height: 100%;
+  min-height: 500px !important;
+  overflow: auto !important;
+  position: relative !important;
+  padding: 16px 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+}
+
+/* Agent landing pages */
+.panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+}
+
+.agent-switcher-panel {
+  flex-shrink: 0;
+  padding-top: 2px;
+}
+
+/* Fix for agent landing page containers inside panel */
+.panel > [class*="awsui_root"] {
+  border: none !important;
+  box-shadow: none !important;
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+/* Ensure all content inside panel doesn't overflow horizontally */
+.panel * {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+/* Allow specific elements to have their own overflow behavior */
+.panel pre,
+.panel code {
+  overflow-x: auto;
+  max-width: 100%;
+}
+
+/* Catalog page specific styles */
+[data-page="catalog"] {
+  overflow: hidden;
+}
+
+[data-page="catalog"] .MuiIconButton-root {
+  padding: 8px !important;
+}
+
+[data-page="catalog"] .MuiTooltip-tooltip {
+  font-size: 12px !important;
+}
+
+/* Map container in catalog */
+/* [data-page="catalog"] .maplibregl-map {
+  width: 100% !important;
+  height: 100% !important;
+} */
+
+/* Focus indicators */
+*:focus,
+*:focus-visible {
+  outline: 2px solid #0972D3;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Accessibility */
+@supports selector(:focus-visible) {
+  *:focus:not(:focus-visible) {
+    outline: none;
+  }
+
+  *:focus-visible {
+    outline: 2px solid #0972D3;
+    outline-offset: 2px;
+  }
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   CHAT INPUT STYLING
+   ============================================ */
+
+/* Controls container - outer wrapper for sliding animation */
+.controls {
+  position: fixed;
+  bottom: 40px;
+  left: 52px;
+  right: 72px;
+  z-index: 1000;
+  padding: 0 40px;
+  pointer-events: none;
+}
+
+/* Input background - blue container with white overlay */
+.input-bkgd {
+  /* Blue solid background */
+  background: #006ce0;
+  border-radius: 8px;
+  /* padding: 6px 6px 6px 20px; */
+  box-shadow: 0 2px 12px rgba(0, 108, 224, 0.25);
+  
+  /* Layout */
+  display: flex;
+  align-items: center;
+  max-width: 900px;
+  
+  /* Re-enable pointer events */
+  pointer-events: auto;
+  
+  /* Position for pseudo-element */
+  position: relative;
+  
+  /* Border for definition */
+  border: 3px solid #006ce0;
+}
+
+/* White overlay using pseudo-element */
+.input-bkgd::before {
+  content: '';
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  right: 3px;
+  bottom: 3px;
+  /* background: rgba(255, 255, 255, 0.95); */
+  border-radius: 27px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: 0;
+}
+
+/* Ensure content is above the white overlay */
+.input-bkgd > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* Agent switcher label styling */
+.input-bkgd > [style*="lineHeight"] {
+  color: #000716;
+  font-weight: 600;
+  white-space: nowrap;
+  font-size: 10px;
+  text-align: center;
+  line-height: 12px !important;
+}
+
+/* Expandable input styling - make it take full width */
+.input-bkgd > div:first-child {
+  flex: 1 !important;
+  /* min-width: 0 !important; */
+  /* background: white !important; */
+  /* border-radius: 20px !important; */
+  padding: 8px 10px !important;
+}
+
+/* Override MUI sx styles for Cloudscape PromptInput */
+.input-bkgd .awsui-prompt-input__container {
+  background: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+}
+
+.input-bkgd .awsui-prompt-input__input {
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  min-height: 36px !important;
+  padding: 8px 12px !important;
+  line-height: 20px !important;
+}
+
+/* Agent switcher positioning - overlap the edge significantly */
+.input-bkgd > div:last-child {
+  margin-right: -21px !important;
+  flex-shrink: 0 !important;
+  border-radius: 50% !important;
+  padding: 4px !important;
+}
+
+/* Magnifying glass button enhancements */
+.input-toggle-button {
+  transition: all 0.2s ease !important;
+}
+
+.input-toggle-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+}
+
+.input-toggle-button:active {
+  transform: scale(0.95);
+}
+
+.input-toggle-button[data-visible="false"] {
+  box-shadow: 0 4px 16px rgba(0, 108, 224, 0.4) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .input-bkgd {
+    max-width: calc(100vw - 80px);
+    padding: 8px 16px;
+  }
+  
+  .controls {
+    padding: 0 20px;
+  }
+}
+
+@media (min-width: 769px) and (max-width: 1024px) {
+  .input-bkgd {
+    max-width: 700px;
+  }
+}
+
+/* Browser compatibility fallbacks */
+@supports not (backdrop-filter: blur(8px)) {
+  .input-bkgd::before {
+    /* background: rgba(255, 255, 255, 0.95); */
+  }
+}

@@ -1,4 +1,3 @@
-'use client';
 
 import React from 'react';
 import { FormField, Input, SpaceBetween, ColumnLayout, DatePicker } from '@cloudscape-design/components';

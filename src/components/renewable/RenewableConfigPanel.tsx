@@ -22,7 +22,7 @@ import {
   Select
 } from '@cloudscape-design/components';
 
-import { renewableConfig, RenewableConfig } from '../../services/renewable-integration/RenewableConfigManager';
+import { renewableConfig, RenewableConfig } from '@/services/renewable-integration/RenewableConfigManager';
 
 interface RenewableConfigPanelProps {
   className?: string;

@@ -1,44 +1,44 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, Suspense } from 'react';
 import { Theme } from '@mui/material/styles';
 import { Typography, CircularProgress } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
-import { getUrl } from 'aws-amplify/storage';
-import dynamic from 'next/dynamic';
+import { getFileUrl } from '@/lib/api/storage';
 
-// Dynamically import Plotly with memory optimization and error boundary
-const Plot = dynamic(
-    () => import('react-plotly.js').then((mod) => {
+// Lazy load Plotly with memory optimization and error boundary
+const Plot = React.lazy(() => 
+    import('react-plotly.js').then((mod) => {
         // Force garbage collection if available after loading heavy library
         if (typeof window !== 'undefined' && (window as any).gc) {
             setTimeout(() => (window as any).gc(), 100);
         }
-        return mod.default;
+        return { default: mod.default };
     }).catch((error) => {
         console.error('Failed to load react-plotly.js:', error);
         // Fallback to a simple div if Plotly fails to load
-        return () => React.createElement('div', { 
-            style: { 
-                padding: '20px', 
-                textAlign: 'center',
-                border: '1px dashed #ccc',
-                borderRadius: '4px'
-            }
-        }, 'Chart unavailable - Plotly failed to load');
-    }), 
-    {
-        ssr: false,
-        loading: () => (
-            <div style={{
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                height: '400px'
-            }}>
-                <CircularProgress />
-            </div>
-        )
-    }
+        return {
+            default: () => React.createElement('div', { 
+                style: { 
+                    padding: '20px', 
+                    textAlign: 'center',
+                    border: '1px dashed #ccc',
+                    borderRadius: '4px'
+                }
+            }, 'Chart unavailable - Plotly failed to load')
+        };
+    })
 ) as React.ComponentType<any>;
+
+// Loading component for Suspense
+const PlotLoading = () => (
+    <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '400px'
+    }}>
+        <CircularProgress />
+    </div>
+);
 
 // Import Message type for content prop
 import { Message } from '@/../utils/types';
@@ -427,17 +427,19 @@ export const PlotDataToolComponent = ({ content, theme, chatSessionId }: {
         }
         
         return (
-            <Plot
-                data={plotlyData}
-                layout={plotlyLayout}
-                style={{ width: '100%', height: '100%' }}
-                config={{
-                    responsive: true,
-                    displayModeBar: true,
-                    modeBarButtonsToRemove: ['pan2d', 'lasso2d'],
-                    displaylogo: false
-                }}
-            />
+            <Suspense fallback={<PlotLoading />}>
+                <Plot
+                    data={plotlyData}
+                    layout={plotlyLayout}
+                    style={{ width: '100%', height: '100%' }}
+                    config={{
+                        responsive: true,
+                        displayModeBar: true,
+                        modeBarButtonsToRemove: ['pan2d', 'lasso2d'],
+                        displaylogo: false
+                    }}
+                />
+            </Suspense>
         );
     };
 

@@ -2,13 +2,13 @@
 
 import React from 'react';
 
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 
 import { Theme } from '@mui/material/styles';
 import { Typography, Box, IconButton, Tooltip } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 import FileViewer from '../FileViewer';
 import { useViewport, calculateOptimalIframeDimensions, getFileTypeFromExtension, useDynamicIframe } from '../../hooks';
 

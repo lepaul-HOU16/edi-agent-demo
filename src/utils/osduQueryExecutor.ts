@@ -7,8 +7,7 @@
  * Requirements: 4.1, 4.2, 4.3
  */
 
-import { generateClient } from "aws-amplify/data";
-import { type Schema } from "@/../amplify/data/resource";
+import { searchOSDU } from '../lib/api/osdu';
 import { QueryBuilderAnalytics } from './queryBuilderAnalytics';
 
 export interface QueryExecutionResult {
@@ -51,12 +50,9 @@ export async function executeOSDUQuery(
   });
 
   try {
-    // Create Amplify client
-    const amplifyClient = generateClient<Schema>();
-
-    // Call OSDU API directly with structured query
+    // Call OSDU REST API directly with structured query
     // This bypasses AI agent processing for instant results
-    const osduResponse = await amplifyClient.queries.osduSearch({
+    const osduData = await searchOSDU({
       query,
       dataPartition,
       maxResults
@@ -66,108 +62,8 @@ export async function executeOSDUQuery(
 
     console.log('✅ OSDU query executed successfully:', {
       executionTime: `${executionTime.toFixed(2)}ms`,
-      hasData: !!osduResponse.data,
-      hasErrors: !!osduResponse.errors
+      recordCount: osduData.recordCount
     });
-
-    // Handle GraphQL errors
-    if (osduResponse.errors && osduResponse.errors.length > 0) {
-      console.error('❌ GraphQL errors:', osduResponse.errors);
-      const errorMessage = osduResponse.errors[0].message || 'GraphQL query failed';
-      
-      return {
-        success: false,
-        answer: `Query execution failed: ${errorMessage}`,
-        recordCount: 0,
-        records: [],
-        query,
-        executionTime,
-        error: errorMessage
-      };
-    }
-
-    if (!osduResponse.data) {
-      console.error('❌ No data in OSDU response');
-      
-      return {
-        success: false,
-        answer: 'No data received from OSDU API',
-        recordCount: 0,
-        records: [],
-        query,
-        executionTime,
-        error: 'No data received from OSDU API'
-      };
-    }
-
-    // Parse response data (handle potential double-stringification)
-    let osduData;
-    try {
-      let parsedData = osduResponse.data;
-      
-      // First parse if it's a string
-      if (typeof parsedData === 'string') {
-        parsedData = JSON.parse(parsedData);
-        console.log('📊 First parse complete, type:', typeof parsedData);
-      }
-      
-      // Check if it's still a string (double-stringified)
-      if (typeof parsedData === 'string') {
-        parsedData = JSON.parse(parsedData);
-        console.log('📊 Second parse complete (was double-stringified)');
-      }
-      
-      osduData = parsedData;
-      
-      console.log('📊 Parsed OSDU data:', {
-        type: typeof osduData,
-        hasAnswer: !!osduData?.answer,
-        recordCount: osduData?.recordCount,
-        recordsLength: osduData?.records?.length
-      });
-    } catch (parseError) {
-      console.error('❌ JSON parse error:', parseError);
-      
-      return {
-        success: false,
-        answer: 'Failed to parse OSDU response',
-        recordCount: 0,
-        records: [],
-        query,
-        executionTime,
-        error: `Parse error: ${parseError instanceof Error ? parseError.message : String(parseError)}`
-      };
-    }
-
-    // Check if this is an error response from Lambda
-    if (osduData.error) {
-      console.error('❌ OSDU Lambda error:', osduData.error);
-      
-      return {
-        success: false,
-        answer: `OSDU API error: ${osduData.error}`,
-        recordCount: 0,
-        records: [],
-        query,
-        executionTime,
-        error: osduData.error
-      };
-    }
-
-    // Validate response has required fields
-    if (typeof osduData !== 'object' || osduData === null) {
-      console.error('❌ Invalid OSDU response type:', typeof osduData);
-      
-      return {
-        success: false,
-        answer: 'Invalid response format from OSDU API',
-        recordCount: 0,
-        records: [],
-        query,
-        executionTime,
-        error: 'Invalid response format'
-      };
-    }
 
     // Extract records and metadata
     const records = osduData.records || [];

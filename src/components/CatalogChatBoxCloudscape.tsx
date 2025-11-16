@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Message } from '../../utils/types';
+import { Message } from '@/utils/types';
 import ChatMessage from './ChatMessage';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -19,7 +19,7 @@ import { OSDUSearchResponse, OSDUErrorResponse } from './OSDUSearchResponse';
 import { v4 as uuidv4 } from 'uuid';
 import { OSDUQueryBuilder } from './OSDUQueryBuilder';
 import type { QueryCriterion } from './OSDUQueryBuilder';
-import { ExpandableSection } from '@cloudscape-design/components';
+import { ExpandableSection, Grid } from '@cloudscape-design/components';
 
 // Enhanced component to render professional geoscientist content instead of boring tables
 function ProfessionalGeoscientistDisplay({ 
@@ -414,6 +414,7 @@ const CatalogChatBoxCloudscape = (params: {
           flexDirection: 'column',
           display: 'flex',
           marginBottom: '16px',
+          borderRadius: '14px',
           position: 'relative'
         }}
       >
@@ -423,6 +424,7 @@ const CatalogChatBoxCloudscape = (params: {
             <div style={{ 
               width: '100%',
               marginBottom: '16px',
+              borderRadius: '14px',
               backgroundColor: '#ffffff'
             }}>
               <ExpandableSection
@@ -454,7 +456,7 @@ const CatalogChatBoxCloudscape = (params: {
           {messages.map((message, index) => (
             <div 
               key={Array.isArray(message.id) ? message.id[0] || `message-${index}` : message.id || `message-${index}`}
-              style={{ marginBottom: '16px', padding: '0 16px' }}
+              style={{ marginBottom: '16px' }}
             >
               {message.role === 'ai' ? (
                 <CustomAIMessage message={message} originalSearchQuery={lastSearchQuery} />
@@ -475,127 +477,110 @@ const CatalogChatBoxCloudscape = (params: {
           transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        <div className='input-bkgd'>
-          <ExpandablePromptInput
-            onChange={(value) => onInputChange(value)}
-            onAction={() => handleSend(userInput)}
-            value={userInput}
-            actionButtonAriaLabel="Send message"
-            actionButtonIconName="send"
-            ariaLabel="Prompt input with action button"
-            placeholder="Ask for weather maps, field analysis, or reservoir intelligence..."
-          />
-          <div style={{ 
-            color: 'white', 
-            fontSize: '11px', 
-            lineHeight: '14px', 
-            width: '50px', 
-            marginRight: '-13px', 
-            marginLeft: '10px' 
-          }}>
-            Data Sources
+        <Grid
+          disableGutters
+          gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
+        >
+          <div></div>
+          <div>
+            <div className='input-bkgd'>
+              <ExpandablePromptInput
+                onChange={(value) => onInputChange(value)}
+                onAction={() => handleSend(userInput)}
+                value={userInput}
+                actionButtonAriaLabel="Send message"
+                actionButtonIconName="send"
+                ariaLabel="Prompt input with action button"
+                placeholder="Ask me a question about your data"
+              />
+              <div style={{ 
+                color: 'white', 
+                fontSize: '11px', 
+                lineHeight: '14px', 
+                marginRight: '-8px',
+                width: '50px', 
+              }}>
+                Data Sources
+              </div>
+              <ButtonDropdown
+                items={[
+                  {
+                    text: 'OSDU',
+                    id: 'osduData'
+                  },
+                  {
+                    text: 'TGS',
+                    id: 'tgsData'
+                  },
+                  {
+                    text: 'Volve',
+                    id: 'volveData'
+                  },
+                  {
+                    text: 'S&P',
+                    id: 'spData'
+                  },
+                ]}
+                expandToViewport={true}
+                onItemClick={({ detail }) => {
+                  // Find the clicked item and populate the text box with its text
+                  const clickedItem = [
+                    {
+                      text: 'can you show me weather maps for the area near my wells',
+                      id: '1'
+                    },
+                    {
+                      text: 'show me my wells with reservoir analysis',
+                      id: '2'
+                    },
+                    {
+                      text: 'field development recommendations for my wells',
+                      id: '3'
+                    },
+                    {
+                      text: 'production optimization analysis',
+                      id: '4'
+                    },
+                    {
+                      text: 'operational weather windows for drilling',
+                      id: '5'
+                    }
+                  ].find(item => item.id === detail.id);
+                  
+                  if (clickedItem) {
+                    onInputChange(clickedItem.text);
+                  }
+                }}
+              />
+            </div>
           </div>
-          <ButtonDropdown
-            items={[
-              {
-                text: 'OSDU',
-                id: 'osduData'
-              },
-              {
-                text: 'TGS',
-                id: 'tgsData'
-              },
-              {
-                text: 'Volve',
-                id: 'volveData'
-              },
-              {
-                text: 'S&P',
-                id: 'spData'
-              },
-            ]}
-            expandToViewport={true}
-            onItemClick={({ detail }) => {
-              // Find the clicked item and populate the text box with its text
-              const clickedItem = [
-                {
-                  text: 'can you show me weather maps for the area near my wells',
-                  id: '1'
-                },
-                {
-                  text: 'show me my wells with reservoir analysis',
-                  id: '2'
-                },
-                {
-                  text: 'field development recommendations for my wells',
-                  id: '3'
-                },
-                {
-                  text: 'production optimization analysis',
-                  id: '4'
-                },
-                {
-                  text: 'operational weather windows for drilling',
-                  id: '5'
-                }
-              ].find(item => item.id === detail.id);
-              
-              if (clickedItem) {
-                onInputChange(clickedItem.text);
-              }
-            }}
-          />
-        </div>
+        </Grid>
+
       </div>
       
       {/* Toggle button fixed on right edge - never moves */}
-      <button
-        onClick={() => setIsInputVisible(!isInputVisible)}
-        className="input-toggle-button"
-        data-visible={isInputVisible}
-        aria-label={isInputVisible ? "Hide search input" : "Show search input"}
+      <div
         style={{
           position: 'fixed',
-          right: '15px',
-          bottom: '81px',
-          width: '48px',
-          height: '48px',
-          borderRadius: '50%',
-          border: 'none',
-          backgroundColor: isInputVisible ? 'rgba(200, 200, 200, 0.9)' : '#006ce0',
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          right: '22px',
+          bottom: '50px',
           zIndex: 1001,
-          transition: 'background-color 0.3s ease',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
         }}
       >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          viewBox="0 0 16 16" 
-          width="24" 
-          height="24"
-          focusable="false" 
-          aria-hidden="true"
-          style={{
-            fill: isInputVisible ? '#333' : 'white',
-            transition: 'fill 0.3s ease',
-          }}
-        >
-          <path d="M11.3 9.9c.7-1 1.1-2.2 1.1-3.4C12.4 3.5 9.9 1 6.9 1S1.4 3.5 1.4 6.5s2.5 5.5 5.5 5.5c1.2 0 2.4-.4 3.4-1.1l3.8 3.8 1.4-1.4-3.8-3.8-.4-.6zm-4.4.6c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4z"/>
-        </svg>
-      </button>
+        <Button
+          onClick={() => setIsInputVisible(!isInputVisible)}
+          iconName="search"
+          variant={isInputVisible ? "normal" : "primary"}
+          ariaLabel={isInputVisible ? "Hide search input" : "Show search input"}
+        />
+      </div>
       
       {/* Scroll to bottom button */}
       {!isScrolledToBottom && (
         <div style={{
           position: 'fixed',
-          bottom: '120px',
-          right: '20px',
+          bottom: '22px',
+          right: '50px',
           zIndex: 1400
         }}>
           <Button

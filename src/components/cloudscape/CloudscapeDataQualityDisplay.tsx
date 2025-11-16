@@ -4,7 +4,6 @@
  * Shows completeness metrics with color-coded progress bars
  */
 
-'use client';
 
 import React from 'react';
 import Container from '@cloudscape-design/components/container';

@@ -4,7 +4,7 @@ import TerminalIcon from '@mui/icons-material/Terminal';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty';
-import { Message } from '../../../utils/types';
+import { Message } from '@/utils/types';
 
 // Helper function to parse and render ASCII tables from PySpark stdout
 const renderAsciiTable = (tableText: string, theme: Theme) => {

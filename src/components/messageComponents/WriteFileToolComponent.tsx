@@ -3,7 +3,7 @@ import { Theme } from '@mui/material/styles';
 import { Typography, IconButton, Tooltip } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import OpenInNewIcon from '@mui/icons-material/OpenInNew';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 interface WriteFileToolComponentProps {
   content: Message['content'];

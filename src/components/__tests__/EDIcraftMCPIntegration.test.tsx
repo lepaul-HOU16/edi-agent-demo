@@ -4,8 +4,6 @@
  * Requirements: 12.1, 12.2, 12.3, 12.4, 12.5, 13.4, 13.5
  */
 
-import { handler } from '../../../amplify/functions/edicraftAgent/handler';
-import { EDIcraftMCPClient } from '../../../amplify/functions/edicraftAgent/mcpClient';
 
 // Mock AWS SDK
 jest.mock('@aws-sdk/client-bedrock-agent-runtime', () => ({

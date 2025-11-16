@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Link from 'next/link';
-import { list, getUrl, uploadData } from 'aws-amplify/storage';
+import { Link as RouterLink } from 'react-router-dom';
+import { listFiles, getFileUrl, uploadFile } from '@/lib/api/storage';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 import {
@@ -135,11 +135,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
       if (!path) {
         let result;
         try {
-          result = await list({
-            path: basePath,
-            options: {
-              subpathStrategy: { strategy: 'exclude' }
-            },
+          result = await listFiles(basePath, {
+            subpathStrategy: { strategy: 'exclude' }
           });
         } catch (listError: any) {
           // If the path doesn't exist (404/500), treat as empty directory
@@ -196,8 +193,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
 
           let url = '';
           try {
-            const fileUrl = await getUrl({ path: itemPath });
-            url = fileUrl.url.toString();
+            url = await getFileUrl(itemPath);
           } catch (e) {
             console.error(`Error getting URL for ${itemPath}:`, e);
           }
@@ -229,11 +225,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
         console.log(`Full path: ${fullPath}`);
         let result;
         try {
-          result = await list({
-            path: fullPath,
-            options: {
-              subpathStrategy: { strategy: 'exclude' }
-            },
+          result = await listFiles(fullPath, {
+            subpathStrategy: { strategy: 'exclude' }
           });
         } catch (listError: any) {
           // If the path doesn't exist (404/500), treat as empty directory
@@ -406,7 +399,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
   const getAllFilesInFolder = async (folderPath: string): Promise<FileItem[]> => {
     try {
       const fullPath = `${basePath}${folderPath}`;
-      const result = await list({ path: fullPath });
+      const result = await listFiles(fullPath);
 
       let allFiles: FileItem[] = [];
 
@@ -428,8 +421,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
         } else {
           let url = '';
           try {
-            const fileUrl = await getUrl({ path: itemPath });
-            url = fileUrl.url.toString();
+            url = await getFileUrl(itemPath);
           } catch (e) {
             console.error(`Error getting URL for ${itemPath}:`, e);
           }
@@ -559,12 +551,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
         const uploadPath = currentPath ? `${currentPath}/${file.name}` : file.name;
         const key = `chatSessionArtifacts/sessionId=${chatSessionId}/${uploadPath}`;
         
-        await uploadData({
-          path: key,
-          data: file,
-          options: {
-            contentType: file.type
-          }
+        await uploadFile(key, file, {
+          contentType: file.type
         });
       });
 
@@ -899,9 +887,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
                     {item.isFolder ? (
                       <DownloadIcon fontSize="small" />
                     ) : (
-                      <Link href={item.url || ""} passHref>
+                      <RouterLink to={item.url || ""} target="_blank" rel="noopener noreferrer">
                         <OpenInNewIcon fontSize="small" />
-                      </Link>
+                      </RouterLink>
                       
                     )}
                   </IconButton>

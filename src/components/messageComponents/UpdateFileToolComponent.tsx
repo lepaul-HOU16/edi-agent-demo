@@ -2,7 +2,7 @@ import React from 'react';
 import { Theme } from '@mui/material/styles';
 import { Typography } from '@mui/material';
 import UpdateIcon from '@mui/icons-material/Update';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 interface UpdateFileToolComponentProps {
   content: Message['content'];

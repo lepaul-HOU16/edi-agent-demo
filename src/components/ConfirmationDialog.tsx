@@ -131,7 +131,7 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
           style={{
             backgroundColor: theme.palette.mode === 'dark' ? '#1e1e1e' : '#ffffff',
             border: `1px solid ${theme.palette.mode === 'dark' ? '#424242' : '#e0e0e0'}`,
-            borderRadius: '4px',
+            borderRadius: '14px',
             padding: '12px',
             marginBottom: '16px',
             maxHeight: '200px',

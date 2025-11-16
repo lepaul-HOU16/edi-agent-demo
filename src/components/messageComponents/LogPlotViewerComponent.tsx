@@ -32,17 +32,9 @@ import {
   VisibilityOff,
   GridOn
 } from '@mui/icons-material';
-import dynamic from 'next/dynamic';
 
-// Dynamic import for Plotly to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), {
-  ssr: false,
-  loading: () => (
-    <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: 400 }}>
-      <Typography>Loading interactive visualization...</Typography>
-    </Box>
-  )
-}) as any;
+// Lazy load Plotly for better performance
+const Plot = React.lazy(() => import('react-plotly.js')) as any;
 
 interface LogPlotViewerProps {
   data: any;

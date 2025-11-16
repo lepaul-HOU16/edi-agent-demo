@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloudscape Component Styling Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1400px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 12px;
+            border-radius: 4px;
+            border-left: 4px solid;
+        }
+        .pass {
+            background-color: #d4edda;
+            border-color: #28a745;
+            color: #155724;
+        }
+        .fail {
+            background-color: #f8d7da;
+            border-color: #dc3545;
+            color: #721c24;
+        }
+        .pending {
+            background-color: #fff3cd;
+            border-color: #ffc107;
+            color: #856404;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border-color: #17a2b8;
+            color: #0c5460;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+            background-color: #0972d3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        button:hover {
+            background-color: #0862c0;
+        }
+        button.secondary {
+            background-color: white;
+            color: #000716;
+            border: 1px solid #d1d5db;
+        }
+        button.secondary:hover {
+            background-color: #f3f4f6;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .checklist li:last-child {
+            border-bottom: none;
+        }
+        h1 {
+            color: #000716;
+            margin-bottom: 10px;
+        }
+        h2 {
+            color: #000716;
+            margin-top: 0;
+            font-size: 20px;
+        }
+        h3 {
+            color: #545b64;
+            font-size: 16px;
+            margin-top: 20px;
+        }
+        .page-link {
+            display: inline-block;
+            margin: 5px;
+            padding: 8px 16px;
+            background: #0972d3;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        .page-link:hover {
+            background: #0862c0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Cloudscape Component Styling Verification</h1>
+    <p>This test verifies that all Cloudscape Design System components are styled correctly across all pages.</p>
+
+    <div class="test-section">
+        <h2>Quick Navigation</h2>
+        <p>Open each page to verify Cloudscape component styling:</p>
+        <div>
+            <a href="http://localhost:3001/" class="page-link" target="_blank">Home Page</a>
+            <a href="http://localhost:3001/catalog" class="page-link" target="_blank">Catalog Page</a>
+            <a href="http://localhost:3001/canvases" class="page-link" target="_blank">Canvases Page</a>
+            <a href="http://localhost:3001/collections" class="page-link" target="_blank">Collections Page</a>
+            <a href="http://localhost:3001/projects" class="page-link" target="_blank">Projects Page</a>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Automated Tests</h2>
+        <button onclick="runAllTests()">Run All Tests</button>
+        <button class="secondary" onclick="clearResults()">Clear Results</button>
+    </div>
+
+    <div id="results"></div>
+
+    <div class="test-section">
+        <h2>Manual Verification Checklist</h2>
+        <p>After running automated tests, manually verify these styling aspects:</p>
+        
+        <h3>✅ Button Styling</h3>
+        <ul class="checklist">
+            <li>☐ Buttons have consistent height (32px minimum)</li>
+            <li>☐ Primary buttons are blue (#0972d3)</li>
+            <li>☐ Secondary buttons have white background with border</li>
+            <li>☐ Button spacing is consistent (8px between buttons)</li>
+            <li>☐ Hover states work correctly</li>
+            <li>☐ Disabled buttons are visually distinct</li>
+        </ul>
+
+        <h3>✅ Dropdown/Select Styling</h3>
+        <ul class="checklist">
+            <li>☐ Dropdowns have proper height (32px minimum)</li>
+            <li>☐ Dropdown menus appear below trigger with 4px margin</li>
+            <li>☐ Dropdown options have proper padding (8px 12px)</li>
+            <li>☐ Hover states work on options</li>
+            <li>☐ Dropdowns have proper z-index (1000)</li>
+        </ul>
+
+        <h3>✅ Table Styling</h3>
+        <ul class="checklist">
+            <li>☐ Table headers have light gray background (#f9fafb)</li>
+            <li>☐ Table cells have proper padding (12px 16px)</li>
+            <li>☐ Table rows have bottom border</li>
+            <li>☐ Hover state on rows works</li>
+            <li>☐ Table is responsive and doesn't overflow</li>
+            <li>☐ Checkboxes align properly in cells</li>
+        </ul>
+
+        <h3>✅ Container Styling</h3>
+        <ul class="checklist">
+            <li>☐ Containers have rounded corners (8px)</li>
+            <li>☐ Containers have proper border (#e5e7eb)</li>
+            <li>☐ Container headers have bottom border</li>
+            <li>☐ Padding is consistent (20px)</li>
+        </ul>
+
+        <h3>✅ Cards Styling</h3>
+        <ul class="checklist">
+            <li>☐ Cards have rounded corners (8px)</li>
+            <li>☐ Cards have proper border</li>
+            <li>☐ Hover effect shows shadow</li>
+            <li>☐ Card content is properly padded</li>
+        </ul>
+
+        <h3>✅ Modal Styling</h3>
+        <ul class="checklist">
+            <li>☐ Modals have rounded corners (8px)</li>
+            <li>☐ Modal header has bottom border</li>
+            <li>☐ Modal footer has top border</li>
+            <li>☐ Modal buttons are right-aligned</li>
+            <li>☐ Modal has proper shadow</li>
+        </ul>
+
+        <h3>✅ Alert Styling</h3>
+        <ul class="checklist">
+            <li>☐ Error alerts are red with left border</li>
+            <li>☐ Warning alerts are yellow with left border</li>
+            <li>☐ Success alerts are green with left border</li>
+            <li>☐ Info alerts are blue with left border</li>
+            <li>☐ Alerts have proper padding and margin</li>
+        </ul>
+
+        <h3>✅ General Layout</h3>
+        <ul class="checklist">
+            <li>☐ SpaceBetween components have proper gaps</li>
+            <li>☐ Grid layouts work correctly</li>
+            <li>☐ Icons are properly sized (16px)</li>
+            <li>☐ Badges have proper styling</li>
+            <li>☐ Pagination controls are aligned</li>
+            <li>☐ Focus indicators are visible (blue outline)</li>
+        </ul>
+    </div>
+
+    <script>
+        const BASE_URL = 'http://localhost:3001';
+        
+        function addResult(testName, status, message) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-result ${status}`;
+            resultDiv.innerHTML = `<strong>${testName}:</strong> ${message}`;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+
+        async function testServerRunning() {
+            addResult('Server Status', 'pending', 'Checking if dev server is running...');
+            try {
+                const response = await fetch(BASE_URL);
+                if (response.ok) {
+                    addResult('Server Status', 'pass', '✓ Dev server is running on port 3001');
+                    return true;
+                } else {
+                    addResult('Server Status', 'fail', `✗ Server returned status ${response.status}`);
+                    return false;
+                }
+            } catch (error) {
+                addResult('Server Status', 'fail', `✗ Cannot connect to server: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testCSSLoaded() {
+            addResult('CSS Loading', 'pending', 'Checking if Cloudscape styles are loaded...');
+            try {
+                const response = await fetch(`${BASE_URL}/src/globals.css`);
+                if (response.ok) {
+                    const css = await response.text();
+                    const requiredStyles = [
+                        'awsui-button',
+                        'awsui-table',
+                        'awsui-select',
+                        'awsui-container',
+                        'awsui-modal',
+                        'awsui-alert'
+                    ];
+                    
+                    const missingStyles = requiredStyles.filter(style => !css.includes(style));
+                    
+                    if (missingStyles.length === 0) {
+                        addResult('CSS Loading', 'pass', '✓ All Cloudscape component styles are present');
+                        return true;
+                    } else {
+                        addResult('CSS Loading', 'fail', `✗ Missing styles: ${missingStyles.join(', ')}`);
+                        return false;
+                    }
+                } else {
+                    addResult('CSS Loading', 'fail', '✗ Could not load CSS file');
+                    return false;
+                }
+            } catch (error) {
+                addResult('CSS Loading', 'fail', `✗ Error loading CSS: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function testPageLoads(pageName, path) {
+            addResult(`${pageName} Load`, 'pending', `Checking if ${pageName} loads...`);
+            try {
+                const response = await fetch(`${BASE_URL}${path}`);
+                if (response.ok) {
+                    addResult(`${pageName} Load`, 'pass', `✓ ${pageName} loads successfully`);
+                    return true;
+                } else {
+                    addResult(`${pageName} Load`, 'fail', `✗ Page returned status ${response.status}`);
+                    return false;
+                }
+            } catch (error) {
+                addResult(`${pageName} Load`, 'fail', `✗ Error loading page: ${error.message}`);
+                return false;
+            }
+        }
+
+        async function runAllTests() {
+            clearResults();
+            
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="test-section"><h2>Test Results</h2></div>';
+            
+            // Test 1: Server running
+            const serverOk = await testServerRunning();
+            if (!serverOk) {
+                addResult('Tests Aborted', 'fail', 'Cannot proceed without running server. Start with: npm run dev');
+                return;
+            }
+            
+            // Test 2: CSS loaded
+            await testCSSLoaded();
+            
+            // Test 3: Page loads
+            await testPageLoads('Home Page', '/');
+            await testPageLoads('Catalog Page', '/catalog');
+            await testPageLoads('Canvases Page', '/canvases');
+            await testPageLoads('Collections Page', '/collections');
+            await testPageLoads('Projects Page', '/projects');
+            
+            // Final instructions
+            addResult('Next Steps', 'info', 
+                'Automated tests complete! Now manually verify the styling checklist above by opening each page and checking the components.');
+        }
+    </script>
+</body>
+</html>

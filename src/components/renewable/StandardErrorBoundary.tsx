@@ -7,7 +7,7 @@
 
 import React, { Component, ReactNode } from 'react';
 import { Box, Button, Alert, SpaceBetween, Container, Header } from '@cloudscape-design/components';
-import { useRenewableErrorHandler, type FormattedError } from '../../utils/renewable/ErrorHandlingUtils';
+import { useRenewableErrorHandler, type FormattedError } from '@/utils/renewable/ErrorHandlingUtils';
 
 interface StandardErrorBoundaryProps {
   children: ReactNode;

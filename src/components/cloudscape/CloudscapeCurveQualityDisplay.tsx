@@ -4,7 +4,6 @@
  * Simpler version focused on one curve's quality metrics
  */
 
-'use client';
 
 import React from 'react';
 import Container from '@cloudscape-design/components/container';

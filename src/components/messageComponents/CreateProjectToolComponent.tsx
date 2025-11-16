@@ -1,9 +1,9 @@
 import React from 'react';
-import Link from 'next/link';
+import { Link } from 'react-router-dom';
 import { Theme } from '@mui/material/styles';
 import { Card, CardContent, Typography, Box, Chip, Grid2 as Grid, CardActions, Button } from '@mui/material';
-import { formatCurrency } from '../../utils/formatters';
-import { Message } from '@/../utils/types';
+import { formatCurrency } from '@/utils/formatters';
+import { Message } from '@/utils/types';
 
 interface ProjectFinancial {
   // NPV10: number;

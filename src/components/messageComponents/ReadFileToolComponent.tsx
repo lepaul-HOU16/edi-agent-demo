@@ -2,7 +2,7 @@ import React from 'react';
 import { Theme } from '@mui/material/styles';
 import { Typography } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 interface ReadFileToolComponentProps {
   content: Message['content'];

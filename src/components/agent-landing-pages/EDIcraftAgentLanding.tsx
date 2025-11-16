@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import { Container, Header, Box, SpaceBetween, ColumnLayout, ExpandableSection, Cards, StatusIndicator, Button, Alert } from '@cloudscape-design/components';
 import AgentVisualization from './AgentVisualization';
-import { generateClient } from 'aws-amplify/data';
-import { type Schema } from '@/../amplify/data/resource';
 
 interface EDIcraftAgentLandingProps {
   onWorkflowSelect?: (prompt: string) => void;
@@ -24,7 +22,6 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
 
     try {
       // Always call agent directly without creating chat message
-      const client = generateClient<Schema>();
 
       console.log('[CLEAR BUTTON] Calling EDIcraft agent for chunk-based clear operation');
 

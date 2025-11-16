@@ -4,16 +4,19 @@
  * Layout: 60% wind rose (left), 40% supporting charts (right)
  */
 
-import React, { useMemo } from 'react';
-import { Box, Container, Grid, SpaceBetween, Header, ColumnLayout } from '@cloudscape-design/components';
+import React, { useMemo, Suspense } from 'react';
+import { Box, Container, Grid, SpaceBetween, Header, ColumnLayout, Spinner } from '@cloudscape-design/components';
 import PlotlyWindRose from './PlotlyWindRose';
-import dynamic from 'next/dynamic';
 
 // Dynamic import for Plotly charts
-const Plot = dynamic(() => import('react-plotly.js'), {
-  ssr: false,
-  loading: () => <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading chart...</div>
-}) as any;
+const Plot = React.lazy(() => import('react-plotly.js')) as any;
+
+// Wrapper component for Plot with Suspense
+const PlotWithSuspense: React.FC<any> = (props) => (
+  <Suspense fallback={<Box textAlign="center" padding="l"><Spinner size="large" /></Box>}>
+    <PlotWithSuspense {...props} />
+  </Suspense>
+);
 
 interface WindResourceData {
   windRoseData: any[];  // Plotly wind rose traces

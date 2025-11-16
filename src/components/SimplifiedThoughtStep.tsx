@@ -4,7 +4,6 @@
  * Matches AgentCore's professional, uncluttered appearance
  */
 
-'use client';
 
 import React, { useState } from 'react';
 import {

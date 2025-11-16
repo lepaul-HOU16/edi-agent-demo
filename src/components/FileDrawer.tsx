@@ -19,7 +19,7 @@ import {
   DialogActions,
   TextField
 } from '@mui/material';
-import { uploadData, remove } from '@aws-amplify/storage';
+import { uploadFile, deleteFile } from '@/lib/api/storage';
 import FolderIcon from '@mui/icons-material/Folder';
 import CloseIcon from '@mui/icons-material/Close';
 import UploadFileIcon from '@mui/icons-material/UploadFile';
@@ -120,7 +120,7 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
     if (!fileToDelete) return;
 
     try {
-      await remove({ path: fileToDelete.key });
+      await deleteFile(fileToDelete.key);
       setSelectedFile(null);
       refreshFiles();
       setDeleteDialogOpen(false);
@@ -153,12 +153,8 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
           `chatSessionArtifacts/sessionId=${chatSessionId}/${s3_path}` :
           s3_path;
 
-        await uploadData({
-          path: key,
-          data: file,
-          options: {
-            contentType: file.type
-          }
+        await uploadFile(key, file, {
+          contentType: file.type
         });
       });
 
@@ -199,12 +195,8 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
       const key = `chatSessionArtifacts/sessionId=${chatSessionId}/${newFolderName.trim()}/`;
 
       // Create an empty object with key ending in '/' to represent a folder
-      await uploadData({
-        path: key,
-        data: new Blob([]),
-        options: {
-          contentType: 'application/x-directory'
-        }
+      await uploadFile(key, new Blob([]), {
+        contentType: 'application/x-directory'
       });
 
       setUploadMessage('Folder created successfully');

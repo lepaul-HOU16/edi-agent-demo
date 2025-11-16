@@ -24,7 +24,7 @@ import {
 import { SuitabilityVisualizationDashboard } from './SuitabilityVisualizationDashboard';
 import { SiteComparisonDashboard } from './SiteComparisonDashboard';
 import { SimpleCallToActionPanel } from './SimpleCallToActionPanel';
-import { SuitabilityScoringService } from '../../services/renewable';
+import { SuitabilityScoringService } from '@/services/renewable';
 import {
   SiteSuitabilityAssessment,
   SiteLocation,

@@ -4,7 +4,7 @@
  * Based on requirements 14.1, 14.2, 14.3
  */
 
-import { RenewableErrorHandler, ErrorContext, FormattedError } from '../../utils/renewable/ErrorHandlingUtils';
+import { RenewableErrorHandler, ErrorContext, FormattedError } from '@/utils/renewable/ErrorHandlingUtils';
 
 export interface AnalysisError {
   type: 'OSM_API_ERROR' | 'INTENT_DETECTION_ERROR' | 'VISUALIZATION_ERROR' | 'DATA_QUALITY_ERROR' | 'LAMBDA_ERROR' | 'NETWORK_ERROR';

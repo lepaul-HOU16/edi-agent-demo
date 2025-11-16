@@ -4,7 +4,6 @@
  * Eliminates plain text responses and maximizes visual data processing efficiency
  */
 
-'use client';
 
 import React, { useState } from 'react';
 import {

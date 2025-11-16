@@ -1,6 +1,5 @@
-'use client';
 // import { NextUIProvider } from '@nextui-org/react';
-import { Authenticator } from '@aws-amplify/ui-react';
+// Authenticator removed;
 import { UserAttributesProvider } from '@/components/UserAttributesProvider';
 // Set up internationalization
 import { I18nProvider } from '@cloudscape-design/components/i18n';

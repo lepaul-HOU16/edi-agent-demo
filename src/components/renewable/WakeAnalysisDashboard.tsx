@@ -4,15 +4,18 @@
  * Layout: 50% map (left), 50% charts in 2x2 grid (right)
  */
 
-import React, { useMemo, useState } from 'react';
-import { Box, Container, Grid, SpaceBetween, Header, Tabs } from '@cloudscape-design/components';
-import dynamic from 'next/dynamic';
+import React, { useMemo, useState, Suspense } from 'react';
+import { Box, Container, Grid, SpaceBetween, Header, Tabs, Spinner } from '@cloudscape-design/components';
 
 // Dynamic import for Plotly charts
-const Plot = dynamic(() => import('react-plotly.js'), {
-  ssr: false,
-  loading: () => <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading chart...</div>
-}) as any;
+const Plot = React.lazy(() => import('react-plotly.js')) as any;
+
+// Wrapper component for Plot with Suspense
+const PlotWithSuspense: React.FC<any> = (props) => (
+  <Suspense fallback={<Box textAlign="center" padding="l"><Spinner size="large" /></Box>}>
+    <PlotWithSuspense {...props} />
+  </Suspense>
+);
 
 interface WakeAnalysisData {
   wakeHeatMap: {

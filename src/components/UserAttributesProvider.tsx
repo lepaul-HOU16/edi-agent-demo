@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { fetchUserAttributes, FetchUserAttributesOutput } from 'aws-amplify/auth';
-import { useAuthenticator } from '@aws-amplify/ui-react';
+// useAuthenticator removed;
 
 // Define the type for your context value
 interface UserContextType {

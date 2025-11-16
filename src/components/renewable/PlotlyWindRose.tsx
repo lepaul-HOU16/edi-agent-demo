@@ -5,28 +5,12 @@
  * Responsive to Cloudscape Design dark/light mode
  */
 
-import React, { useMemo, useState, useEffect } from 'react';
-import dynamic from 'next/dynamic';
+import React, { useMemo, useState, useEffect, Suspense } from 'react';
 import { Box, Spinner } from '@cloudscape-design/components';
 import './PlotlyWindRose.css';
 
 // Dynamic import for Plotly (client-side only)
-const Plot = dynamic(() => import('react-plotly.js'), {
-  ssr: false,
-  loading: () => (
-    <div style={{ 
-      width: '100%', 
-      height: '600px', 
-      display: 'flex', 
-      alignItems: 'center', 
-      justifyContent: 'center',
-      backgroundColor: 'var(--awsui-color-background-container-content, #1a1a1a)',
-      borderRadius: '8px'
-    }}>
-      <Spinner size="large" />
-    </div>
-  )
-}) as any; // Type assertion for dynamic import
+const Plot = React.lazy(() => import('react-plotly.js')) as any;
 
 interface PlotlyWindRoseProps {
   data: any[];  // Plotly trace data
@@ -425,13 +409,15 @@ const PlotlyWindRose: React.FC<PlotlyWindRoseProps> = ({
         padding: '8px',
         overflow: 'hidden'
       }}>
-        <Plot
-          data={themedData}
-          layout={layoutWithStats}
-          config={config}
-          style={{ width: '100%', height: '100%' }}
-          useResizeHandler={true}
-        />
+        <Suspense fallback={<Box textAlign="center" padding="l"><Spinner size="large" /></Box>}>
+          <Plot
+            data={themedData}
+            layout={layoutWithStats}
+            config={config}
+            style={{ width: '100%', height: '100%' }}
+            useResizeHandler={true}
+          />
+        </Suspense>
       </div>
     </div>
   );

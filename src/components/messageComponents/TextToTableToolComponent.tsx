@@ -3,7 +3,7 @@ import { Theme } from '@mui/material/styles';
 import { Button, Typography } from '@mui/material';
 import DescriptionIcon from '@mui/icons-material/Description';
 import VisibilityIcon from '@mui/icons-material/Visibility';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 const TextToTableToolComponent = ({ content, theme }: {
     content: Message['content'],

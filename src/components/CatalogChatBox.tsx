@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, List, ListItem, Typography, CircularProgress, Fab } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
-import { Message } from '../../utils/types';
+import { Message } from '@/utils/types';
 import ChatMessage from './ChatMessage';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import { useTheme } from '@mui/material/styles';

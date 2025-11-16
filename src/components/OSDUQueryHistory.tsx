@@ -20,7 +20,7 @@ import {
   Alert,
   Modal
 } from '@cloudscape-design/components';
-import { QueryHistory, QueryHistoryItem, QueryCriterion } from '../utils/queryHistory';
+import { QueryHistory, QueryHistoryItem, QueryCriterion } from '@/utils/queryHistory';
 
 interface OSDUQueryHistoryProps {
   onLoadQuery: (item: QueryHistoryItem) => void;

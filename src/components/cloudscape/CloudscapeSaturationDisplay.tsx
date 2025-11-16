@@ -4,9 +4,8 @@
  * Shows resistivity curves, Sw distribution, and Archie parameters
  */
 
-'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
 import Container from '@cloudscape-design/components/container';
 import Header from '@cloudscape-design/components/header';
 import ColumnLayout from '@cloudscape-design/components/column-layout';
@@ -14,13 +13,10 @@ import Box from '@cloudscape-design/components/box';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import ProgressBar from '@cloudscape-design/components/progress-bar';
 import ExpandableSection from '@cloudscape-design/components/expandable-section';
-import dynamic from 'next/dynamic';
+import Spinner from '@cloudscape-design/components/spinner';
 
 // Dynamic import for Plotly
-const Plot = dynamic(() => import('react-plotly.js'), {
-  ssr: false,
-  loading: () => <div>Loading chart...</div>
-}) as any;
+const Plot = React.lazy(() => import('react-plotly.js')) as any;
 
 interface CloudscapeSaturationDisplayProps {
   data: any;
@@ -122,7 +118,11 @@ export const CloudscapeSaturationDisplay: React.FC<CloudscapeSaturationDisplayPr
       responsive: true
     };
     
-    return <Plot data={traces} layout={layout} config={config} style={{ width: '100%' }} />;
+    return (
+      <Suspense fallback={<Box textAlign="center" padding="l"><Spinner size="large" /></Box>}>
+        <Plot data={traces} layout={layout} config={config} style={{ width: '100%' }} />
+      </Suspense>
+    );
   };
   
   // Calculate hydrocarbon saturation

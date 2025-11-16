@@ -19,9 +19,9 @@ import {
   Badge,
   Alert
 } from '@cloudscape-design/components';
-import { VisualizationData, CategorizedVisualizations } from '../../utils/VisualizationDataParser';
+import { VisualizationData, CategorizedVisualizations } from '@/utils/VisualizationDataParser';
 import VisualizationRenderer from './VisualizationRenderer';
-import VisualizationExporter from '../../utils/VisualizationExporter';
+import VisualizationExporter from '@/utils/VisualizationExporter';
 
 interface VisualizationItem {
   id: string;

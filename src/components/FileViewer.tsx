@@ -1,6 +1,5 @@
-"use client"
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { getUrl } from 'aws-amplify/storage';
+import { getFileUrl } from '@/lib/api/storage';
 import { CircularProgress } from '@mui/material';
 import AceEditor from 'react-ace';
 import { useViewport, calculateOptimalIframeDimensions, getFileTypeFromExtension } from '../hooks/useViewport';
@@ -112,11 +111,10 @@ export default function FileViewer({
       console.log('Loading HTML file with special handling');
     }
 
-    getUrl({
-      path: s3KeyDecoded,
-    }).then(async (response: { url: URL }) => {
-      setSelectedFileUrl(response.url);
-      onUrlChange?.(response.url);
+    getFileUrl(s3KeyDecoded).then(async (urlString: string) => {
+      const url = new URL(urlString);
+      setSelectedFileUrl(url);
+      onUrlChange?.(url);
 
       try {
         // For HTML files, fetch content through our route handler
@@ -151,7 +149,7 @@ export default function FileViewer({
         }
 
         // Normal handling for other files
-        const fileResponse = await fetch(response.url);
+        const fileResponse = await fetch(urlString);
         const contentType = fileResponse.headers.get('Content-Type');
         setFileContentType(contentType)
 

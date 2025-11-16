@@ -1,0 +1,9 @@
+{
+  "name": "verify-dynamodb",
+  "version": "1.0.0",
+  "description": "Test Lambda to verify DynamoDB table imports",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.930.0"
+  }
+}

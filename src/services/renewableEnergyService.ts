@@ -1,14 +1,11 @@
 /**
- * Renewable Energy Service
+ * Renewable Energy Service - REST API Version
  * 
- * Client-side service for calling renewable energy Lambda functions
- * Integrates with Amplify backend
+ * Client-side service for calling renewable energy REST API endpoints.
+ * NO AMPLIFY DEPENDENCIES - Pure REST API implementation.
  */
 
-import { generateClient } from 'aws-amplify/data';
-import type { Schema } from '../../amplify/data/resource';
-
-const client = generateClient<Schema>();
+import { useState } from 'react';
 
 export interface WindDataParams {
   latitude: number;
@@ -71,7 +68,7 @@ export class RenewableEnergyService {
     try {
       console.log('Fetching wind conditions:', params);
       
-      // Call Lambda function through Amplify
+      // Call REST API endpoint
       const response = await fetch('/api/renewable/wind-data', {
         method: 'POST',
         headers: {
@@ -108,7 +105,7 @@ export class RenewableEnergyService {
     try {
       console.log('Calculating energy production:', params);
       
-      // Call Lambda function through Amplify
+      // Call REST API endpoint
       const response = await fetch('/api/renewable/energy-production', {
         method: 'POST',
         headers: {
@@ -134,6 +131,30 @@ export class RenewableEnergyService {
       
     } catch (error) {
       console.error('Error calculating energy production:', error);
+      throw error;
+    }
+  }
+  
+  /**
+   * Analyze wind farm site using the renewable orchestrator
+   */
+  static async analyzeWindFarm(query: string, context?: any, sessionId?: string): Promise<any> {
+    try {
+      console.log('Analyzing wind farm:', { query, hasContext: !!context, sessionId });
+      
+      // Use the REST API client
+      const { analyzeWindFarm } = await import('@/lib/api/renewable');
+      
+      const result = await analyzeWindFarm(query, context, sessionId);
+      
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to analyze wind farm');
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error('Error analyzing wind farm:', error);
       throw error;
     }
   }
@@ -188,6 +209,3 @@ export function useEnergyProduction() {
   
   return { data, loading, error, calculateProduction };
 }
-
-// Import useState for hooks
-import { useState } from 'react';

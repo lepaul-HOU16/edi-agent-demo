@@ -4,9 +4,8 @@
  * Uses Material-UI and Plotly for visualizations to match project dependencies
  */
 
-'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Suspense } from 'react';
 import {
   Card,
   CardContent,
@@ -39,13 +38,17 @@ import {
   GpsFixed,
   FlashOn
 } from '@mui/icons-material';
-import dynamic from 'next/dynamic';
+// Dynamic import removed - use React.lazy if needed;
 
 // Dynamic import for Plotly to avoid SSR issues
-const Plot = dynamic(() => import('react-plotly.js'), {
-  ssr: false,
-  loading: () => <div>Loading chart...</div>
-}) as any;
+const Plot = React.lazy(() => import('react-plotly.js')) as any;
+
+// Wrapper component for Plot with Suspense
+const PlotWithSuspense: React.FC<any> = (props) => (
+  <Suspense fallback={<Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '300px' }}><div>Loading chart...</div></Box>}>
+    <PlotWithSuspense {...props} />
+  </Suspense>
+);
 
 interface ComprehensiveShaleAnalysisProps {
   data: any;

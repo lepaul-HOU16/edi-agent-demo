@@ -2,9 +2,9 @@ import { useTheme } from '@mui/material/styles';
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import React from 'react';
 
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 import { useFileSystem } from '@/contexts/FileSystemContext';
-import { retrieveArtifacts } from '@/../utils/s3ArtifactStorage';
+import { retrieveArtifacts } from '@/utils/s3ArtifactStorage';
 import { useAgentProgress } from '@/hooks/useAgentProgress';
 import { AgentProgressIndicator } from './renewable/AgentProgressIndicator';
 import { ExtendedThinkingDisplay } from './renewable/ExtendedThinkingDisplay';
@@ -799,22 +799,78 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                                             onSendMessage(`rename project ${projectName}`);
                                             break;
                                         case 'delete':
-                                            // Confirm deletion
-                                            onSendMessage(`delete project ${projectName}`);
+                                            // Use REST API for delete
+                                            (async () => {
+                                                try {
+                                                    const { deleteProject } = await import('@/lib/api/projects');
+                                                    console.log(`[ChatMessage] Deleting project ${projectName} via REST API`);
+                                                    
+                                                    const result = await deleteProject(projectName);
+                                                    
+                                                    console.log(`[ChatMessage] Delete result:`, result);
+                                                    
+                                                    if (result.success) {
+                                                        console.log(`[ChatMessage] Successfully deleted project ${projectName}`);
+                                                        // Wait a moment for S3 to propagate, then refresh dashboard
+                                                        // Add timestamp to force cache refresh
+                                                        setTimeout(() => {
+                                                            onSendMessage(`show my project dashboard (refresh ${Date.now()})`);
+                                                        }, 1000);
+                                                    } else {
+                                                        console.error(`[ChatMessage] Failed to delete project ${projectName}:`, result.message);
+                                                        alert(`Failed to delete project: ${result.message || 'Unknown error'}`);
+                                                    }
+                                                } catch (error: any) {
+                                                    console.error(`[ChatMessage] Error deleting project ${projectName}:`, error);
+                                                    alert(`Error deleting project: ${error.message}`);
+                                                }
+                                            })();
                                             break;
                                         case 'bulk-delete':
                                             // Handle bulk delete - projectName contains JSON array of names
-                                            try {
-                                                const projectNames = JSON.parse(projectName);
-                                                if (Array.isArray(projectNames) && projectNames.length > 0) {
-                                                    // Send individual confirmed delete commands
-                                                    projectNames.forEach(name => {
-                                                        onSendMessage(`delete project ${name} confirmed`);
-                                                    });
+                                            // Use REST API for delete
+                                            (async () => {
+                                                try {
+                                                    const projectNames = JSON.parse(projectName);
+                                                    if (Array.isArray(projectNames) && projectNames.length > 0) {
+                                                        const { deleteProject } = await import('@/lib/api/projects');
+                                                        console.log(`[ChatMessage] Bulk deleting ${projectNames.length} projects via REST API`);
+                                                        
+                                                        // Delete all projects in parallel using REST API
+                                                        const deletePromises = projectNames.map(async (name) => {
+                                                            try {
+                                                                const result = await deleteProject(name);
+                                                                console.log(`[ChatMessage] Deleted project ${name}:`, result);
+                                                                return { name, success: result.success, result };
+                                                            } catch (error: any) {
+                                                                console.error(`[ChatMessage] Failed to delete project ${name}:`, error);
+                                                                return { name, success: false, error: error.message };
+                                                            }
+                                                        });
+                                                        
+                                                        const results = await Promise.all(deletePromises);
+                                                        const successCount = results.filter(r => r.success).length;
+                                                        const failCount = results.filter(r => !r.success).length;
+                                                        
+                                                        console.log(`[ChatMessage] Bulk delete complete: ${successCount} succeeded, ${failCount} failed`);
+                                                        
+                                                        // Show result to user
+                                                        if (failCount > 0) {
+                                                            alert(`Deleted ${successCount} projects. ${failCount} failed.`);
+                                                        }
+                                                        
+                                                        // Refresh dashboard after deletion
+                                                        // Add timestamp to force cache refresh
+                                                        if (successCount > 0) {
+                                                            setTimeout(() => {
+                                                                onSendMessage(`show my project dashboard (refresh ${Date.now()})`);
+                                                            }, 1000);
+                                                        }
+                                                    }
+                                                } catch (e) {
+                                                    console.error('[ChatMessage] Failed to parse bulk delete project names:', e);
                                                 }
-                                            } catch (e) {
-                                                console.error('[ChatMessage] Failed to parse bulk delete project names:', e);
-                                            }
+                                            })();
                                             break;
                                         case 'refresh':
                                             // Refresh dashboard

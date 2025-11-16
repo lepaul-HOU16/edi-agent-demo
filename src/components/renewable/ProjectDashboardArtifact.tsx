@@ -12,7 +12,6 @@
  * Requirements: 7.1, 7.2, 7.3, 7.4, 7.5, 7.6
  */
 
-'use client';
 
 import React, { useState, useMemo } from 'react';
 import {
@@ -27,8 +26,11 @@ import {
   Container,
   ColumnLayout,
   ButtonDropdown,
-  Icon
+  Icon,
+  Modal,
+  Flashbar
 } from '@cloudscape-design/components';
+import { deleteProject as deleteProjectAPI, renameProject as renameProjectAPI } from '@/lib/api/projects';
 
 // ============================================================================
 // Type Definitions
@@ -77,6 +79,11 @@ const ProjectDashboardArtifact: React.FC<ProjectDashboardArtifactProps> = ({
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [sortingColumn, setSortingColumn] = useState<any>({ sortingField: 'lastUpdated' });
   const [sortingDescending, setSortingDescending] = useState(true);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<string | null>(null);
+  const [projectDetails, setProjectDetails] = useState<any>(null);
+  const [flashMessages, setFlashMessages] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   /**
    * Handle bulk delete action
@@ -131,13 +138,70 @@ const ProjectDashboardArtifact: React.FC<ProjectDashboardArtifactProps> = ({
 
 
   /**
-   * Handle action button click
+   * Handle action button click with direct GraphQL mutations (Task 4.3)
    * Requirement: 7.5 - Provide quick actions
    */
-  const handleAction = (action: string, projectName: string) => {
+  const handleAction = async (action: string, projectName: string) => {
     console.log(`[ProjectDashboardArtifact] Action: ${action} on project: ${projectName}`);
-    if (onAction) {
-      onAction(action, projectName);
+    
+    setIsLoading(true);
+    
+    try {
+      switch (action) {
+        case 'delete':
+          // Use REST API for delete
+          console.log(`[ProjectDashboardArtifact] Calling REST API to delete: ${projectName}`);
+          const deleteResult = await deleteProjectAPI(projectName);
+          
+          console.log(`[ProjectDashboardArtifact] Delete result:`, deleteResult);
+          
+          if (deleteResult.success) {
+            setFlashMessages([{
+              type: 'success',
+              content: `Project ${projectName} deleted successfully`,
+              dismissible: true,
+              id: `delete-${Date.now()}`
+            }]);
+            
+            // Trigger dashboard refresh
+            if (onAction) {
+              onAction('refresh', projectName);
+            }
+          } else {
+            throw new Error(deleteResult.message || 'Delete failed');
+          }
+          break;
+          
+        case 'view':
+          // For view, use onAction callback (will be implemented later)
+          if (onAction) {
+            onAction(action, projectName);
+          }
+          break;
+          
+        case 'continue':
+        case 'rename':
+          // For these actions, still use onAction callback
+          if (onAction) {
+            onAction(action, projectName);
+          }
+          break;
+          
+        default:
+          if (onAction) {
+            onAction(action, projectName);
+          }
+      }
+    } catch (error: any) {
+      console.error(`Error performing ${action}:`, error);
+      setFlashMessages([{
+        type: 'error',
+        content: `Failed to ${action} project: ${error.message}`,
+        dismissible: true,
+        id: `error-${Date.now()}`
+      }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 

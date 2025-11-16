@@ -4,7 +4,7 @@ import { Box } from '@mui/material';
 import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 import CopyButton from './messageComponents/CopyButton';
 
 interface StableEducationalMessageProps {

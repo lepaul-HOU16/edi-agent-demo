@@ -1,7 +1,7 @@
 import React from 'react';
 import { Theme } from '@mui/material/styles';
 import { Typography, CircularProgress } from '@mui/material';
-import { Message } from '../../../utils/types';
+import { Message } from '@/utils/types';
 import LoadingBar from '@cloudscape-design/chat-components/loading-bar';
 
 

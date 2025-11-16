@@ -3,7 +3,6 @@
  * Displays AI thinking process with subtle pulsing and contextual messages
  */
 
-'use client';
 
 import React from 'react';
 import {
@@ -17,7 +16,7 @@ import {
   Collapse
 } from '@mui/material';
 import { Psychology } from '@mui/icons-material';
-import { ThoughtStep, getAnimationIntensity } from '../../utils/thoughtTypes';
+import { ThoughtStep, getAnimationIntensity } from '@/utils/thoughtTypes';
 
 interface ThinkingIndicatorProps {
   context: string;

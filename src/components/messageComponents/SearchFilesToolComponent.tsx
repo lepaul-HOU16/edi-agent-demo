@@ -7,7 +7,7 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import WarningIcon from '@mui/icons-material/Warning';
 
 // Import Message type for content prop
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 export const SearchFilesToolComponent = ({ content, theme, chatSessionId }: { 
     content: Message['content'], 

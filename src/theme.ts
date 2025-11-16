@@ -1,4 +1,3 @@
-'use client';
 import { createTheme, Theme } from '@mui/material/styles';
 
 // Light theme (default)

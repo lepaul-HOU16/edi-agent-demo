@@ -8,7 +8,7 @@ import {
   Box 
 } from '@mui/material';
 import { Theme } from '@mui/material/styles';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 // Updated interface to match permeability tool response
 interface ReservoirAnalysisData {

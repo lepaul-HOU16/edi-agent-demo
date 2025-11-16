@@ -1,15 +1,13 @@
-'use client';
 
 import React, { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useNavigate } from 'react-router-dom';
 import Badge from '@cloudscape-design/components/badge';
 import Box from '@cloudscape-design/components/box';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import Icon from '@cloudscape-design/components/icon';
 import Popover from '@cloudscape-design/components/popover';
 import StatusIndicator from '@cloudscape-design/components/status-indicator';
-import { generateClient } from 'aws-amplify/data';
-import { type Schema } from '@/../amplify/data/resource';
+import { getCollection } from '../lib/api/collections';
 
 interface CollectionContextBadgeProps {
   chatSessionId: string;
@@ -29,37 +27,19 @@ interface CollectionData {
 const CollectionContextBadge: React.FC<CollectionContextBadgeProps> = ({ chatSessionId }) => {
   const [collection, setCollection] = useState<CollectionData | null>(null);
   const [loading, setLoading] = useState(true);
-  const router = useRouter();
-  const amplifyClient = generateClient<Schema>();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const loadCollectionContext = async () => {
       try {
         setLoading(true);
         
-        // Get the chat session to find linked collection
-        const { data: chatSession } = await amplifyClient.models.ChatSession.get({
-          id: chatSessionId
-        });
-
-        if (!chatSession?.linkedCollectionId) {
-          setCollection(null);
-          setLoading(false);
-          return;
-        }
-
-        // Load collection data
-        const response = await amplifyClient.queries.collectionQuery({
-          operation: 'getCollectionById',
-          collectionId: chatSession.linkedCollectionId
-        });
-
-        if (response.data) {
-          const result = JSON.parse(response.data);
-          if (result.success && result.collection) {
-            setCollection(result.collection);
-          }
-        }
+        // TODO: Get the chat session to find linked collection
+        // For now, skip as ChatSession REST API hasn't been implemented yet
+        // Once chat sessions are migrated, we'll fetch the session and get linkedCollectionId
+        // then call getCollection(linkedCollectionId) to load the collection data
+        console.warn('ChatSession REST API not yet implemented, cannot load collection context');
+        setCollection(null);
       } catch (error) {
         console.error('Error loading collection context:', error);
       } finally {
@@ -87,7 +67,7 @@ const CollectionContextBadge: React.FC<CollectionContextBadgeProps> = ({ chatSes
                     0;
 
   const handleBadgeClick = () => {
-    router.push(`/collections/${collection.id}`);
+    navigate(`/collections/${collection.id}`);
   };
 
   return (

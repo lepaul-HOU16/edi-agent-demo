@@ -4,15 +4,18 @@
  * Layout: 2x2 grid with summary bar at top
  */
 
-import React, { useMemo } from 'react';
-import { Box, Container, Grid, SpaceBetween, Header, ColumnLayout, KeyValuePairs } from '@cloudscape-design/components';
-import dynamic from 'next/dynamic';
+import React, { useMemo, Suspense } from 'react';
+import { Box, Container, Grid, SpaceBetween, Header, ColumnLayout, KeyValuePairs, Spinner } from '@cloudscape-design/components';
 
 // Dynamic import for Plotly charts
-const Plot = dynamic(() => import('react-plotly.js'), {
-  ssr: false,
-  loading: () => <div style={{ height: '300px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>Loading chart...</div>
-}) as any;
+const Plot = React.lazy(() => import('react-plotly.js')) as any;
+
+// Wrapper component for Plot with Suspense
+const PlotWithSuspense: React.FC<any> = (props) => (
+  <Suspense fallback={<Box textAlign="center" padding="l"><Spinner size="large" /></Box>}>
+    <PlotWithSuspense {...props} />
+  </Suspense>
+);
 
 interface PerformanceAnalysisData {
   summary: {

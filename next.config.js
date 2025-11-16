@@ -12,8 +12,12 @@ const nextConfig = {
     // Reduce memory usage during build
     webpackBuildWorker: false,
   },
-  // Configure output for Amplify SSR
-  output: 'standalone',
+  // Configure output for static export (no SSR)
+  output: 'export',
+  // Required for dynamic routes with static export
+  trailingSlash: true,
+  // Skip build-time generation of dynamic routes (they'll be handled client-side)
+  skipTrailingSlashRedirect: true,
   // Reduce build memory usage
   swcMinify: false, // Disable to reduce memory usage
   // Disable source maps in production to save memory
@@ -29,32 +33,8 @@ const nextConfig = {
   typescript: {
     ignoreBuildErrors: true, // Disable TypeScript checking during build to prevent memory issues
   },
-  
-  async headers() {
-    return [
-      {
-        source: '/file/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https: data:; style-src 'self' 'unsafe-inline' https: data:; img-src 'self' data: blob: https:; connect-src 'self' https:; frame-src 'self';"
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'SAMEORIGIN'
-          }
-        ]
-      }
-    ]
-  },
-  async rewrites() {
-    return [
-      {
-        source: '/.well-known/appspecific/:path*',
-        destination: '/.well-known/appspecific/:path*',
-      },
-    ];
-  },
+  // Note: headers() and rewrites() are not supported with static export
+  // These should be configured in CloudFront or S3 bucket settings instead
   webpack: (config, { isServer, dev }) => {
     // Fix chunk loading issues in development
     if (dev) {
@@ -142,12 +122,9 @@ const nextConfig = {
     
     return config;
   },
-  // Increase the timeout for static generation
-  staticPageGenerationTimeout: 300,
-  // Configure images for Amplify
+  // Configure images for static export
   images: {
-    unoptimized: true, // Amplify handles image optimization
-    domains: ['amplify.com'],
+    unoptimized: true, // Required for static export
   },
   // Configure for better Amplify compatibility
   poweredByHeader: false,

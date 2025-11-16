@@ -1,0 +1,36 @@
+{
+  "name": "energy-insights-cdk",
+  "version": "1.0.0",
+  "description": "CDK infrastructure for Energy Data Insights",
+  "main": "lib/main-stack.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc -w",
+    "test": "jest",
+    "cdk": "cdk",
+    "deploy": "cdk deploy --all",
+    "diff": "cdk diff",
+    "synth": "cdk synth",
+    "build:lambdas": "node esbuild.config.js build",
+    "build:lambda": "node esbuild.config.js build",
+    "watch:lambdas": "node esbuild.config.js watch",
+    "build:all": "npm run build && npm run build:lambdas"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.11.0",
+    "aws-cdk": "^2.140.0",
+    "esbuild": "^0.27.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "ts-node": "^10.9.1",
+    "typescript": "~5.3.0"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.140.0",
+    "constructs": "^10.0.0"
+  }
+}

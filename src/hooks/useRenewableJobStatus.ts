@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRenewableJobPolling } from './useRenewableJobPolling';
-import { type Schema } from '@/../amplify/data/resource';
+import { Schema } from '@/types/api';
 
 interface RenewableJobStatusState {
   isProcessing: boolean;

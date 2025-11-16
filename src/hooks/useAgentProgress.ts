@@ -1,8 +1,13 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { generateClient } from 'aws-amplify/data';
-import type { Schema } from '@/../amplify/data/resource';
+/**
+ * useAgentProgress Hook - REST API Version
+ * 
+ * Tracks agent progress for long-running operations.
+ * 
+ * NOTE: Currently disabled as we transition to REST API.
+ * Progress tracking will be implemented via WebSocket in future.
+ */
 
-const client = generateClient<Schema>();
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 export interface ProgressStep {
   step: string;
@@ -41,88 +46,39 @@ export const useAgentProgress = ({
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const completedRef = useRef(false);
 
-  // Fetch progress data
+  // TEMPORARY: Progress tracking disabled during REST API migration
   const fetchProgress = useCallback(async () => {
     if (!requestId || !enabled || completedRef.current) {
       return;
     }
 
-    try {
-      // Query the AgentProgress using GraphQL query
-      const response = await client.queries.getAgentProgress({ requestId });
-
-      if (response.data) {
-        const data = response.data as unknown as AgentProgressData;
-        setProgressData(data);
-        setError(null);
-
-        // Check if complete
-        if (data.status === 'complete' || data.status === 'error') {
-          completedRef.current = true;
-          setIsPolling(false);
-
-          // Clear polling interval
-          if (pollingIntervalRef.current) {
-            clearInterval(pollingIntervalRef.current);
-            pollingIntervalRef.current = null;
-          }
-
-          // Call completion callback
-          if (data.status === 'complete' && onComplete) {
-            onComplete(data);
-          } else if (data.status === 'error' && onError) {
-            onError(new Error('Agent processing failed'));
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Failed to fetch agent progress:', err);
-      const error = err instanceof Error ? err : new Error('Failed to fetch progress');
-      setError(error);
-      if (onError) {
-        onError(error);
-      }
-    }
-  }, [requestId, enabled, onComplete, onError]);
+    console.log('[useAgentProgress] Progress tracking temporarily disabled during REST API migration');
+    
+    // TODO: Implement REST API progress endpoint
+    // For now, progress is not tracked in real-time
+    
+  }, [requestId, enabled]);
 
   // Start polling
   const startPolling = useCallback(() => {
-    if (!requestId || !enabled || isPolling || completedRef.current) {
+    if (!requestId || !enabled || isPolling) {
       return;
     }
 
-    console.log(`[useAgentProgress] Starting polling for requestId: ${requestId}`);
-    setIsPolling(true);
-    completedRef.current = false;
-
-    // Fetch immediately
-    fetchProgress();
-
-    // Set up polling interval
-    pollingIntervalRef.current = setInterval(() => {
-      fetchProgress();
-    }, pollingInterval);
+    console.log('[useAgentProgress] Polling temporarily disabled during REST API migration');
+    
+    // TODO: Implement when REST API progress endpoint is available
+    
   }, [requestId, enabled, isPolling, fetchProgress, pollingInterval]);
 
   // Stop polling
   const stopPolling = useCallback(() => {
-    console.log('[useAgentProgress] Stopping polling');
-    setIsPolling(false);
-
     if (pollingIntervalRef.current) {
       clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
+    setIsPolling(false);
   }, []);
-
-  // Reset state
-  const reset = useCallback(() => {
-    console.log('[useAgentProgress] Resetting state');
-    stopPolling();
-    setProgressData(null);
-    setError(null);
-    completedRef.current = false;
-  }, [stopPolling]);
 
   // Auto-start polling when requestId changes
   useEffect(() => {
@@ -133,16 +89,14 @@ export const useAgentProgress = ({
     return () => {
       stopPolling();
     };
-  }, [requestId, enabled, startPolling, stopPolling]);
+  }, [requestId, enabled]); // Removed startPolling and stopPolling from dependencies
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (pollingIntervalRef.current) {
-        clearInterval(pollingIntervalRef.current);
-      }
+      stopPolling();
     };
-  }, []);
+  }, []); // Removed stopPolling from dependencies
 
   return {
     progressData,
@@ -150,8 +104,6 @@ export const useAgentProgress = ({
     error,
     startPolling,
     stopPolling,
-    reset,
+    refetch: fetchProgress,
   };
 };
-
-export default useAgentProgress;

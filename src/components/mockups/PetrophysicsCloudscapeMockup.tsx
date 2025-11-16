@@ -10,7 +10,6 @@
  * - Full-width visualizations
  */
 
-'use client';
 
 import React, { useState, useMemo } from 'react';
 import {
@@ -31,13 +30,10 @@ import {
   ProgressBar,
   Alert
 } from '@cloudscape-design/components';
-import dynamic from 'next/dynamic';
+// Dynamic import removed - use React.lazy if needed;
 
 // Dynamic import for Plotly
-const Plot = dynamic(() => import('react-plotly.js'), {
-  ssr: false,
-  loading: () => <div>Loading visualization...</div>
-}) as any;
+const Plot = React.lazy(() => import('react-plotly.js')) as any;
 
 interface PetrophysicsCloudscapeMockupProps {
   data?: any;

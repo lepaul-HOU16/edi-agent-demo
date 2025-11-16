@@ -1,0 +1,9 @@
+{
+  "name": "test-auth-function",
+  "version": "1.0.0",
+  "description": "Test Lambda to verify Cognito authorizer",
+  "main": "index.js",
+  "dependencies": {
+    "@types/aws-lambda": "^8.10.145"
+  }
+}

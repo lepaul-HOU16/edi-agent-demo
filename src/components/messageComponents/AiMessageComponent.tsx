@@ -8,7 +8,7 @@ import SupportAgentIcon from '@mui/icons-material/SupportAgent';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { stringify } from 'yaml';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 import CopyButton from './CopyButton';
 import ArtifactRenderer from '../ArtifactRenderer';
 import StableEducationalMessage from '../StableEducationalMessage';

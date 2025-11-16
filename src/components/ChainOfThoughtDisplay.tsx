@@ -6,7 +6,6 @@
  * Features: compact spacing, toggle buttons (default expanded), markdown-style code blocks
  */
 
-'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
 import { Box, Button, Typography, useTheme } from '@mui/material';

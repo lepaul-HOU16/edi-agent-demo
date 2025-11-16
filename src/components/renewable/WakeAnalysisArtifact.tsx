@@ -5,7 +5,7 @@
  * Renders wake deficit analysis, turbine interactions, and energy production impacts.
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, Suspense } from 'react';
 import {
   Container,
   Header,
@@ -16,20 +16,20 @@ import {
   Button,
   Tabs,
   Alert,
-  ExpandableSection
+  ExpandableSection,
+  Spinner
 } from '@cloudscape-design/components';
-import dynamic from 'next/dynamic';
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';
 
 // Dynamic import for Plotly (client-side only)
-const Plot = dynamic(() => import('react-plotly.js'), {
-  ssr: false,
-  loading: () => (
-    <div style={{ height: '400px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-      Loading visualization...
-    </div>
-  )
-}) as any;
+const Plot = React.lazy(() => import('react-plotly.js')) as any;
+
+// Wrapper component for Plot with Suspense
+const PlotWithSuspense: React.FC<any> = (props) => (
+  <Suspense fallback={<Box textAlign="center" padding="l"><Spinner size="large" /></Box>}>
+    <PlotWithSuspense {...props} />
+  </Suspense>
+);
 
 interface WakeAnalysisArtifactProps {
   data: {

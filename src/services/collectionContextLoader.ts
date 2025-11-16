@@ -4,11 +4,8 @@
  * Phase 3: Advanced enterprise feature
  */
 
-import { generateClient } from "aws-amplify/data";
-import { type Schema } from "@/../amplify/data/resource";
+import { getCollection } from '../lib/api/collections';
 import { isCollectionStateRestorationEnabled, isCollectionAnalyticsEnabled } from './featureFlags';
-
-const amplifyClient = generateClient<Schema>();
 
 interface CollectionContext {
   collectionId: string;
@@ -218,45 +215,38 @@ class CollectionContextService {
         return { success: true, context: cached };
       }
 
-      // Load from collection service
-      const result = await amplifyClient.queries.queryCollections({
-        operation: 'getState',
-        collectionId: collectionId
-      });
+      // Load from collection service via REST API
+      const result = await getCollection(collectionId);
 
-      if (result.data) {
-        const parsedResult = typeof result.data === 'string' ? JSON.parse(result.data) : result.data;
-        
-        if (parsedResult.success) {
-          const collection = parsedResult.collection;
+      if (result.success && result.collection) {
+        const collection = result.collection;
           
-          // Build enhanced context
-          const context: CollectionContext = {
-            collectionId,
-            name: collection.name,
-            dataItems: collection.dataItems || [],
-            queryMetadata: collection.queryMetadata || {},
-            savedState: collection.savedState || {},
-            previewMetadata: collection.previewMetadata || {},
-            
-            // Phase 3: Enhanced context loading
-            wellData: this.transformDataItemsToWellData(collection.dataItems || []),
-            geographicContext: this.buildGeographicContext(collection.queryMetadata, collection.savedState),
-            analyticsContext: options.enableAnalytics ? await this.buildAnalyticsContext(collection) : undefined
-          };
+        // Build enhanced context
+        const context: CollectionContext = {
+          collectionId,
+          name: collection.name,
+          dataItems: collection.dataItems || [],
+          queryMetadata: collection.queryMetadata || {},
+          savedState: collection.savedState || {},
+          previewMetadata: collection.previewMetadata || {},
+          
+          // Phase 3: Enhanced context loading
+          wellData: this.transformDataItemsToWellData(collection.dataItems || []),
+          geographicContext: this.buildGeographicContext(collection.queryMetadata, collection.savedState),
+          analyticsContext: options.enableAnalytics ? await this.buildAnalyticsContext(collection) : undefined
+        };
 
-          // Cache the context
-          this.setCachedContext(collectionId, context);
+        // Cache the context
+        this.setCachedContext(collectionId, context);
 
-          console.log('✅ Collection context built successfully:', {
-            collectionName: context.name,
-            wellCount: context.dataItems.length,
-            hasGeographicContext: !!context.geographicContext,
-            hasAnalytics: !!context.analyticsContext
-          });
+        console.log('✅ Collection context built successfully:', {
+          collectionName: context.name,
+          wellCount: context.dataItems.length,
+          hasGeographicContext: !!context.geographicContext,
+          hasAnalytics: !!context.analyticsContext
+        });
 
-          return { success: true, context };
-        }
+        return { success: true, context };
       }
 
       return { success: false };
@@ -341,11 +331,15 @@ class CollectionContextService {
 
   /**
    * Get chat session information
+   * Note: This still uses Amplify models for now as ChatSession hasn't been migrated yet
+   * TODO: Migrate to REST API when ChatSession endpoints are created
    */
   private async getChatSession(chatSessionId: string): Promise<any> {
     try {
-      const result = await amplifyClient.models.ChatSession.get({ id: chatSessionId });
-      return result.data;
+      // For now, return null to skip chat session lookup
+      // This will be implemented when ChatSession REST API is created
+      console.warn('ChatSession REST API not yet implemented, skipping session lookup');
+      return null;
     } catch (error) {
       console.warn('Could not retrieve chat session:', error);
       return null;

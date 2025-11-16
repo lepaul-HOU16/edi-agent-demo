@@ -1,4 +1,3 @@
-'use client';
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -1043,94 +1042,7 @@ export const OSDUQueryBuilder: React.FC<QueryBuilderProps> = ({
         )}
 
         {/* Advanced Options - Collapsible on Mobile */}
-        <ExpandableSection
-          headerText="Advanced Options"
-          variant={isMobile ? "container" : "default"}
-          expanded={showAdvancedOptions}
-          onChange={({ detail }) => setShowAdvancedOptions(detail.expanded)}
-          headerDescription={isMobile ? "Templates, history, and save options" : undefined}
-        >
-          <SpaceBetween size="m">
-            {/* Template and History Actions */}
-            <Grid
-              gridDefinition={
-                isMobile
-                  ? [{ colspan: 12 }, { colspan: 12 }, { colspan: 12 }, { colspan: 12 }]
-                  : [{ colspan: 3 }, { colspan: 3 }, { colspan: 3 }, { colspan: 3 }]
-              }
-            >
-              <FormField 
-                label="Templates"
-                // description={isMobile ? undefined : "Use pre-built templates or create your own"}
-              >
-                <Button
-                  onClick={() => setShowTemplateSelector(true)}
-                  iconName="folder"
-                  variant="normal"
-                  fullWidth
-                  // Touch-friendly size on mobile
-                  {...(isMobile && { 
-                    style: { minHeight: '44px', fontSize: '16px' } 
-                  })}
-                >
-                  Templates ({getAllTemplates().length})
-                </Button>
-              </FormField>
 
-              <FormField 
-                label="Query History"
-                // description={isMobile ? undefined : "View and reuse previous queries"}
-              >
-                <Button
-                  onClick={() => setShowQueryHistory(true)}
-                  iconName="status-in-progress"
-                  variant="normal"
-                  fullWidth
-                  {...(isMobile && { 
-                    style: { minHeight: '44px', fontSize: '16px' } 
-                  })}
-                >
-                  History ({QueryHistory.getAll().length})
-                </Button>
-              </FormField>
-
-              <FormField 
-                label="Analytics"
-                // description={isMobile ? undefined : "View usage metrics and insights"}
-              >
-                <Button
-                  onClick={() => setShowAnalyticsDashboard(true)}
-                  iconName="view-full"
-                  variant="normal"
-                  fullWidth
-                  {...(isMobile && { 
-                    style: { minHeight: '44px', fontSize: '16px' } 
-                  })}
-                >
-                  Analytics
-                </Button>
-              </FormField>
-
-              <FormField 
-                label="Save Current Query"
-                // description={isMobile ? undefined : "Save this query as a reusable template"}
-              >
-                <Button
-                  onClick={handleSaveAsTemplate}
-                  iconName="add-plus"
-                  variant="normal"
-                  fullWidth
-                  disabled={criteria.length === 0 || !isQueryValid()}
-                  {...(isMobile && { 
-                    style: { minHeight: '44px', fontSize: '16px' } 
-                  })}
-                >
-                  Save Template
-                </Button>
-              </FormField>
-            </Grid>
-          </SpaceBetween>
-        </ExpandableSection>
 
         {/* Quick Start Templates */}
         <FormField 

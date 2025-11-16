@@ -10,7 +10,6 @@
  * Requirements: 8.4, 8.5
  */
 
-'use client';
 
 import React from 'react';
 import {

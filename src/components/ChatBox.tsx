@@ -2,8 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Box, List, ListItem, Typography, CircularProgress, Fab, Paper } from '@mui/material';
 import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
 
-import { combineAndSortMessages, sendMessage } from '../../utils/amplifyUtils';
-import { Message } from '../../utils/types';
+import { Message } from '@/utils/types';
 
 import ChatMessage from './ChatMessage';
 import ThinkingIndicator from './ThinkingIndicator';
@@ -14,10 +13,11 @@ import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
 import ExpandablePromptInput from './ExpandablePromptInput';
 import AgentSwitcher from './AgentSwitcher';
 
-import { generateClient } from "aws-amplify/data";
-import { type Schema } from "@/../amplify/data/resource";
-import { getThinkingContextFromStep } from '../../utils/thoughtTypes';
+import { getThinkingContextFromStep } from '@/utils/thoughtTypes';
 import { useRenewableJobPolling, useChatMessagePolling } from '@/hooks';
+import { combineAndSortMessages, sendMessage } from '@/utils/chatUtils';
+import { Grid, Button } from '@cloudscape-design/components';
+
 
 const ChatBox = (params: {
   chatSessionId: string,
@@ -31,7 +31,6 @@ const ChatBox = (params: {
 }) => {
   const { chatSessionId, showChainOfThought } = params
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
-  const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
   const [isInputVisible, setIsInputVisible] = useState<boolean>(true);
   
   // Use provided messages and setMessages if available, otherwise use local state
@@ -54,17 +53,9 @@ const ChatBox = (params: {
   // });
 
 
-  // Initialize Amplify client after component mounts
-  useEffect(() => {
-    try {
-      const client = generateClient<Schema>();
-      setAmplifyClient(client);
-    } catch (error) {
-      console.error('Failed to generate Amplify client:', error);
-    }
-  }, []);
 
-  const [, setResponseStreamChunks] = useState<(Schema["recieveResponseStreamChunk"]["returnType"] | null)[]>([]);
+
+  const [, setResponseStreamChunks] = useState<any[]>([]);
   const [streamChunkMessage, setStreamChunkMessage] = useState<Message>();
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
@@ -238,7 +229,7 @@ const ChatBox = (params: {
         acc[id] = (acc[id] || 0) + 1;
         return acc;
       }, {} as Record<string, number>);
-      const duplicates = Object.entries(idCounts).filter(([_, count]) => count > 1);
+      const duplicates = Object.entries(idCounts).filter(([_, count]) => (count as number) > 1);
       console.warn('Removed duplicate message IDs:', duplicates);
     }
     
@@ -276,74 +267,23 @@ const ChatBox = (params: {
     }
   }, [displayedMessages, messageCount, streamChunkMessage, thinkingState.isActive, autoScroll, performAutoScroll]);
 
-  //Subscribe to the chat messages
-  useEffect(() => {
-    if (!amplifyClient) return;
 
-    const messageSubscriptionHandler = async () => {
-      console.log('Creating message subscription for garden: ', params.chatSessionId)
-      const messagesSub = amplifyClient.models.ChatMessage.observeQuery({
-        filter: {
-          chatSessionId: { eq: params.chatSessionId }
-        },
-        selectionSet: ['id', 'role', 'content.*', 'chatSessionId', 'createdAt', 'responseComplete', 'artifacts', 'thoughtSteps']
-      }).subscribe({
-        next: ({ items }) => {
-        setMessages((prevMessages) => {
-          // Only take the most recent messagesPerPage messages
-          const recentMessages = items.slice(-messagesPerPage);
-          const sortedMessages = combineAndSortMessages(prevMessages, recentMessages)
-          if (sortedMessages[sortedMessages.length - 1] && sortedMessages[sortedMessages.length - 1].responseComplete) {
-            setIsLoading(false)
-            setStreamChunkMessage(undefined)
-            setResponseStreamChunks([])
-          }
-          setHasMoreMessages(items.length > messagesPerPage);
-          return sortedMessages
-        })
-        }
-      })
-
-      return () => {
-        messagesSub.unsubscribe();
-      };
-    }
-
-    messageSubscriptionHandler()
-  }, [params.chatSessionId, amplifyClient])
 
   const loadMoreMessages = useCallback(async () => {
-    if (isLoadingMore || !hasMoreMessages || !amplifyClient) return;
+    if (isLoadingMore || !hasMoreMessages) return;
 
     setIsLoadingMore(true);
     const nextPage = page + 1;
 
     try {
-      const result = await amplifyClient.models.ChatMessage.list({
-        filter: {
-          chatSessionId: { eq: params.chatSessionId }
-        },
-        selectionSet: ['id', 'role', 'content.*', 'chatSessionId', 'createdAt', 'responseComplete', 'artifacts', 'thoughtSteps']
-      });
-
-      if (result.data) {
-        const startIndex = (nextPage - 1) * messagesPerPage;
-        const endIndex = startIndex + messagesPerPage;
-        const newMessages = result.data.slice(startIndex, endIndex);
-
-        setMessages(prevMessages => {
-          const combinedMessages = [...prevMessages, ...newMessages];
-          return combineAndSortMessages(prevMessages, combinedMessages);
-        });
-        setHasMoreMessages(endIndex < result.data.length);
-        setPage(nextPage);
-      }
+      // TODO: Implement load more messages via REST API if needed
+      console.log('Load more messages not yet implemented via REST API');
     } catch (error) {
       console.error('Error loading more messages:', error);
     } finally {
       setIsLoadingMore(false);
     }
-  }, [page, hasMoreMessages, isLoadingMore, params.chatSessionId, amplifyClient]);
+  }, [page, hasMoreMessages, isLoadingMore, params.chatSessionId]);
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
@@ -430,58 +370,10 @@ const ChatBox = (params: {
     };
   }, []);
 
-  //Subscribe to the response stream chunks
-  useEffect(() => {
-    if (!amplifyClient) return;
 
-    const responseStreamChunkSubscriptionHandler = async () => {
-      console.log('Creating response stream chunk subscription for garden: ', params.chatSessionId)
-      const responseStreamChunkSub = amplifyClient.subscriptions.recieveResponseStreamChunk({ chatSessionId: params.chatSessionId }).subscribe({
-        error: (error) => console.error('Error subscribing stream chunks: ', error),
-        next: (newChunk) => {
-          setResponseStreamChunks((prevChunks) => {
-            if (newChunk.index === 0) return [newChunk]
-
-            if (newChunk.index >= 0 && newChunk.index < prevChunks.length) {
-              prevChunks[newChunk.index] = newChunk;
-            } else {
-              while (prevChunks.length < newChunk.index) {
-                prevChunks.push(null)
-              }
-              prevChunks.push(newChunk)
-            }
-
-            if (prevChunks[0] || true) {
-              setStreamChunkMessage({
-                id: 'streamChunkMessage' as any,
-                role: 'ai-stream',
-                content: {
-                  text: prevChunks.map((chunk) => chunk?.chunkText).join("")
-                },
-                createdAt: new Date().toISOString()
-              } as any)
-            }
-
-            return prevChunks
-          })
-        }
-      })
-
-      return () => {
-        responseStreamChunkSub.unsubscribe();
-      };
-    }
-
-    responseStreamChunkSubscriptionHandler()
-  }, [params.chatSessionId, amplifyClient])
 
   // Update function to handle message regeneration
   const handleRegenerateMessage = useCallback(async (messageId: string, messageText: string) => {
-    if (!amplifyClient) {
-      console.error('Amplify client not initialized');
-      return false;
-    }
-
     const messageToRegenerate = messages.find(msg => (msg as any).id === messageId);
 
     if (!messageToRegenerate?.createdAt) {
@@ -492,28 +384,8 @@ const ChatBox = (params: {
     params.onInputChange(messageText);
 
     try {
-      const { data: messagesToDelete } = await amplifyClient.models.ChatMessage.listChatMessageByChatSessionIdAndCreatedAt({
-        chatSessionId: params.chatSessionId as any,
-        createdAt: { ge: messageToRegenerate.createdAt as any },
-        selectionSet: ['id', 'role', 'content.*', 'chatSessionId', 'createdAt', 'responseComplete', 'artifacts', 'thoughtSteps']
-      });
-
-      if (!messagesToDelete || messagesToDelete.length === 0) {
-        console.error('No messages found to delete');
-        return false;
-      }
-
-      const deletionPromises = messagesToDelete
-        .filter(msg => msg !== null && msg !== undefined && msg.id)
-        .map(async (msgToDelete) => {
-          if (msgToDelete.id) {
-            await amplifyClient.models.ChatMessage.delete({
-              id: msgToDelete.id
-            });
-          }
-        });
-
-      await Promise.all(deletionPromises);
+      // TODO: Implement message deletion via REST API if needed
+      console.log('Message regeneration not yet fully implemented via REST API');
 
       setMessages(prevMessages =>
         prevMessages.filter(msg =>
@@ -556,29 +428,51 @@ const ChatBox = (params: {
       
       setIsLoading(true);
 
-      const newMessage: Schema['ChatMessage']['createType'] = {
-        role: 'human' as any,
+      const newMessage = {
+        role: 'user' as const,
         content: {
           text: userMessage
-        } as any,
-        chatSessionId: params.chatSessionId as any
-      } as any
+        },
+        chatSessionId: params.chatSessionId
+      }
 
       try {
         const result = await sendMessage({
-          chatSessionId: params.chatSessionId as any,
-          newMessage: newMessage as any,
+          chatSessionId: params.chatSessionId,
+          newMessage: newMessage,
           agentType: params.selectedAgent || 'auto'
         });
         
         console.log('=== CHATBOX DEBUG: Send message result ===', result);
         
-        if (result.invokeResponse?.data) {
-          console.log('Agent response data:', result.invokeResponse.data);
+        if (result.success && result.response) {
+          console.log('Agent response data:', result.response);
+          
+          // Add AI response to messages
+          const aiMessage: Message = {
+            id: `ai-${Date.now()}`,
+            role: 'ai',
+            content: { text: result.response.text },
+            chatSessionId: params.chatSessionId,
+            responseComplete: true,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          } as any;
+          
+          // Add artifacts if present
+          if (result.response.artifacts && result.response.artifacts.length > 0) {
+            (aiMessage as any).artifacts = result.response.artifacts;
+          }
+          
+          // Update messages
+          setMessages((prevMessages) => [...prevMessages, aiMessage]);
         }
-        if (result.invokeResponse?.errors) {
-          console.error('Agent response errors:', result.invokeResponse.errors);
+        
+        if (!result.success) {
+          console.error('Agent response error:', result.error);
         }
+        
+        setIsLoading(false);
       } catch (error) {
         console.error('=== CHATBOX DEBUG: Send message error ===', error);
         setIsLoading(false);
@@ -589,31 +483,31 @@ const ChatBox = (params: {
   }, [messages, params.chatSessionId]);
 
   return (
-    <Box sx={{
+    <div style={{
       width: '100%',
       height: '100%',
       display: 'flex',
       flexDirection: 'column',
-      overflowY: 'hidden',
       position: 'relative'
     }}>
-      <Box
+      <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="messages-container"
-        sx={{
+        style={{
           flex: 1,
           overflowY: 'auto',
           flexDirection: 'column',
           display: 'flex',
-          mb: 2,
+          marginBottom: '16px',
+          borderRadius: '14px',
           position: 'relative'
         }}
       >
         {isLoadingMore && (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
+          <div style={{ display: 'flex', justifyContent: 'center' }}>
             <CircularProgress size={24} />
-          </Box>
+          </div>
         )}
 
         <List>
@@ -669,7 +563,7 @@ const ChatBox = (params: {
           <div ref={messagesEndRef} />
         </List>
 
-      </Box>
+      </div>
 
       {/* Controls with sliding animation */}
       <div 
@@ -679,81 +573,70 @@ const ChatBox = (params: {
           transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         }}
       >
-        <div 
-          className='input-bkgd'
-          style={{
-            backdropFilter: 'blur(8px)'
-          }}
+        <Grid
+          disableGutters
+          gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
         >
-          <ExpandablePromptInput
-            onChange={(value) => params.onInputChange(value)}
-            onAction={() => handleSend(params.userInput)}
-            value={params.userInput}
-            actionButtonAriaLabel="Send message"
-            actionButtonIconName="send"
-            ariaLabel="Prompt input with action button"
-            placeholder="Ask a question"
-            onTypingStateChange={handleTypingStateChange}
-          />
-          {params.selectedAgent !== undefined && params.onAgentChange && (
-            <>
-              <Typography
-                style={{ lineHeight: '14px', width: '50px', marginRight: '-13px', marginLeft: '10px' }}
-                fontSize={11}
-              >
-                AI Agent Switcher
-              </Typography>
-              <AgentSwitcher
-                selectedAgent={params.selectedAgent}
-                onAgentChange={params.onAgentChange}
-                variant="input"
+          <div></div>
+          <div>
+            <div 
+              className='input-bkgd'
+              style={{
+                backdropFilter: 'blur(8px)'
+              }}
+            >
+              <ExpandablePromptInput
+                onChange={(value) => params.onInputChange(value)}
+                onAction={() => handleSend(params.userInput)}
+                value={params.userInput}
+                actionButtonAriaLabel="Send message"
+                actionButtonIconName="send"
+                ariaLabel="Prompt input with action button"
+                placeholder="Ask a question"
+                onTypingStateChange={handleTypingStateChange}
               />
-            </>
-          )}
-        </div>
+              {params.selectedAgent !== undefined && params.onAgentChange && (
+                <>
+                  <Typography
+                    style={{ 
+                      color: 'white',
+                      lineHeight: '14px', 
+                      width: '50px', 
+                      marginRight: '-8px', 
+                    }}
+                    fontSize={11}
+                  >
+                    AI Agent Switcher
+                  </Typography>
+                  <AgentSwitcher
+                    selectedAgent={params.selectedAgent}
+                    onAgentChange={params.onAgentChange}
+                    variant="input"
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        </Grid>
+
       </div>
       
       {/* Toggle button fixed on right edge - never moves */}
-      <button
-        onClick={() => setIsInputVisible(!isInputVisible)}
-        className="input-toggle-button"
-        data-visible={isInputVisible}
-        aria-label={isInputVisible ? "Hide search input" : "Show search input"}
+      <div
         style={{
           position: 'fixed',
-          right: '15px',
-          bottom: '81px',
-          width: '48px',
-          height: '48px',
-          borderRadius: '50%',
-          border: 'none',
-          backgroundColor: isInputVisible ? 'rgba(200, 200, 200, 0.9)' : '#006ce0',
-          backdropFilter: 'blur(4px)',
-          WebkitBackdropFilter: 'blur(4px)',
-          cursor: 'pointer',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          right: '22px',
+          bottom: '50px',
           zIndex: 1001,
-          transition: 'background-color 0.3s ease',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)',
         }}
       >
-        <svg 
-          xmlns="http://www.w3.org/2000/svg" 
-          viewBox="0 0 16 16" 
-          width="24" 
-          height="24"
-          focusable="false" 
-          aria-hidden="true"
-          style={{
-            fill: isInputVisible ? '#333' : 'white',
-            transition: 'fill 0.3s ease',
-          }}
-        >
-          <path d="M11.3 9.9c.7-1 1.1-2.2 1.1-3.4C12.4 3.5 9.9 1 6.9 1S1.4 3.5 1.4 6.5s2.5 5.5 5.5 5.5c1.2 0 2.4-.4 3.4-1.1l3.8 3.8 1.4-1.4-3.8-3.8-.4-.6zm-4.4.6c-2.2 0-4-1.8-4-4s1.8-4 4-4 4 1.8 4 4-1.8 4-4 4z"/>
-        </svg>
-      </button>
+        <Button
+          onClick={() => setIsInputVisible(!isInputVisible)}
+          iconName="search"
+          variant={isInputVisible ? "normal" : "primary"}
+          ariaLabel={isInputVisible ? "Hide search input" : "Show search input"}
+        />
+      </div>
       
       {!isScrolledToBottom && (
         <Fab
@@ -774,7 +657,7 @@ const ChatBox = (params: {
           <KeyboardArrowDownIcon />
         </Fab>
       )}
-    </Box>
+    </div>
   );
 };
 

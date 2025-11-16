@@ -4,7 +4,6 @@
  * Uses Material-UI design system to match other professional tools
  */
 
-'use client';
 
 import React, { useState } from 'react';
 import {

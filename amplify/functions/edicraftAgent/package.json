@@ -1,8 +1,0 @@
-{
-  "name": "edicraft-agent",
-  "version": "1.0.0",
-  "type": "module",
-  "dependencies": {
-    "@aws-sdk/client-bedrock-agent-runtime": "^3.0.0"
-  }
-}

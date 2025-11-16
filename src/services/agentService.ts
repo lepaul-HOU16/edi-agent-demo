@@ -1,7 +1,4 @@
-import { generateClient } from 'aws-amplify/api';
-import type { Schema } from '../../amplify/data/resource';
-
-const client = generateClient<Schema>();
+import { sendMessage as sendChatMessage } from '../lib/api/chat';
 
 export interface AgentMessage {
   role: 'user' | 'assistant';
@@ -24,21 +21,17 @@ export class AgentService {
     foundationModelId?: string
   ): Promise<AgentMessage> {
     try {
-      const response = await client.mutations.invokeLightweightAgent({
-        chatSessionId,
-        message,
-        foundationModelId
-      });
+      const response = await sendChatMessage(message, chatSessionId);
 
-      if (!response.data?.success) {
-        throw new Error(response.data?.message || 'Agent request failed');
+      if (!response.success) {
+        throw new Error(response.error || 'Agent request failed');
       }
 
       return {
         role: 'assistant',
-        content: response.data.message || '',
+        content: response.response?.text || response.message || '',
         timestamp: new Date(),
-        artifacts: response.data.artifacts || []
+        artifacts: response.response?.artifacts || []
       };
     } catch (error) {
       console.error('Agent service error:', error);
@@ -52,16 +45,13 @@ export class AgentService {
     foundationModelId?: string
   ): Promise<AgentMessage> {
     try {
-      const response = await client.mutations.invokeLightweightAgent({
-        chatSessionId,
-        foundationModelId
-      });
+      const response = await sendChatMessage(message, chatSessionId);
 
       return {
         role: 'assistant',
-        content: response.data || 'No response',
+        content: response.response?.text || response.message || 'No response',
         timestamp: new Date(),
-        artifacts: []
+        artifacts: response.response?.artifacts || []
       };
     } catch (error) {
       console.error('Full agent service error:', error);

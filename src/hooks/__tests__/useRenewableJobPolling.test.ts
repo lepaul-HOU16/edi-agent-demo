@@ -1,10 +1,8 @@
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useRenewableJobPolling } from '../useRenewableJobPolling';
-import { generateClient } from 'aws-amplify/data';
 
 // Mock Amplify client
 jest.mock('aws-amplify/data', () => ({
-  generateClient: jest.fn()
 }));
 
 describe('useRenewableJobPolling', () => {
@@ -24,7 +22,6 @@ describe('useRenewableJobPolling', () => {
       }
     };
 
-    (generateClient as jest.Mock).mockReturnValue(mockAmplifyClient);
   });
 
   afterEach(() => {
@@ -55,7 +52,6 @@ describe('useRenewableJobPolling', () => {
         })
       );
 
-      expect(generateClient).toHaveBeenCalled();
     });
   });
 

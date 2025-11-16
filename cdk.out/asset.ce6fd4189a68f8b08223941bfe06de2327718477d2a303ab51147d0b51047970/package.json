@@ -1,0 +1,9 @@
+{
+  "name": "verify-cognito",
+  "version": "1.0.0",
+  "description": "Test Lambda to verify Cognito User Pool import",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.930.0"
+  }
+}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Theme } from '@mui/material/styles';
 import { Typography, Paper, Box } from '@mui/material';
-import { Message } from '@/../utils/types';
+import { Message } from '@/utils/types';
 
 interface SearchResult {
   title: string;

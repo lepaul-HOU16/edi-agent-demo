@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Functionality Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h3 {
+            margin-top: 0;
+        }
+        button {
+            background-color: #0073bb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background-color: #005a8f;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f5f5f5;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success {
+            background-color: #d4edda;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+        input, textarea {
+            width: 100%;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        textarea {
+            min-height: 100px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Chat Functionality Test</h1>
+    <p>This page tests the chat functionality for the Vite migration.</p>
+
+    <div class="test-section">
+        <h3>Test 1: Create Chat Session</h3>
+        <button onclick="testCreateSession()">Create Session</button>
+        <div id="session-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 2: Send Message</h3>
+        <input type="text" id="session-id" placeholder="Session ID (from Test 1)" />
+        <textarea id="message-text" placeholder="Enter your message">Hello, this is a test message.</textarea>
+        <button onclick="testSendMessage()">Send Message</button>
+        <div id="message-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 3: Get Session Messages</h3>
+        <input type="text" id="get-session-id" placeholder="Session ID" />
+        <button onclick="testGetMessages()">Get Messages</button>
+        <div id="get-messages-result" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h3>Test 4: List Sessions</h3>
+        <button onclick="testListSessions()">List Sessions</button>
+        <div id="list-result" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5173'; // Vite dev server
+        let authToken = 'mock-dev-token-' + Date.now();
+
+        async function apiRequest(endpoint, options = {}) {
+            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                ...options,
+                headers: {
+                    'Authorization': `Bearer ${authToken}`,
+                    'Content-Type': 'application/json',
+                    ...options.headers,
+                },
+            });
+
+            const data = await response.json();
+            return { response, data };
+        }
+
+        async function testCreateSession() {
+            const resultDiv = document.getElementById('session-result');
+            resultDiv.textContent = 'Creating session...';
+            resultDiv.className = 'result';
+
+            try {
+                const { response, data } = await apiRequest('/api/chat/sessions', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        name: 'Test Session - ' + new Date().toLocaleString(),
+                    }),
+                });
+
+                if (response.ok && data.data) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = 'Success!\n\n' + JSON.stringify(data.data, null, 2);
+                    document.getElementById('session-id').value = data.data.id;
+                    document.getElementById('get-session-id').value = data.data.id;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = 'Error:\n\n' + JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testSendMessage() {
+            const resultDiv = document.getElementById('message-result');
+            const sessionId = document.getElementById('session-id').value;
+            const messageText = document.getElementById('message-text').value;
+
+            if (!sessionId) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Please enter a session ID';
+                return;
+            }
+
+            resultDiv.textContent = 'Sending message...';
+            resultDiv.className = 'result';
+
+            try {
+                const { response, data } = await apiRequest('/api/chat/message', {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        chatSessionId: sessionId,
+                        message: messageText,
+                    }),
+                });
+
+                if (response.ok && data.success) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = 'Success!\n\n' + JSON.stringify(data, null, 2);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = 'Error:\n\n' + JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testGetMessages() {
+            const resultDiv = document.getElementById('get-messages-result');
+            const sessionId = document.getElementById('get-session-id').value;
+
+            if (!sessionId) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Please enter a session ID';
+                return;
+            }
+
+            resultDiv.textContent = 'Getting messages...';
+            resultDiv.className = 'result';
+
+            try {
+                const { response, data } = await apiRequest(`/api/chat/sessions/${sessionId}/messages`, {
+                    method: 'GET',
+                });
+
+                if (response.ok && data.data) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `Success! Found ${data.data.length} messages\n\n` + 
+                        JSON.stringify(data.data, null, 2);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = 'Error:\n\n' + JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+
+        async function testListSessions() {
+            const resultDiv = document.getElementById('list-result');
+            resultDiv.textContent = 'Listing sessions...';
+            resultDiv.className = 'result';
+
+            try {
+                const { response, data } = await apiRequest('/api/chat/sessions', {
+                    method: 'GET',
+                });
+
+                if (response.ok && data.data) {
+                    resultDiv.className = 'result success';
+                    resultDiv.textContent = `Success! Found ${data.data.length} sessions\n\n` + 
+                        JSON.stringify(data.data, null, 2);
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.textContent = 'Error:\n\n' + JSON.stringify(data, null, 2);
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = 'Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>

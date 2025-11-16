@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chat Page Layout Test</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f5f5;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 36px 80px;
+        }
+
+        .header {
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+
+        /* 5:7 Grid Layout */
+        .grid-5-7 {
+            display: grid;
+            grid-template-columns: 5fr 7fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        /* Header Row */
+        .panel-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .title {
+            font-size: 16px;
+            font-weight: 600;
+            padding: 8px 12px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .segmented-control {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            background: #f0f0f0;
+            border-radius: 4px;
+        }
+
+        .segment-btn {
+            padding: 6px 12px;
+            background: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .segment-btn.active {
+            background: #0972d3;
+            color: white;
+        }
+
+        .breadcrumb-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 14px;
+        }
+
+        .breadcrumb a {
+            color: #0073bb;
+            text-decoration: none;
+        }
+
+        .breadcrumb span {
+            color: #5f6b7a;
+        }
+
+        .icon-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .icon-btn {
+            width: 32px;
+            height: 32px;
+            border: 1px solid #d1d5db;
+            background: white;
+            border-radius: 4px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .icon-btn:hover {
+            background: #f3f4f6;
+        }
+
+        /* Content Row */
+        .panel {
+            height: calc(100vh - 250px);
+            min-height: 500px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .convo {
+            height: calc(100vh - 250px);
+            min-height: 500px;
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-content {
+            flex: 1;
+            background: #f9fafb;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #6b7280;
+        }
+
+        .convo-content {
+            flex: 1;
+            background: #f9fafb;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            padding: 16px;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 16px;
+        }
+
+        .message {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            padding: 12px;
+            background: white;
+            border: 1px solid #d1d5db;
+            border-radius: 8px;
+        }
+
+        .agent-switcher {
+            padding: 6px 12px;
+            background: #f0f0f0;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .input-field {
+            flex: 1;
+            padding: 8px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+
+        .send-btn {
+            padding: 8px 16px;
+            background: #0972d3;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .send-btn:hover {
+            background: #0862c0;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 16px;
+            background: #eff6ff;
+            border: 1px solid #3b82f6;
+            border-radius: 8px;
+        }
+
+        .status h3 {
+            color: #1e40af;
+            margin-bottom: 8px;
+        }
+
+        .status ul {
+            list-style: none;
+            padding-left: 0;
+        }
+
+        .status li {
+            padding: 4px 0;
+            color: #1e40af;
+        }
+
+        .status li::before {
+            content: "✓ ";
+            color: #10b981;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Workspace - Insights</h1>
+        </div>
+
+        <!-- Header Row: 5:7 Grid -->
+        <div class="grid-5-7">
+            <!-- Left: Title + Segmented Control -->
+            <div class="panel-header">
+                <div class="title">Canvas Name</div>
+                <div class="segmented-control">
+                    <button class="segment-btn active">🤖</button>
+                    <button class="segment-btn">⚙️</button>
+                </div>
+            </div>
+
+            <!-- Right: Breadcrumb + Icon Buttons -->
+            <div class="breadcrumb-header">
+                <div class="breadcrumb">
+                    <a href="#">Collection Name</a>
+                    <span>›</span>
+                    <span style="color: #000716; font-weight: 600;">Canvas Name</span>
+                </div>
+                <div class="icon-buttons">
+                    <button class="icon-btn" title="Reset Chat">🔄</button>
+                    <button class="icon-btn" title="View Files">📁</button>
+                    <button class="icon-btn" title="Agent Settings">🧠</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Row: 5:7 Grid -->
+        <div class="grid-5-7">
+            <!-- Left: Panel (Map/Landing Page) -->
+            <div class="panel">
+                <h3 style="margin-bottom: 12px;">Agent Landing Page / Map</h3>
+                <div class="panel-content">
+                    <div>
+                        <p>🗺️ Map or Agent Landing Page Content</p>
+                        <p style="margin-top: 8px; font-size: 12px;">This area shows the map or agent-specific landing page</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: Conversation -->
+            <div class="convo">
+                <h3 style="margin-bottom: 12px;">Conversation</h3>
+                <div class="convo-content">
+                    <div class="messages">
+                        <div class="message">
+                            <strong>User:</strong> Hello, can you help me analyze well data?
+                        </div>
+                        <div class="message">
+                            <strong>AI:</strong> Of course! I can help you analyze well data. What would you like to know?
+                        </div>
+                    </div>
+                    <div class="input-area">
+                        <select class="agent-switcher">
+                            <option>Auto</option>
+                            <option>Petrophysics</option>
+                            <option>Maintenance</option>
+                            <option>Renewable</option>
+                            <option>EDICraft</option>
+                        </select>
+                        <input type="text" class="input-field" placeholder="Type your message...">
+                        <button class="send-btn">Send</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status">
+            <h3>✅ Layout Fixed</h3>
+            <ul>
+                <li>Top row: Title + controls (left) | Breadcrumb + icons (right)</li>
+                <li>Bottom row: Panel/Map (left) | Conversation (right)</li>
+                <li>5:7 grid ratio maintained</li>
+                <li>Agent switcher moved to input area</li>
+                <li>Clean separation of concerns</li>
+            </ul>
+        </div>
+    </div>
+</body>
+</html>

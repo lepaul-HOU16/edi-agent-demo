@@ -3,13 +3,13 @@
  * 
  * Polls for chat message updates to automatically refresh the UI when
  * long-running operations (like terrain analysis) complete.
+ * 
+ * NOTE: Currently disabled as we transition to REST API.
+ * Messages are fetched directly from DynamoDB via page load.
+ * Real-time updates will be implemented via WebSocket in future.
  */
 
 import { useEffect, useRef, useState } from 'react';
-import { generateClient } from 'aws-amplify/data';
-import { type Schema } from '@/../amplify/data/resource';
-
-const amplifyClient = generateClient<Schema>();
 
 interface UseChatMessagePollingOptions {
   chatSessionId: string;
@@ -30,62 +30,18 @@ export function useChatMessagePolling({
   const lastMessageCountRef = useRef<number>(0);
 
   useEffect(() => {
+    // TEMPORARY: Polling disabled during REST API migration
+    // Messages are loaded directly from DynamoDB on page load
+    // Real-time updates will be implemented via WebSocket later
+    console.log('[useChatMessagePolling] Polling temporarily disabled during REST API migration');
+    
     if (!enabled || !chatSessionId) {
       return;
     }
 
-    const pollMessages = async () => {
-      try {
-        setIsPolling(true);
-        
-        // Fetch messages for this chat session
-        const { data: messages } = await amplifyClient.models.ChatMessage.list({
-          filter: {
-            chatSessionId: {
-              eq: chatSessionId,
-            },
-          },
-        });
-
-        if (messages) {
-          // Check if message count changed or if any message was updated recently
-          const currentCount = messages.length;
-          const hasNewMessages = currentCount !== lastMessageCountRef.current;
-          
-          // Check if any message has artifacts that might have been updated
-          const hasUpdatedArtifacts = messages.some(msg => {
-            const updatedAt = msg.updatedAt ? new Date(msg.updatedAt).getTime() : 0;
-            return updatedAt > lastUpdateTime;
-          });
-
-          if (hasNewMessages || hasUpdatedArtifacts) {
-            console.log('🔄 Chat messages updated, refreshing UI...', {
-              previousCount: lastMessageCountRef.current,
-              currentCount,
-              hasUpdatedArtifacts,
-            });
-            
-            lastMessageCountRef.current = currentCount;
-            setLastUpdateTime(Date.now());
-            
-            if (onMessagesUpdated) {
-              onMessagesUpdated(messages);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('❌ Error polling chat messages:', error);
-      } finally {
-        setIsPolling(false);
-      }
-    };
-
-    // Initial poll
-    pollMessages();
-
-    // Set up interval
-    intervalRef.current = setInterval(pollMessages, interval);
-
+    // TODO: Implement REST API polling when messages endpoint is available
+    // For now, rely on page refresh to get updated messages
+    
     // Cleanup
     return () => {
       if (intervalRef.current) {
@@ -93,7 +49,7 @@ export function useChatMessagePolling({
         intervalRef.current = null;
       }
     };
-  }, [chatSessionId, enabled, interval]); // Removed lastUpdateTime and onMessagesUpdated from dependencies
+  }, [chatSessionId, enabled, interval]);
 
   return {
     isPolling,

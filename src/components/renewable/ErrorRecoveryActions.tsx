@@ -6,7 +6,7 @@
 
 import React, { useState } from 'react';
 import { Button, SpaceBetween, Modal, Box, Alert } from '@cloudscape-design/components';
-import { ReportFallbackService } from '../../services/renewable-integration/ReportFallbackService';
+import { ReportFallbackService } from '@/services/renewable-integration/ReportFallbackService';
 
 export interface ErrorRecoveryProps {
   errorType: 'deployment' | 'permission' | 'timeout' | 'network' | 'unknown';

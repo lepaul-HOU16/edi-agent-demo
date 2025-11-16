@@ -3,7 +3,6 @@
  * Runs actual matplotlib Python code in the browser using Pyodide (WebAssembly)
  */
 
-'use client';
 
 import React, { useEffect, useRef, useState } from 'react';
 import { Box, Spinner } from '@cloudscape-design/components';

@@ -1,20 +1,16 @@
-"use client"
 import React from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { AppBar, Toolbar, Typography, Button, Menu, MenuItem, IconButton } from '@mui/material';
 import AccountCircle from '@mui/icons-material/AccountCircle';
 
-import { useAuthenticator } from '@aws-amplify/ui-react';
+// useAuthenticator removed;
 import { useUserAttributes } from '@/components/UserAttributesProvider';
-
-import { type Schema } from "@/../amplify/data/resource";
-import { generateClient } from 'aws-amplify/api';
-import { sendMessage } from '@/../utils/amplifyUtils';
-const amplifyClient = generateClient<Schema>();
+import { createSession } from '@/lib/api/sessions';
+import { Schema } from '@/types/api';
 
 const TopNavBar: React.FC = () => {
-  const router = useRouter();
+  const navigate = useNavigate();
   const [anchorEl, setAnchorEl] = React.useState<null | HTMLElement>(null);
 
   const { signOut, authStatus } = useAuthenticator(context => [context.user, context.authStatus]);
@@ -31,10 +27,8 @@ const TopNavBar: React.FC = () => {
   const handleCreateNewChat = async () => {
     try {
       // Invoke the lightweight agent for initialization (replaced deprecated reActAgent)
-      amplifyClient.mutations.invokeLightweightAgent({ chatSessionId: "initialize", message: "initialize" })
-
-      const newChatSession = await amplifyClient.models.ChatSession.create({});
-      router.push(`/chat/${newChatSession.data!.id}`);
+      const newChatSession = await createSession({});
+      navigate(`/chat/${newChatSession.id}`);
     } catch (error) {
       console.error("Error creating chat session:", error);
       alert("Failed to create chat session.");
@@ -44,28 +38,26 @@ const TopNavBar: React.FC = () => {
   const handleCreatePetrophysicsChat = async () => {
     try {
       // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      amplifyClient.mutations.invokeLightweightAgent({ chatSessionId: "initialize", message: "initialize" })
-
-      const newChatSession = await amplifyClient.models.ChatSession.create({});
+      const newChatSession = await createSession({});
       
-      if (newChatSession.data && newChatSession.data.id) {
+      if (newChatSession && newChatSession.id) {
         // Send an initial message with petrophysics keywords to trigger the petrophysics system message
         const initialMessage: Schema['ChatMessage']['createType'] = {
           role: 'human' as any,
           content: {
             text: "I need help with petrophysical analysis. Please show me the available tools and capabilities."
           } as any,
-          chatSessionId: newChatSession.data.id,
+          chatSessionId: newChatSession.id,
         } as any;
         
         // Send the initial message
         await sendMessage({
-          chatSessionId: newChatSession.data.id,
+          chatSessionId: newChatSession.id,
           newMessage: initialMessage,
         });
         
         // Navigate to the new chat session
-        router.push(`/chat/${newChatSession.data.id}`);
+        navigate(`/chat/${newChatSession.id}`);
       }
     } catch (error) {
       console.error("Error creating petrophysics chat session:", error);
@@ -140,7 +132,7 @@ const TopNavBar: React.FC = () => {
           ) : (
             <Button
               color="inherit"
-              onClick={() => router.push('/auth')}
+              onClick={() => navigate('/auth')}
             >
               Login
             </Button>

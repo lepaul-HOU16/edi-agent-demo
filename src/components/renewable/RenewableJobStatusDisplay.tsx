@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRenewableJobStatus } from '@/hooks/useRenewableJobStatus';
 import { RenewableJobProcessingIndicator } from './RenewableJobProcessingIndicator';
-import { type Schema } from '@/../amplify/data/resource';
+import { Schema } from '@/types/api';
 
 interface RenewableJobStatusDisplayProps {
   chatSessionId: string;
