@@ -55,6 +55,7 @@ async function buildFunction(functionName, entryPoint = null) {
         // AWS SDK v3 is provided by Lambda runtime
         '@aws-sdk/*',
         'aws-sdk',
+        // Note: aws-jwt-verify should be bundled, not external
       ],
       format: 'cjs',
       mainFields: ['module', 'main'],
