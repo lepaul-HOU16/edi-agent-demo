@@ -4,7 +4,7 @@
  * Requirements: 2.1, 2.3, 5.1, 5.2
  */
 
-import { handler } from './edicraftAgent/handler.js';
+import { handler } from './edicraftAgent/handler';
 
 export interface EDIcraftResponse {
   success: boolean;
