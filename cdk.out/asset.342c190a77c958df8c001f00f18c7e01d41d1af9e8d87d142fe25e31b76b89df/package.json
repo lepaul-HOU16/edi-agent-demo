@@ -1,0 +1,17 @@
+{
+  "name": "custom-authorizer",
+  "version": "1.0.0",
+  "description": "Custom Lambda authorizer supporting Cognito JWT and mock development tokens",
+  "main": "handler.ts",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {
+    "aws-jwt-verify": "^4.0.1"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.145",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  }
+}

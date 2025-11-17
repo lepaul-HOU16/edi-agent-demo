@@ -113,6 +113,25 @@
     "Name": "EnergyInsights-development-ApiLogGroupName"
    }
   },
+  "AuthorizerFunctionArn": {
+   "Description": "ARN of custom Lambda authorizer",
+   "Value": {
+    "Fn::GetAtt": [
+     "AuthorizerFunction40EC414F",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "EnergyInsights-development-AuthorizerFunctionArn"
+   }
+  },
+  "MockAuthEnabled": {
+   "Description": "Whether mock authentication is enabled",
+   "Value": "true",
+   "Export": {
+    "Name": "EnergyInsights-development-MockAuthEnabled"
+   }
+  },
   "TestAuthLambdaArn": {
    "Description": "ARN of test Lambda to verify Cognito authorizer",
    "Value": {
@@ -207,6 +226,50 @@
    },
    "Export": {
     "Name": "EnergyInsights-development-ChatEndpoint"
+   }
+  },
+  "PetrophysicsCalculatorFunctionArn": {
+   "Description": "ARN of petrophysics calculator Lambda function",
+   "Value": {
+    "Fn::GetAtt": [
+     "PetrophysicsCalculatorFunctionD77F5906",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "EnergyInsights-development-PetrophysicsCalculatorFunctionArn"
+   }
+  },
+  "ChatSessionsFunctionArn": {
+   "Description": "ARN of chat-sessions Lambda function",
+   "Value": {
+    "Fn::GetAtt": [
+     "ChatSessionsFunction068288E8",
+     "Arn"
+    ]
+   },
+   "Export": {
+    "Name": "EnergyInsights-development-ChatSessionsFunctionArn"
+   }
+  },
+  "ChatSessionsEndpoints": {
+   "Description": "ChatSession API endpoints",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      {
+       "Fn::GetAtt": [
+        "HttpApiF5A9A8A7",
+        "ApiEndpoint"
+       ]
+      },
+      "/api/chat/sessions/*"
+     ]
+    ]
+   },
+   "Export": {
+    "Name": "EnergyInsights-development-ChatSessionsEndpoints"
    }
   },
   "RenewableOrchestratorFunctionArn": {
@@ -401,6 +464,68 @@
     "Name": "EnergyInsights-development-RenewableApiEndpoint"
    }
   },
+  "CloudFrontDistributionId": {
+   "Description": "CloudFront Distribution ID",
+   "Value": {
+    "Ref": "FrontendDistribution"
+   },
+   "Export": {
+    "Name": "EnergyInsights-development-CloudFrontDistributionId"
+   }
+  },
+  "CloudFrontDomainName": {
+   "Description": "CloudFront Domain Name",
+   "Value": {
+    "Fn::GetAtt": [
+     "FrontendDistribution",
+     "DomainName"
+    ]
+   },
+   "Export": {
+    "Name": "EnergyInsights-development-CloudFrontDomain"
+   }
+  },
+  "FrontendUrl": {
+   "Description": "Frontend URL (CloudFront) - Use this to access the application",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Fn::GetAtt": [
+        "FrontendDistribution",
+        "DomainName"
+       ]
+      }
+     ]
+    ]
+   },
+   "Export": {
+    "Name": "EnergyInsights-development-FrontendUrl"
+   }
+  },
+  "ApiUrlViaCloudFront": {
+   "Description": "API URL via CloudFront (for frontend configuration)",
+   "Value": {
+    "Fn::Join": [
+     "",
+     [
+      "https://",
+      {
+       "Fn::GetAtt": [
+        "FrontendDistribution",
+        "DomainName"
+       ]
+      },
+      "/api"
+     ]
+    ]
+   },
+   "Export": {
+    "Name": "EnergyInsights-development-ApiUrlViaCloudFront"
+   }
+  },
   "StackName": {
    "Description": "Stack name",
    "Value": "EnergyInsights-development"
@@ -428,21 +553,17 @@
      ]
     },
     "PublicAccessBlockConfiguration": {
-     "BlockPublicAcls": false,
-     "BlockPublicPolicy": false,
-     "IgnorePublicAcls": false,
-     "RestrictPublicBuckets": false
+     "BlockPublicAcls": true,
+     "BlockPublicPolicy": true,
+     "IgnorePublicAcls": true,
+     "RestrictPublicBuckets": true
     },
     "Tags": [
      {
       "Key": "aws-cdk:auto-delete-objects",
       "Value": "true"
      }
-    ],
-    "WebsiteConfiguration": {
-     "ErrorDocument": "index.html",
-     "IndexDocument": "index.html"
-    }
+    ]
    },
    "UpdateReplacePolicy": "Delete",
    "DeletionPolicy": "Delete",
@@ -459,27 +580,6 @@
     "PolicyDocument": {
      "Statement": [
       {
-       "Action": "s3:GetObject",
-       "Effect": "Allow",
-       "Principal": {
-        "AWS": "*"
-       },
-       "Resource": {
-        "Fn::Join": [
-         "",
-         [
-          {
-           "Fn::GetAtt": [
-            "FrontendBucketEFE2E19C",
-            "Arn"
-           ]
-          },
-          "/*"
-         ]
-        ]
-       }
-      },
-      {
        "Action": [
         "s3:PutBucketPolicy",
         "s3:GetBucket*",
@@ -492,6 +592,44 @@
          "Fn::GetAtt": [
           "CustomS3AutoDeleteObjectsCustomResourceProviderRole3B1BD092",
           "Arn"
+         ]
+        }
+       },
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "FrontendBucketEFE2E19C",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "FrontendBucketEFE2E19C",
+             "Arn"
+            ]
+           },
+           "/*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Principal": {
+        "CanonicalUser": {
+         "Fn::GetAtt": [
+          "FrontendOAIF4D25B13",
+          "S3CanonicalUserId"
          ]
         }
        },
@@ -610,6 +748,17 @@
     "aws:cdk:path": "EnergyInsights-development/Custom::S3AutoDeleteObjectsCustomResourceProvider/Handler",
     "aws:asset:path": "asset.faa95a81ae7d7373f3e1f242268f904eb748d8d0fdd306e8a6fe515a1905a7d6",
     "aws:asset:property": "Code"
+   }
+  },
+  "FrontendOAIF4D25B13": {
+   "Type": "AWS::CloudFront::CloudFrontOriginAccessIdentity",
+   "Properties": {
+    "CloudFrontOriginAccessIdentityConfig": {
+     "Comment": "OAI for EnergyInsights-development frontend bucket"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/FrontendOAI/Resource"
    }
   },
   "VerifyCognitoFunctionServiceRole90E11D0A": {
@@ -1121,9 +1270,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /test/auth",
     "Target": {
@@ -1142,26 +1291,77 @@
     "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--test--auth/Resource"
    }
   },
-  "HttpApiCognitoAuthorizer935FA0F6": {
+  "HttpApiCustomAuthorizer0C501DB0": {
    "Type": "AWS::ApiGatewayV2::Authorizer",
    "Properties": {
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizerType": "JWT",
+    "AuthorizerPayloadFormatVersion": "2.0",
+    "AuthorizerResultTtlInSeconds": 300,
+    "AuthorizerType": "REQUEST",
+    "AuthorizerUri": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":apigateway:us-east-1:lambda:path/2015-03-31/functions/",
+       {
+        "Fn::GetAtt": [
+         "AuthorizerFunction40EC414F",
+         "Arn"
+        ]
+       },
+       "/invocations"
+      ]
+     ]
+    },
+    "EnableSimpleResponses": true,
     "IdentitySource": [
      "$request.header.Authorization"
     ],
-    "JwtConfiguration": {
-     "Audience": [
-      "18m99t0u39vi9614ssd8sf8vmb"
-     ],
-     "Issuer": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_sC6yswGji"
-    },
-    "Name": "EnergyInsights-development-cognito-authorizer"
+    "Name": "EnergyInsights-development-custom-authorizer"
    },
    "Metadata": {
-    "aws:cdk:path": "EnergyInsights-development/HttpApi/CognitoAuthorizer/Resource"
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/CustomAuthorizer/Resource"
+   }
+  },
+  "HttpApiEnergyInsightsdevelopmentHttpApiCustomAuthorizer852188DFPermissionC0A05066": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "AuthorizerFunction40EC414F",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:484907533441:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/authorizers/",
+       {
+        "Ref": "HttpApiCustomAuthorizer0C501DB0"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/EnergyInsightsdevelopmentHttpApiCustomAuthorizer852188DF-Permission"
    }
   },
   "HttpApiPOSTapiprojectsdeleteDeleteProjectIntegration0A4913D2": {
@@ -1221,9 +1421,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/projects/delete",
     "Target": {
@@ -1299,9 +1499,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/projects/rename",
     "Target": {
@@ -1377,9 +1577,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /api/projects/{projectId}",
     "Target": {
@@ -1456,9 +1656,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/chat/message",
     "Target": {
@@ -1475,6 +1675,474 @@
    },
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/HttpApi/POST--api--chat--message/Resource"
+   }
+  },
+  "HttpApiPOSTapichatsessionsCreateSessionIntegration847489B3": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/POST--api--chat--sessions/CreateSessionIntegration/Resource"
+   }
+  },
+  "HttpApiPOSTapichatsessionsCreateSessionIntegrationPermission8249B5DE": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:484907533441:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/api/chat/sessions"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/POST--api--chat--sessions/CreateSessionIntegration-Permission"
+   }
+  },
+  "HttpApiPOSTapichatsessionsCFFBB90A": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "CUSTOM",
+    "AuthorizerId": {
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
+    },
+    "RouteKey": "POST /api/chat/sessions",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HttpApiPOSTapichatsessionsCreateSessionIntegration847489B3"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/POST--api--chat--sessions/Resource"
+   }
+  },
+  "HttpApiGETapichatsessionsListSessionsIntegration49A576FB": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--chat--sessions/ListSessionsIntegration/Resource"
+   }
+  },
+  "HttpApiGETapichatsessionsListSessionsIntegrationPermission7DC11C44": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:484907533441:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/api/chat/sessions"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--chat--sessions/ListSessionsIntegration-Permission"
+   }
+  },
+  "HttpApiGETapichatsessions72FACED2": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "CUSTOM",
+    "AuthorizerId": {
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
+    },
+    "RouteKey": "GET /api/chat/sessions",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HttpApiGETapichatsessionsListSessionsIntegration49A576FB"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--chat--sessions/Resource"
+   }
+  },
+  "HttpApiGETapichatsessionsidGetSessionIntegrationD141E43F": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}/GetSessionIntegration/Resource"
+   }
+  },
+  "HttpApiGETapichatsessionsidGetSessionIntegrationPermissionC0C2F850": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:484907533441:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/api/chat/sessions/{id}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}/GetSessionIntegration-Permission"
+   }
+  },
+  "HttpApiGETapichatsessionsid081D34ED": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "CUSTOM",
+    "AuthorizerId": {
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
+    },
+    "RouteKey": "GET /api/chat/sessions/{id}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HttpApiGETapichatsessionsidGetSessionIntegrationD141E43F"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}/Resource"
+   }
+  },
+  "HttpApiPATCHapichatsessionsidUpdateSessionIntegrationCDB25EE0": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/PATCH--api--chat--sessions--{id}/UpdateSessionIntegration/Resource"
+   }
+  },
+  "HttpApiPATCHapichatsessionsidUpdateSessionIntegrationPermission6C27C7D0": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:484907533441:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/api/chat/sessions/{id}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/PATCH--api--chat--sessions--{id}/UpdateSessionIntegration-Permission"
+   }
+  },
+  "HttpApiPATCHapichatsessionsidA0D10BC2": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "CUSTOM",
+    "AuthorizerId": {
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
+    },
+    "RouteKey": "PATCH /api/chat/sessions/{id}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HttpApiPATCHapichatsessionsidUpdateSessionIntegrationCDB25EE0"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/PATCH--api--chat--sessions--{id}/Resource"
+   }
+  },
+  "HttpApiDELETEapichatsessionsidDeleteSessionIntegration21DEE616": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/DELETE--api--chat--sessions--{id}/DeleteSessionIntegration/Resource"
+   }
+  },
+  "HttpApiDELETEapichatsessionsidDeleteSessionIntegrationPermission82B8B60C": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:484907533441:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/api/chat/sessions/{id}"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/DELETE--api--chat--sessions--{id}/DeleteSessionIntegration-Permission"
+   }
+  },
+  "HttpApiDELETEapichatsessionsidAB38013F": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "CUSTOM",
+    "AuthorizerId": {
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
+    },
+    "RouteKey": "DELETE /api/chat/sessions/{id}",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HttpApiDELETEapichatsessionsidDeleteSessionIntegration21DEE616"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/DELETE--api--chat--sessions--{id}/Resource"
+   }
+  },
+  "HttpApiGETapichatsessionsidmessagesGetSessionMessagesIntegrationA571AE6F": {
+   "Type": "AWS::ApiGatewayV2::Integration",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "IntegrationType": "AWS_PROXY",
+    "IntegrationUri": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "PayloadFormatVersion": "2.0"
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}--messages/GetSessionMessagesIntegration/Resource"
+   }
+  },
+  "HttpApiGETapichatsessionsidmessagesGetSessionMessagesIntegrationPermission251A4563": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunction068288E8",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:484907533441:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/api/chat/sessions/{id}/messages"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}--messages/GetSessionMessagesIntegration-Permission"
+   }
+  },
+  "HttpApiGETapichatsessionsidmessages3AAB5197": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "CUSTOM",
+    "AuthorizerId": {
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
+    },
+    "RouteKey": "GET /api/chat/sessions/{id}/messages",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HttpApiGETapichatsessionsidmessagesGetSessionMessagesIntegrationA571AE6F"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}--messages/Resource"
    }
   },
   "HttpApiPOSTapirenewableanalyzeRenewableAnalyzeIntegration8165A325": {
@@ -1535,9 +2203,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/renewable/analyze",
     "Target": {
@@ -1614,9 +2282,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /api/catalog/map-data",
     "Target": {
@@ -1693,9 +2361,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/catalog/search",
     "Target": {
@@ -1771,9 +2439,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/collections/create",
     "Target": {
@@ -1849,9 +2517,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /api/collections/list",
     "Target": {
@@ -1927,9 +2595,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /api/collections/{id}",
     "Target": {
@@ -2005,9 +2673,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "PUT /api/collections/{id}",
     "Target": {
@@ -2083,9 +2751,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "DELETE /api/collections/{id}",
     "Target": {
@@ -2161,9 +2829,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/collections/{id}/query",
     "Target": {
@@ -2239,9 +2907,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/osdu/search",
     "Target": {
@@ -2317,9 +2985,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /api/osdu/wells/{id}",
     "Target": {
@@ -2396,9 +3064,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /api/renewable/{proxy+}",
     "Target": {
@@ -2455,9 +3123,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/renewable/{proxy+}",
     "Target": {
@@ -2514,9 +3182,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "PUT /api/renewable/{proxy+}",
     "Target": {
@@ -2573,9 +3241,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "DELETE /api/renewable/{proxy+}",
     "Target": {
@@ -2651,9 +3319,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /api/health/{proxy+}",
     "Target": {
@@ -2710,9 +3378,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/health/{proxy+}",
     "Target": {
@@ -2788,9 +3456,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /api/s3-proxy",
     "Target": {
@@ -2807,6 +3475,65 @@
    },
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--s3-proxy/Resource"
+   }
+  },
+  "HttpApiPOSTapis3proxyS3ProxyApiIntegrationPermission0C26EAAA": {
+   "Type": "AWS::Lambda::Permission",
+   "Properties": {
+    "Action": "lambda:InvokeFunction",
+    "FunctionName": {
+     "Fn::GetAtt": [
+      "S3ProxyApiFunctionD749196E",
+      "Arn"
+     ]
+    },
+    "Principal": "apigateway.amazonaws.com",
+    "SourceArn": {
+     "Fn::Join": [
+      "",
+      [
+       "arn:",
+       {
+        "Ref": "AWS::Partition"
+       },
+       ":execute-api:us-east-1:484907533441:",
+       {
+        "Ref": "HttpApiF5A9A8A7"
+       },
+       "/*/*/api/s3-proxy"
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/POST--api--s3-proxy/S3ProxyApiIntegration-Permission"
+   }
+  },
+  "HttpApiPOSTapis3proxy8FC4EEFF": {
+   "Type": "AWS::ApiGatewayV2::Route",
+   "Properties": {
+    "ApiId": {
+     "Ref": "HttpApiF5A9A8A7"
+    },
+    "AuthorizationType": "CUSTOM",
+    "AuthorizerId": {
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
+    },
+    "RouteKey": "POST /api/s3-proxy",
+    "Target": {
+     "Fn::Join": [
+      "",
+      [
+       "integrations/",
+       {
+        "Ref": "HttpApiGETapis3proxyS3ProxyApiIntegration506E5040"
+       }
+      ]
+     ]
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/HttpApi/POST--api--s3-proxy/Resource"
    }
   },
   "HttpApiPOSTapiglobaldirectoryscanUtilityApiIntegration1281B104D": {
@@ -2866,9 +3593,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "POST /api/global-directory-scan",
     "Target": {
@@ -2944,9 +3671,9 @@
     "ApiId": {
      "Ref": "HttpApiF5A9A8A7"
     },
-    "AuthorizationType": "JWT",
+    "AuthorizationType": "CUSTOM",
     "AuthorizerId": {
-     "Ref": "HttpApiCognitoAuthorizer935FA0F6"
+     "Ref": "HttpApiCustomAuthorizer0C501DB0"
     },
     "RouteKey": "GET /api/test-renewable-config",
     "Target": {
@@ -2963,6 +3690,133 @@
    },
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/HttpApi/GET--api--test-renewable-config/Resource"
+   }
+  },
+  "AuthorizerFunctionLogGroupB47801AB": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/lambda/EnergyInsights-development-custom-authorizer",
+    "RetentionInDays": 7
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/AuthorizerFunction/LogGroup/Resource"
+   }
+  },
+  "AuthorizerFunctionServiceRole61FF0432": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/AuthorizerFunction/Function/ServiceRole/Resource"
+   }
+  },
+  "AuthorizerFunctionServiceRoleDefaultPolicyDD4B278D": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "cognito-idp:DescribeUserPool",
+        "cognito-idp:DescribeUserPoolClient"
+       ],
+       "Effect": "Allow",
+       "Resource": {
+        "Fn::Join": [
+         "",
+         [
+          "arn:",
+          {
+           "Ref": "AWS::Partition"
+          },
+          ":cognito-idp:us-east-1:484907533441:userpool/us-east-1_sC6yswGji"
+         ]
+        ]
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "AuthorizerFunctionServiceRoleDefaultPolicyDD4B278D",
+    "Roles": [
+     {
+      "Ref": "AuthorizerFunctionServiceRole61FF0432"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/AuthorizerFunction/Function/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "AuthorizerFunction40EC414F": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
+     "S3Key": "342c190a77c958df8c001f00f18c7e01d41d1af9e8d87d142fe25e31b76b89df.zip"
+    },
+    "Description": "Custom authorizer supporting Cognito JWT and mock development tokens",
+    "Environment": {
+     "Variables": {
+      "USER_POOL_ID": "us-east-1_sC6yswGji",
+      "USER_POOL_CLIENT_ID": "18m99t0u39vi9614ssd8sf8vmb",
+      "ENABLE_MOCK_AUTH": "true"
+     }
+    },
+    "FunctionName": "EnergyInsights-development-custom-authorizer",
+    "Handler": "index.handler",
+    "LoggingConfig": {
+     "LogGroup": {
+      "Ref": "AuthorizerFunctionLogGroupB47801AB"
+     }
+    },
+    "MemorySize": 256,
+    "Role": {
+     "Fn::GetAtt": [
+      "AuthorizerFunctionServiceRole61FF0432",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "AuthorizerFunctionServiceRoleDefaultPolicyDD4B278D",
+    "AuthorizerFunctionServiceRole61FF0432"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/AuthorizerFunction/Function/Resource",
+    "aws:asset:path": "asset.342c190a77c958df8c001f00f18c7e01d41d1af9e8d87d142fe25e31b76b89df",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
    }
   },
   "TestAuthFunctionServiceRoleB0610A07": {
@@ -3202,7 +4056,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "a59d3b43dfe0f4cad580e80ee79d92490bf640a34e0e4ea14b454287292670b5.zip"
+     "S3Key": "f5f4d839612b061331852edc79face7e178754df5d68ad41f7792496a1064605.zip"
     },
     "Description": "Handles renewable energy project management operations",
     "Environment": {
@@ -3235,7 +4089,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/ProjectsFunction/Function/Resource",
-    "aws:asset:path": "asset.a59d3b43dfe0f4cad580e80ee79d92490bf640a34e0e4ea14b454287292670b5",
+    "aws:asset:path": "asset.f5f4d839612b061331852edc79face7e178754df5d68ad41f7792496a1064605",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -3519,6 +4373,32 @@
       {
        "Action": "lambda:InvokeFunction",
        "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::GetAtt": [
+          "PetrophysicsCalculatorFunctionD77F5906",
+          "Arn"
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           {
+            "Fn::GetAtt": [
+             "PetrophysicsCalculatorFunctionD77F5906",
+             "Arn"
+            ]
+           },
+           ":*"
+          ]
+         ]
+        }
+       ]
+      },
+      {
+       "Action": "lambda:InvokeFunction",
+       "Effect": "Allow",
        "Resource": {
         "Fn::GetAtt": [
          "RenewableOrchestratorFunctionD83ABE85",
@@ -3545,7 +4425,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "5c5a3ae2ee313d43e982b7f869a1bbbb215f1998e6c6c4d5e089a5c91b584a21.zip"
+     "S3Key": "12b79282221d5aecc10bbd32b88c8f09ea7e4e0227fc32e58c9bd4133197e315.zip"
     },
     "Description": "Handles chat messages and agent orchestration",
     "Environment": {
@@ -3557,6 +4437,10 @@
       "AMPLIFY_DATA_AGENTPROGRESS_TABLE_NAME": "AgentProgress",
       "AMPLIFY_DATA_SESSIONCONTEXT_TABLE_NAME": "RenewableSessionContext",
       "S3_BUCKET": "amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy",
+      "CHAT_MESSAGE_TABLE": "ChatMessage-fhzj4la45fevdnax5s2o4hbuqy-NONE",
+      "PETROPHYSICS_CALCULATOR_FUNCTION_NAME": {
+       "Ref": "PetrophysicsCalculatorFunctionD77F5906"
+      },
       "RENEWABLE_ORCHESTRATOR_FUNCTION_NAME": {
        "Ref": "RenewableOrchestratorFunctionD83ABE85"
       }
@@ -3585,7 +4469,331 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/ChatFunction/Function/Resource",
-    "aws:asset:path": "asset.5c5a3ae2ee313d43e982b7f869a1bbbb215f1998e6c6c4d5e089a5c91b584a21",
+    "aws:asset:path": "asset.12b79282221d5aecc10bbd32b88c8f09ea7e4e0227fc32e58c9bd4133197e315",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "PetrophysicsCalculatorFunctionServiceRole897757BF": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/PetrophysicsCalculatorFunction/ServiceRole/Resource"
+   }
+  },
+  "PetrophysicsCalculatorFunctionServiceRoleDefaultPolicyEDE16A7C": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "s3:GetObject*",
+        "s3:GetBucket*",
+        "s3:List*"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":s3:::amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy"
+          ]
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":s3:::amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "PetrophysicsCalculatorFunctionServiceRoleDefaultPolicyEDE16A7C",
+    "Roles": [
+     {
+      "Ref": "PetrophysicsCalculatorFunctionServiceRole897757BF"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/PetrophysicsCalculatorFunction/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "PetrophysicsCalculatorFunctionD77F5906": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
+     "S3Key": "d7edae45ca39bf662cb0e3499b6e31affae792ea60017eba1d0509d05c12260d.zip"
+    },
+    "Description": "Petrophysics calculator using Python for LAS file analysis",
+    "Environment": {
+     "Variables": {
+      "STORAGE_BUCKET": "amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy"
+     }
+    },
+    "FunctionName": "EnergyInsights-development-petrophysics-calculator",
+    "Handler": "handler.handler",
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "PetrophysicsCalculatorFunctionServiceRole897757BF",
+      "Arn"
+     ]
+    },
+    "Runtime": "python3.12",
+    "Timeout": 60
+   },
+   "DependsOn": [
+    "PetrophysicsCalculatorFunctionServiceRoleDefaultPolicyEDE16A7C",
+    "PetrophysicsCalculatorFunctionServiceRole897757BF"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/PetrophysicsCalculatorFunction/Resource",
+    "aws:asset:path": "asset.d7edae45ca39bf662cb0e3499b6e31affae792ea60017eba1d0509d05c12260d",
+    "aws:asset:is-bundled": false,
+    "aws:asset:property": "Code"
+   }
+  },
+  "ChatSessionsFunctionLogGroup5A8AEDB1": {
+   "Type": "AWS::Logs::LogGroup",
+   "Properties": {
+    "LogGroupName": "/aws/lambda/EnergyInsights-development-chat-sessions",
+    "RetentionInDays": 7
+   },
+   "UpdateReplacePolicy": "Delete",
+   "DeletionPolicy": "Delete",
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/ChatSessionsFunction/LogGroup/Resource"
+   }
+  },
+  "ChatSessionsFunctionServiceRole253639B2": {
+   "Type": "AWS::IAM::Role",
+   "Properties": {
+    "AssumeRolePolicyDocument": {
+     "Statement": [
+      {
+       "Action": "sts:AssumeRole",
+       "Effect": "Allow",
+       "Principal": {
+        "Service": "lambda.amazonaws.com"
+       }
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "ManagedPolicyArns": [
+     {
+      "Fn::Join": [
+       "",
+       [
+        "arn:",
+        {
+         "Ref": "AWS::Partition"
+        },
+        ":iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+       ]
+      ]
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/ChatSessionsFunction/Function/ServiceRole/Resource"
+   }
+  },
+  "ChatSessionsFunctionServiceRoleDefaultPolicy3980AD3D": {
+   "Type": "AWS::IAM::Policy",
+   "Properties": {
+    "PolicyDocument": {
+     "Statement": [
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:BatchWriteItem",
+        "dynamodb:PutItem",
+        "dynamodb:UpdateItem",
+        "dynamodb:DeleteItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":dynamodb:us-east-1:484907533441:table/ChatSession-fhzj4la45fevdnax5s2o4hbuqy-NONE"
+          ]
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": [
+        "dynamodb:BatchGetItem",
+        "dynamodb:GetRecords",
+        "dynamodb:GetShardIterator",
+        "dynamodb:Query",
+        "dynamodb:GetItem",
+        "dynamodb:Scan",
+        "dynamodb:ConditionCheckItem",
+        "dynamodb:DescribeTable"
+       ],
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":dynamodb:us-east-1:484907533441:table/ChatMessage-fhzj4la45fevdnax5s2o4hbuqy-NONE"
+          ]
+         ]
+        },
+        {
+         "Ref": "AWS::NoValue"
+        }
+       ]
+      },
+      {
+       "Action": "dynamodb:Query",
+       "Effect": "Allow",
+       "Resource": [
+        {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":dynamodb:us-east-1:484907533441:table/ChatSession-fhzj4la45fevdnax5s2o4hbuqy-NONE/index/*"
+          ]
+         ]
+        },
+        {
+         "Fn::Join": [
+          "",
+          [
+           "arn:",
+           {
+            "Ref": "AWS::Partition"
+           },
+           ":dynamodb:us-east-1:484907533441:table/ChatMessage-fhzj4la45fevdnax5s2o4hbuqy-NONE/index/*"
+          ]
+         ]
+        }
+       ]
+      }
+     ],
+     "Version": "2012-10-17"
+    },
+    "PolicyName": "ChatSessionsFunctionServiceRoleDefaultPolicy3980AD3D",
+    "Roles": [
+     {
+      "Ref": "ChatSessionsFunctionServiceRole253639B2"
+     }
+    ]
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/ChatSessionsFunction/Function/ServiceRole/DefaultPolicy/Resource"
+   }
+  },
+  "ChatSessionsFunction068288E8": {
+   "Type": "AWS::Lambda::Function",
+   "Properties": {
+    "Code": {
+     "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
+     "S3Key": "ca0889c2966b3ee1bf5e379004ff21cf643c5d17f9081ebbf380066925997975.zip"
+    },
+    "Description": "Handles ChatSession CRUD operations",
+    "Environment": {
+     "Variables": {
+      "CHAT_SESSION_TABLE": "ChatSession-fhzj4la45fevdnax5s2o4hbuqy-NONE",
+      "CHAT_MESSAGE_TABLE": "ChatMessage-fhzj4la45fevdnax5s2o4hbuqy-NONE"
+     }
+    },
+    "FunctionName": "EnergyInsights-development-chat-sessions",
+    "Handler": "index.handler",
+    "LoggingConfig": {
+     "LogGroup": {
+      "Ref": "ChatSessionsFunctionLogGroup5A8AEDB1"
+     }
+    },
+    "MemorySize": 512,
+    "Role": {
+     "Fn::GetAtt": [
+      "ChatSessionsFunctionServiceRole253639B2",
+      "Arn"
+     ]
+    },
+    "Runtime": "nodejs20.x",
+    "Timeout": 30
+   },
+   "DependsOn": [
+    "ChatSessionsFunctionServiceRoleDefaultPolicy3980AD3D",
+    "ChatSessionsFunctionServiceRole253639B2"
+   ],
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/ChatSessionsFunction/Function/Resource",
+    "aws:asset:path": "asset.ca0889c2966b3ee1bf5e379004ff21cf643c5d17f9081ebbf380066925997975",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -3748,11 +4956,9 @@
        "Action": "lambda:InvokeFunction",
        "Effect": "Allow",
        "Resource": [
-        "arn:aws:lambda:us-east-1:484907533441:function:amplify-digitalassistant--renewableTerrainToollambda*",
-        "arn:aws:lambda:us-east-1:484907533441:function:amplify-digitalassistant--renewableLayoutToollambda*",
-        "arn:aws:lambda:us-east-1:484907533441:function:amplify-digitalassistant--renewableSimulationToollambda*",
-        "arn:aws:lambda:us-east-1:484907533441:function:amplify-digitalassistant--renewableReportToollambda*",
-        "arn:aws:lambda:us-east-1:484907533441:function:amplify-digitalassistant--renewableAgentslambda*"
+        "arn:aws:lambda:us-east-1:484907533441:function:renewable-terrain-simple",
+        "arn:aws:lambda:us-east-1:484907533441:function:renewable-layout-simple",
+        "arn:aws:lambda:us-east-1:484907533441:function:renewable-simulation-simple"
        ]
       }
      ],
@@ -3774,7 +4980,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "c2336071121201c46588e170f82b3e96dfcad22caa1e222a57b84057f398d86b.zip"
+     "S3Key": "dbf830001de01f89ab56d8367862ea36be4c3b63171ac22219795fe0cc95bbc1.zip"
     },
     "Description": "Coordinates renewable energy analysis workflows",
     "Environment": {
@@ -3782,7 +4988,10 @@
       "STORAGE_BUCKET": "amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy",
       "CHAT_MESSAGE_TABLE_NAME": "ChatMessage-fhzj4la45fevdnax5s2o4hbuqy-NONE",
       "SESSION_CONTEXT_TABLE": "RenewableSessionContext",
-      "RENEWABLE_S3_BUCKET": "amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy"
+      "RENEWABLE_S3_BUCKET": "amplify-digitalassistant--workshopstoragebucketd9b-mx1aevbdpmqy",
+      "RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME": "renewable-terrain-simple",
+      "RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME": "renewable-layout-simple",
+      "RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME": "renewable-simulation-simple"
      }
     },
     "FunctionName": "EnergyInsights-development-renewable-orchestrator",
@@ -3808,7 +5017,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/RenewableOrchestratorFunction/Function/Resource",
-    "aws:asset:path": "asset.c2336071121201c46588e170f82b3e96dfcad22caa1e222a57b84057f398d86b",
+    "aws:asset:path": "asset.dbf830001de01f89ab56d8367862ea36be4c3b63171ac22219795fe0cc95bbc1",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -3918,7 +5127,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "92e3581e4d48e4992a9b330236f7cb2c2ed9ea65ad46db004787fdab69da2832.zip"
+     "S3Key": "4fc53e8fdab1225812cf28514da33d2f53e8c1930e7f0e6811f02f84f3093be6.zip"
     },
     "Description": "Fetches well and seismic data for catalog map visualization",
     "Environment": {
@@ -3951,7 +5160,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/CatalogMapDataFunction/Function/Resource",
-    "aws:asset:path": "asset.92e3581e4d48e4992a9b330236f7cb2c2ed9ea65ad46db004787fdab69da2832",
+    "aws:asset:path": "asset.4fc53e8fdab1225812cf28514da33d2f53e8c1930e7f0e6811f02f84f3093be6",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -4069,7 +5278,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "f46cf48e742aaa274e35673680e79fc17fcb6e6fdd982ad6c1bd99c511cb93cb.zip"
+     "S3Key": "9ddb5ab3a5d624379509aef319273882bd130d3de1a6bc31ee06591f7bbc09bf.zip"
     },
     "Description": "Performs intelligent catalog search with chain-of-thought reasoning",
     "Environment": {
@@ -4102,7 +5311,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/CatalogSearchFunction/Function/Resource",
-    "aws:asset:path": "asset.f46cf48e742aaa274e35673680e79fc17fcb6e6fdd982ad6c1bd99c511cb93cb",
+    "aws:asset:path": "asset.9ddb5ab3a5d624379509aef319273882bd130d3de1a6bc31ee06591f7bbc09bf",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -4212,7 +5421,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "cdb1f897c54085452700a1335a8a6a2ef1c44fbc230c5d808f6f05a5712e5f7c.zip"
+     "S3Key": "b23e788e8b59aee6b1bb94a55210b579bb39d11a678f6fca039d0b92584b081c.zip"
     },
     "Description": "Handles collection management operations (create, list, get, update, delete, query)",
     "Environment": {
@@ -4243,7 +5452,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/CollectionsFunction/Function/Resource",
-    "aws:asset:path": "asset.cdb1f897c54085452700a1335a8a6a2ef1c44fbc230c5d808f6f05a5712e5f7c",
+    "aws:asset:path": "asset.b23e788e8b59aee6b1bb94a55210b579bb39d11a678f6fca039d0b92584b081c",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -4299,7 +5508,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "02d90da8b1fce7eb57cd9622817d385ecb7b9291139dde44e6cdbb0f6fe8fee6.zip"
+     "S3Key": "1b492b8465fc9d95cf983b37e1d46d353c14f42214c2578eff189f3e2f8b8ab8.zip"
     },
     "Description": "Handles OSDU data platform integration and search",
     "Environment": {
@@ -4330,7 +5539,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/OsduFunction/Function/Resource",
-    "aws:asset:path": "asset.02d90da8b1fce7eb57cd9622817d385ecb7b9291139dde44e6cdbb0f6fe8fee6",
+    "aws:asset:path": "asset.1b492b8465fc9d95cf983b37e1d46d353c14f42214c2578eff189f3e2f8b8ab8",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -4440,7 +5649,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "126231be22a8c1c885e34427c9c2235eb2da4a21ac439fece26ecf485cc6fac7.zip"
+     "S3Key": "3633a377c9cb0d19c7e705e1c87766424017bcbdd6d76c95cbb9bba3fdcb9b87.zip"
     },
     "Description": "Handles all /api/renewable/* routes (health, diagnostics, energy, wind data)",
     "Environment": {
@@ -4471,7 +5680,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/RenewableApiFunction/Function/Resource",
-    "aws:asset:path": "asset.126231be22a8c1c885e34427c9c2235eb2da4a21ac439fece26ecf485cc6fac7",
+    "aws:asset:path": "asset.3633a377c9cb0d19c7e705e1c87766424017bcbdd6d76c95cbb9bba3fdcb9b87",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -4581,7 +5790,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "1f5b189a8def66a6fdbfe446e26b387038d7306004d14a39047857a6ff3762db.zip"
+     "S3Key": "b9fbb435aae3996c222732a3e87a5dc2765f12f5581ecbb512b9ca07e7ad4aa9.zip"
     },
     "Description": "Handles /api/health/* routes",
     "Environment": {
@@ -4612,7 +5821,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/HealthApiFunction/Function/Resource",
-    "aws:asset:path": "asset.1f5b189a8def66a6fdbfe446e26b387038d7306004d14a39047857a6ff3762db",
+    "aws:asset:path": "asset.b9fbb435aae3996c222732a3e87a5dc2765f12f5581ecbb512b9ca07e7ad4aa9",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -4722,7 +5931,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "3e88d79206f62108bea21297fac443338d03eae7f879554f6e88533138e45421.zip"
+     "S3Key": "cf46eca6444a9f05560a73592570e7a061149c8dae1065fd8d27ea71569bc46f.zip"
     },
     "Description": "Handles /api/s3-proxy route",
     "Environment": {
@@ -4753,7 +5962,7 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/S3ProxyApiFunction/Function/Resource",
-    "aws:asset:path": "asset.3e88d79206f62108bea21297fac443338d03eae7f879554f6e88533138e45421",
+    "aws:asset:path": "asset.cf46eca6444a9f05560a73592570e7a061149c8dae1065fd8d27ea71569bc46f",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
    }
@@ -4863,7 +6072,7 @@
    "Properties": {
     "Code": {
      "S3Bucket": "cdk-hnb659fds-assets-484907533441-us-east-1",
-     "S3Key": "a0645cf3ddd67fb3fef0c08976fe208b9a9911faf787d39af0d6d59ba492dbe3.zip"
+     "S3Key": "c89f7f1c1ba2d75ef1bf0543cbc1054e8d36ea7b190a1d33acb57646100141da.zip"
     },
     "Description": "Handles utility routes (directory scan, config test)",
     "Environment": {
@@ -4894,15 +6103,133 @@
    ],
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/UtilityApiFunction/Function/Resource",
-    "aws:asset:path": "asset.a0645cf3ddd67fb3fef0c08976fe208b9a9911faf787d39af0d6d59ba492dbe3",
+    "aws:asset:path": "asset.c89f7f1c1ba2d75ef1bf0543cbc1054e8d36ea7b190a1d33acb57646100141da",
     "aws:asset:is-bundled": false,
     "aws:asset:property": "Code"
+   }
+  },
+  "FrontendDistribution": {
+   "Type": "AWS::CloudFront::Distribution",
+   "Properties": {
+    "DistributionConfig": {
+     "CacheBehaviors": [
+      {
+       "AllowedMethods": [
+        "GET",
+        "HEAD",
+        "OPTIONS",
+        "PUT",
+        "POST",
+        "PATCH",
+        "DELETE"
+       ],
+       "CachePolicyId": "4135ea2d-6df8-44a3-9df3-4b5a84be39ad",
+       "CachedMethods": [
+        "GET",
+        "HEAD"
+       ],
+       "Compress": false,
+       "OriginRequestPolicyId": "216adef6-5c7f-47e4-b989-5492eafa07d3",
+       "PathPattern": "/api/*",
+       "TargetOriginId": "ApiGatewayOrigin",
+       "ViewerProtocolPolicy": "redirect-to-https"
+      }
+     ],
+     "Comment": "EnergyInsights-development Frontend Distribution - Static assets + API",
+     "CustomErrorResponses": [
+      {
+       "ErrorCachingMinTTL": 300,
+       "ErrorCode": 404,
+       "ResponseCode": 200,
+       "ResponsePagePath": "/index.html"
+      },
+      {
+       "ErrorCachingMinTTL": 300,
+       "ErrorCode": 403,
+       "ResponseCode": 200,
+       "ResponsePagePath": "/index.html"
+      }
+     ],
+     "DefaultCacheBehavior": {
+      "AllowedMethods": [
+       "GET",
+       "HEAD",
+       "OPTIONS"
+      ],
+      "CachePolicyId": "658327ea-f89d-4fab-a63d-7e88639e58f6",
+      "CachedMethods": [
+       "GET",
+       "HEAD"
+      ],
+      "Compress": true,
+      "OriginRequestPolicyId": "88a5eaf4-2fd4-4709-b370-b4c650ea3fcf",
+      "TargetOriginId": "S3Origin",
+      "ViewerProtocolPolicy": "redirect-to-https"
+     },
+     "DefaultRootObject": "index.html",
+     "Enabled": true,
+     "Origins": [
+      {
+       "DomainName": {
+        "Fn::GetAtt": [
+         "FrontendBucketEFE2E19C",
+         "RegionalDomainName"
+        ]
+       },
+       "Id": "S3Origin",
+       "S3OriginConfig": {
+        "OriginAccessIdentity": {
+         "Fn::Join": [
+          "",
+          [
+           "origin-access-identity/cloudfront/",
+           {
+            "Ref": "FrontendOAIF4D25B13"
+           }
+          ]
+         ]
+        }
+       }
+      },
+      {
+       "CustomOriginConfig": {
+        "HTTPPort": 80,
+        "HTTPSPort": 443,
+        "OriginProtocolPolicy": "https-only",
+        "OriginSSLProtocols": [
+         "TLSv1.2"
+        ]
+       },
+       "DomainName": {
+        "Fn::Select": [
+         1,
+         {
+          "Fn::Split": [
+           "://",
+           {
+            "Fn::GetAtt": [
+             "HttpApiF5A9A8A7",
+             "ApiEndpoint"
+            ]
+           }
+          ]
+         }
+        ]
+       },
+       "Id": "ApiGatewayOrigin"
+      }
+     ],
+     "PriceClass": "PriceClass_100"
+    }
+   },
+   "Metadata": {
+    "aws:cdk:path": "EnergyInsights-development/FrontendDistribution"
    }
   },
   "CDKMetadata": {
    "Type": "AWS::CDK::Metadata",
    "Properties": {
-    "Analytics": "v2:deflate64:H4sIAAAAAAAA/12QT0/DMAzFP8vumRntieM2iT8SElPHfXLbULK1cRU7q0bU746SMjo4vd9zXhzHGWRZDqsFDrys6tOyNSWEvWB1UoVm8q7Savth37z0XhQOfAj1xWJHdQnvWLZ6g6wV5xA2vjppSXbCeO+HJtlRa6rLXJ78qFrsyhohPHpbiSEbE7e8064zzIbsqAx2EApq01RJ567XfpwfkFkLwzqKaqlhCK/UPDnyfUxeeVTYmwZFD3g5ZxCeRfp1b2IkSrR7wSY9NkEsFeRlohcrunF4HfSfnXNrL5/kzJd2qfWvG0e19SzU3e565j9HO0dnU2uXNpw+FicythmVpVrDke/O2QruHyBfHNmYpfNWTKehmPQbzZk4cuoBAAA="
+    "Analytics": "v2:deflate64:H4sIAAAAAAAA/3WRQW/CMAyFfwv3kLH2tGNhYkOaBCq7ozQJnaFNqtgBsaj/fUq6rmzSTu8950tiyxnPspwvZuKKc6nO8wYqHvYk5JmVGq13UrPV0Ww9dZ6YuOIhqJsRrVUVfxdVo5cCNcOch6WXZ00pDjbe+3aD7GwD8jaVh9wz2Vivjs4a4mHroAZTSKkRN0obAko3VpFZR+Y/4hmQHFSewJqeNaKtlOBh7Y2MlUjc+512LSAmFkTLQ2mbNGnSqdOxR8wPAlET8iIKa2yNPLzZ+sVZ30Vy9D0THdSC9FXcLhkPr0Rd0UFEosS4J1GnzwYTS6X1NLiNIV07MTb6J05c4enDOvjULj39k/qerTySbe/3N/lfRztnL6C0S1tLg8WOwNQ9M1ZpfsKHS7bgj088n50QYO68IWg1Lwf9Ar1nSgM+AgAA"
    },
    "Metadata": {
     "aws:cdk:path": "EnergyInsights-development/CDKMetadata/Default"

@@ -12,6 +12,7 @@ import {
   StatusIndicator,
   Pagination
 } from '@cloudscape-design/components';
+import './OSDUSearchResponse.css';
 
 interface OSDURecord {
   id: string;
@@ -63,6 +64,7 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
   // TASK 17: Pagination state
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
   const pageSize = 10;
+  const tableRef = React.useRef<HTMLDivElement>(null);
   
   // TASK 20: Reset pagination when records array changes
   useEffect(() => {
@@ -75,6 +77,13 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
     
     console.log('✅ [OSDUSearchResponse] Pagination reset complete');
   }, [records]); // Dependency on records array - triggers when reference changes
+  
+  // Scroll to table when page changes
+  useEffect(() => {
+    if (tableRef.current && currentPageIndex > 1) {
+      tableRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [currentPageIndex]);
   
   // Parse answer text to extract key information
   const hasRecords = records && records.length > 0;
@@ -139,15 +148,15 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
       {/* Summary Statistics */}
       {hasRecords && (
         <Container>
-          <ColumnLayout columns={filterApplied ? 5 : 4} variant="text-grid">
-            {filterApplied && originalRecordCount && (
+          <ColumnLayout columns={recordCount > records.length ? 5 : 4} variant="text-grid">
+            {recordCount > records.length && (
               <div>
-                <Box variant="awsui-key-label">Original Total</Box>
-                <Box variant="awsui-value-large">{originalRecordCount}</Box>
+                <Box variant="awsui-key-label">Total Found</Box>
+                <Box variant="awsui-value-large">{recordCount}</Box>
               </div>
             )}
             <div>
-              <Box variant="awsui-key-label">{filterApplied ? 'Filtered' : 'Total Found'}</Box>
+              <Box variant="awsui-key-label">{recordCount > records.length ? 'Returned' : 'Total Found'}</Box>
               <Box variant="awsui-value-large">{records.length}</Box>
             </div>
             <div>
@@ -164,7 +173,7 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
               <Box variant="awsui-key-label">Status</Box>
               <Box variant="awsui-value-large">
                 <StatusIndicator type="success">
-                  {filterApplied ? 'Filtered' : 'Available'}
+                  Available
                 </StatusIndicator>
               </Box>
             </div>
@@ -174,62 +183,76 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
 
       {/* Records Table */}
       {hasRecords ? (
-        <Table
-          columnDefinitions={[
+        <div ref={tableRef} style={{ width: '100%', maxWidth: '100%', overflow: 'hidden' }}>
+          <div className="osdu-search-results-table">
+            <Table
+            columnDefinitions={[
             {
               id: 'name',
-              header: <div style={{ paddingLeft: '16px' }}>Well Name</div>,
+              header: 'Well Name',
               cell: (item: OSDURecord) => (
-                <div style={{ paddingLeft: '16px' }}>
+                <div 
+                  style={{ 
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={item.name}
+                >
                   <Link href="#" variant="primary">
                     {item.name}
                   </Link>
                 </div>
               ),
               sortingField: 'name',
-              minWidth: 140
+              width: '40%'
             },
             {
               id: 'type',
               header: 'Type',
               cell: (item: OSDURecord) => {
                 // Extract just the last part after the last hyphen for cleaner display
-                // e.g., "work-product-component-WellLog" becomes "WellLog"
                 const parts = item.type.split('-');
                 const displayType = parts[parts.length - 1];
                 return <Badge color="blue">{displayType}</Badge>;
               },
               sortingField: 'type',
-              minWidth: 100
+              width: '20%'
             },
             {
               id: 'operator',
               header: 'Operator',
-              cell: (item: OSDURecord) => item.operator || '-',
+              cell: (item: OSDURecord) => (
+                <div 
+                  style={{ 
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={item.operator || '-'}
+                >
+                  {item.operator || '-'}
+                </div>
+              ),
               sortingField: 'operator',
-              minWidth: 100
+              width: '20%'
             },
             {
               id: 'location',
               header: 'Location',
-              cell: (item: OSDURecord) => item.location || '-',
-              minWidth: 100
-            },
-            {
-              id: 'depth',
-              header: 'Depth',
-              cell: (item: OSDURecord) => item.depth || '-',
-              minWidth: 90
-            },
-            {
-              id: 'status',
-              header: 'Status',
-              cell: (item: OSDURecord) => {
-                if (!item.status || item.status === 'Unknown') return '-';
-                const statusColor = item.status.toLowerCase().includes('active') ? 'green' : 'grey';
-                return <Badge color={statusColor}>{item.status}</Badge>;
-              },
-              minWidth: 90
+              cell: (item: OSDURecord) => (
+                <div 
+                  style={{ 
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap'
+                  }}
+                  title={item.location || '-'}
+                >
+                  {item.location || '-'}
+                </div>
+              ),
+              width: '20%'
             }
           ]}
           items={paginatedRecords}
@@ -240,6 +263,13 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
           stripedRows={true}
           stickyHeader={true}
           contentDensity="compact"
+          resizableColumns={false}
+          columnDisplay={[
+            { id: 'name', visible: true },
+            { id: 'type', visible: true },
+            { id: 'operator', visible: true },
+            { id: 'location', visible: true }
+          ]}
           pagination={
             <Pagination
               currentPageIndex={currentPageIndex}
@@ -268,6 +298,8 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
             </Header>
           }
         />
+          </div>
+        </div>
       ) : (
         <Alert
           statusIconAriaLabel="Info"
@@ -288,13 +320,19 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
       )}
 
       {/* Additional Actions */}
-      {hasRecords && recordCount > displayCount && (
+      {hasRecords && recordCount > records.length && (
         <Alert
           statusIconAriaLabel="Info"
           type="info"
         >
-          Showing first {displayCount} of {recordCount} records. 
-          Refine your search query to see more specific results.
+          <SpaceBetween size="s">
+            <Box>
+              <strong>Note:</strong> OSDU API returned {records.length} records out of {recordCount} total found.
+            </Box>
+            <Box variant="small">
+              The external OSDU service limits results per request. Refine your search query for more specific results.
+            </Box>
+          </SpaceBetween>
         </Alert>
       )}
     </SpaceBetween>

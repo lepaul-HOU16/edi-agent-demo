@@ -1,10 +1,31 @@
 import { Handler } from 'aws-lambda';
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
-import { 
-  ThoughtStep, 
-  createThoughtStep, 
-  completeThoughtStep 
-} from '../../../utils/thoughtTypes';
+
+// Thought types - inline definitions since this Lambda doesn't have access to shared utils
+interface ThoughtStep {
+  step: string;
+  status: 'thinking' | 'complete' | 'error';
+  details?: string;
+  timestamp: string;
+}
+
+function createThoughtStep(step: string, details?: string): ThoughtStep {
+  return {
+    step,
+    status: 'thinking',
+    details,
+    timestamp: new Date().toISOString()
+  };
+}
+
+function completeThoughtStep(thoughtStep: ThoughtStep, details?: string): ThoughtStep {
+  return {
+    ...thoughtStep,
+    status: 'complete',
+    details: details || thoughtStep.details,
+    timestamp: new Date().toISOString()
+  };
+}
 
 // AWS S3 Configuration
 const S3_BUCKET = process.env.STORAGE_BUCKET_NAME || '';
@@ -68,10 +89,12 @@ async function fetchWellCoordinatesFromCSV(): Promise<Map<string, { lat: number;
     const lines = csvContent.trim().split('\n');
     
     // Skip header row
+    // CSV format: wellId,wellName,originalLat,originalLon,convertedX,convertedY,utmZone,datum
     for (let i = 1; i < lines.length; i++) {
-      const [wellName, x, y, latitude, longitude] = lines[i].split(',');
-      if (wellName && latitude && longitude) {
-        coordinatesMap.set(wellName.trim(), {
+      const [wellId, wellName, latitude, longitude, x, y] = lines[i].split(',');
+      if (wellId && latitude && longitude) {
+        // Use wellId (e.g., "WELL-001") as the key since that matches the LAS file names
+        coordinatesMap.set(wellId.trim(), {
           lat: parseFloat(latitude.trim()),
           lon: parseFloat(longitude.trim())
         });

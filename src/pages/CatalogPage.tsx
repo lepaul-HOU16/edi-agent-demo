@@ -20,6 +20,7 @@ import { executeOSDUQuery, convertOSDUToWellData } from '@/utils/osduQueryExecut
 import { OSDUQueryBuilder } from '@/components/OSDUQueryBuilder';
 import type { QueryCriterion } from '@/components/OSDUQueryBuilder';
 import { createCollection } from '@/lib/api/collections';
+import { searchCatalog } from '@/lib/api/catalog';
 
 // Import MapComponent directly - handle SSR with conditional rendering instead
 import MapComponentBase from './MapComponent';
@@ -308,6 +309,11 @@ function CatalogPageBase() {
           });
 
           try {
+            // Clear map first to ensure clean state
+            if (mapComponentRef.current.clearMap) {
+              mapComponentRef.current.clearMap();
+            }
+            
             // Restore well data first
             if (mapState.wellData && mapComponentRef.current.updateMapData) {
               console.log('🗺️ Calling updateMapData with', mapState.wellData.features?.length || 0, 'wells...');
@@ -1802,17 +1808,14 @@ function CatalogPageBase() {
         console.log('📤 No context sent - fresh search');
       }
 
-      // TODO: Use catalogSearch REST API with enhanced context
-      console.log('⚠️ Catalog search not yet implemented via REST API');
-      const searchResponse = { data: null, errors: ['Catalog search not implemented'] };
+      // Call catalog search REST API with enhanced context
+      const searchResponse = await searchCatalog(prompt, searchContextForBackend);
 
       console.log('🔍 CATALOG SEARCH RESPONSE:', searchResponse);
 
-      if (searchResponse.data) {
-        // Parse the search results
-        const geoJsonData = typeof searchResponse.data === 'string'
-          ? JSON.parse(searchResponse.data)
-          : searchResponse.data;
+      // The response is already a GeoJSON FeatureCollection
+      if (searchResponse && searchResponse.type === 'FeatureCollection') {
+        const geoJsonData = searchResponse;
 
         console.log('✅ PARSED CATALOG DATA WITH THOUGHT STEPS:', geoJsonData);
         console.log('🧠 Thought steps received:', geoJsonData.thoughtSteps?.length || 0);
@@ -1989,6 +1992,10 @@ function CatalogPageBase() {
           if (selectedId === "seg-1" && mapComponentRef.current) {
             console.log('🗺️ Map panel active, updating map immediately');
             try {
+              // Clear map first to ensure only new data is shown
+              if (mapComponentRef.current.clearMap) {
+                mapComponentRef.current.clearMap();
+              }
               mapComponentRef.current.updateMapData(geoJsonData);
             } catch (error) {
               console.error('❌ Error updating map immediately:', error);

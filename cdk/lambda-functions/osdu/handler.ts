@@ -73,9 +73,11 @@ export const handler = async (
         };
       }
       
-      // Call OSDU API
+      // Call OSDU API using the correct format
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 50000);
+      
+      console.log('📤 Calling OSDU API with maxResults:', maxResults);
       
       let response;
       try {
@@ -86,9 +88,10 @@ export const handler = async (
             'x-api-key': apiKey
           },
           body: JSON.stringify({
-            query,
-            dataPartition,
-            maxResults
+            toolName: 'searchWells',
+            input: {
+              maxResults: maxResults
+            }
           }),
           signal: controller.signal
         });
@@ -155,28 +158,56 @@ export const handler = async (
         };
       }
       
-      // Transform response
-      let answer = rawData.response || rawData.answer || 'Search completed';
+      // Transform response - handle the new API format
+      let answer = 'Search completed';
       let recordCount = 0;
       let records: any[] = [];
       
-      // Extract records from reasoningSteps
-      if (rawData.reasoningSteps && Array.isArray(rawData.reasoningSteps)) {
+      // New API format: { statusCode, body: { records, metadata } }
+      if (rawData.body && rawData.body.records) {
+        records = rawData.body.records;
+        const metadata = rawData.body.metadata || {};
+        recordCount = metadata.totalFound || metadata.returned || records.length;
+        answer = `Found ${recordCount} wells in OSDU`;
+        
+        console.log('📊 Extracted from new API format:', {
+          recordsLength: records.length,
+          totalFound: metadata.totalFound,
+          returned: metadata.returned,
+          filtered: metadata.filtered,
+          authorized: metadata.authorized,
+          finalRecordCount: recordCount
+        });
+      }
+      // Fallback: old format with reasoningSteps
+      else if (rawData.reasoningSteps && Array.isArray(rawData.reasoningSteps)) {
         for (const step of rawData.reasoningSteps) {
           if (step.type === 'tool_result' && step.result?.body?.records) {
             records = step.result.body.records;
             recordCount = step.result.body.metadata?.totalFound || 
                          step.result.body.metadata?.returned || 
                          records.length;
+            
+            console.log('📊 Extracted from reasoningSteps:', {
+              recordsLength: records.length,
+              totalFound: step.result.body.metadata?.totalFound,
+              returned: step.result.body.metadata?.returned,
+              finalRecordCount: recordCount
+            });
             break;
           }
         }
       }
-      
-      // Fallback to top-level records
-      if (records.length === 0 && rawData.records) {
+      // Fallback: top-level records
+      else if (rawData.records) {
         records = rawData.records;
         recordCount = rawData.recordCount || records.length;
+        
+        console.log('📊 Extracted from top-level:', {
+          recordsLength: records.length,
+          recordCount: rawData.recordCount,
+          finalRecordCount: recordCount
+        });
       }
       
       const result: OSDUSearchResponse = {

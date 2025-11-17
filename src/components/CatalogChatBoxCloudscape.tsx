@@ -13,8 +13,6 @@ import {
   Icon
 } from '@cloudscape-design/components';
 import ExpandablePromptInput from './ExpandablePromptInput';
-import GeoscientistDashboard from './GeoscientistDashboard';
-import GeoscientistDashboardErrorBoundary from './GeoscientistDashboardErrorBoundary';
 import { OSDUSearchResponse, OSDUErrorResponse } from './OSDUSearchResponse';
 import { v4 as uuidv4 } from 'uuid';
 import { OSDUQueryBuilder } from './OSDUQueryBuilder';
@@ -83,16 +81,17 @@ function ProfessionalGeoscientistDisplay({
       style={{ 
         marginTop: '15px', 
         marginBottom: '15px',
-        // Fix horizontal scroll for table container
-        maxWidth: '100%',
         width: '100%',
-        overflow: 'hidden',
+        maxWidth: '100%',
+        overflow: 'visible',
         boxSizing: 'border-box'
       }}
     >
       <div className='tables' style={{ 
+        width: '100%',
         maxWidth: '100%',
-        overflow: 'auto',
+        overflowX: 'auto',
+        overflowY: 'visible',
         boxSizing: 'border-box'
       }}>
         <Table

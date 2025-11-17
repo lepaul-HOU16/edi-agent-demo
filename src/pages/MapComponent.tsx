@@ -327,74 +327,80 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     if (!mapRef.current) return;
     
     console.log('📍 Rendering wells layer with', geoJsonData.features.length, 'features');
+    console.log('📍 First 3 well names:', geoJsonData.features.slice(0, 3).map((f: any) => f.properties?.name));
     
-    // Simple approach: check if source exists, update or create
-    const wellsSource = mapRef.current.getSource(WELLS_SOURCE_ID);
-    if (wellsSource) {
-      // Update existing source
-      (wellsSource as maplibregl.GeoJSONSource).setData(geoJsonData);
-      console.log('Updated existing wells source');
-    } else {
-      // Add new source and layer
-      mapRef.current.addSource(WELLS_SOURCE_ID, {
-        type: 'geojson',
-        data: geoJsonData
-      });
-      
-      // Add simple circle layer
-      mapRef.current.addLayer({
-        id: WELLS_LAYER_ID,
-        type: 'circle',
-        source: WELLS_SOURCE_ID,
-        paint: {
-          'circle-radius': 8,
-          'circle-color': '#FF0000',
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#FFFFFF',
-          'circle-opacity': 0.8
-        }
-      });
-      
-      console.log('Added new wells source and layer');
-      
-      // Add click event for wells layer
-      mapRef.current.on('click', WELLS_LAYER_ID, (e: maplibregl.MapLayerMouseEvent) => {
-        if (!e.features || e.features.length === 0) return;
-        
-        const coordinates = e.lngLat;
-        const properties = e.features[0].properties;
-        const name = properties?.name || 'Unnamed Well';
-        
-        // Create simple popup
-        const popupContent = document.createElement('div');
-        popupContent.innerHTML = `
-          <h3>${name}</h3>
-          ${properties ? Object.entries(properties)
-            .filter(([key]) => key !== 'name')
-            .slice(0, 5) // Show only first 5 properties
-            .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
-            .join('') : 'No additional metadata available'}
-        `;
-        
-        new maplibregl.Popup()
-          .setLngLat(coordinates)
-          .setDOMContent(popupContent)
-          .addTo(mapRef.current!);
-      });
-      
-      // Change cursor on hover
-      mapRef.current.on('mouseenter', WELLS_LAYER_ID, () => {
-        if (mapRef.current) {
-          mapRef.current.getCanvas().style.cursor = 'pointer';
-        }
-      });
-      
-      mapRef.current.on('mouseleave', WELLS_LAYER_ID, () => {
-        if (mapRef.current) {
-          mapRef.current.getCanvas().style.cursor = '';
-        }
-      });
+    // Always remove and recreate to ensure clean state
+    try {
+      if (mapRef.current.getLayer(WELLS_LAYER_ID)) {
+        mapRef.current.removeLayer(WELLS_LAYER_ID);
+        console.log('Removed existing wells layer');
+      }
+      if (mapRef.current.getSource(WELLS_SOURCE_ID)) {
+        mapRef.current.removeSource(WELLS_SOURCE_ID);
+        console.log('Removed existing wells source');
+      }
+    } catch (e) {
+      console.warn('Error removing existing layer/source:', e);
     }
+    
+    // Create fresh source and layer
+    mapRef.current.addSource(WELLS_SOURCE_ID, {
+      type: 'geojson',
+      data: geoJsonData
+    });
+    
+    // Add simple circle layer
+    mapRef.current.addLayer({
+      id: WELLS_LAYER_ID,
+      type: 'circle',
+      source: WELLS_SOURCE_ID,
+      paint: {
+        'circle-radius': 8,
+        'circle-color': '#FF0000',
+        'circle-stroke-width': 2,
+        'circle-stroke-color': '#FFFFFF',
+        'circle-opacity': 0.8
+      }
+    });
+    
+    console.log('✅ Created wells layer with', geoJsonData.features.length, 'features');
+    
+    // Add click event for wells layer (only once)
+    mapRef.current.once('click', WELLS_LAYER_ID, (e: maplibregl.MapLayerMouseEvent) => {
+      if (!e.features || e.features.length === 0) return;
+      
+      const coordinates = e.lngLat;
+      const properties = e.features[0].properties;
+      const name = properties?.name || 'Unnamed Well';
+      
+      const popupContent = document.createElement('div');
+      popupContent.innerHTML = `
+        <h3>${name}</h3>
+        ${properties ? Object.entries(properties)
+          .filter(([key]) => key !== 'name')
+          .slice(0, 5)
+          .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
+          .join('') : 'No additional metadata available'}
+      `;
+      
+      new maplibregl.Popup()
+        .setLngLat(coordinates)
+        .setDOMContent(popupContent)
+        .addTo(mapRef.current!);
+    });
+    
+    // Change cursor on hover
+    mapRef.current.on('mouseenter', WELLS_LAYER_ID, () => {
+      if (mapRef.current) {
+        mapRef.current.getCanvas().style.cursor = 'pointer';
+      }
+    });
+    
+    mapRef.current.on('mouseleave', WELLS_LAYER_ID, () => {
+      if (mapRef.current) {
+        mapRef.current.getCanvas().style.cursor = '';
+      }
+    });
   }, []);
 
   // Function to toggle weather layer visibility
@@ -523,7 +529,8 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
       return;
     }
 
-    console.log('Updating map with search results:', geoJsonData.features.length, 'features');
+    console.log('🔄 updateMapData called with', geoJsonData.features.length, 'features');
+    console.log('🔄 Feature names:', geoJsonData.features.slice(0, 5).map((f: any) => f.properties?.name));
     
     // Check if this is a weather maps query
     const isWeatherQuery = geoJsonData.metadata?.queryType === 'weatherMaps';
@@ -627,86 +634,8 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
       }
     };
     
-    // Simple approach: check if source exists, update or create
-    const wellsSource = mapRef.current.getSource(WELLS_SOURCE_ID);
-    if (wellsSource) {
-      // Update existing source
-      (wellsSource as maplibregl.GeoJSONSource).setData(geoJsonData);
-      console.log('Updated existing wells source');
-      
-      // Fit bounds after data update with a slight delay
-      setTimeout(fitBoundsToWells, 200);
-    } else {
-      // Add new source and layer
-      mapRef.current.addSource(WELLS_SOURCE_ID, {
-        type: 'geojson',
-        data: geoJsonData
-      });
-      
-      // Add simple circle layer
-      mapRef.current.addLayer({
-        id: WELLS_LAYER_ID,
-        type: 'circle',
-        source: WELLS_SOURCE_ID,
-        paint: {
-          'circle-radius': 8,
-          'circle-color': '#FF0000',
-          'circle-stroke-width': 2,
-          'circle-stroke-color': '#FFFFFF',
-          'circle-opacity': 0.8
-        }
-      });
-      
-      console.log('Added new wells source and layer');
-      
-      // Add click event for wells layer
-      mapRef.current.on('click', WELLS_LAYER_ID, (e: maplibregl.MapLayerMouseEvent) => {
-        if (!e.features || e.features.length === 0) return;
-        
-        const coordinates = e.lngLat;
-        const properties = e.features[0].properties;
-        const name = properties?.name || 'Unnamed Well';
-        
-        // Create simple popup
-        const popupContent = document.createElement('div');
-        popupContent.innerHTML = `
-          <h3>${name}</h3>
-          ${properties ? Object.entries(properties)
-            .filter(([key]) => key !== 'name')
-            .slice(0, 5) // Show only first 5 properties
-            .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
-            .join('') : 'No additional metadata available'}
-        `;
-        
-        new maplibregl.Popup()
-          .setLngLat(coordinates)
-          .setDOMContent(popupContent)
-          .addTo(mapRef.current!);
-      });
-      
-      // Change cursor on hover
-      mapRef.current.on('mouseenter', WELLS_LAYER_ID, () => {
-        if (mapRef.current) {
-          mapRef.current.getCanvas().style.cursor = 'pointer';
-        }
-      });
-      
-      mapRef.current.on('mouseleave', WELLS_LAYER_ID, () => {
-        if (mapRef.current) {
-          mapRef.current.getCanvas().style.cursor = '';
-        }
-      });
-      
-      // Wait for source to load, then fit bounds
-      mapRef.current.on('sourcedata', function sourcedataHandler(e) {
-        if (e.sourceId === WELLS_SOURCE_ID && e.isSourceLoaded) {
-          console.log('Wells source fully loaded, fitting bounds');
-          fitBoundsToWells();
-          // Remove listener after first use
-          mapRef.current!.off('sourcedata', sourcedataHandler);
-        }
-      });
-    }
+    // Fit bounds after rendering
+    setTimeout(fitBoundsToWells, 200);
   }, []);
 
   // Fit bounds function

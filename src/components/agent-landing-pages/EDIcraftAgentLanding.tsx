@@ -21,37 +21,14 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
     setClearResult(null);
 
     try {
-      // Always call agent directly without creating chat message
+      // EDIcraft agent is currently disabled in this build
+      console.log('[CLEAR BUTTON] EDIcraft agent is not available');
 
-      console.log('[CLEAR BUTTON] Calling EDIcraft agent for chunk-based clear operation');
-
-      const result = await client.mutations.invokeEDIcraftAgent({
-        chatSessionId: 'silent-clear-' + Date.now(),
-        message: 'Clear the Minecraft environment using chunk-based area wipe with terrain preservation',
-        foundationModelId: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
-        userId: 'system'
+      // Show informational message
+      setClearResult({
+        type: 'error',
+        message: 'EDIcraft agent is currently unavailable. This feature requires the Minecraft server integration to be enabled.'
       });
-
-      console.log('[CLEAR BUTTON] Clear result:', result);
-
-      if (result.data?.success) {
-        const successMessage = result.data.message || 'Environment cleared successfully!';
-        setClearResult({
-          type: 'success',
-          message: successMessage
-        });
-
-        // Auto-dismiss success messages after 5 seconds
-        setTimeout(() => {
-          setClearResult(null);
-        }, 5000);
-      } else {
-        // Error messages stay visible until user dismisses
-        setClearResult({
-          type: 'error',
-          message: result.data?.message || 'Clear operation failed'
-        });
-      }
 
     } catch (error) {
       console.error('[CLEAR BUTTON] Error clearing environment:', error);

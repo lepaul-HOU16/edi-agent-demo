@@ -2,6 +2,7 @@
  * Catalog Search - API Gateway Wrapper
  * 
  * Wraps the catalog search handler to work with API Gateway HTTP events
+ * Updated: 2025-11-16
  */
 
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
@@ -36,13 +37,14 @@ export const handler = async (
     
     console.log('[Catalog Search Wrapper] Catalog search completed successfully');
     
+    // Handler already returns JSON string, return it directly
     return {
       statusCode: 200,
       headers: {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
       },
-      body: JSON.stringify(result),
+      body: result,
     };
   } catch (error: any) {
     console.error('[Catalog Search Wrapper] Error:', error);

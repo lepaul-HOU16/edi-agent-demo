@@ -23,7 +23,7 @@
         "validateOnSynth": false,
         "assumeRoleArn": "arn:${AWS::Partition}:iam::484907533441:role/cdk-hnb659fds-deploy-role-484907533441-us-east-1",
         "cloudFormationExecutionRoleArn": "arn:${AWS::Partition}:iam::484907533441:role/cdk-hnb659fds-cfn-exec-role-484907533441-us-east-1",
-        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-484907533441-us-east-1/d0dc6d50911507ffcabc4f713c96293962b05e47222b14aabdcf1cdef2f52341.json",
+        "stackTemplateAssetObjectUrl": "s3://cdk-hnb659fds-assets-484907533441-us-east-1/bf7fb21ad6c11e8e3b6fa65a271e4f5e3862d157362cfe2743f2f55020359ea9.json",
         "requiresBootstrapStackVersion": 6,
         "bootstrapStackVersionSsmParameter": "/cdk-bootstrap/hnb659fds/version",
         "additionalDependencies": [
@@ -124,6 +124,12 @@
             "data": "CustomS3AutoDeleteObjectsCustomResourceProviderHandler9D90184F"
           }
         ],
+        "/EnergyInsights-development/FrontendOAI/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FrontendOAIF4D25B13"
+          }
+        ],
         "/EnergyInsights-development/FrontendBucketName": [
           {
             "type": "aws:cdk:logicalId",
@@ -220,10 +226,16 @@
             "data": "HttpApiGETtestauthEDCE5CC5"
           }
         ],
-        "/EnergyInsights-development/HttpApi/CognitoAuthorizer/Resource": [
+        "/EnergyInsights-development/HttpApi/CustomAuthorizer/Resource": [
           {
             "type": "aws:cdk:logicalId",
-            "data": "HttpApiCognitoAuthorizer935FA0F6"
+            "data": "HttpApiCustomAuthorizer0C501DB0"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/EnergyInsightsdevelopmentHttpApiCustomAuthorizer852188DF-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiEnergyInsightsdevelopmentHttpApiCustomAuthorizer852188DFPermissionC0A05066"
           }
         ],
         "/EnergyInsights-development/HttpApi/POST--api--projects--delete/DeleteProjectIntegration/Resource": [
@@ -296,6 +308,114 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "HttpApiPOSTapichatmessageDF69CC5B"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/POST--api--chat--sessions/CreateSessionIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiPOSTapichatsessionsCreateSessionIntegration847489B3"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/POST--api--chat--sessions/CreateSessionIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiPOSTapichatsessionsCreateSessionIntegrationPermission8249B5DE"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/POST--api--chat--sessions/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiPOSTapichatsessionsCFFBB90A"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/GET--api--chat--sessions/ListSessionsIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiGETapichatsessionsListSessionsIntegration49A576FB"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/GET--api--chat--sessions/ListSessionsIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiGETapichatsessionsListSessionsIntegrationPermission7DC11C44"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/GET--api--chat--sessions/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiGETapichatsessions72FACED2"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}/GetSessionIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiGETapichatsessionsidGetSessionIntegrationD141E43F"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}/GetSessionIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiGETapichatsessionsidGetSessionIntegrationPermissionC0C2F850"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiGETapichatsessionsid081D34ED"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/PATCH--api--chat--sessions--{id}/UpdateSessionIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiPATCHapichatsessionsidUpdateSessionIntegrationCDB25EE0"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/PATCH--api--chat--sessions--{id}/UpdateSessionIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiPATCHapichatsessionsidUpdateSessionIntegrationPermission6C27C7D0"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/PATCH--api--chat--sessions--{id}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiPATCHapichatsessionsidA0D10BC2"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/DELETE--api--chat--sessions--{id}/DeleteSessionIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiDELETEapichatsessionsidDeleteSessionIntegration21DEE616"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/DELETE--api--chat--sessions--{id}/DeleteSessionIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiDELETEapichatsessionsidDeleteSessionIntegrationPermission82B8B60C"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/DELETE--api--chat--sessions--{id}/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiDELETEapichatsessionsidAB38013F"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}--messages/GetSessionMessagesIntegration/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiGETapichatsessionsidmessagesGetSessionMessagesIntegrationA571AE6F"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}--messages/GetSessionMessagesIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiGETapichatsessionsidmessagesGetSessionMessagesIntegrationPermission251A4563"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/GET--api--chat--sessions--{id}--messages/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiGETapichatsessionsidmessages3AAB5197"
           }
         ],
         "/EnergyInsights-development/HttpApi/POST--api--renewable--analyze/RenewableAnalyzeIntegration/Resource": [
@@ -598,6 +718,18 @@
             "data": "HttpApiGETapis3proxy5B12E340"
           }
         ],
+        "/EnergyInsights-development/HttpApi/POST--api--s3-proxy/S3ProxyApiIntegration-Permission": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiPOSTapis3proxyS3ProxyApiIntegrationPermission0C26EAAA"
+          }
+        ],
+        "/EnergyInsights-development/HttpApi/POST--api--s3-proxy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "HttpApiPOSTapis3proxy8FC4EEFF"
+          }
+        ],
         "/EnergyInsights-development/HttpApi/POST--api--global-directory-scan/UtilityApiIntegration1/Resource": [
           {
             "type": "aws:cdk:logicalId",
@@ -644,6 +776,42 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ApiLogGroupName"
+          }
+        ],
+        "/EnergyInsights-development/AuthorizerFunction/LogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AuthorizerFunctionLogGroupB47801AB"
+          }
+        ],
+        "/EnergyInsights-development/AuthorizerFunction/Function/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AuthorizerFunctionServiceRole61FF0432"
+          }
+        ],
+        "/EnergyInsights-development/AuthorizerFunction/Function/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AuthorizerFunctionServiceRoleDefaultPolicyDD4B278D"
+          }
+        ],
+        "/EnergyInsights-development/AuthorizerFunction/Function/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AuthorizerFunction40EC414F"
+          }
+        ],
+        "/EnergyInsights-development/AuthorizerFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "AuthorizerFunctionArn"
+          }
+        ],
+        "/EnergyInsights-development/MockAuthEnabled": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "MockAuthEnabled"
           }
         ],
         "/EnergyInsights-development/TestAuthFunction/ServiceRole/Resource": [
@@ -740,6 +908,66 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "ChatEndpoint"
+          }
+        ],
+        "/EnergyInsights-development/PetrophysicsCalculatorFunction/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PetrophysicsCalculatorFunctionServiceRole897757BF"
+          }
+        ],
+        "/EnergyInsights-development/PetrophysicsCalculatorFunction/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PetrophysicsCalculatorFunctionServiceRoleDefaultPolicyEDE16A7C"
+          }
+        ],
+        "/EnergyInsights-development/PetrophysicsCalculatorFunction/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PetrophysicsCalculatorFunctionD77F5906"
+          }
+        ],
+        "/EnergyInsights-development/PetrophysicsCalculatorFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "PetrophysicsCalculatorFunctionArn"
+          }
+        ],
+        "/EnergyInsights-development/ChatSessionsFunction/LogGroup/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ChatSessionsFunctionLogGroup5A8AEDB1"
+          }
+        ],
+        "/EnergyInsights-development/ChatSessionsFunction/Function/ServiceRole/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ChatSessionsFunctionServiceRole253639B2"
+          }
+        ],
+        "/EnergyInsights-development/ChatSessionsFunction/Function/ServiceRole/DefaultPolicy/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ChatSessionsFunctionServiceRoleDefaultPolicy3980AD3D"
+          }
+        ],
+        "/EnergyInsights-development/ChatSessionsFunction/Function/Resource": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ChatSessionsFunction068288E8"
+          }
+        ],
+        "/EnergyInsights-development/ChatSessionsFunctionArn": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ChatSessionsFunctionArn"
+          }
+        ],
+        "/EnergyInsights-development/ChatSessionsEndpoints": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ChatSessionsEndpoints"
           }
         ],
         "/EnergyInsights-development/RenewableOrchestratorFunction/LogGroup/Resource": [
@@ -1022,6 +1250,36 @@
           {
             "type": "aws:cdk:logicalId",
             "data": "UtilityApiFunction5FD04A13"
+          }
+        ],
+        "/EnergyInsights-development/FrontendDistribution": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FrontendDistribution"
+          }
+        ],
+        "/EnergyInsights-development/CloudFrontDistributionId": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CloudFrontDistributionId"
+          }
+        ],
+        "/EnergyInsights-development/CloudFrontDomainName": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "CloudFrontDomainName"
+          }
+        ],
+        "/EnergyInsights-development/FrontendUrl": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "FrontendUrl"
+          }
+        ],
+        "/EnergyInsights-development/ApiUrlViaCloudFront": [
+          {
+            "type": "aws:cdk:logicalId",
+            "data": "ApiUrlViaCloudFront"
           }
         ],
         "/EnergyInsights-development/StackName": [
