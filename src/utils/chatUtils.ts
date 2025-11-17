@@ -38,21 +38,26 @@ export const sendMessage = async (props: {
   },
   agentType?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft'
 }) => {
-  console.log('=== SEND MESSAGE (REST API): Called ===');
-  console.log('Chat session ID:', props.chatSessionId);
-  console.log('Message text:', props.newMessage.content.text);
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('🔵 FRONTEND (chatUtils): sendMessage called');
+  console.log('═══════════════════════════════════════════════════════════');
+  console.log('🆔 Session ID:', props.chatSessionId);
+  console.log('📝 Message:', props.newMessage.content.text);
+  console.log('🤖 Agent Type:', props.agentType || 'auto');
+  console.log('⏰ Timestamp:', new Date().toISOString());
+  console.log('═══════════════════════════════════════════════════════════');
   
   try {
     // Use REST API client
     const { sendMessage: sendMessageAPI } = await import('@/lib/api/chat');
     
     if (!props.newMessage.content || !props.newMessage.content.text) {
-      console.error('=== SEND MESSAGE: Missing content.text ===');
+      console.error('❌ FRONTEND (chatUtils): Missing content.text');
       throw new Error("content.text is missing");
     }
     
     const messageText = props.newMessage.content.text;
-    console.log('Sending message via REST API:', messageText);
+    console.log('🔵 FRONTEND (chatUtils): Calling REST API client...');
     
     // Call REST API
     const response = await sendMessageAPI(
@@ -61,19 +66,22 @@ export const sendMessage = async (props: {
       [] // conversation history - will be handled by backend
     );
     
-    console.log('=== SEND MESSAGE (REST API): Response received ===');
-    console.log('Success:', response.success);
-    console.log('Has response:', !!response.response);
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🔵 FRONTEND (chatUtils): REST API Response');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('✅ Success:', response.success);
+    console.log('📦 Has Response:', !!response.response);
+    console.log('📊 Artifact Count:', response.response?.artifacts?.length || 0);
+    console.log('💬 Message Length:', response.response?.text?.length || 0);
+    console.log('═══════════════════════════════════════════════════════════');
     
     if (!response.success) {
-      console.error('=== SEND MESSAGE: API returned error ===');
+      console.error('❌ FRONTEND (chatUtils): API returned error');
       console.error('Error:', response.error);
       throw new Error(response.error || 'Failed to send message');
     }
     
-    console.log('=== SEND MESSAGE (REST API): Success ===');
-    console.log('Message:', response.response?.text?.substring(0, 100) + '...');
-    console.log('Artifacts:', response.response?.artifacts?.length || 0);
+    console.log('✅ FRONTEND (chatUtils): Message sent successfully');
     
     return {
       success: true,
@@ -81,8 +89,14 @@ export const sendMessage = async (props: {
       error: null
     };
   } catch (error) {
-    console.error('=== SEND MESSAGE: CRITICAL ERROR ===');
-    console.error('Error details:', error);
+    console.error('═══════════════════════════════════════════════════════════');
+    console.error('❌ FRONTEND (chatUtils): CRITICAL ERROR');
+    console.error('═══════════════════════════════════════════════════════════');
+    console.error('Error:', error);
+    console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+    console.error('Error message:', error instanceof Error ? error.message : String(error));
+    console.error('Stack:', error instanceof Error ? error.stack : 'No stack trace');
+    console.error('═══════════════════════════════════════════════════════════');
     
     return {
       success: false,

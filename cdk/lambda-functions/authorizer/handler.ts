@@ -70,14 +70,19 @@ export async function handler(event: any): Promise<any> {
     // Remove 'Bearer ' prefix if present
     const cleanToken = token.replace(/^Bearer\s+/i, '');
 
-    // Check if this is a mock development token
-    if (ENABLE_MOCK_AUTH && cleanToken.startsWith('mock-dev-token-')) {
-      console.log('Mock development token detected - allowing access');
-      return generatePolicy('mock-user', 'Allow', methodArn, {
-        userId: 'mock-user',
-        email: 'dev@example.com',
-        authType: 'mock',
-      });
+    // Reject mock tokens when mock auth is disabled
+    if (cleanToken.startsWith('mock-dev-token-')) {
+      if (ENABLE_MOCK_AUTH) {
+        console.log('Mock development token detected - allowing access (mock auth enabled)');
+        return generatePolicy('mock-user', 'Allow', methodArn, {
+          userId: 'mock-user',
+          email: 'dev@example.com',
+          authType: 'mock',
+        });
+      } else {
+        console.error('Mock token rejected - mock auth is disabled. Please use real Cognito JWT token.');
+        throw new Error('Unauthorized: Mock authentication is disabled');
+      }
     }
 
     // Verify Cognito JWT token
@@ -96,14 +101,13 @@ export async function handler(event: any): Promise<any> {
         authType: 'cognito',
       });
     } catch (verifyError: any) {
-      console.error('Cognito JWT verification failed:', verifyError.message);
+      console.error('Cognito JWT verification failed:', {
+        error: verifyError.message,
+        tokenPrefix: cleanToken.substring(0, 20) + '...',
+        userPoolId: process.env.USER_POOL_ID,
+      });
       
-      // If mock auth is enabled and Cognito verification fails, provide helpful error
-      if (ENABLE_MOCK_AUTH) {
-        console.log('Cognito verification failed but mock auth is enabled. Use mock-dev-token-* for development.');
-      }
-      
-      throw new Error('Unauthorized');
+      throw new Error('Unauthorized: Invalid or expired Cognito JWT token');
     }
   } catch (error: any) {
     console.error('Authorization error:', error.message);

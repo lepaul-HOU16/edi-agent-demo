@@ -233,7 +233,7 @@ const WakeAnalysisArtifact: React.FC<WakeAnalysisArtifactProps> = ({ data, onFol
         )}
 
         {/* Performance Metrics Overview */}
-        <ColumnLayout columns={4} variant="text-grid">
+        <ColumnLayout columns={4} variant="text-grid" minColumnWidth={150}>
           <div>
             <Box variant="awsui-key-label">Annual Energy Production</Box>
             <div style={{ fontSize: '24px', fontWeight: 'bold', color: '#0972d3' }}>

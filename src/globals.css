@@ -659,7 +659,6 @@
   /* Layout */
   display: flex;
   align-items: center;
-  max-width: 900px;
   
   /* Re-enable pointer events */
   pointer-events: auto;

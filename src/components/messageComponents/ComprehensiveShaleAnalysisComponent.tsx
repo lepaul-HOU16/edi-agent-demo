@@ -277,12 +277,35 @@ export function ComprehensiveShaleAnalysisComponent({ data }: ComprehensiveShale
   if (!processedData) {
     return (
       <Card sx={{ p: 3, m: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <ErrorOutline color="warning" />
-          <Typography variant="body1" color="text.secondary">
-            No analysis data available
-          </Typography>
-        </Box>
+        <Box
+                sx={{
+                  padding: '40px 20px',
+                  textAlign: 'center',
+                  backgroundColor: isDark ? '#1f2937' : '#f8f9fa',
+                  borderRadius: '8px',
+                  marginTop: '12px'
+                }}
+              >
+                <Typography
+                  variant="h6"
+                  sx={{
+                    color: isDark ? '#9ca3af' : '#6c757d',
+                    marginBottom: '8px',
+                    fontSize: '16px'
+                  }}
+                >
+                  No AI reasoning process active
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: isDark ? '#6b7280' : '#868e96',
+                    fontSize: '13px'
+                  }}
+                >
+                  Submit a query to see the AI's step-by-step decision-making process
+                </Typography>
+              </Box>
       </Card>
     );
   }

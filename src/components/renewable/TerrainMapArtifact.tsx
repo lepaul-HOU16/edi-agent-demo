@@ -310,15 +310,15 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
             maxZoom: 19,
           });
 
-          // Add satellite as default (matching notebook)
-          satelliteLayer.addTo(map);
-          console.log('[TerrainMap] Satellite layer added');
+          // Add OSM as default (user preference)
+          osmLayer.addTo(map);
+          console.log('[TerrainMap] OSM layer added as default');
 
-          // Add layer control to switch between satellite and OSM
+          // Add layer control to switch between OSM and satellite
           L.control.layers(
             {
-              'Satellite': satelliteLayer,
               'Street Map': osmLayer,
+              'Satellite': satelliteLayer,
             },
             {},
             { position: 'topright' }
@@ -856,10 +856,10 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
             </Box>
           )}
         {/* Site Information */}
-        <ColumnLayout columns={4} variant="text-grid">
+        <ColumnLayout columns={4} variant="text-grid" minColumnWidth={150}>
           <div>
             <Box variant="awsui-key-label">Coordinates</Box>
-            <div>
+            <div style={{ wordBreak: 'break-word', fontSize: '14px' }}>
               {data.coordinates.lat.toFixed(6)}, {data.coordinates.lng.toFixed(6)}
             </div>
           </div>
@@ -873,7 +873,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
           </div>
           <div>
             <Box variant="awsui-key-label">Data Source</Box>
-            <div>OpenStreetMap</div>
+            <div style={{ wordBreak: 'break-word' }}>OpenStreetMap</div>
           </div>
         </ColumnLayout>
 
@@ -883,10 +883,10 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
             <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
               Feature Breakdown
             </Box>
-            <ColumnLayout columns={4} variant="text-grid">
+            <ColumnLayout columns={4} variant="text-grid" minColumnWidth={120}>
               {Object.entries(data.metrics.featuresByType).map(([type, count]) => (
                 <div key={type}>
-                  <Box variant="small" color="text-body-secondary">{type}</Box>
+                  <Box variant="small" color="text-body-secondary" style={{ wordBreak: 'break-word' }}>{type}</Box>
                   <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{count}</div>
                 </div>
               ))}
@@ -902,11 +902,13 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
           <div
             style={{
               width: '100%',
+              maxWidth: '100%',
               height: '600px',
               border: '1px solid #e9ebed',
               borderRadius: '8px',
               overflow: 'hidden',
               position: 'relative',
+              boxSizing: 'border-box',
             }}
           >
             {data.mapHtml || data.mapUrl ? (

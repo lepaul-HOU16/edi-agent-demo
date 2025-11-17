@@ -8,10 +8,12 @@ import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { handler as orchestratorHandler } from './handler';
 
 export const handler = async (
-  event: APIGatewayProxyEventV2
-): Promise<APIGatewayProxyResultV2> => {
+  event: any
+): Promise<any> => {
   try {
-    console.log('[Orchestrator Wrapper] Received API Gateway event');
+    console.log('[Orchestrator Wrapper] Received event');
+    console.log('[Orchestrator Wrapper] Event keys:', Object.keys(event));
+    console.log('[Orchestrator Wrapper] Has requestContext:', !!event.requestContext);
     console.log('[Orchestrator Wrapper] Event body:', event.body);
     console.log('[Orchestrator Wrapper] Event type:', typeof event.body);
     
@@ -21,10 +23,11 @@ export const handler = async (
     console.log('[Orchestrator Wrapper] Body keys:', Object.keys(body));
     
     // Extract user ID from authorizer (supports both Cognito JWT and custom authorizer)
-    const claims = event.requestContext.authorizer?.jwt?.claims;
-    const authContext = event.requestContext.authorizer as any;
+    // Handle case where requestContext might be undefined
+    const claims = event.requestContext?.authorizer?.jwt?.claims;
+    const authContext = event.requestContext?.authorizer as any;
     
-    const userId = claims?.sub || authContext?.lambda?.userId || authContext?.userId || 'unknown-user';
+    const userId = claims?.sub || authContext?.lambda?.userId || authContext?.userId || body.userId || 'unknown-user';
     const userEmail = claims?.email || authContext?.lambda?.email || authContext?.email || 'unknown@example.com';
     
     console.log(`[Orchestrator Wrapper] User: ${userId} (${userEmail})`);

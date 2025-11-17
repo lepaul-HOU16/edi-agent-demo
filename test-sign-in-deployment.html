@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign-In Deployment Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .success {
+            background-color: #d4edda;
+            border-color: #c3e6cb;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-color: #f5c6cb;
+        }
+        .pending {
+            background-color: #fff3cd;
+            border-color: #ffeaa7;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 5px;
+            cursor: pointer;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Sign-In Deployment Test</h1>
+    
+    <div class="test-section">
+        <h2>Test Instructions</h2>
+        <ol>
+            <li>Click "Test Frontend Deployment" to verify the app loads</li>
+            <li>Click "Test Sign-In Page" to verify the sign-in page is accessible</li>
+            <li>Click "Open Sign-In Page" to manually test the sign-in flow</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>Automated Tests</h2>
+        <button onclick="testFrontendDeployment()">Test Frontend Deployment</button>
+        <button onclick="testSignInPage()">Test Sign-In Page</button>
+        <button onclick="openSignInPage()">Open Sign-In Page</button>
+    </div>
+
+    <div id="results"></div>
+
+    <script>
+        const CLOUDFRONT_URL = 'https://d36sq31aqkfe46.cloudfront.net';
+        
+        function addResult(title, status, message) {
+            const resultsDiv = document.getElementById('results');
+            const resultDiv = document.createElement('div');
+            resultDiv.className = `test-section ${status}`;
+            resultDiv.innerHTML = `
+                <h3>${title}</h3>
+                <p>${message}</p>
+                <small>${new Date().toLocaleTimeString()}</small>
+            `;
+            resultsDiv.appendChild(resultDiv);
+        }
+
+        async function testFrontendDeployment() {
+            addResult('Frontend Deployment', 'pending', 'Testing...');
+            
+            try {
+                const response = await fetch(CLOUDFRONT_URL);
+                if (response.ok) {
+                    const html = await response.text();
+                    if (html.includes('<!DOCTYPE html>') || html.includes('<html')) {
+                        addResult('Frontend Deployment', 'success', 
+                            `✅ Frontend is deployed and accessible at ${CLOUDFRONT_URL}`);
+                    } else {
+                        addResult('Frontend Deployment', 'error', 
+                            '❌ Response received but does not appear to be valid HTML');
+                    }
+                } else {
+                    addResult('Frontend Deployment', 'error', 
+                        `❌ HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                addResult('Frontend Deployment', 'error', 
+                    `❌ Error: ${error.message}`);
+            }
+        }
+
+        async function testSignInPage() {
+            addResult('Sign-In Page', 'pending', 'Testing...');
+            
+            try {
+                const response = await fetch(`${CLOUDFRONT_URL}/sign-in/`);
+                if (response.ok) {
+                    const html = await response.text();
+                    if (html.includes('<!DOCTYPE html>') || html.includes('<html')) {
+                        addResult('Sign-In Page', 'success', 
+                            `✅ Sign-in page is accessible at ${CLOUDFRONT_URL}/sign-in/`);
+                    } else {
+                        addResult('Sign-In Page', 'error', 
+                            '❌ Response received but does not appear to be valid HTML');
+                    }
+                } else {
+                    addResult('Sign-In Page', 'error', 
+                        `❌ HTTP ${response.status}: ${response.statusText}`);
+                }
+            } catch (error) {
+                addResult('Sign-In Page', 'error', 
+                    `❌ Error: ${error.message}`);
+            }
+        }
+
+        function openSignInPage() {
+            addResult('Manual Test', 'pending', 
+                'Opening sign-in page in new tab. Please test the sign-in flow manually.');
+            window.open(`${CLOUDFRONT_URL}/sign-in/`, '_blank');
+        }
+
+        // Run initial tests on page load
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testFrontendDeployment();
+                setTimeout(() => testSignInPage(), 1000);
+            }, 500);
+        });
+    </script>
+</body>
+</html>

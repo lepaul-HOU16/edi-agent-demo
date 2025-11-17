@@ -72,8 +72,15 @@ export class RenewableProxyAgent extends BaseEnhancedAgent {
     conversationHistory?: any[],
     sessionContext?: { chatSessionId?: string; userId?: string }
   ): Promise<RouterResponse> {
-    console.log('🌱 RenewableProxyAgent: Processing query:', message.substring(0, 100) + '...');
-    console.log('🌱 RenewableProxyAgent: Session context:', sessionContext);
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🟠 BACKEND (Renewable Proxy Agent): Processing query');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('📝 Message:', message);
+    console.log('🆔 Session ID:', sessionContext?.chatSessionId);
+    console.log('👤 User ID:', sessionContext?.userId);
+    console.log('🎯 Orchestrator Function:', this.orchestratorFunctionName);
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('═══════════════════════════════════════════════════════════');
 
     // Create initial thought step
     const routingStep = createThoughtStep(
@@ -83,55 +90,131 @@ export class RenewableProxyAgent extends BaseEnhancedAgent {
     );
 
     try {
-      // Invoke Lambda orchestrator directly
-      console.log('🌱 RenewableProxyAgent: Invoking Lambda orchestrator:', this.orchestratorFunctionName);
-      
-      // Include session context for async result storage in DynamoDB
-      const payload = {
-        query: message,
-        context: {},
-        sessionId: sessionContext?.chatSessionId,
-        userId: sessionContext?.userId
+      // CRITICAL FIX: Orchestrator expects API Gateway event format
+      // Create a minimal API Gateway event structure
+      const apiGatewayEvent = {
+        body: JSON.stringify({
+          query: message,
+          context: {},
+          sessionId: sessionContext?.chatSessionId,
+          userId: sessionContext?.userId
+        }),
+        requestContext: {
+          authorizer: {
+            jwt: {
+              claims: {
+                sub: sessionContext?.userId || 'unknown-user',
+                email: 'user@example.com'
+              }
+            }
+          }
+        }
       };
+      
+      console.log('🟠 BACKEND (Proxy Agent): Preparing Lambda invocation');
+      console.log('📦 API Gateway Event:', JSON.stringify(apiGatewayEvent, null, 2));
       
       // CRITICAL FIX: Invoke synchronously to get results immediately
       // Async invocation was causing polling issues - results never appeared
       const command = new InvokeCommand({
         FunctionName: this.orchestratorFunctionName,
         InvocationType: 'RequestResponse', // Synchronous invocation - wait for results
-        Payload: JSON.stringify(payload)
+        Payload: JSON.stringify(apiGatewayEvent)
       });
       
-      console.log('🌱 RenewableProxyAgent: Invoking orchestrator synchronously (waiting for results)...');
+      console.log('🟠 BACKEND (Proxy Agent): Invoking orchestrator Lambda...');
+      console.log('   Function:', this.orchestratorFunctionName);
+      console.log('   Type: RequestResponse (synchronous)');
+      
       const invokeResponse = await this.lambdaClient.send(command);
-      console.log('🌱 RenewableProxyAgent: Orchestrator completed');
+      
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🟠 BACKEND (Proxy Agent): Orchestrator invocation complete');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('📊 Status Code:', invokeResponse.StatusCode);
+      console.log('📦 Has Payload:', !!invokeResponse.Payload);
+      console.log('❌ Function Error:', invokeResponse.FunctionError || 'none');
+      console.log('═══════════════════════════════════════════════════════════');
 
       // Parse the response
-      const responsePayload = JSON.parse(new TextDecoder().decode(invokeResponse.Payload));
-      console.log('🌱 RenewableProxyAgent: Orchestrator response:', {
-        success: responsePayload.success,
-        artifactCount: responsePayload.artifacts?.length || 0,
-        thoughtStepCount: responsePayload.thoughtSteps?.length || 0
-      });
+      const rawResponse = JSON.parse(new TextDecoder().decode(invokeResponse.Payload));
+      
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🟠 BACKEND (Proxy Agent): Raw orchestrator response');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('📦 Raw Response:', JSON.stringify(rawResponse, null, 2));
+      console.log('═══════════════════════════════════════════════════════════');
+      
+      // CRITICAL FIX: Orchestrator returns HTTP-style response with statusCode and body
+      // We need to parse the body to get the actual response
+      let responsePayload;
+      if (rawResponse.statusCode && rawResponse.body) {
+        // HTTP-style response from orchestrator
+        responsePayload = JSON.parse(rawResponse.body);
+        console.log('🟠 BACKEND (Proxy Agent): Parsed body from HTTP response');
+      } else {
+        // Direct response (shouldn't happen but handle it)
+        responsePayload = rawResponse;
+        console.log('🟠 BACKEND (Proxy Agent): Using direct response');
+      }
+      
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🟠 BACKEND (Proxy Agent): Orchestrator response parsed');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('✅ Success:', responsePayload.success);
+      console.log('📊 Artifact Count:', responsePayload.artifacts?.length || 0);
+      console.log('🧠 Thought Step Count:', responsePayload.thoughtSteps?.length || 0);
+      console.log('💬 Message:', responsePayload.message?.substring(0, 100) + '...');
+      console.log('📦 Full Response:', JSON.stringify(responsePayload, null, 2));
+      console.log('═══════════════════════════════════════════════════════════');
 
       // Complete routing step
       completeThoughtStep(routingStep, 'Analysis complete');
+
+      console.log('🟠 BACKEND (Proxy Agent): Transforming artifacts...');
+      console.log('🟠 BACKEND (Proxy Agent): Raw artifacts from orchestrator:', responsePayload.artifacts);
+      console.log('🟠 BACKEND (Proxy Agent): Artifacts type:', typeof responsePayload.artifacts);
+      console.log('🟠 BACKEND (Proxy Agent): Is array:', Array.isArray(responsePayload.artifacts));
+      
+      // CRITICAL FIX: Ensure artifacts is always an array
+      const artifactsArray = Array.isArray(responsePayload.artifacts) 
+        ? responsePayload.artifacts 
+        : (responsePayload.artifacts ? [responsePayload.artifacts] : []);
+      
+      console.log('🟠 BACKEND (Proxy Agent): Normalized artifacts array:', artifactsArray);
+      
+      const transformedArtifacts = this.transformArtifacts(artifactsArray);
+      console.log('✅ BACKEND (Proxy Agent): Transformed', transformedArtifacts.length, 'artifacts');
 
       // Return the actual results
       const response: RouterResponse = {
         success: responsePayload.success,
         message: responsePayload.message,
-        artifacts: this.transformArtifacts(responsePayload.artifacts || []),
+        artifacts: transformedArtifacts,
         thoughtSteps: [routingStep, ...this.transformThoughtSteps(responsePayload.thoughtSteps || [], routingStep)],
         agentUsed: 'renewable_energy',
       };
 
-      console.log('✅ RenewableProxyAgent: Returning results with', response.artifacts.length, 'artifacts');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🟠 BACKEND (Proxy Agent): Returning final response');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('✅ Success:', response.success);
+      console.log('📊 Artifacts:', response.artifacts?.length || 0);
+      console.log('🧠 Thought Steps:', response.thoughtSteps?.length || 0);
+      console.log('💬 Message Length:', response.message?.length || 0);
+      console.log('═══════════════════════════════════════════════════════════');
 
       return response;
 
     } catch (error) {
-      console.error('❌ RenewableProxyAgent: Error processing query', error);
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('❌ BACKEND (Proxy Agent): CRITICAL ERROR');
+      console.error('═══════════════════════════════════════════════════════════');
+      console.error('Error:', error);
+      console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+      console.error('Error message:', error instanceof Error ? error.message : String(error));
+      console.error('Stack:', error instanceof Error ? error.stack : 'No stack trace');
+      console.error('═══════════════════════════════════════════════════════════');
       return this.handleError(error, routingStep);
     }
   }
@@ -140,6 +223,12 @@ export class RenewableProxyAgent extends BaseEnhancedAgent {
    * Transform orchestrator artifacts to EDI format
    */
   private transformArtifacts(artifacts: any[]): any[] {
+    // CRITICAL FIX: Handle undefined/null artifacts
+    if (!artifacts || !Array.isArray(artifacts)) {
+      console.warn('⚠️ PROXY: Artifacts is not an array:', artifacts);
+      return [];
+    }
+    
     console.log('🔄 PROXY: Transforming artifacts, count:', artifacts.length);
     return artifacts.map((artifact, index) => {
       console.log(`🔍 PROXY: Artifact ${index + 1} type:`, artifact.type);

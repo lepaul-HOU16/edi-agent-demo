@@ -10,6 +10,7 @@
 - Node.js 20.x
 - AWS CLI configured with credentials
 - AWS CDK CLI: `npm install -g aws-cdk`
+- Cognito user account (see [User Management Guide](./docs/cognito-user-management.md))
 
 ### Installation
 
@@ -28,6 +29,19 @@ cd cdk && npm install && cd ..
 cp .env.local.example .env.local
 # Edit .env.local with your configuration
 ```
+
+### Authentication
+
+All users must authenticate with AWS Cognito to access the platform. See the [Authentication Guide](./docs/authentication-guide.md) for details.
+
+**First-time users:**
+1. Contact your administrator to create a Cognito user account
+2. You'll receive a temporary password via email
+3. Sign in at the application URL
+4. Set your permanent password when prompted
+
+**API access:**
+All API requests require a valid JWT token. See [API Authentication Documentation](./docs/api-authentication.md) for details.
 
 ### Development
 
@@ -214,7 +228,6 @@ All endpoints require JWT authentication via `Authorization: Bearer <token>` hea
 
 1. **MCP Server Cold Starts:** First request can take 2-3 minutes (Python package installation)
 2. **Large Artifact Storage:** Some visualizations exceed DynamoDB limits (using S3 fallback)
-3. **Authentication:** Currently using mock tokens for development (Cognito integration in progress)
 
 ---
 
@@ -394,11 +407,14 @@ EDI_PARTITION=osdu
 
 ## 🔒 Security
 
-- **Authentication:** Cognito JWT tokens
+- **Authentication:** AWS Cognito with JWT tokens (see [Authentication Guide](./docs/authentication-guide.md))
 - **Authorization:** Lambda authorizer validates all requests
-- **API Security:** CORS configured, HTTPS only
+- **Token Security:** Tokens stored in memory, transmitted over HTTPS only
+- **Password Policy:** Minimum 8 characters with uppercase, lowercase, numbers, and special characters
+- **API Security:** CORS configured, HTTPS only, rate limiting enabled
 - **Data Encryption:** At rest (S3, DynamoDB) and in transit (TLS)
 - **IAM:** Least privilege principle for all Lambda functions
+- **Monitoring:** Authentication events logged to CloudWatch
 
 ---
 
@@ -415,12 +431,21 @@ aws s3 ls s3://energyinsights-development-frontend-development/
 
 ### API returning 401 Unauthorized
 ```bash
-# Verify Cognito token
-aws cognito-idp initiate-auth \
-  --auth-flow USER_PASSWORD_AUTH \
+# Get a valid JWT token
+aws cognito-idp admin-initiate-auth \
+  --user-pool-id us-east-1_sC6yswGji \
   --client-id 18m99t0u39vi9614ssd8sf8vmb \
-  --auth-parameters USERNAME=<user>,PASSWORD=<pass>
+  --auth-flow ADMIN_NO_SRP_AUTH \
+  --auth-parameters USERNAME=<user>,PASSWORD=<pass> \
+  --region us-east-1
+
+# Test API with token
+TOKEN="<id-token-from-above>"
+curl -X GET https://hbt1j807qf.execute-api.us-east-1.amazonaws.com/api/chat/sessions \
+  -H "Authorization: Bearer $TOKEN"
 ```
+
+See [API Authentication Documentation](./docs/api-authentication.md) for more details.
 
 ### Lambda function errors
 ```bash
@@ -447,6 +472,14 @@ cdk deploy
 
 ## 📚 Documentation
 
+### User Documentation
+- **[Authentication Guide](./docs/authentication-guide.md)** - How to sign in and use the platform
+- **[API Authentication](./docs/api-authentication.md)** - API authentication and usage
+
+### Administrator Documentation
+- **[Cognito User Management](./docs/cognito-user-management.md)** - Creating and managing user accounts
+
+### Developer Documentation
 - **[INSTALLATION_AND_ARCHITECTURE.md](./INSTALLATION_AND_ARCHITECTURE.md)** - Detailed architecture and setup
 - **[.kiro/steering/](./kiro/steering/)** - Development guidelines and best practices
 - **[docs/](./docs/)** - Additional documentation and guides

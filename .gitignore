@@ -59,6 +59,7 @@ amplify/backend/api/*/pipelineFunctions/
 *credentials*
 .aws/
 config/secrets.json
+docs/test-cognito-users.md
 amplify/backend/api/*/build/
 amplify/backend/api/*/resolvers/
 amplify/backend/api/*/transform.out

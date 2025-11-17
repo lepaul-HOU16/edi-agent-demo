@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Flow Manual Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #232f3e;
+            border-bottom: 3px solid #ff9900;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #232f3e;
+            margin-top: 30px;
+        }
+        .test-step {
+            background: #f9f9f9;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #ff9900;
+            border-radius: 4px;
+        }
+        .test-step h3 {
+            margin-top: 0;
+            color: #232f3e;
+        }
+        .status {
+            display: inline-block;
+            padding: 5px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        .status.pending {
+            background: #ffc107;
+            color: #000;
+        }
+        .status.pass {
+            background: #4caf50;
+            color: white;
+        }
+        .status.fail {
+            background: #f44336;
+            color: white;
+        }
+        button {
+            background: #ff9900;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #ec7211;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            background: #e8f5e9;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #4caf50;
+        }
+        .error {
+            background: #ffebee;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 4px;
+            border-left: 4px solid #f44336;
+        }
+        .code {
+            background: #f5f5f5;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 8px;
+            margin: 5px 0;
+            background: #f9f9f9;
+            border-radius: 4px;
+        }
+        .checklist li:before {
+            content: "☐ ";
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        .checklist li.checked:before {
+            content: "☑ ";
+            color: #4caf50;
+        }
+        #testResults {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔐 Complete Authentication Flow Test</h1>
+        <p>This page helps you manually verify the complete authentication flow for the application.</p>
+        
+        <div class="test-step">
+            <h3>Prerequisites</h3>
+            <ul class="checklist">
+                <li id="check-deployed">Backend deployed with ENABLE_MOCK_AUTH=false</li>
+                <li id="check-frontend">Frontend deployed with sign-in page</li>
+                <li id="check-user">Test user created in Cognito</li>
+                <li id="check-credentials">Test credentials available</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Test Steps</h2>
+        
+        <div class="test-step">
+            <h3>Step 1: Verify Sign-In Page Redirect</h3>
+            <p><span class="status pending" id="status-1">PENDING</span></p>
+            <ol>
+                <li>Open the application in a new incognito/private window</li>
+                <li>Navigate to the main application URL</li>
+                <li>Verify you are redirected to <code>/auth</code> sign-in page</li>
+                <li>Verify the sign-in form is displayed with username and password fields</li>
+            </ol>
+            <button onclick="markStep(1, 'pass')">✓ Pass</button>
+            <button onclick="markStep(1, 'fail')">✗ Fail</button>
+            <div id="result-1"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 2: Test Sign-In with Valid Credentials</h3>
+            <p><span class="status pending" id="status-2">PENDING</span></p>
+            <ol>
+                <li>Enter valid Cognito username</li>
+                <li>Enter valid password</li>
+                <li>Click "Sign In" button</li>
+                <li>Verify loading state is shown</li>
+                <li>Verify successful authentication</li>
+                <li>Verify redirect to main application</li>
+            </ol>
+            <button onclick="markStep(2, 'pass')">✓ Pass</button>
+            <button onclick="markStep(2, 'fail')">✗ Fail</button>
+            <div id="result-2"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 3: Verify JWT Token in Requests</h3>
+            <p><span class="status pending" id="status-3">PENDING</span></p>
+            <ol>
+                <li>Open browser DevTools (F12)</li>
+                <li>Go to Network tab</li>
+                <li>Make an API request (e.g., create a chat session)</li>
+                <li>Find the API request in Network tab</li>
+                <li>Check Request Headers</li>
+                <li>Verify <code>Authorization: Bearer &lt;JWT-token&gt;</code> header exists</li>
+                <li>Verify token is a valid JWT (3 parts separated by dots)</li>
+            </ol>
+            <button onclick="markStep(3, 'pass')">✓ Pass</button>
+            <button onclick="markStep(3, 'fail')">✗ Fail</button>
+            <div id="result-3"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 4: Verify API Requests Succeed</h3>
+            <p><span class="status pending" id="status-4">PENDING</span></p>
+            <ol>
+                <li>Try creating a new chat session</li>
+                <li>Verify the request succeeds (200/201 status)</li>
+                <li>Try sending a chat message</li>
+                <li>Verify the message is sent successfully</li>
+                <li>Try accessing other protected features</li>
+                <li>Verify all features work correctly</li>
+            </ol>
+            <button onclick="markStep(4, 'pass')">✓ Pass</button>
+            <button onclick="markStep(4, 'fail')">✗ Fail</button>
+            <div id="result-4"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 5: Verify CloudWatch Logs</h3>
+            <p><span class="status pending" id="status-5">PENDING</span></p>
+            <ol>
+                <li>Open AWS Console</li>
+                <li>Navigate to CloudWatch Logs</li>
+                <li>Find log group: <code>/aws/lambda/EnergyInsights-development-custom-authorizer</code></li>
+                <li>Check recent log streams</li>
+                <li>Verify logs show "JWT validation successful" or similar</li>
+                <li>Verify no authentication errors</li>
+            </ol>
+            <button onclick="testCloudWatchLogs()">🔍 Check Logs</button>
+            <button onclick="markStep(5, 'pass')">✓ Pass</button>
+            <button onclick="markStep(5, 'fail')">✗ Fail</button>
+            <div id="result-5"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 6: Test Sign-Out</h3>
+            <p><span class="status pending" id="status-6">PENDING</span></p>
+            <ol>
+                <li>Click "Sign Out" button in navigation</li>
+                <li>Verify session is cleared</li>
+                <li>Verify redirect to sign-in page</li>
+                <li>Try accessing a protected route directly</li>
+                <li>Verify redirect back to sign-in page</li>
+            </ol>
+            <button onclick="markStep(6, 'pass')">✓ Pass</button>
+            <button onclick="markStep(6, 'fail')">✗ Fail</button>
+            <div id="result-6"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 7: Test Invalid Credentials</h3>
+            <p><span class="status pending" id="status-7">PENDING</span></p>
+            <ol>
+                <li>Go to sign-in page</li>
+                <li>Enter invalid username or password</li>
+                <li>Click "Sign In"</li>
+                <li>Verify error message is displayed</li>
+                <li>Verify user remains on sign-in page</li>
+                <li>Verify no access to protected features</li>
+            </ol>
+            <button onclick="markStep(7, 'pass')">✓ Pass</button>
+            <button onclick="markStep(7, 'fail')">✗ Fail</button>
+            <div id="result-7"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Step 8: Test Expired Token Handling</h3>
+            <p><span class="status pending" id="status-8">PENDING</span></p>
+            <ol>
+                <li>Sign in successfully</li>
+                <li>Wait for token to expire (or manually expire in DevTools)</li>
+                <li>Try making an API request</li>
+                <li>Verify 401 Unauthorized response</li>
+                <li>Verify redirect to sign-in page</li>
+                <li>Verify can sign in again successfully</li>
+            </ol>
+            <button onclick="markStep(8, 'pass')">✓ Pass</button>
+            <button onclick="markStep(8, 'fail')">✗ Fail</button>
+            <div id="result-8"></div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Test Summary</h2>
+        <div id="testResults">
+            <p>Complete the test steps above to see results.</p>
+        </div>
+        <button onclick="generateReport()">📊 Generate Report</button>
+    </div>
+
+    <div class="container">
+        <h2>Automated API Tests</h2>
+        <p>These tests verify the API authentication programmatically:</p>
+        
+        <div class="test-step">
+            <h3>Test: API with Valid Token</h3>
+            <button onclick="testValidToken()">Run Test</button>
+            <div id="result-valid-token"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Test: API with Invalid Token</h3>
+            <button onclick="testInvalidToken()">Run Test</button>
+            <div id="result-invalid-token"></div>
+        </div>
+
+        <div class="test-step">
+            <h3>Test: API without Token</h3>
+            <button onclick="testNoToken()">Run Test</button>
+            <div id="result-no-token"></div>
+        </div>
+    </div>
+
+    <script>
+        const results = {};
+        const API_BASE = 'https://hbt1j807qf.execute-api.us-east-1.amazonaws.com';
+
+        function markStep(step, status) {
+            results[step] = status;
+            const statusEl = document.getElementById(`status-${step}`);
+            statusEl.className = `status ${status}`;
+            statusEl.textContent = status.toUpperCase();
+            
+            const resultEl = document.getElementById(`result-${step}`);
+            if (status === 'pass') {
+                resultEl.innerHTML = '<div class="result">✓ Test passed</div>';
+            } else {
+                resultEl.innerHTML = '<div class="error">✗ Test failed - please review and retry</div>';
+            }
+            
+            updateSummary();
+        }
+
+        function updateSummary() {
+            const total = Object.keys(results).length;
+            const passed = Object.values(results).filter(r => r === 'pass').length;
+            const failed = Object.values(results).filter(r => r === 'fail').length;
+            
+            const summaryHTML = `
+                <div class="result">
+                    <h3>Results</h3>
+                    <p><strong>Total Tests:</strong> ${total}</p>
+                    <p><strong>Passed:</strong> ${passed}</p>
+                    <p><strong>Failed:</strong> ${failed}</p>
+                    <p><strong>Success Rate:</strong> ${total > 0 ? ((passed / total) * 100).toFixed(1) : 0}%</p>
+                </div>
+            `;
+            
+            document.getElementById('testResults').innerHTML = summaryHTML;
+        }
+
+        function generateReport() {
+            const report = {
+                timestamp: new Date().toISOString(),
+                results: results,
+                summary: {
+                    total: Object.keys(results).length,
+                    passed: Object.values(results).filter(r => r === 'pass').length,
+                    failed: Object.values(results).filter(r => r === 'fail').length
+                }
+            };
+            
+            console.log('Test Report:', report);
+            alert('Test report generated. Check browser console for details.');
+        }
+
+        async function testValidToken() {
+            const resultEl = document.getElementById('result-valid-token');
+            resultEl.innerHTML = '<p>Testing... (Note: This requires a valid token from sign-in)</p>';
+            
+            try {
+                // This would need actual token from Cognito sign-in
+                resultEl.innerHTML = '<div class="error">⚠️ This test requires manual sign-in first to get a valid token. Use browser DevTools to copy the token from a successful request.</div>';
+            } catch (error) {
+                resultEl.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testInvalidToken() {
+            const resultEl = document.getElementById('result-invalid-token');
+            resultEl.innerHTML = '<p>Testing with invalid token...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer invalid-token-12345',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: 'Test Session' })
+                });
+                
+                if (response.status === 401 || response.status === 403) {
+                    resultEl.innerHTML = '<div class="result">✓ Invalid token correctly rejected (401/403)</div>';
+                } else {
+                    resultEl.innerHTML = `<div class="error">✗ Unexpected status: ${response.status}</div>`;
+                }
+            } catch (error) {
+                resultEl.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testNoToken() {
+            const resultEl = document.getElementById('result-no-token');
+            resultEl.innerHTML = '<p>Testing without token...</p>';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/chat/sessions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: 'Test Session' })
+                });
+                
+                if (response.status === 401 || response.status === 403) {
+                    resultEl.innerHTML = '<div class="result">✓ Request without token correctly rejected (401/403)</div>';
+                } else {
+                    resultEl.innerHTML = `<div class="error">✗ Unexpected status: ${response.status}</div>`;
+                }
+            } catch (error) {
+                resultEl.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+            }
+        }
+
+        async function testCloudWatchLogs() {
+            const resultEl = document.getElementById('result-5');
+            resultEl.innerHTML = '<div class="result">⚠️ CloudWatch logs must be checked in AWS Console. See instructions above.</div>';
+        }
+    </script>
+</body>
+</html>

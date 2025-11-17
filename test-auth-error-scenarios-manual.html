@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authentication Error Scenarios - Manual Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #232f3e;
+            border-bottom: 3px solid #ff9900;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #232f3e;
+            margin-top: 30px;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-case {
+            margin: 15px 0;
+            padding: 15px;
+            background: #f9f9f9;
+            border-left: 4px solid #ff9900;
+        }
+        .test-case h3 {
+            margin-top: 0;
+            color: #232f3e;
+        }
+        .steps {
+            margin: 10px 0;
+        }
+        .step {
+            padding: 8px 0;
+            display: flex;
+            align-items: flex-start;
+        }
+        .step-number {
+            background: #ff9900;
+            color: white;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 10px;
+            flex-shrink: 0;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        .expected {
+            background: #e8f5e9;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #4caf50;
+        }
+        .expected strong {
+            color: #2e7d32;
+        }
+        .checkbox {
+            margin: 10px 0;
+        }
+        .checkbox input {
+            margin-right: 8px;
+        }
+        .requirement {
+            background: #e3f2fd;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #2196f3;
+            font-weight: bold;
+        }
+        .warning {
+            background: #fff3e0;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #ff9800;
+        }
+        .success {
+            background: #e8f5e9;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #4caf50;
+        }
+        .error {
+            background: #ffebee;
+            padding: 10px;
+            margin: 10px 0;
+            border-left: 4px solid #f44336;
+        }
+        button {
+            background: #ff9900;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #ec7211;
+        }
+        .summary {
+            background: #232f3e;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .summary h2 {
+            color: #ff9900;
+            margin-top: 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔐 Authentication Error Scenarios - Manual Test Suite</h1>
+    
+    <div class="summary">
+        <h2>Test Overview</h2>
+        <p><strong>Purpose:</strong> Verify authentication error handling in the browser</p>
+        <p><strong>Requirements:</strong> 7.2, 7.3, 7.4</p>
+        <p><strong>Prerequisites:</strong></p>
+        <ul>
+            <li>Application deployed and accessible</li>
+            <li>Test user credentials available</li>
+            <li>Browser DevTools ready for inspection</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 1: Invalid Credentials - Wrong Username</h2>
+        <div class="requirement">Requirement 7.2: Test with invalid credentials (should show error)</div>
+        
+        <div class="test-case">
+            <h3>Test Steps:</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>Open the application in a new incognito/private window</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Navigate to the sign-in page (should redirect automatically)</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span>Enter an invalid username: <code>nonexistent_user_12345</code></span>
+                </div>
+                <div class="step">
+                    <span class="step-number">4</span>
+                    <span>Enter any password: <code>TestPassword123!</code></span>
+                </div>
+                <div class="step">
+                    <span class="step-number">5</span>
+                    <span>Click "Sign In" button</span>
+                </div>
+            </div>
+            
+            <div class="expected">
+                <strong>Expected Result:</strong>
+                <ul>
+                    <li>❌ Sign-in should fail</li>
+                    <li>📝 Error message should be displayed</li>
+                    <li>💬 Error message should be clear: "User not found" or "Incorrect username or password"</li>
+                    <li>🔄 User should remain on sign-in page</li>
+                    <li>✏️ Form should be ready for another attempt</li>
+                </ul>
+            </div>
+            
+            <div class="checkbox">
+                <input type="checkbox" id="test1-pass">
+                <label for="test1-pass">✅ Test passed - Error message is clear and helpful</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="test1-fail">
+                <label for="test1-fail">❌ Test failed - Error message is unclear or missing</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Invalid Credentials - Wrong Password</h2>
+        <div class="requirement">Requirement 7.2: Test with invalid credentials (should show error)</div>
+        
+        <div class="test-case">
+            <h3>Test Steps:</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>On the sign-in page, enter a valid username (your test user)</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Enter an incorrect password: <code>WrongPassword123!</code></span>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span>Click "Sign In" button</span>
+                </div>
+            </div>
+            
+            <div class="expected">
+                <strong>Expected Result:</strong>
+                <ul>
+                    <li>❌ Sign-in should fail</li>
+                    <li>📝 Error message should be displayed</li>
+                    <li>💬 Error message should be clear: "Incorrect username or password"</li>
+                    <li>🔄 User should remain on sign-in page</li>
+                    <li>🔒 Password field should be cleared for security</li>
+                </ul>
+            </div>
+            
+            <div class="checkbox">
+                <input type="checkbox" id="test2-pass">
+                <label for="test2-pass">✅ Test passed - Error message is clear and helpful</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="test2-fail">
+                <label for="test2-fail">❌ Test failed - Error message is unclear or missing</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Empty Credentials</h2>
+        <div class="requirement">Requirement 7.2: Test with invalid credentials (should show error)</div>
+        
+        <div class="test-case">
+            <h3>Test Steps:</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>On the sign-in page, leave username field empty</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Leave password field empty</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span>Click "Sign In" button</span>
+                </div>
+            </div>
+            
+            <div class="expected">
+                <strong>Expected Result:</strong>
+                <ul>
+                    <li>❌ Sign-in should fail</li>
+                    <li>📝 Error message should be displayed</li>
+                    <li>💬 Error message should be clear: "Please enter your username or email"</li>
+                    <li>🔄 User should remain on sign-in page</li>
+                </ul>
+            </div>
+            
+            <div class="checkbox">
+                <input type="checkbox" id="test3-pass">
+                <label for="test3-pass">✅ Test passed - Validation works correctly</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="test3-fail">
+                <label for="test3-fail">❌ Test failed - No validation or unclear message</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Expired Token Scenario</h2>
+        <div class="requirement">Requirement 7.3: Test with expired token (should prompt re-authentication)</div>
+        
+        <div class="warning">
+            <strong>⚠️ Note:</strong> This test requires waiting for token expiration (typically 1 hour) or manually manipulating browser storage.
+        </div>
+        
+        <div class="test-case">
+            <h3>Test Steps (Option 1 - Wait for expiration):</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>Sign in with valid credentials</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Wait for token to expire (typically 1 hour)</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span>Try to use the application (navigate to a page, make a request)</span>
+                </div>
+            </div>
+            
+            <h3>Test Steps (Option 2 - Simulate expiration):</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>Sign in with valid credentials</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Open Browser DevTools → Application/Storage → Local Storage</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span>Clear Cognito session data</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">4</span>
+                    <span>Try to use the application</span>
+                </div>
+            </div>
+            
+            <div class="expected">
+                <strong>Expected Result:</strong>
+                <ul>
+                    <li>🔄 Application should detect expired/missing session</li>
+                    <li>↩️ User should be redirected to sign-in page</li>
+                    <li>📝 Optional: Message indicating session expired</li>
+                    <li>🔐 User can sign in again to continue</li>
+                </ul>
+            </div>
+            
+            <div class="checkbox">
+                <input type="checkbox" id="test4-pass">
+                <label for="test4-pass">✅ Test passed - Expired token prompts re-authentication</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="test4-fail">
+                <label for="test4-fail">❌ Test failed - Expired token not handled properly</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: No Authentication - Direct Route Access</h2>
+        <div class="requirement">Requirement 7.4: Test without authentication (should reject with 401)</div>
+        
+        <div class="test-case">
+            <h3>Test Steps:</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>Open a new incognito/private browser window</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Try to access a protected route directly (e.g., /chat, /catalog)</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span>Observe the behavior</span>
+                </div>
+            </div>
+            
+            <div class="expected">
+                <strong>Expected Result:</strong>
+                <ul>
+                    <li>🚫 Access should be denied</li>
+                    <li>↩️ User should be redirected to /sign-in page</li>
+                    <li>🔐 Protected content should not be visible</li>
+                    <li>📝 No error messages needed (silent redirect is acceptable)</li>
+                </ul>
+            </div>
+            
+            <div class="checkbox">
+                <input type="checkbox" id="test5-pass">
+                <label for="test5-pass">✅ Test passed - Protected routes require authentication</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="test5-fail">
+                <label for="test5-fail">❌ Test failed - Protected routes accessible without auth</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 6: API Request Without Authentication</h2>
+        <div class="requirement">Requirement 7.4: Test without authentication (should reject with 401)</div>
+        
+        <div class="test-case">
+            <h3>Test Steps:</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>Open Browser DevTools → Console</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Run this command to make an API request without authentication:</span>
+                </div>
+            </div>
+            
+            <pre style="background: #f5f5f5; padding: 15px; border-radius: 4px; overflow-x: auto;">
+fetch('https://hbt1j807qf.execute-api.us-east-1.amazonaws.com/api/chat/sessions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Test Session' })
+})
+.then(r => r.json())
+.then(console.log)
+.catch(console.error);
+            </pre>
+            
+            <div class="expected">
+                <strong>Expected Result:</strong>
+                <ul>
+                    <li>❌ Request should fail with 401 Unauthorized</li>
+                    <li>📝 Response should contain error message</li>
+                    <li>🔒 No data should be returned</li>
+                    <li>📊 Check Network tab: Status should be 401</li>
+                </ul>
+            </div>
+            
+            <div class="checkbox">
+                <input type="checkbox" id="test6-pass">
+                <label for="test6-pass">✅ Test passed - API rejects unauthenticated requests</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="test6-fail">
+                <label for="test6-fail">❌ Test failed - API accepts unauthenticated requests</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 7: Sign-Out Functionality</h2>
+        <div class="requirement">Additional: Test sign-out (should clear session and redirect)</div>
+        
+        <div class="test-case">
+            <h3>Test Steps:</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>Sign in with valid credentials</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Verify you can access the application</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span>Click the "Sign Out" button in the navigation</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">4</span>
+                    <span>Observe the behavior</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">5</span>
+                    <span>Try to access a protected route</span>
+                </div>
+            </div>
+            
+            <div class="expected">
+                <strong>Expected Result:</strong>
+                <ul>
+                    <li>🚪 Sign-out should succeed</li>
+                    <li>↩️ User should be redirected to /sign-in page</li>
+                    <li>🗑️ Session should be cleared from browser</li>
+                    <li>🚫 Attempting to access protected routes should redirect to sign-in</li>
+                    <li>🔐 User must sign in again to access the application</li>
+                </ul>
+            </div>
+            
+            <div class="checkbox">
+                <input type="checkbox" id="test7-pass">
+                <label for="test7-pass">✅ Test passed - Sign-out clears session and redirects</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="test7-fail">
+                <label for="test7-fail">❌ Test failed - Sign-out doesn't work properly</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 8: Error Message Clarity</h2>
+        <div class="requirement">Additional: Verify error messages are clear and helpful</div>
+        
+        <div class="test-case">
+            <h3>Evaluation Criteria:</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>Review all error messages encountered in previous tests</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Evaluate each message for clarity</span>
+                </div>
+            </div>
+            
+            <div class="expected">
+                <strong>Good Error Messages Should:</strong>
+                <ul>
+                    <li>✅ Be written in plain language (no technical jargon)</li>
+                    <li>✅ Clearly state what went wrong</li>
+                    <li>✅ Suggest how to fix the problem (when applicable)</li>
+                    <li>✅ Be visible and easy to read</li>
+                    <li>✅ Disappear when user takes action</li>
+                </ul>
+            </div>
+            
+            <div class="expected">
+                <strong>Examples of Good Messages:</strong>
+                <ul>
+                    <li>✅ "Incorrect username or password"</li>
+                    <li>✅ "Please enter your username or email"</li>
+                    <li>✅ "Your session has expired. Please sign in again"</li>
+                </ul>
+            </div>
+            
+            <div class="error">
+                <strong>Examples of Bad Messages:</strong>
+                <ul>
+                    <li>❌ "Error: NotAuthorizedException"</li>
+                    <li>❌ "Authentication failed with code 401"</li>
+                    <li>❌ "Invalid JWT token signature"</li>
+                </ul>
+            </div>
+            
+            <div class="checkbox">
+                <input type="checkbox" id="test8-pass">
+                <label for="test8-pass">✅ Test passed - All error messages are clear and helpful</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="test8-fail">
+                <label for="test8-fail">❌ Test failed - Some error messages need improvement</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 9: Browser DevTools Verification</h2>
+        <div class="requirement">Additional: Verify authentication flow in browser</div>
+        
+        <div class="test-case">
+            <h3>Test Steps:</h3>
+            <div class="steps">
+                <div class="step">
+                    <span class="step-number">1</span>
+                    <span>Open Browser DevTools (F12)</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">2</span>
+                    <span>Go to Network tab</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">3</span>
+                    <span>Sign in with valid credentials</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">4</span>
+                    <span>Make an API request (e.g., create a chat session)</span>
+                </div>
+                <div class="step">
+                    <span class="step-number">5</span>
+                    <span>Inspect the API request in Network tab</span>
+                </div>
+            </div>
+            
+            <div class="expected">
+                <strong>Expected Result:</strong>
+                <ul>
+                    <li>🔐 Request should include Authorization header</li>
+                    <li>🎫 Authorization header should contain: <code>Bearer &lt;JWT-token&gt;</code></li>
+                    <li>✅ Request should succeed (200/201 status)</li>
+                    <li>📊 Response should contain expected data</li>
+                    <li>🚫 No mock tokens should be visible</li>
+                </ul>
+            </div>
+            
+            <div class="checkbox">
+                <input type="checkbox" id="test9-pass">
+                <label for="test9-pass">✅ Test passed - JWT tokens are properly included in requests</label>
+            </div>
+            <div class="checkbox">
+                <input type="checkbox" id="test9-fail">
+                <label for="test9-fail">❌ Test failed - Authorization headers missing or incorrect</label>
+            </div>
+        </div>
+    </div>
+
+    <div class="summary">
+        <h2>📊 Test Summary</h2>
+        <p>After completing all tests, review your results:</p>
+        <ul>
+            <li>Count how many tests passed ✅</li>
+            <li>Count how many tests failed ❌</li>
+            <li>Document any issues found</li>
+            <li>Report results to the development team</li>
+        </ul>
+        
+        <h3>Requirements Coverage:</h3>
+        <ul>
+            <li>✅ Requirement 7.2: Invalid credentials tested (Tests 1-3)</li>
+            <li>✅ Requirement 7.3: Expired token tested (Test 4)</li>
+            <li>✅ Requirement 7.4: No authentication tested (Tests 5-6)</li>
+            <li>✅ Additional: Sign-out tested (Test 7)</li>
+            <li>✅ Additional: Error messages verified (Test 8)</li>
+            <li>✅ Additional: DevTools verification (Test 9)</li>
+        </ul>
+        
+        <h3>Success Criteria:</h3>
+        <p>All tests should pass for authentication to be considered complete:</p>
+        <ul>
+            <li>✅ Invalid credentials show clear error messages</li>
+            <li>✅ Expired tokens prompt re-authentication</li>
+            <li>✅ Unauthenticated requests are rejected with 401</li>
+            <li>✅ Sign-out clears session and redirects</li>
+            <li>✅ Error messages are clear and helpful</li>
+        </ul>
+    </div>
+
+    <div style="text-align: center; margin: 40px 0;">
+        <button onclick="window.print()">🖨️ Print Test Results</button>
+        <button onclick="location.reload()">🔄 Reset Checkboxes</button>
+    </div>
+
+    <script>
+        // Save checkbox state to localStorage
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            // Load saved state
+            const saved = localStorage.getItem(checkbox.id);
+            if (saved === 'true') {
+                checkbox.checked = true;
+            }
+            
+            // Save state on change
+            checkbox.addEventListener('change', () => {
+                localStorage.setItem(checkbox.id, checkbox.checked);
+            });
+        });
+    </script>
+</body>
+</html>

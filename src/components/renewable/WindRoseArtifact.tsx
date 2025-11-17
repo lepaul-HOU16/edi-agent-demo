@@ -345,7 +345,7 @@ const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFo
         )}
 
         {stats && (
-          <ColumnLayout columns={4} variant="text-grid">
+          <ColumnLayout columns={4} variant="text-grid" minColumnWidth={150}>
             <div>
               <Box variant="awsui-key-label">Avg Wind Speed</Box>
               <div style={{ fontSize: '18px', fontWeight: 'bold' }}>

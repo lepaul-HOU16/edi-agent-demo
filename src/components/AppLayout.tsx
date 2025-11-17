@@ -4,6 +4,7 @@ import TopNavigation from "@cloudscape-design/components/top-navigation";
 import { applyMode, Mode } from '@cloudscape-design/global-styles';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 import LightModeIcon from '@mui/icons-material/LightMode';
+import { cognitoAuth } from '@/lib/auth/cognitoAuth';
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -12,6 +13,8 @@ interface AppLayoutProps {
 const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
   const navigate = useNavigate();
   const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [userInfo, setUserInfo] = useState<{ username: string; email: string } | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
 
   useEffect(() => {
     // Load saved mode on mount
@@ -21,6 +24,27 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
         setDarkMode(savedMode === 'true');
       }
     }
+  }, []);
+
+  useEffect(() => {
+    // Load user info on mount
+    const loadUserInfo = async () => {
+      try {
+        const authenticated = await cognitoAuth.isAuthenticated();
+        setIsAuthenticated(authenticated);
+        
+        if (authenticated) {
+          const info = await cognitoAuth.getUserInfo();
+          setUserInfo(info);
+        }
+      } catch (error) {
+        console.error('Failed to load user info:', error);
+        setIsAuthenticated(false);
+        setUserInfo(null);
+      }
+    };
+    
+    loadUserInfo();
   }, []);
 
   useEffect(() => {
@@ -43,6 +67,17 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
 
   const handleCreateNewChat = () => {
     navigate('/create-new-chat');
+  };
+
+  const handleSignOut = () => {
+    cognitoAuth.signOut();
+    setUserInfo(null);
+    setIsAuthenticated(false);
+    navigate('/sign-in');
+  };
+
+  const handleSignIn = () => {
+    navigate('/sign-in');
   };
 
   return (
@@ -159,7 +194,35 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
             title: darkMode ? 'Switch to light mode' : 'Switch to dark mode',
             onClick: toggleDarkMode,
           },
-
+          ...(isAuthenticated && userInfo ? [
+            {
+              type: 'menu-dropdown' as const,
+              text: userInfo.email || userInfo.username,
+              iconName: 'user-profile' as const,
+              onItemClick: ({ detail }: any) => {
+                if (detail.id === 'signout') {
+                  handleSignOut();
+                }
+              },
+              items: [
+                {
+                  id: 'profile',
+                  text: userInfo.email,
+                  disabled: true,
+                },
+                {
+                  id: 'signout',
+                  text: 'Sign Out',
+                },
+              ],
+            }
+          ] : [
+            {
+              type: 'button' as const,
+              text: 'Sign In',
+              onClick: handleSignIn,
+            }
+          ]),
         ]}
       />
       <div style={{

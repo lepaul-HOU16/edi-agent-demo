@@ -1,12 +1,10 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { Message } from '@/utils/types';
 import ChatMessage from './ChatMessage';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { 
   Table, 
-  Header, 
-  Pagination, 
   ButtonDropdown, 
   Button, 
   Spinner,
@@ -14,53 +12,19 @@ import {
 } from '@cloudscape-design/components';
 import ExpandablePromptInput from './ExpandablePromptInput';
 import { OSDUSearchResponse, OSDUErrorResponse } from './OSDUSearchResponse';
-import { v4 as uuidv4 } from 'uuid';
 import { OSDUQueryBuilder } from './OSDUQueryBuilder';
 import type { QueryCriterion } from './OSDUQueryBuilder';
 import { ExpandableSection, Grid } from '@cloudscape-design/components';
 
 // Enhanced component to render professional geoscientist content instead of boring tables
-function ProfessionalGeoscientistDisplay({ 
-  tableData, 
-  searchQuery, 
-  queryType, 
-  weatherData 
+// Memoized to prevent unnecessary re-renders
+const ProfessionalGeoscientistDisplay = React.memo(({ 
+  tableData
 }: { 
-  tableData: any[], 
-  searchQuery: string, 
-  queryType?: string,
-  weatherData?: any 
-}) {
-  
-  // Convert table data to well data format for the dashboard
-  const wellsData = tableData.map(item => ({
-    name: item.name || item.Name || `Well-${Math.random().toString().substr(2, 3)}`,
-    type: item.type || item.Type || 'Production',
-    depth: item.depth || item.Depth || 'Unknown',
-    location: item.location || item.Location || 'Offshore',
-    operator: item.operator || item.Operator || 'Unknown',
-    coordinates: [
-      parseFloat(item.longitude) || 114.5 + Math.random() * 0.1,
-      parseFloat(item.latitude) || 10.4 + Math.random() * 0.1
-    ] as [number, number]
-  }));
-
-  // Check if we should show professional dashboard vs simple table
-  const shouldShowProfessionalDashboard = 
-    wellsData.length <= 50 && // Don't overwhelm with too many wells
-    (searchQuery.toLowerCase().includes('well') || 
-     searchQuery.toLowerCase().includes('weather') ||
-     searchQuery.toLowerCase().includes('analysis') ||
-     searchQuery.toLowerCase().includes('field'));
-
-  // Always show simple table in chat - visualizations moved to analytics tab
-  console.log('📋 Rendering simple data table in chat (visualizations in analytics tab)');
-
-  // Fallback to simple table for very large datasets
-  console.log('📋 Rendering simple table for large dataset:', wellsData.length, 'items');
-  
+  tableData: any[]
+}) => {
   // Generate column definitions dynamically based on the first item's keys
-  const generateColumnDefinitions = () => {
+  const columnDefinitions = useMemo(() => {
     if (!tableData || tableData.length === 0) return [];
     
     const firstItem = tableData[0];
@@ -72,9 +36,7 @@ function ProfessionalGeoscientistDisplay({
         cell: (item: any) => item[key]?.toString() || "N/A",
         sortingField: key
       }));
-  };
-
-  const columnDefinitions = generateColumnDefinitions();
+  }, [tableData]);
 
   return (
     <div 
@@ -97,20 +59,19 @@ function ProfessionalGeoscientistDisplay({
         <Table
           columnDefinitions={columnDefinitions}
           items={tableData}
-          trackBy={(item) => item.name || `item-${Math.random()}`}
+          trackBy={(item) => item.name || item.id || JSON.stringify(item)}
         />
       </div>
     </div>
   );
-}
+});
 
 // Enhanced AI message component that renders professional geoscientist content
-function CustomAIMessage({ message, originalSearchQuery }: { message: Message, originalSearchQuery?: string }) {
+// Memoized to prevent unnecessary re-renders
+const CustomAIMessage = React.memo(({ message, originalSearchQuery }: { message: Message, originalSearchQuery?: string }) => {
   const [tableData, setTableData] = useState<any[] | null>(null);
-  const [queryType, setQueryType] = useState<string>('general');
-  const [weatherData, setWeatherData] = useState<any>(null);
   
-  // Parse the message content to extract table data, OSDU responses, and determine query type
+  // Parse the message content to extract table data and OSDU responses
   useEffect(() => {
     // Access the text content safely
     const messageText = typeof message.content === 'object' && message.content && 'text' in message.content 
@@ -123,18 +84,13 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
         const osduResponseMatch = messageText.match(/```osdu-search-response\n([\s\S]*?)\n```/);
         if (osduResponseMatch && osduResponseMatch[1]) {
           const osduData = JSON.parse(osduResponseMatch[1]);
-          setQueryType('osdu-search');
           setTableData(osduData.records || []);
-          console.log('🔍 OSDU search response detected:', osduData.recordCount, 'records');
           return;
         }
         
         // Check for OSDU error response format
         const osduErrorMatch = messageText.match(/```osdu-error-response\n([\s\S]*?)\n```/);
-        if (osduErrorMatch && osduErrorMatch[1]) {
-          const errorData = JSON.parse(osduErrorMatch[1]);
-          setQueryType('osdu-error');
-          console.log('❌ OSDU error response detected:', errorData.errorType);
+        if (osduErrorMatch) {
           return;
         }
         
@@ -143,29 +99,6 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
         if (tableDataMatch && tableDataMatch[1]) {
           const parsedData = JSON.parse(tableDataMatch[1]);
           setTableData(parsedData);
-          
-          // Determine query type from the original search query
-          if (originalSearchQuery) {
-            const lowerQuery = originalSearchQuery.toLowerCase();
-            if (lowerQuery.includes('weather map') || 
-                (lowerQuery.includes('weather') && lowerQuery.includes('map')) ||
-                (lowerQuery.includes('weather') && lowerQuery.includes('near'))) {
-              setQueryType('weatherMaps');
-              // Create mock weather data for dashboard
-              setWeatherData({
-                temperature: { min: 26, max: 31, current: 28.5 },
-                precipitation: { current: 2.3, forecast: 'Light showers' },
-                operationalStatus: 'Favorable'
-              });
-            } else if (lowerQuery.includes('production') || lowerQuery.includes('reservoir')) {
-              setQueryType('production');
-            } else if (lowerQuery.includes('my wells')) {
-              setQueryType('myWells');
-            }
-          }
-          
-          console.log('🎯 Detected query type:', queryType);
-          console.log('📊 Table data:', parsedData.length, 'items');
         }
       } catch (error) {
         console.error("Error parsing message data:", error);
@@ -268,10 +201,7 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
               {/* Render simple data table only - visualizations moved to analytics tab */}
               {tableData && tableData.length > 0 && (
                 <ProfessionalGeoscientistDisplay 
-                  tableData={tableData} 
-                  searchQuery={originalSearchQuery || 'wells analysis'}
-                  queryType={queryType}
-                  weatherData={weatherData}
+                  tableData={tableData}
                 />
               )}
             </>
@@ -280,7 +210,7 @@ function CustomAIMessage({ message, originalSearchQuery }: { message: Message, o
       </div>
     </div>
   );
-}
+});
 
 /**
  * CatalogChatBoxCloudscape - A pure Cloudscape version of the chat component

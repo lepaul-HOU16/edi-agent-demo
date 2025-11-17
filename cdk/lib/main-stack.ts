@@ -341,7 +341,8 @@ export class MainStack extends cdk.Stack {
       environment: {
         USER_POOL_ID: this.userPool.userPoolId,
         USER_POOL_CLIENT_ID: this.userPoolClient.userPoolClientId,
-        ENABLE_MOCK_AUTH: props.environment === 'development' ? 'true' : 'false',
+        // Mock auth disabled - always require real Cognito JWT tokens
+        ENABLE_MOCK_AUTH: 'false',
       },
     });
 
@@ -511,6 +512,7 @@ export class MainStack extends cdk.Stack {
         AMPLIFY_DATA_SESSIONCONTEXT_TABLE_NAME: sessionContextTable.tableName,
         S3_BUCKET: storageBucket.bucketName,
         CHAT_MESSAGE_TABLE: chatMessageTable.tableName, // For message persistence
+        FORCE_REFRESH: Date.now().toString(), // Force Lambda update
       },
     });
 
@@ -765,6 +767,7 @@ export class MainStack extends cdk.Stack {
         RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME: 'renewable-terrain-simple',
         RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME: 'renewable-layout-simple',
         RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME: 'renewable-simulation-simple',
+        FORCE_REFRESH: Date.now().toString(), // Force Lambda update
       },
     });
 
@@ -818,6 +821,9 @@ export class MainStack extends cdk.Stack {
       'RENEWABLE_ORCHESTRATOR_FUNCTION_NAME',
       renewableOrchestratorFunction.functionName
     );
+
+    // CRITICAL: Grant chat Lambda permission to invoke renewable orchestrator
+    renewableOrchestratorFunction.function.grantInvoke(chatFunction.function);
 
     // Output renewable orchestrator Lambda ARN
     new cdk.CfnOutput(this, 'RenewableOrchestratorFunctionArn', {

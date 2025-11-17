@@ -24,7 +24,6 @@
     "@aws-sdk/client-bedrock-agentcore": "^3.919.0",
     "@aws-sdk/client-cloudwatch-logs": "^3.911.0",
     "@aws-sdk/client-cognito-identity": "^3.883.0",
-    "@aws-sdk/client-lambda": "^3.901.0",
     "@aws-sdk/client-s3": "^3.787.0",
     "@aws-sdk/client-secrets-manager": "^3.726.1",
     "@aws-sdk/credential-provider-cognito-identity": "^3.883.0",
@@ -78,7 +77,9 @@
   "devDependencies": {
     "@aws-sdk/client-api-gateway": "^3.835.0",
     "@aws-sdk/client-athena": "^3.777.0",
+    "@aws-sdk/client-cognito-identity-provider": "^3.932.0",
     "@aws-sdk/client-dynamodb": "^3.908.0",
+    "@aws-sdk/client-lambda": "^3.932.0",
     "@aws-sdk/client-location": "^3.911.0",
     "@aws-sdk/client-sqs": "^3.810.0",
     "@aws-sdk/client-textract": "^3.782.0",

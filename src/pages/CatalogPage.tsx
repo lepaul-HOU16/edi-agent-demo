@@ -24,6 +24,7 @@ import { searchCatalog } from '@/lib/api/catalog';
 
 // Import MapComponent directly - handle SSR with conditional rendering instead
 import MapComponentBase from './MapComponent';
+import logger from '@/utils/logger';
 
 // Create a wrapper component that handles SSR without dynamic imports
 interface MapComponentProps {
@@ -149,12 +150,12 @@ function CatalogPageBase() {
 
   // Query builder toggle handler
   const handleOpenQueryBuilder = useCallback(() => {
-    console.log('🔧 Opening query builder');
+    logger.debug('Opening query builder');
     setShowQueryBuilder(true);
   }, []);
 
   const handleCloseQueryBuilder = useCallback(() => {
-    console.log('🔧 Closing query builder');
+    logger.debug('Closing query builder');
     setShowQueryBuilder(false);
   }, []);
 
@@ -179,22 +180,22 @@ function CatalogPageBase() {
   // Auto-scroll functionality for chain of thought
   const scrollChainOfThoughtToBottom = React.useCallback(() => {
     if (chainOfThoughtAutoScroll) {
-      console.log('🔄 Chain of Thought: Attempting auto-scroll...');
+      logger.debug('Chain of Thought: Attempting auto-scroll...');
 
       if (chainOfThoughtContainerRef.current) {
-        console.log('✅ Chain of Thought: Using scrollTop to max height');
+        logger.debug('Chain of Thought: Using scrollTop to max height');
         try {
           const container = chainOfThoughtContainerRef.current;
           requestAnimationFrame(() => {
             container.scrollTop = container.scrollHeight;
-            console.log(`📏 Chain of Thought: Scrolled to ${container.scrollTop}/${container.scrollHeight}`);
+            logger.debug(`Chain of Thought: Scrolled to ${container.scrollTop}/${container.scrollHeight}`);
           });
         } catch (error) {
-          console.error('❌ Chain of Thought: Container scroll failed:', error);
+          logger.error('❌ Chain of Thought: Container scroll failed:', error);
         }
       }
     } else {
-      console.log('⏸️ Chain of Thought: Auto-scroll disabled');
+      logger.debug('Chain of Thought: Auto-scroll disabled');
     }
   }, [chainOfThoughtAutoScroll]);
 
@@ -208,7 +209,7 @@ function CatalogPageBase() {
     const isAtBottom = scrollHeight - scrollTop <= clientHeight + 10;
 
     if (!isAtBottom && chainOfThoughtAutoScroll) {
-      console.log('Chain of Thought: User scrolled up, disabling auto-scroll');
+      logger.debug('Chain of Thought: User scrolled up, disabling auto-scroll');
       setChainOfThoughtAutoScroll(false);
     }
   }, [chainOfThoughtAutoScroll]);
@@ -227,14 +228,14 @@ function CatalogPageBase() {
         .filter(message => message.role === 'ai' && (message as any).thoughtSteps)
         .flatMap(message => {
           const steps = (message as any).thoughtSteps || [];
-          console.log('📦 Chain of thought: Found message with', steps.length, 'steps');
+          logger.debug('Chain of thought: Found message with', steps.length, 'steps');
 
           const parsedSteps = Array.isArray(steps) ? steps.map(step => {
             if (typeof step === 'string') {
               try {
                 return JSON.parse(step);
               } catch (e) {
-                console.error('❌ Failed to parse step JSON:', step);
+                logger.error('❌ Failed to parse step JSON:', step);
                 return null;
               }
             }
@@ -246,15 +247,15 @@ function CatalogPageBase() {
         .filter(step => step && typeof step === 'object');
 
       totalThoughtSteps = thoughtStepsFromMessages.length;
-      console.log('🧠 Chain of thought: Total steps found:', totalThoughtSteps, 'Previous count:', chainOfThoughtMessageCount);
+      logger.debug('Chain of thought: Total steps found:', totalThoughtSteps, 'Previous count:', chainOfThoughtMessageCount);
     } catch (error) {
-      console.error('❌ Error counting thought steps:', error);
+      logger.error('❌ Error counting thought steps:', error);
       totalThoughtSteps = 0;
     }
 
     // Only auto-scroll when on chain of thought panel AND auto-scroll is enabled
     if (totalThoughtSteps > chainOfThoughtMessageCount && chainOfThoughtAutoScroll && selectedId === "seg-3") {
-      console.log('🔄 Chain of thought: New steps detected, scrolling to bottom');
+      logger.debug('Chain of thought: New steps detected, scrolling to bottom');
 
       if (chainOfThoughtScrollTimeoutRef.current) {
         clearTimeout(chainOfThoughtScrollTimeoutRef.current);
@@ -279,17 +280,11 @@ function CatalogPageBase() {
 
   // Map state restoration when switching back to map panel
   React.useEffect(() => {
-    console.log('🔍 Panel switch effect triggered:', {
-      selectedId,
-      hasSearchResults: mapState.hasSearchResults,
-      hasWellData: !!mapState.wellData,
-      hasMapRef: !!mapComponentRef.current,
-      mapStateDebug: mapState
-    });
+    // Panel switch logging removed for performance
 
     // When switching to map panel (seg-1) and we have saved search results
     if (selectedId === "seg-1" && mapState.hasSearchResults && mapState.wellData) {
-      console.log('🔄 Map restoration conditions met, starting restoration...');
+      logger.info('Map restoration conditions met, starting restoration...');
 
       // Multiple attempts to restore map state
       let attempts = 0;
@@ -297,11 +292,11 @@ function CatalogPageBase() {
 
       const checkAndRestore = () => {
         attempts++;
-        console.log(`🔄 Map restoration attempt ${attempts}/${maxAttempts}`);
+        logger.debug(`Map restoration attempt ${attempts}/${maxAttempts}`);
 
         if (mapComponentRef.current) {
-          console.log('✅ MapRef available, restoring map state');
-          console.log('🗺️ Restoring map with:', {
+          logger.info('MapRef available, restoring map state');
+          logger.debug('Restoring map with:', {
             wellCount: mapState.wellData?.features?.length || 0,
             bounds: mapState.bounds,
             hasUpdateMapData: typeof mapComponentRef.current.updateMapData === 'function',
@@ -316,26 +311,30 @@ function CatalogPageBase() {
             
             // Restore well data first
             if (mapState.wellData && mapComponentRef.current.updateMapData) {
-              console.log('🗺️ Calling updateMapData with', mapState.wellData.features?.length || 0, 'wells...');
+              logger.info('🔍 DEBUG: Restoring map with wellData:', {
+                featureCount: mapState.wellData.features?.length || 0,
+                firstFeature: mapState.wellData.features?.[0],
+                allFeatureNames: mapState.wellData.features?.slice(0, 5).map((f: any) => f.properties?.name)
+              });
               mapComponentRef.current.updateMapData(mapState.wellData);
 
               // Then restore bounds with longer delay
               if (mapState.bounds && mapComponentRef.current.fitBounds) {
                 setTimeout(() => {
-                  console.log('🗺️ Calling fitBounds after delay...');
+                  logger.debug('Calling fitBounds after delay...');
                   mapComponentRef.current.fitBounds(mapState.bounds);
-                  console.log('✅ Map state restoration complete');
+                  logger.info('Map state restoration complete');
                 }, 1000);
               }
             }
           } catch (error) {
-            console.error('❌ Error in map restoration attempt', attempts, ':', error);
+            logger.error('❌ Error in map restoration attempt', attempts, ':', error);
           }
         } else if (attempts < maxAttempts) {
-          console.log(`⚠️ MapRef not available yet, retrying in ${200 * attempts}ms... (attempt ${attempts}/${maxAttempts})`);
+          logger.debug(`MapRef not available yet, retrying in ${200 * attempts}ms... (attempt ${attempts}/${maxAttempts})`);
           setTimeout(checkAndRestore, 200 * attempts); // Exponential backoff
         } else {
-          console.error('❌ Max attempts reached, map restoration failed');
+          logger.error('❌ Max attempts reached, map restoration failed');
         }
       };
 
@@ -344,12 +343,7 @@ function CatalogPageBase() {
 
       return () => clearTimeout(restoreTimeout);
     } else {
-      console.log('🔍 Map restoration conditions not met:', {
-        isMapPanel: selectedId === "seg-1",
-        hasResults: mapState.hasSearchResults,
-        hasData: !!mapState.wellData,
-        wellDataFeatures: mapState.wellData?.features?.length || 0
-      });
+      // Map restoration condition logging removed for performance
     }
   }, [selectedId, mapState]);
 
@@ -357,7 +351,7 @@ function CatalogPageBase() {
 
   const handleCreateNewChat = async () => {
     try {
-      console.log('🔄 RESET: Clearing all catalog state...');
+      logger.info('RESET: Clearing all catalog state...');
 
       // Reset all message and chat state
       setMessages([]);
@@ -396,7 +390,7 @@ function CatalogPageBase() {
 
       // Clear map if available
       if (mapComponentRef.current && mapComponentRef.current.clearMap) {
-        console.log('🗺️ RESET: Clearing map data...');
+        logger.info('RESET: Clearing map data...');
         mapComponentRef.current.clearMap();
       }
 
@@ -404,10 +398,10 @@ function CatalogPageBase() {
       setIsLoadingMapData(false);
       setError(null);
 
-      console.log('✅ RESET: All catalog state cleared successfully');
+      logger.info('RESET: All catalog state cleared successfully');
 
     } catch (error) {
-      console.error("❌ RESET: Error resetting catalog:", error);
+      logger.error("❌ RESET: Error resetting catalog:", error);
       alert("Failed to reset catalog. Please refresh the page.");
     }
   }
@@ -416,7 +410,7 @@ function CatalogPageBase() {
   const handleRemoveSelectedFromCollection = useCallback(() => {
     if (!tableSelection || tableSelection.length === 0) return;
 
-    console.log('🗑️ Removing selected items from collection:', tableSelection.length);
+    logger.info('Removing selected items from collection:', tableSelection.length);
 
     // Remove selected items from the data items list
     const updatedItems = selectedDataItems.filter(item =>
@@ -426,7 +420,7 @@ function CatalogPageBase() {
     setSelectedDataItems(updatedItems);
     setTableSelection([]); // Clear selection
 
-    console.log('✅ Items removed:', {
+    logger.info('Items removed:', {
       original: selectedDataItems.length,
       removed: tableSelection.length,
       remaining: updatedItems.length
@@ -438,7 +432,7 @@ function CatalogPageBase() {
     if (showCreateCollectionModal && selectedDataItems.length > 0) {
       // Initially select all items (user can uncheck what they don't want)
       setTableSelection(selectedDataItems);
-      console.log('🔄 Collection modal opened, selecting all items:', selectedDataItems.length);
+      logger.info('Collection modal opened, selecting all items:', selectedDataItems.length);
     } else if (!showCreateCollectionModal) {
       // Clear selection when modal closes
       setTableSelection([]);
@@ -459,7 +453,7 @@ function CatalogPageBase() {
       const osduItems = finalDataItems.filter(item => item.dataSource === 'OSDU');
       const catalogItems = finalDataItems.filter(item => item.dataSource !== 'OSDU');
 
-      console.log('📊 Creating collection with final selection:', {
+      logger.info('Creating collection with final selection:', {
         originalItems: selectedDataItems.length,
         finalItems: finalDataItems.length,
         removed: selectedDataItems.length - finalDataItems.length,
@@ -470,7 +464,7 @@ function CatalogPageBase() {
       });
 
       // Debug: Log the exact input fields
-      console.log('🔍 Debug collection creation inputs:', {
+      logger.info('Debug collection creation inputs:', {
         name: collectionName.trim(),
         description: collectionDescription.trim(),
         dataSourceType: 'Mixed',
@@ -488,9 +482,9 @@ function CatalogPageBase() {
       let metadataString;
       try {
         metadataString = JSON.stringify(minimalMetadata);
-        console.log('✅ Minimal metadata serialization successful:', metadataString);
+        logger.info('Minimal metadata serialization successful:', metadataString);
       } catch (serializeError) {
-        console.error('❌ Even minimal serialization failed:', serializeError);
+        logger.error('❌ Even minimal serialization failed:', serializeError);
         // Fallback to simplest possible string
         metadataString = `{"wellCount":${finalDataItems.length},"createdFrom":"catalog_search"}`;
       }
@@ -516,7 +510,7 @@ function CatalogPageBase() {
         } : undefined
       }));
 
-      console.log('📦 Prepared data items for storage:', {
+      logger.info('Prepared data items for storage:', {
         totalItems: dataItemsForStorage.length,
         osduItems: dataItemsForStorage.filter(i => i.dataSource === 'OSDU').length,
         catalogItems: dataItemsForStorage.filter(i => i.dataSource !== 'OSDU').length,
@@ -534,18 +528,18 @@ function CatalogPageBase() {
         dataItems: dataItemsForStorage // Include actual data items with OSDU metadata
       };
 
-      console.log('🧪 Testing mutation parameters:');
-      console.log('  operation:', typeof mutationParams.operation, mutationParams.operation);
-      console.log('  name:', typeof mutationParams.name, mutationParams.name);
-      console.log('  description:', typeof mutationParams.description, mutationParams.description);
-      console.log('  dataSourceType:', typeof mutationParams.dataSourceType, mutationParams.dataSourceType);
-      console.log('  previewMetadata:', typeof mutationParams.previewMetadata, metadataString.length, 'chars');
-      console.log('  dataItems:', typeof mutationParams.dataItems, mutationParams.dataItems.length, 'items');
+      logger.info('Testing mutation parameters:');
+      logger.info('  operation:', typeof mutationParams.operation, mutationParams.operation);
+      logger.info('  name:', typeof mutationParams.name, mutationParams.name);
+      logger.info('  description:', typeof mutationParams.description, mutationParams.description);
+      logger.info('  dataSourceType:', typeof mutationParams.dataSourceType, mutationParams.dataSourceType);
+      logger.info('  previewMetadata:', typeof mutationParams.previewMetadata, metadataString.length, 'chars');
+      logger.info('  dataItems:', typeof mutationParams.dataItems, mutationParams.dataItems.length, 'items');
 
       // Create collection through REST API
-      console.log('🔄 Calling createCollection API...');
+      logger.info('Calling createCollection API...');
       const result = await createCollection(mutationParams);
-      console.log('✅ API response received:', result);
+      logger.info('API response received:', result);
 
       if (result) {
         const parsedResult = typeof result === 'string' ? JSON.parse(result) : result;
@@ -554,7 +548,7 @@ function CatalogPageBase() {
           // Extract collection ID from response
           const collectionId = parsedResult.collectionId || parsedResult.id;
 
-          console.log('✅ Collection created successfully:', {
+          logger.info('Collection created successfully:', {
             collectionId,
             name: collectionName,
             wellCount: finalDataItems.length
@@ -589,20 +583,20 @@ function CatalogPageBase() {
 
           // Navigate to collection detail page
           if (collectionId) {
-            console.log('🔄 Navigating to collection detail page:', `/collections/${collectionId}`);
+            logger.info('Navigating to collection detail page:', `/collections/${collectionId}`);
             // Use window.location for navigation to ensure proper page load
             window.location.href = `/collections/${collectionId}`;
           } else {
-            console.warn('⚠️ No collection ID in response, navigating to collections list');
+            logger.warn('⚠️ No collection ID in response, navigating to collections list');
             window.location.href = '/collections';
           }
         } else {
-          console.error('Collection creation failed:', parsedResult.error);
+          logger.error('Collection creation failed:', parsedResult.error);
           alert('Failed to create collection: ' + parsedResult.error);
         }
       }
     } catch (error) {
-      console.error('Error creating collection:', error);
+      logger.error('Error creating collection:', error);
       alert('Failed to create collection. Please try again.');
     } finally {
       setCreatingCollection(false);
@@ -611,7 +605,7 @@ function CatalogPageBase() {
 
   // Query Builder Execution Handler (Task 6.2)
   const handleQueryBuilderExecution = useCallback(async (query: string, criteria: QueryCriterion[]) => {
-    console.log('🔧 Query Builder: Executing structured query', {
+    logger.debug('Query Builder: Executing structured query', {
       query,
       criteriaCount: criteria.length
     });
@@ -656,7 +650,7 @@ function CatalogPageBase() {
         undefined // templateUsed - would need to be passed from query builder
       );
 
-      console.log('✅ Query Builder: Query executed', {
+      logger.info('Query Builder: Query executed', {
         success: result.success,
         recordCount: result.recordCount,
         executionTime: `${result.executionTime.toFixed(2)}ms`
@@ -763,7 +757,7 @@ function CatalogPageBase() {
       }
 
     } catch (error) {
-      console.error('❌ Query Builder: Execution failed', error);
+      logger.error('❌ Query Builder: Execution failed', error);
 
       const errorMessage: Message = {
         id: uuidv4() as any,
@@ -789,19 +783,19 @@ function CatalogPageBase() {
 
     // OSDU intent detection - check for "OSDU" keyword
     if (lowerQuery.includes('osdu')) {
-      console.log('🔍 OSDU search intent detected');
+      logger.info('🔍 OSDU search intent detected');
       return 'osdu';
     }
 
     // Default to catalog search
-    console.log('🔍 Catalog search intent detected');
+    logger.info('🔍 Catalog search intent detected');
     return 'catalog';
   }, []);
 
   // Client-side filtering function for OSDU results
   const filterOSDURecords = useCallback((records: any[], query: string) => {
     const lowerQuery = query.toLowerCase();
-    console.log('🔍 Filtering', records.length, 'OSDU records with query:', query);
+    logger.debug('Filtering', records.length, 'OSDU records with query:', query);
 
     // Extract filter criteria from query
     const filters: any = {};
@@ -831,7 +825,7 @@ function CatalogPageBase() {
     // Status filter
     if (lowerQuery.includes('active')) filters.status = 'active';
 
-    console.log('📋 Extracted filters:', filters);
+    logger.debug('Extracted filters:', filters);
 
     // Apply filters
     let filtered = records;
@@ -868,7 +862,7 @@ function CatalogPageBase() {
       );
     }
 
-    console.log('✅ Filtered from', records.length, 'to', filtered.length, 'records');
+    logger.info('Filtered from', records.length, 'to', filtered.length, 'records');
     return { filtered, filters };
   }, []);
 
@@ -883,7 +877,7 @@ function CatalogPageBase() {
 
     // Only detect filter intent if OSDU context exists
     if (!hasOsduContext) {
-      console.log('🔍 Filter intent: No OSDU context, skipping filter detection');
+      // Filter intent logging removed for performance
       return { isFilter: false };
     }
 
@@ -897,7 +891,7 @@ function CatalogPageBase() {
     const hasFilterKeyword = filterKeywords.some(kw => lowerQuery.includes(kw));
 
     if (!hasFilterKeyword) {
-      console.log('🔍 Filter intent: No filter keywords found');
+      logger.debug('Filter intent: No filter keywords found');
       return { isFilter: false };
     }
 
@@ -958,7 +952,7 @@ function CatalogPageBase() {
       if (match) filterValue = match[1].trim();
     }
 
-    console.log('🔍 Filter intent detected:', { filterType, filterValue, filterOperator });
+    logger.debug('Filter intent detected:', { filterType, filterValue, filterOperator });
 
     return {
       isFilter: true,
@@ -975,7 +969,7 @@ function CatalogPageBase() {
     filterValue: string,
     filterOperator: string = 'contains'
   ): OSDURecord[] => {
-    console.log('🔧 Applying filter:', { filterType, filterValue, filterOperator, recordCount: records.length });
+    logger.debug('Applying filter:', { filterType, filterValue, filterOperator, recordCount: records.length });
 
     const filtered = records.filter(record => {
       switch (filterType) {
@@ -1022,12 +1016,12 @@ function CatalogPageBase() {
 
         default:
           // Unknown filter type - return true to include record
-          console.warn('⚠️ Unknown filter type:', filterType);
+          logger.warn('⚠️ Unknown filter type:', filterType);
           return true;
       }
     });
 
-    console.log('✅ Filter applied:', {
+    logger.info('Filter applied:', {
       originalCount: records.length,
       filteredCount: filtered.length,
       filterType,
@@ -1044,13 +1038,13 @@ function CatalogPageBase() {
     setError(null);
 
     try {
-      console.log('🚀 PROCESSING CATALOG SEARCH:', prompt);
+      logger.info('PROCESSING CATALOG SEARCH:', prompt);
 
       // TASK 11: Check for filter intent WITHOUT OSDU context - show error
       const filterIntent = detectFilterIntent(prompt, !!osduContext);
 
       if (filterIntent.isFilter && !osduContext) {
-        console.log('⚠️ Filter intent detected but no OSDU context available');
+        logger.debug('Filter intent detected but no OSDU context available');
 
         // Display error message if filter attempted without OSDU context
         const noContextMessage: Message = {
@@ -1068,17 +1062,17 @@ function CatalogPageBase() {
         setMessages(prevMessages => [...prevMessages, noContextMessage]);
         setIsLoadingMapData(false);
 
-        console.log('✅ No context error message displayed');
+        logger.debug('No context error message displayed');
         return; // Early return to prevent further processing
       }
 
       // TASK 5: Check for filter intent FIRST when OSDU context exists
       if (osduContext && filterIntent.isFilter) {
-        console.log('🔍 OSDU context exists, checking for filter intent...');
+        logger.debug('OSDU context exists, checking for filter intent...');
 
         // TASK 12: Check if filter type and value were successfully parsed
         if (!filterIntent.filterType || !filterIntent.filterValue) {
-          console.error('❌ Filter parsing failed:', { filterIntent, query: prompt });
+          logger.error('❌ Filter parsing failed:', { filterIntent, query: prompt });
 
           // Display error message if filter parsing failed
           const parsingErrorMessage: Message = {
@@ -1096,12 +1090,12 @@ function CatalogPageBase() {
           setMessages(prevMessages => [...prevMessages, parsingErrorMessage]);
           setIsLoadingMapData(false);
 
-          console.log('✅ Filter parsing error message displayed');
+          logger.debug('Filter parsing error message displayed');
           return; // Early return to prevent further processing
         }
 
         if (filterIntent.filterType && filterIntent.filterValue) {
-          console.log('✅ Filter intent detected, applying filter:', filterIntent);
+          logger.info('Filter intent detected, applying filter:', filterIntent);
 
           // Apply filter to existing results (or already-filtered results)
           const baseRecords = osduContext.filteredRecords || osduContext.records;
@@ -1183,7 +1177,7 @@ function CatalogPageBase() {
           // Add message to chat
           setMessages(prevMessages => [...prevMessages, filteredMessage]);
 
-          console.log('✅ Filter result message created:', {
+          logger.debug('Filter result message created:', {
             filterDescription,
             filteredCount: filteredRecords.length,
             originalCount: osduContext.recordCount,
@@ -1230,12 +1224,12 @@ function CatalogPageBase() {
           return; // Early return after filter processing to prevent new search
         }
 
-        console.log('🔍 No filter intent detected, continuing to search intent detection');
+        // Filter intent logging removed for performance
       }
 
       // TASK 10: Check for filter help intent ("help" or "how to filter")
       if (osduContext && (prompt.toLowerCase().includes('help') || prompt.toLowerCase().includes('how to filter'))) {
-        console.log('❓ Filter help requested, displaying comprehensive filter examples');
+        logger.info('Filter help requested, displaying comprehensive filter examples');
 
         // Create comprehensive filter help message with examples for all filter types
         const helpMessage: Message = {
@@ -1253,7 +1247,7 @@ function CatalogPageBase() {
         // Add help message to chat
         setMessages(prevMessages => [...prevMessages, helpMessage]);
 
-        console.log('✅ Filter help message displayed');
+        logger.debug('Filter help message displayed');
 
         setIsLoadingMapData(false);
         return; // Early return after help display to prevent new search
@@ -1261,7 +1255,7 @@ function CatalogPageBase() {
 
       // TASK 8: Check for filter reset intent ("show all" or "reset")
       if (osduContext && (prompt.toLowerCase().includes('show all') || prompt.toLowerCase().includes('reset'))) {
-        console.log('🔄 Filter reset detected, clearing filters and showing original results');
+        logger.info('Filter reset detected, clearing filters and showing original results');
 
         // Clear filteredRecords and activeFilters from context
         setOsduContext({
@@ -1301,7 +1295,7 @@ function CatalogPageBase() {
         // Add message to chat
         setMessages(prevMessages => [...prevMessages, resetMessage]);
 
-        console.log('✅ Filter reset message created:', {
+        logger.debug('Filter reset message created:', {
           originalRecordCount: osduContext.recordCount,
           originalQuery: osduContext.query,
           filtersCleared: true
@@ -1349,11 +1343,11 @@ function CatalogPageBase() {
 
       // Detect search intent (OSDU vs catalog) - only if not filtered above
       const searchIntent = detectSearchIntent(prompt);
-      console.log('🎯 Search intent:', searchIntent);
+      logger.info('Search intent:', searchIntent);
 
       // Handle OSDU search intent
       if (searchIntent === 'osdu') {
-        console.log('🔍 Executing OSDU search');
+        logger.debug('Executing OSDU search');
 
         // Add loading message
         const loadingMessage: Message = {
@@ -1372,14 +1366,14 @@ function CatalogPageBase() {
 
         try {
           // TODO: Implement OSDU search via REST API
-          console.log('⚠️ OSDU search not yet implemented via REST API');
+          logger.info('⚠️ OSDU search not yet implemented via REST API');
           const osduResponse = { data: null, errors: ['OSDU search not implemented'] };
 
-          console.log('✅ OSDU search response:', osduResponse);
+          logger.info('✅ OSDU search response:', osduResponse);
 
           // Handle errors
           if (osduResponse.errors && osduResponse.errors.length > 0) {
-            console.error('❌ API errors:', osduResponse.errors);
+            logger.error('❌ API errors:', osduResponse.errors);
             const errorMessage = typeof osduResponse.errors[0] === 'string'
               ? osduResponse.errors[0]
               : (osduResponse.errors[0] as any).message || 'API query failed';
@@ -1387,7 +1381,7 @@ function CatalogPageBase() {
           }
 
           if (!osduResponse.data) {
-            console.error('❌ No data in OSDU response');
+            logger.error('❌ No data in OSDU response');
             throw new Error('No data received from OSDU API');
           }
 
@@ -1399,46 +1393,46 @@ function CatalogPageBase() {
             // First parse if it's a string
             if (typeof parsedData === 'string') {
               parsedData = JSON.parse(parsedData);
-              console.log('📊 First parse complete, type:', typeof parsedData);
+              logger.info('📊 First parse complete, type:', typeof parsedData);
             }
 
             // Check if it's still a string (double-stringified)
             if (typeof parsedData === 'string') {
               parsedData = JSON.parse(parsedData);
-              console.log('📊 Second parse complete (was double-stringified), type:', typeof parsedData);
+              logger.info('📊 Second parse complete (was double-stringified), type:', typeof parsedData);
             }
 
             osduData = parsedData;
 
-            console.log('📊 Final parsed OSDU data:', osduData);
-            console.log('📊 OSDU data type:', typeof osduData);
-            console.log('📊 OSDU data keys:', Object.keys(osduData || {}));
-            console.log('📊 Has answer:', !!osduData?.answer);
-            console.log('📊 Has recordCount:', osduData?.recordCount);
-            console.log('📊 Has records:', !!osduData?.records);
-            console.log('📊 Records length:', osduData?.records?.length);
+            logger.info('📊 Final parsed OSDU data:', osduData);
+            logger.info('📊 OSDU data type:', typeof osduData);
+            logger.info('📊 OSDU data keys:', Object.keys(osduData || {}));
+            logger.info('📊 Has answer:', !!osduData?.answer);
+            logger.info('📊 Has recordCount:', osduData?.recordCount);
+            logger.info('📊 Has records:', !!osduData?.records);
+            logger.info('📊 Records length:', osduData?.records?.length);
           } catch (parseError) {
-            console.error('❌ JSON parse error:', parseError);
-            console.error('❌ Raw data type:', typeof osduResponse.data);
-            console.error('❌ Raw data preview:', String(osduResponse.data).substring(0, 500));
+            logger.error('❌ JSON parse error:', parseError);
+            logger.error('❌ Raw data type:', typeof osduResponse.data);
+            logger.error('❌ Raw data preview:', String(osduResponse.data).substring(0, 500));
             throw new Error(`Failed to parse OSDU response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
           }
 
           // Check if this is an error response from Lambda
           if (osduData.error) {
-            console.error('❌ OSDU Lambda error:', osduData.error);
+            logger.error('❌ OSDU Lambda error:', osduData.error);
             throw new Error(osduData.error);
           }
 
           // Validate response has required fields
           if (typeof osduData !== 'object' || osduData === null) {
-            console.error('❌ Invalid OSDU response type:', typeof osduData);
+            logger.error('❌ Invalid OSDU response type:', typeof osduData);
             throw new Error('Invalid response format from OSDU API');
           }
 
           // Ensure we have at least the answer field
           if (!osduData.answer && osduData.recordCount === undefined && !osduData.records) {
-            console.error('❌ Missing required fields in OSDU response:', osduData);
+            logger.error('❌ Missing required fields in OSDU response:', osduData);
             throw new Error('Incomplete response from OSDU API');
           }
 
@@ -1527,7 +1521,7 @@ function CatalogPageBase() {
             ? osduData.records.map(convertOSDUToWellData)
             : [];
 
-          console.log('🔄 Converted OSDU records to well data:', {
+          logger.info('🔄 Converted OSDU records to well data:', {
             originalCount: osduData.records?.length || 0,
             convertedCount: osduWellData.length,
             withCoordinates: osduWellData.filter(w => w.latitude && w.longitude).length
@@ -1543,7 +1537,7 @@ function CatalogPageBase() {
             activeFilters: []
           });
 
-          console.log('💾 Saved OSDU context:', osduWellData.length, 'records');
+          logger.info('💾 Saved OSDU context:', osduWellData.length, 'records');
 
           // Build message text with safe defaults and enhanced formatting
           const answer = osduData.answer || `Found ${osduWellData.length} OSDU records. You can now filter these results by asking follow-up questions like "show only production wells" or "filter by depth > 3000m"`;
@@ -1575,12 +1569,12 @@ function CatalogPageBase() {
 
           // Add OSDU well data to analysis data for collection context
           if (osduWellData.length > 0) {
-            console.log('📊 Adding OSDU data to analysis context:', osduWellData.length, 'records');
+            logger.info('📊 Adding OSDU data to analysis context:', osduWellData.length, 'records');
 
             // Merge with existing analysis data if present
             setAnalysisData(prevData => {
               const merged = prevData ? [...prevData, ...osduWellData] : osduWellData;
-              console.log('✅ Analysis data updated:', {
+              logger.info('✅ Analysis data updated:', {
                 previousCount: prevData?.length || 0,
                 osduCount: osduWellData.length,
                 totalCount: merged.length
@@ -1591,14 +1585,14 @@ function CatalogPageBase() {
             // Update query type to indicate mixed data
             setAnalysisQueryType(prevType => {
               const newType = prevType ? `${prevType}+osdu` : 'osdu';
-              console.log('🏷️ Query type updated:', prevType, '→', newType);
+              logger.info('🏷️ Query type updated:', prevType, '→', newType);
               return newType;
             });
 
             // Update map with OSDU data if we have coordinates
             const osduWithCoords = osduWellData.filter(w => w.latitude && w.longitude);
             if (osduWithCoords.length > 0) {
-              console.log('🗺️ Updating map with OSDU locations:', osduWithCoords.length, 'points');
+              logger.info('🗺️ Updating map with OSDU locations:', osduWithCoords.length, 'points');
 
               // Convert OSDU well data to GeoJSON features for map display
               const osduGeoJSON = {
@@ -1652,7 +1646,7 @@ function CatalogPageBase() {
 
                 // If on map panel, update map immediately
                 if (selectedId === "seg-1" && mapComponentRef.current?.updateMapData) {
-                  console.log('🗺️ Immediately updating map with OSDU data');
+                  logger.info('🗺️ Immediately updating map with OSDU data');
                   mapComponentRef.current.updateMapData(osduGeoJSON);
 
                   // Fit bounds to show all OSDU wells
@@ -1663,7 +1657,7 @@ function CatalogPageBase() {
                   }
                 }
 
-                console.log('✅ Map state updated with OSDU GeoJSON data:', {
+                logger.info('✅ Map state updated with OSDU GeoJSON data:', {
                   center,
                   bounds,
                   wellCount: osduWithCoords.length,
@@ -1679,7 +1673,7 @@ function CatalogPageBase() {
             return [...filtered, osduMessage];
           });
         } catch (osduError) {
-          console.error('❌ OSDU search failed:', osduError);
+          logger.error('❌ OSDU search failed:', osduError);
 
           // Determine error type for better user messaging using Cloudscape format
           const errorMsg = osduError instanceof Error ? osduError.message : String(osduError);
@@ -1739,7 +1733,7 @@ function CatalogPageBase() {
           (lowerPrompt.includes('collection') || lowerPrompt.includes('save'));
 
         if (isCollectionCreation) {
-          console.log('🗂️ Collection creation intent detected');
+          logger.info('🗂️ Collection creation intent detected');
 
           // Prepare data for collection creation
           setSelectedDataItems(analysisData);
@@ -1767,7 +1761,7 @@ function CatalogPageBase() {
       const filterKeywords = ['filter', 'depth', 'greater than', '>', 'deeper', 'show wells with', 'wells with'];
       const isLikelyFilter = !isFirstQuery && filterKeywords.some(keyword => lowerPrompt.includes(keyword));
 
-      console.log('🔍 Context Analysis:', {
+      logger.info('🔍 Context Analysis:', {
         isFirstQuery,
         isLikelyFilter,
         hasExistingData: !!analysisData,
@@ -1796,7 +1790,7 @@ function CatalogPageBase() {
           }
         };
 
-        console.log('📤 Sending context to backend:', {
+        logger.info('📤 Sending context to backend:', {
           wellCount: searchContextForBackend.wells.length,
           osduCount: osduWells.length,
           catalogCount: catalogWells.length,
@@ -1805,20 +1799,20 @@ function CatalogPageBase() {
           contextWells: searchContextForBackend.wells.slice(0, 3).map(w => `${w.name} (${w.dataSource || 'catalog'})`)
         });
       } else {
-        console.log('📤 No context sent - fresh search');
+        logger.info('📤 No context sent - fresh search');
       }
 
       // Call catalog search REST API with enhanced context
       const searchResponse = await searchCatalog(prompt, searchContextForBackend);
 
-      console.log('🔍 CATALOG SEARCH RESPONSE:', searchResponse);
+      logger.info('🔍 CATALOG SEARCH RESPONSE:', searchResponse);
 
       // The response is already a GeoJSON FeatureCollection
       if (searchResponse && searchResponse.type === 'FeatureCollection') {
         const geoJsonData = searchResponse;
 
-        console.log('✅ PARSED CATALOG DATA WITH THOUGHT STEPS:', geoJsonData);
-        console.log('🧠 Thought steps received:', geoJsonData.thoughtSteps?.length || 0);
+        logger.info('✅ PARSED CATALOG DATA WITH THOUGHT STEPS:', geoJsonData);
+        logger.info('🧠 Thought steps received:', geoJsonData.thoughtSteps?.length || 0);
 
         // Filter features to only include wells for the table (not weather data)
         const wellFeatures = geoJsonData.features?.filter((feature: any) =>
@@ -1891,7 +1885,7 @@ function CatalogPageBase() {
           setAnalysisData(analysisWellData);
           setAnalysisQueryType(geoJsonData.metadata?.queryType || 'general');
 
-          console.log('✅ Updated analysis context:', {
+          logger.info('✅ Updated analysis context:', {
             wellCount: analysisWellData.length,
             queryType: geoJsonData.metadata?.queryType || 'general',
             isContextualFilter: geoJsonData.metadata?.contextFilter || false
@@ -1899,17 +1893,17 @@ function CatalogPageBase() {
         } else {
           // Only clear analysis data if this was a fresh search, not a failed filter
           if (isFirstQuery || !searchContextForBackend) {
-            console.log('🧹 Clearing analysis data - no results on fresh search');
+            logger.info('🧹 Clearing analysis data - no results on fresh search');
             setAnalysisData(null);
             setAnalysisQueryType('');
           } else {
-            console.log('⚠️ Filter returned no results - keeping existing context');
+            logger.info('⚠️ Filter returned no results - keeping existing context');
           }
         }
 
         // FIXED: Always save map state from search results, regardless of which panel is active
         if (geoJsonData && geoJsonData.type === 'FeatureCollection') {
-          console.log('🗺️ Processing search results for map state (panel-independent)');
+          logger.info('🗺️ Processing search results for map state (panel-independent)');
 
           // Calculate bounds from search results (always, regardless of panel)
           if (geoJsonData.features && geoJsonData.features.length > 0) {
@@ -1929,7 +1923,7 @@ function CatalogPageBase() {
               const centerLat = (bounds.minLat + bounds.maxLat) / 2;
               const center: [number, number] = [centerLon, centerLat];
 
-              console.log('🗺️ Saving map state from search results:', {
+              logger.info('🗺️ Saving map state from search results:', {
                 center,
                 bounds,
                 wellCount: geoJsonData.features.length,
@@ -1944,8 +1938,8 @@ function CatalogPageBase() {
                 weatherLayers = Object.keys(geoJsonData.weatherLayers).filter(key => key !== 'additional');
                 const additionalLayers = geoJsonData.weatherLayers.additional ? Object.keys(geoJsonData.weatherLayers.additional) : [];
 
-                console.log('🌤️ Weather layers detected:', weatherLayers);
-                console.log('🌤️ Additional weather layers:', additionalLayers);
+                logger.info('🌤️ Weather layers detected:', weatherLayers);
+                logger.info('🌤️ Additional weather layers:', additionalLayers);
 
                 // Set available weather layers
                 setAvailableWeatherLayers([...weatherLayers, ...additionalLayers]);
@@ -1961,7 +1955,7 @@ function CatalogPageBase() {
 
                 setActiveWeatherLayers(initialActiveState);
                 setShowWeatherControls(true); // Always show controls for weather queries
-                console.log('🌤️ Initial weather layer states:', initialActiveState);
+                logger.info('🌤️ Initial weather layer states:', initialActiveState);
               } else {
                 // Reset weather layers for non-weather queries
                 setAvailableWeatherLayers([]);
@@ -1969,6 +1963,12 @@ function CatalogPageBase() {
               }
 
               // ALWAYS save map state regardless of panel
+              logger.info('🔍 DEBUG: Saving map state with wellData:', {
+                featureCount: geoJsonData.features?.length || 0,
+                firstFeature: geoJsonData.features?.[0],
+                allFeatureNames: geoJsonData.features?.slice(0, 5).map((f: any) => f.properties?.name)
+              });
+              
               setMapState({
                 center: center,
                 zoom: 8,
@@ -1990,7 +1990,7 @@ function CatalogPageBase() {
 
           // Update map in background if possible (when map panel is active)
           if (selectedId === "seg-1" && mapComponentRef.current) {
-            console.log('🗺️ Map panel active, updating map immediately');
+            logger.info('🗺️ Map panel active, updating map immediately');
             try {
               // Clear map first to ensure only new data is shown
               if (mapComponentRef.current.clearMap) {
@@ -1998,16 +1998,16 @@ function CatalogPageBase() {
               }
               mapComponentRef.current.updateMapData(geoJsonData);
             } catch (error) {
-              console.error('❌ Error updating map immediately:', error);
+              logger.error('❌ Error updating map immediately:', error);
             }
           } else {
-            console.log('🗺️ Chain of thought panel active, map will be updated on panel switch');
+            logger.info('🗺️ Chain of thought panel active, map will be updated on panel switch');
           }
         }
       }
 
     } catch (error) {
-      console.error('❌ Error in catalog search:', error);
+      logger.error('❌ Error in catalog search:', error);
       setError(error instanceof Error ? error : new Error(String(error)));
 
       const errorMessage: Message = {
@@ -2037,25 +2037,25 @@ function CatalogPageBase() {
   const handlePolygonCreate = useCallback((polygon: PolygonFilter) => {
     setPolygons(prev => [...prev, polygon]);
     setActivePolygon(polygon);
-    console.log('Polygon created:', polygon);
+    logger.info('Polygon created:', polygon);
   }, []);
 
   const handlePolygonDelete = useCallback((deletedIds: string[]) => {
     setPolygons(prev => prev.filter(p => !deletedIds.includes(p.id)));
     setActivePolygon(null);
-    console.log('Polygons deleted:', deletedIds);
+    logger.info('Polygons deleted:', deletedIds);
   }, []);
 
   const handlePolygonUpdate = useCallback((updatedPolygon: PolygonFilter) => {
     setPolygons(prev => prev.map(p =>
       p.id === updatedPolygon.id ? updatedPolygon : p
     ));
-    console.log('Polygon updated:', updatedPolygon.id);
+    logger.info('Polygon updated:', updatedPolygon.id);
   }, []);
 
   // Weather layer toggle handler
   const handleWeatherLayerToggle = useCallback((layerType: string, visible: boolean) => {
-    console.log(`🌤️ Toggling weather layer: ${layerType} -> ${visible}`);
+    logger.info(`🌤️ Toggling weather layer: ${layerType} -> ${visible}`);
 
     // Update local state
     setActiveWeatherLayers(prev => ({
@@ -2065,10 +2065,10 @@ function CatalogPageBase() {
 
     // Toggle on map if available
     if (mapComponentRef.current && mapComponentRef.current.toggleWeatherLayer) {
-      console.log(`🗺️ Calling map toggleWeatherLayer for ${layerType}`);
+      logger.info(`🗺️ Calling map toggleWeatherLayer for ${layerType}`);
       mapComponentRef.current.toggleWeatherLayer(layerType, visible);
     } else {
-      console.warn('⚠️ Map component or toggleWeatherLayer function not available');
+      logger.warn('⚠️ Map component or toggleWeatherLayer function not available');
     }
   }, []);
 

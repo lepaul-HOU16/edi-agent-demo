@@ -1214,25 +1214,25 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       }
     }
     
-    // Format results as EDI artifacts with action buttons
-    const formattingStartTime = Date.now();
-    console.log('🔍 DEBUG - Results count before formatting:', results.length);
-    console.log('🔍 DEBUG - Results types:', results.map(r => r.type));
-    const artifacts = formatArtifacts(results, intentWithDefaults.type, projectName || undefined, updatedProjectData);
-    console.log('🔍 DEBUG - Artifacts count after formatting:', artifacts.length);
-    console.log('🔍 DEBUG - Artifact types:', artifacts.map(a => a.type));
-    console.log('🔍 DEBUG - Artifacts with actions:', artifacts.filter(a => a.actions).length);
-    
-    const message = generateResponseMessage(intentWithDefaults, results, projectName || undefined, updatedProjectData);
-    timings.resultFormatting = Date.now() - formattingStartTime;
-    
-    // Enhanced project ID logging
+    // Enhanced project ID logging - MUST be before formatArtifacts
     let projectId = intentWithDefaults.params.project_id || event.context?.projectId;
     
     // Ensure we always have a project ID (should already be set by applyDefaultParameters)
     if (!projectId) {
       projectId = `project-${Date.now()}`;
     }
+    
+    // Format results as EDI artifacts with action buttons
+    const formattingStartTime = Date.now();
+    console.log('🔍 DEBUG - Results count before formatting:', results.length);
+    console.log('🔍 DEBUG - Results types:', results.map(r => r.type));
+    const artifacts = formatArtifacts(results, intentWithDefaults.type, projectName || undefined, updatedProjectData, projectId);
+    console.log('🔍 DEBUG - Artifacts count after formatting:', artifacts.length);
+    console.log('🔍 DEBUG - Artifact types:', artifacts.map(a => a.type));
+    console.log('🔍 DEBUG - Artifacts with actions:', artifacts.filter(a => a.actions).length);
+    
+    const message = generateResponseMessage(intentWithDefaults, results, projectName || undefined, updatedProjectData);
+    timings.resultFormatting = Date.now() - formattingStartTime;
     
     console.log('───────────────────────────────────────────────────────────');
     console.log('🆔 PROJECT ID GENERATION');
@@ -2335,8 +2335,11 @@ function getDefaultSubtitle(artifactType: string, data: any): string {
 /**
  * Format tool results as EDI artifacts with validation and action buttons
  */
-function formatArtifacts(results: ToolResult[], intentType?: string, projectName?: string, projectStatus?: any): Artifact[] {
+function formatArtifacts(results: ToolResult[], intentType?: string, projectName?: string, projectStatus?: any, projectId?: string): Artifact[] {
   const artifacts: Artifact[] = [];
+  
+  // Use projectName as fallback for projectId if not provided
+  const effectiveProjectId = projectId || projectName;
   
   for (const result of results) {
     if (!result.success) {
@@ -2374,10 +2377,10 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
           type: 'wind_farm_terrain_analysis',
           data: {
             messageContentType: 'wind_farm_terrain_analysis',
-            title: result.data.title || getDefaultTitle('terrain_analysis', result.data.projectId),
+            title: result.data.title || getDefaultTitle('terrain_analysis', result.data.projectId || effectiveProjectId),
             subtitle: result.data.subtitle || getDefaultSubtitle('terrain_analysis', result.data),
             coordinates: result.data.coordinates,
-            projectId: result.data.projectId,
+            projectId: result.data.projectId || effectiveProjectId, // Fallback to orchestrator's projectId
             exclusionZones: result.data.exclusionZones,
             metrics: result.data.metrics,
             geojson: result.data.geojson,
@@ -2398,9 +2401,9 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
           type: 'wind_farm_layout',
           data: {
             messageContentType: 'wind_farm_layout',
-            title: result.data.title || getDefaultTitle('layout_optimization', result.data.projectId),
+            title: result.data.title || getDefaultTitle('layout_optimization', result.data.projectId || effectiveProjectId),
             subtitle: result.data.subtitle || getDefaultSubtitle('layout_optimization', result.data),
-            projectId: result.data.projectId,
+            projectId: result.data.projectId || effectiveProjectId, // Fallback to orchestrator's projectId
             layoutType: result.data.layoutType,
             turbineCount: result.data.turbineCount,
             totalCapacity: result.data.totalCapacity,
@@ -2431,9 +2434,9 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
           type: 'wind_rose_analysis',
           data: {
             messageContentType: 'wind_rose_analysis',
-            title: result.data.title || getDefaultTitle('wind_rose_analysis', result.data.projectId),
+            title: result.data.title || getDefaultTitle('wind_rose_analysis', result.data.projectId || effectiveProjectId),
             subtitle: result.data.subtitle || getDefaultSubtitle('wind_rose_analysis', result.data),
-            projectId: result.data.projectId,
+            projectId: result.data.projectId || effectiveProjectId, // Fallback to orchestrator's projectId
             coordinates: result.data.coordinates || result.data.location,
             location: result.data.location,
             windRoseData: result.data.windRoseData,
@@ -2459,9 +2462,9 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
           type: 'wake_simulation',
           data: {
             messageContentType: 'wake_simulation',
-            title: result.data.title || getDefaultTitle('wake_simulation', result.data.projectId),
+            title: result.data.title || getDefaultTitle('wake_simulation', result.data.projectId || effectiveProjectId),
             subtitle: result.data.subtitle || getDefaultSubtitle('wake_simulation', result.data),
-            projectId: result.data.projectId,
+            projectId: result.data.projectId || effectiveProjectId, // Fallback to orchestrator's projectId
             performanceMetrics: result.data.performanceMetrics,
             turbineMetrics: result.data.turbineMetrics,
             monthlyProduction: result.data.monthlyProduction,

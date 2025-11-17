@@ -39,7 +39,15 @@ export async function sendMessage(
   conversationHistory?: ChatMessage[]
 ): Promise<SendMessageResponse> {
   try {
-    console.log('[Chat API] Sending message:', { message, chatSessionId });
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🔵 FRONTEND (API Client): Sending message to backend');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🆔 Session ID:', chatSessionId);
+    console.log('📝 Message:', message);
+    console.log('📚 History Length:', conversationHistory?.length || 0);
+    console.log('🌐 Endpoint: /api/chat/message');
+    console.log('⏰ Timestamp:', new Date().toISOString());
+    console.log('═══════════════════════════════════════════════════════════');
     
     const response = await apiPost<SendMessageResponse>('/api/chat/message', {
       message,
@@ -47,11 +55,17 @@ export async function sendMessage(
       conversationHistory,
     });
     
-    console.log('[Chat API] Response received:', response);
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🔵 FRONTEND (API Client): Response received from backend');
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('📦 Response:', JSON.stringify(response, null, 2));
+    console.log('✅ Has Success Field:', 'success' in response);
+    console.log('📊 Has Response Field:', 'response' in response);
+    console.log('═══════════════════════════════════════════════════════════');
     
     // Validate response structure
     if (!response) {
-      console.error('[Chat API] Received null/undefined response');
+      console.error('❌ FRONTEND (API Client): Received null/undefined response');
       return {
         success: false,
         error: 'No response from server',
@@ -60,21 +74,28 @@ export async function sendMessage(
     
     // If response doesn't have success field, check if it has the expected structure
     if (response.success === undefined && response.response) {
-      // Backend returned data but in different format, normalize it
+      console.warn('⚠️ FRONTEND (API Client): Response missing success field, normalizing');
       return {
         success: true,
         response: response.response,
       };
     }
     
+    console.log('✅ FRONTEND (API Client): Response validated successfully');
     return response;
   } catch (error: any) {
-    console.error('[Chat API] Error:', error);
-    console.error('[Chat API] Error type:', typeof error);
-    console.error('[Chat API] Error keys:', error ? Object.keys(error) : 'null');
+    console.error('═══════════════════════════════════════════════════════════');
+    console.error('❌ FRONTEND (API Client): CRITICAL ERROR');
+    console.error('═══════════════════════════════════════════════════════════');
+    console.error('Error:', error);
+    console.error('Error type:', typeof error);
+    console.error('Error constructor:', error?.constructor?.name);
+    console.error('Error keys:', error ? Object.keys(error) : 'null');
+    console.error('Error message:', error?.message || error?.toString());
+    console.error('Stack:', error?.stack);
+    console.error('═══════════════════════════════════════════════════════════');
     
     const errorMessage = error?.message || error?.toString() || 'Failed to send message';
-    console.error('[Chat API] Error message:', errorMessage);
     
     return {
       success: false,

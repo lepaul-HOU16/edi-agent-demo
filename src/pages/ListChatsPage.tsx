@@ -21,8 +21,8 @@ const Page = () => {
                 setUser(userInfo);
             } catch (error) {
                 console.error('Failed to load user info:', error);
-                // Set mock user in development
-                setUser({ userId: 'mock-user-id', username: 'mock-user', email: 'mock@example.com' });
+                // User will remain null, triggering the loading state
+                // This will be handled by the ProtectedRoute wrapper in future tasks
             }
         };
         loadUser();

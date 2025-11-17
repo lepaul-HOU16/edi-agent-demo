@@ -210,11 +210,21 @@ IMPORTANT: Execute ALL steps in sequence. Do not stop after step 1.`;
           }
 
         case 'renewable':
-          console.log('🌱 Routing to Renewable Energy Agent');
+          console.log('═══════════════════════════════════════════════════════════');
+          console.log('🟡 BACKEND (Agent Router): Routing to Renewable Energy Agent');
+          console.log('═══════════════════════════════════════════════════════════');
+          console.log('📝 Message:', message.substring(0, 100) + '...');
+          console.log('🆔 Session ID:', sessionContext?.chatSessionId);
+          console.log('👤 User ID:', sessionContext?.userId);
+          console.log('✅ Renewable Enabled:', this.renewableEnabled);
+          console.log('🤖 Renewable Agent Exists:', !!this.renewableAgent);
+          console.log('═══════════════════════════════════════════════════════════');
           
           // Check if renewable integration is enabled
           if (!this.renewableEnabled || !this.renewableAgent) {
-            console.log('⚠️ Renewable energy integration is disabled');
+            console.error('❌ BACKEND (Agent Router): Renewable energy integration is DISABLED');
+            console.error('   renewableEnabled:', this.renewableEnabled);
+            console.error('   renewableAgent:', !!this.renewableAgent);
             return {
               success: true,
               message: 'Renewable energy features are currently disabled. Please contact your administrator to enable this feature.',
@@ -231,8 +241,19 @@ IMPORTANT: Execute ALL steps in sequence. Do not stop after step 1.`;
             };
           }
           
+          console.log('🟡 BACKEND (Agent Router): Calling renewable proxy agent...');
           // Route to renewable agent with session context for async processing
           result = await this.renewableAgent.processQuery(message, conversationHistory, sessionContext);
+          
+          console.log('═══════════════════════════════════════════════════════════');
+          console.log('🟡 BACKEND (Agent Router): Renewable agent response received');
+          console.log('═══════════════════════════════════════════════════════════');
+          console.log('✅ Success:', result.success);
+          console.log('📊 Artifact Count:', result.artifacts?.length || 0);
+          console.log('🧠 Thought Step Count:', result.thoughtSteps?.length || 0);
+          console.log('💬 Message Length:', result.message?.length || 0);
+          console.log('═══════════════════════════════════════════════════════════');
+          
           return {
             ...result,
             agentUsed: 'renewable_energy'

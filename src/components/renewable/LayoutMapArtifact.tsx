@@ -290,14 +290,14 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
         maxZoom: 19,
       });
 
-      // Add satellite as default
-      satelliteLayer.addTo(map);
+      // Add OSM as default (user preference)
+      osmLayer.addTo(map);
 
-      // Add layer control
+      // Add layer control to switch between OSM and satellite
       L.control.layers(
         {
-          'Satellite': satelliteLayer,
           'Street Map': osmLayer,
+          'Satellite': satelliteLayer,
         },
         {},
         { position: 'topright' }
@@ -665,7 +665,7 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
         )}
 
         {/* Layout Information */}
-        <ColumnLayout columns={4} variant="text-grid">
+        <ColumnLayout columns={4} variant="text-grid" minColumnWidth={150}>
           <div>
             <Box variant="awsui-key-label">Turbine Count</Box>
             <div>{data.turbineCount}</div>

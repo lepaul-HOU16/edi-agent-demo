@@ -417,14 +417,20 @@ const ChatBox = (params: {
 
   const handleSend = useCallback(async (userMessage: string) => {
     if (userMessage.trim()) {
-      console.log('=== CHATBOX DEBUG: Sending message ===');
-      console.log('User message:', userMessage);
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('🔵 FRONTEND (ChatBox): Sending message');
+      console.log('═══════════════════════════════════════════════════════════');
+      console.log('📝 Message:', userMessage);
+      console.log('🆔 Session ID:', params.chatSessionId);
+      console.log('🤖 Selected Agent:', params.selectedAgent || 'auto');
+      console.log('⏰ Timestamp:', new Date().toISOString());
+      console.log('═══════════════════════════════════════════════════════════');
       
       // INSTANT INPUT CLEARING: Clear input IMMEDIATELY before any async operations
       const clearStartTime = performance.now();
       params.onInputChange('');
       const clearDuration = performance.now() - clearStartTime;
-      console.log(`⚡ Input cleared in ${clearDuration.toFixed(2)}ms`);
+      console.log(`⚡ FRONTEND: Input cleared in ${clearDuration.toFixed(2)}ms`);
       
       setIsLoading(true);
 
@@ -437,16 +443,24 @@ const ChatBox = (params: {
       }
 
       try {
+        console.log('🔵 FRONTEND: Calling sendMessage API...');
         const result = await sendMessage({
           chatSessionId: params.chatSessionId,
           newMessage: newMessage,
           agentType: params.selectedAgent || 'auto'
         });
         
-        console.log('=== CHATBOX DEBUG: Send message result ===', result);
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('🔵 FRONTEND (ChatBox): API Response Received');
+        console.log('═══════════════════════════════════════════════════════════');
+        console.log('✅ Success:', result.success);
+        console.log('📦 Has Response:', !!result.response);
+        console.log('📊 Artifact Count:', result.response?.artifacts?.length || 0);
+        console.log('💬 Response Text:', result.response?.text?.substring(0, 100) + '...');
+        console.log('═══════════════════════════════════════════════════════════');
         
         if (result.success && result.response) {
-          console.log('Agent response data:', result.response);
+          console.log('🔵 FRONTEND: Processing successful response');
           
           // Add AI response to messages
           const aiMessage: Message = {
@@ -462,19 +476,31 @@ const ChatBox = (params: {
           // Add artifacts if present
           if (result.response.artifacts && result.response.artifacts.length > 0) {
             (aiMessage as any).artifacts = result.response.artifacts;
+            console.log('🔵 FRONTEND: Added', result.response.artifacts.length, 'artifacts to AI message');
+          } else {
+            console.warn('⚠️ FRONTEND: No artifacts in response');
           }
           
           // Update messages
+          console.log('🔵 FRONTEND: Adding AI message to chat');
           setMessages((prevMessages) => [...prevMessages, aiMessage]);
         }
         
         if (!result.success) {
-          console.error('Agent response error:', result.error);
+          console.error('❌ FRONTEND: API returned error');
+          console.error('Error:', result.error);
         }
         
         setIsLoading(false);
+        console.log('🔵 FRONTEND: Message handling complete');
       } catch (error) {
-        console.error('=== CHATBOX DEBUG: Send message error ===', error);
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('❌ FRONTEND (ChatBox): CRITICAL ERROR');
+        console.error('═══════════════════════════════════════════════════════════');
+        console.error('Error:', error);
+        console.error('Error type:', error instanceof Error ? error.constructor.name : typeof error);
+        console.error('Error message:', error instanceof Error ? error.message : String(error));
+        console.error('═══════════════════════════════════════════════════════════');
         setIsLoading(false);
         // VALIDATION ERROR HANDLING: Restore input on error
         params.onInputChange(userMessage);
