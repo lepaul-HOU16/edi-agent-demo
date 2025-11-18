@@ -8,10 +8,9 @@ on:
 
 env:
   AWS_REGION: us-east-1
-  NODE_VERSION: "20"
+  NODE_VERSION: '20'
   STACK_NAME: EnergyInsights-development
   CLOUDFRONT_DISTRIBUTION_ID: E3O1QDG49S3NGP
-  NODE_OPTIONS: "--max-old-space-size=4096"
 
 jobs:
   test:
@@ -25,7 +24,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -51,7 +50,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: 'npm'
 
       - name: Install root dependencies
         run: npm ci
@@ -114,7 +113,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: "npm"
+          cache: 'npm'
 
       - name: Install dependencies
         run: npm ci
@@ -148,7 +147,7 @@ jobs:
             --cache-control "public, max-age=31536000, immutable" \
             --exclude "index.html" \
             --exclude "*.json"
-
+          
           # Upload index.html and JSON files with no-cache
           aws s3 sync dist/ s3://${{ steps.get-bucket.outputs.bucket }}/ \
             --exclude "*" \
@@ -176,7 +175,7 @@ jobs:
             --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
             --query "InvalidationList.Items[0].Id" \
             --output text)
-
+          
           echo "Waiting for invalidation $INVALIDATION_ID to complete..."
           aws cloudfront wait invalidation-completed \
             --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
@@ -200,12 +199,12 @@ jobs:
             --stack-name ${{ env.STACK_NAME }} \
             --query "Stacks[0].StackStatus" \
             --output text)
-
+          
           if [ "$STATUS" != "UPDATE_COMPLETE" ] && [ "$STATUS" != "CREATE_COMPLETE" ]; then
             echo "❌ Stack status is $STATUS"
             exit 1
           fi
-
+          
           echo "✅ Stack status: $STATUS"
 
       - name: Get frontend URL
@@ -225,12 +224,12 @@ jobs:
       - name: Test frontend accessibility
         run: |
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get-url.outputs.url }})
-
+          
           if [ "$HTTP_CODE" != "200" ]; then
             echo "❌ Frontend returned HTTP $HTTP_CODE"
             exit 1
           fi
-
+          
           echo "✅ Frontend accessible (HTTP $HTTP_CODE)"
 
       - name: Test API health
@@ -243,12 +242,12 @@ jobs:
             --stack-name ${{ env.STACK_NAME }} \
             --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue" \
             --output text)
-
+          
           echo "Testing API: $API_URL/api/health"
-
+          
           # API health endpoint might not exist, so we just check if API responds
           HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/health" || echo "000")
-
+          
           if [ "$HTTP_CODE" = "000" ]; then
             echo "⚠️  API health check failed, but this might be expected"
           else
