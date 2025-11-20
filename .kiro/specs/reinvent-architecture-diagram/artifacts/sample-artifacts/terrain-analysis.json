@@ -1,0 +1,187 @@
+{
+  "type": "wind_farm_terrain_analysis",
+  "data": {
+    "messageContentType": "wind_farm_terrain_analysis",
+    "title": "Terrain Analysis Complete",
+    "subtitle": "West Texas Wind Farm Site",
+    "projectId": "west-texas-wind-farm-2025",
+    "coordinates": {
+      "lat": 35.067482,
+      "lng": -101.395466
+    },
+    "metrics": {
+      "totalFeatures": 151,
+      "featuresByType": {
+        "building": 12,
+        "highway": 45,
+        "water": 8,
+        "railway": 3,
+        "landuse": 25,
+        "amenity": 6,
+        "leisure": 4,
+        "man_made": 11,
+        "other": 37
+      },
+      "radiusKm": 5,
+      "analysisTimestamp": "2025-01-15T10:30:00Z",
+      "exclusionZoneArea": 2.3,
+      "suitableArea": 45.7
+    },
+    "exclusionZones": [
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [-101.400, 35.070],
+              [-101.398, 35.070],
+              [-101.398, 35.068],
+              [-101.400, 35.068],
+              [-101.400, 35.070]
+            ]
+          ]
+        },
+        "properties": {
+          "feature_type": "building",
+          "osm_id": 123456789,
+          "tags": {
+            "building": "yes",
+            "name": "Farm Building"
+          },
+          "exclusion_reason": "Building setback requirement (100m)",
+          "buffer_distance_m": 100
+        }
+      },
+      {
+        "type": "Feature",
+        "geometry": {
+          "type": "Polygon",
+          "coordinates": [
+            [
+              [-101.395, 35.065],
+              [-101.393, 35.065],
+              [-101.393, 35.063],
+              [-101.395, 35.063],
+              [-101.395, 35.065]
+            ]
+          ]
+        },
+        "properties": {
+          "feature_type": "water",
+          "osm_id": 987654321,
+          "tags": {
+            "natural": "water",
+            "water": "pond"
+          },
+          "exclusion_reason": "Water body protection zone",
+          "buffer_distance_m": 50
+        }
+      }
+    ],
+    "geojson": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [-101.400, 35.070],
+                [-101.398, 35.070],
+                [-101.398, 35.068],
+                [-101.400, 35.068],
+                [-101.400, 35.070]
+              ]
+            ]
+          },
+          "properties": {
+            "feature_type": "building",
+            "osm_id": 123456789,
+            "tags": {
+              "building": "yes",
+              "name": "Farm Building"
+            }
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [-101.405, 35.075],
+              [-101.390, 35.060]
+            ]
+          },
+          "properties": {
+            "feature_type": "highway",
+            "osm_id": 234567890,
+            "tags": {
+              "highway": "secondary",
+              "name": "County Road 12"
+            }
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [-101.395, 35.065],
+                [-101.393, 35.065],
+                [-101.393, 35.063],
+                [-101.395, 35.063],
+                [-101.395, 35.065]
+              ]
+            ]
+          },
+          "properties": {
+            "feature_type": "water",
+            "osm_id": 987654321,
+            "tags": {
+              "natural": "water",
+              "water": "pond"
+            }
+          }
+        }
+      ]
+    },
+    "windData": {
+      "averageSpeed": 7.2,
+      "predominantDirection": 180,
+      "windRoseUrl": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/wind-rose.png"
+    },
+    "suitabilityScore": 8.5,
+    "recommendations": [
+      "Site shows excellent wind resource potential",
+      "Minimal terrain obstacles identified",
+      "Adequate space for 15-20 turbines",
+      "Road access available for construction"
+    ],
+    "s3Artifacts": {
+      "interactiveMap": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/terrain-map.html",
+      "elevationProfile": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/elevation-profile.png",
+      "slopeAnalysis": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/slope-analysis.png"
+    }
+  },
+  "actions": [
+    {
+      "label": "Optimize Layout",
+      "query": "Optimize turbine layout for this site",
+      "icon": "grid",
+      "primary": true
+    },
+    {
+      "label": "Analyze Wind Resource",
+      "query": "Generate detailed wind rose analysis",
+      "icon": "chart"
+    },
+    {
+      "label": "Generate Report",
+      "query": "Create executive summary report",
+      "icon": "document"
+    }
+  ]
+}

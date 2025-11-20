@@ -1,0 +1,546 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AWS Cost Calculator - Energy Data Insights Platform</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Amazon Ember', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #232F3E 0%, #1a242f 100%);
+            color: #fff;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #FF9900;
+        }
+        
+        .header p {
+            font-size: 18px;
+            color: #AAB7B8;
+        }
+        
+        .calculator-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 40px;
+        }
+        
+        .input-section {
+            background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .input-section h2 {
+            font-size: 28px;
+            color: #FF9900;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .input-group {
+            margin-bottom: 25px;
+        }
+        
+        .input-label {
+            display: block;
+            font-size: 14px;
+            color: #AAB7B8;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 16px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 153, 0, 0.3);
+            border-radius: 8px;
+            color: #fff;
+            transition: border-color 0.3s ease;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: #FF9900;
+        }
+        
+        .input-help {
+            font-size: 12px;
+            color: #7F8C8D;
+            margin-top: 5px;
+        }
+        
+        .results-section {
+            background: linear-gradient(135deg, #16A085 0%, #1ABC9C 100%);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .results-section h2 {
+            font-size: 28px;
+            margin-bottom: 25px;
+        }
+        
+        .cost-breakdown {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .cost-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .cost-item:last-child {
+            border-bottom: none;
+        }
+        
+        .cost-label {
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.9);
+        }
+        
+        .cost-value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+        
+        .total-cost {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+            margin-top: 20px;
+        }
+        
+        .total-label {
+            font-size: 16px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+        
+        .total-value {
+            font-size: 48px;
+            font-weight: 700;
+        }
+        
+        .breakdown-section {
+            background: linear-gradient(135deg, #8E44AD 0%, #9B59B6 100%);
+            border-radius: 12px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .breakdown-section h2 {
+            font-size: 28px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .service-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .service-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .service-icon {
+            font-size: 36px;
+            margin-bottom: 10px;
+        }
+        
+        .service-name {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 10px;
+            opacity: 0.9;
+        }
+        
+        .service-cost {
+            font-size: 32px;
+            font-weight: 700;
+        }
+        
+        .service-details {
+            font-size: 12px;
+            margin-top: 10px;
+            opacity: 0.8;
+        }
+        
+        .optimization-tips {
+            background: linear-gradient(135deg, #E67E22 0%, #F39C12 100%);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .optimization-tips h2 {
+            font-size: 28px;
+            margin-bottom: 25px;
+            text-align: center;
+        }
+        
+        .tips-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .tip-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 20px;
+            border-left: 4px solid #fff;
+        }
+        
+        .tip-card h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+        }
+        
+        .tip-card p {
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        
+        .savings-badge {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            margin-top: 10px;
+        }
+        
+        @media (max-width: 768px) {
+            .calculator-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>💰 AWS Cost Calculator</h1>
+            <p>Estimate monthly costs for your Energy Data Insights deployment</p>
+        </div>
+        
+        <div class="calculator-grid">
+            <!-- Input Section -->
+            <div class="input-section">
+                <h2>📊 Usage Parameters</h2>
+                
+                <div class="input-group">
+                    <label class="input-label">Number of Users</label>
+                    <input type="number" id="numUsers" class="input-field" value="1000" min="1">
+                    <div class="input-help">Active users per month</div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Queries per User per Day</label>
+                    <input type="number" id="queriesPerUser" class="input-field" value="10" min="1">
+                    <div class="input-help">Average daily queries per user</div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Average Query Duration (seconds)</label>
+                    <input type="number" id="avgDuration" class="input-field" value="5" min="1">
+                    <div class="input-help">Average Lambda execution time</div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Storage per User (GB)</label>
+                    <input type="number" id="storagePerUser" class="input-field" value="0.1" min="0" step="0.1">
+                    <div class="input-help">Average S3 storage per user</div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Average Tokens per Query</label>
+                    <input type="number" id="tokensPerQuery" class="input-field" value="3000" min="100">
+                    <div class="input-help">Bedrock API token usage</div>
+                </div>
+                
+                <button onclick="calculateCosts()" style="width: 100%; padding: 15px; font-size: 16px; background: #FF9900; color: #232F3E; border: none; border-radius: 8px; cursor: pointer; font-weight: 700; margin-top: 10px;">
+                    Calculate Costs
+                </button>
+            </div>
+            
+            <!-- Results Section -->
+            <div class="results-section">
+                <h2>💵 Monthly Cost Estimate</h2>
+                
+                <div class="cost-breakdown">
+                    <div class="cost-item">
+                        <span class="cost-label">API Gateway</span>
+                        <span class="cost-value" id="apiGatewayCost">$0.00</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-label">Lambda Compute</span>
+                        <span class="cost-value" id="lambdaCost">$0.00</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-label">DynamoDB</span>
+                        <span class="cost-value" id="dynamoDBCost">$0.00</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-label">S3 Storage</span>
+                        <span class="cost-value" id="s3Cost">$0.00</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-label">Bedrock API</span>
+                        <span class="cost-value" id="bedrockCost">$0.00</span>
+                    </div>
+                    <div class="cost-item">
+                        <span class="cost-label">CloudWatch</span>
+                        <span class="cost-value" id="cloudwatchCost">$0.00</span>
+                    </div>
+                </div>
+                
+                <div class="total-cost">
+                    <div class="total-label">Total Monthly Cost</div>
+                    <div class="total-value" id="totalCost">$0.00</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Detailed Breakdown -->
+        <div class="breakdown-section">
+            <h2>📈 Service Breakdown</h2>
+            <div class="service-grid">
+                <div class="service-card">
+                    <div class="service-icon">🌐</div>
+                    <div class="service-name">API Gateway</div>
+                    <div class="service-cost" id="apiGatewayDetail">$0.00</div>
+                    <div class="service-details" id="apiGatewayRequests">0 requests</div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">⚡</div>
+                    <div class="service-name">Lambda</div>
+                    <div class="service-cost" id="lambdaDetail">$0.00</div>
+                    <div class="service-details" id="lambdaInvocations">0 invocations</div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">🗄️</div>
+                    <div class="service-name">DynamoDB</div>
+                    <div class="service-cost" id="dynamoDBDetail">$0.00</div>
+                    <div class="service-details" id="dynamoDBOperations">0 operations</div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">📦</div>
+                    <div class="service-name">S3</div>
+                    <div class="service-cost" id="s3Detail">$0.00</div>
+                    <div class="service-details" id="s3Storage">0 GB</div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">🤖</div>
+                    <div class="service-name">Bedrock</div>
+                    <div class="service-cost" id="bedrockDetail">$0.00</div>
+                    <div class="service-details" id="bedrockTokens">0 tokens</div>
+                </div>
+                <div class="service-card">
+                    <div class="service-icon">📊</div>
+                    <div class="service-name">CloudWatch</div>
+                    <div class="service-cost" id="cloudwatchDetail">$0.00</div>
+                    <div class="service-details">Logs & Metrics</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Optimization Tips -->
+        <div class="optimization-tips">
+            <h2>💡 Cost Optimization Strategies</h2>
+            <div class="tips-grid">
+                <div class="tip-card">
+                    <h3>🏗️ Use ARM64 Architecture</h3>
+                    <p>
+                        Switch Lambda functions to ARM64 (Graviton2) for 20% cost savings with better performance. 
+                        Compatible with most Node.js and Python workloads.
+                    </p>
+                    <span class="savings-badge">Save ~20%</span>
+                </div>
+                <div class="tip-card">
+                    <h3>📦 S3 Intelligent Tiering</h3>
+                    <p>
+                        Enable S3 Intelligent-Tiering to automatically move infrequently accessed artifacts to 
+                        lower-cost storage tiers. Can reduce storage costs by up to 70%.
+                    </p>
+                    <span class="savings-badge">Save ~70% on storage</span>
+                </div>
+                <div class="tip-card">
+                    <h3>🔄 Cache Bedrock Responses</h3>
+                    <p>
+                        Implement response caching for common queries to reduce Bedrock API calls. Cache in 
+                        DynamoDB with TTL for automatic cleanup.
+                    </p>
+                    <span class="savings-badge">Save ~30% on AI costs</span>
+                </div>
+                <div class="tip-card">
+                    <h3>⏱️ Optimize Lambda Memory</h3>
+                    <p>
+                        Use AWS Lambda Power Tuning to find optimal memory settings. Right-sizing can reduce 
+                        costs by 10-30% while maintaining performance.
+                    </p>
+                    <span class="savings-badge">Save ~15%</span>
+                </div>
+                <div class="tip-card">
+                    <h3>📝 Set Log Retention</h3>
+                    <p>
+                        Configure CloudWatch log retention to 7 days for non-production environments. Reduce 
+                        log verbosity in production to essential information only.
+                    </p>
+                    <span class="savings-badge">Save ~50% on logs</span>
+                </div>
+                <div class="tip-card">
+                    <h3>🎯 Reserved Capacity</h3>
+                    <p>
+                        For predictable workloads, use DynamoDB reserved capacity or Savings Plans for Lambda. 
+                        Can provide 30-50% discounts for committed usage.
+                    </p>
+                    <span class="savings-badge">Save ~40%</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function calculateCosts() {
+            // Get input values
+            const numUsers = parseInt(document.getElementById('numUsers').value);
+            const queriesPerUser = parseInt(document.getElementById('queriesPerUser').value);
+            const avgDuration = parseInt(document.getElementById('avgDuration').value);
+            const storagePerUser = parseFloat(document.getElementById('storagePerUser').value);
+            const tokensPerQuery = parseInt(document.getElementById('tokensPerQuery').value);
+            
+            // Calculate monthly totals
+            const monthlyRequests = numUsers * queriesPerUser * 30;
+            const totalStorage = numUsers * storagePerUser;
+            const totalTokens = monthlyRequests * tokensPerQuery;
+            
+            // Pricing (as of 2024)
+            const apiGatewayPricePerMillion = 1.00;
+            const lambdaPricePerGBSecond = 0.0000166667;
+            const lambdaPricePerRequest = 0.0000002;
+            const dynamoDBWritePrice = 1.25; // per million writes
+            const dynamoDBReadPrice = 0.25; // per million reads
+            const s3StoragePrice = 0.023; // per GB
+            const s3RequestPrice = 0.0004; // per 1000 requests
+            const bedrockInputTokenPrice = 0.003 / 1000; // per 1K tokens
+            const bedrockOutputTokenPrice = 0.015 / 1000; // per 1K tokens
+            const cloudwatchPrice = 5.00; // flat estimate
+            
+            // Calculate costs
+            const apiGatewayCost = (monthlyRequests / 1000000) * apiGatewayPricePerMillion;
+            
+            const lambdaComputeCost = (monthlyRequests * avgDuration * 1) * lambdaPricePerGBSecond;
+            const lambdaRequestCost = monthlyRequests * lambdaPricePerRequest;
+            const lambdaCost = lambdaComputeCost + lambdaRequestCost;
+            
+            const dynamoDBWrites = monthlyRequests * 2; // 2 writes per request
+            const dynamoDBReads = monthlyRequests * 4; // 4 reads per request
+            const dynamoDBCost = (dynamoDBWrites / 1000000) * dynamoDBWritePrice + 
+                                 (dynamoDBReads / 1000000) * dynamoDBReadPrice;
+            
+            const s3StorageCost = totalStorage * s3StoragePrice;
+            const s3RequestCost = (monthlyRequests / 1000) * s3RequestPrice;
+            const s3Cost = s3StorageCost + s3RequestCost;
+            
+            const bedrockInputCost = (totalTokens * 0.6) * bedrockInputTokenPrice;
+            const bedrockOutputCost = (totalTokens * 0.4) * bedrockOutputTokenPrice;
+            const bedrockCost = bedrockInputCost + bedrockOutputCost;
+            
+            const cloudwatchCost = cloudwatchPrice;
+            
+            const totalCost = apiGatewayCost + lambdaCost + dynamoDBCost + s3Cost + bedrockCost + cloudwatchCost;
+            
+            // Update UI
+            document.getElementById('apiGatewayCost').textContent = `$${apiGatewayCost.toFixed(2)}`;
+            document.getElementById('lambdaCost').textContent = `$${lambdaCost.toFixed(2)}`;
+            document.getElementById('dynamoDBCost').textContent = `$${dynamoDBCost.toFixed(2)}`;
+            document.getElementById('s3Cost').textContent = `$${s3Cost.toFixed(2)}`;
+            document.getElementById('bedrockCost').textContent = `$${bedrockCost.toFixed(2)}`;
+            document.getElementById('cloudwatchCost').textContent = `$${cloudwatchCost.toFixed(2)}`;
+            document.getElementById('totalCost').textContent = `$${totalCost.toFixed(2)}`;
+            
+            // Update detailed breakdown
+            document.getElementById('apiGatewayDetail').textContent = `$${apiGatewayCost.toFixed(2)}`;
+            document.getElementById('apiGatewayRequests').textContent = `${(monthlyRequests / 1000000).toFixed(2)}M requests`;
+            
+            document.getElementById('lambdaDetail').textContent = `$${lambdaCost.toFixed(2)}`;
+            document.getElementById('lambdaInvocations').textContent = `${(monthlyRequests / 1000000).toFixed(2)}M invocations`;
+            
+            document.getElementById('dynamoDBDetail').textContent = `$${dynamoDBCost.toFixed(2)}`;
+            document.getElementById('dynamoDBOperations').textContent = `${((dynamoDBWrites + dynamoDBReads) / 1000000).toFixed(2)}M operations`;
+            
+            document.getElementById('s3Detail').textContent = `$${s3Cost.toFixed(2)}`;
+            document.getElementById('s3Storage').textContent = `${totalStorage.toFixed(2)} GB`;
+            
+            document.getElementById('bedrockDetail').textContent = `$${bedrockCost.toFixed(2)}`;
+            document.getElementById('bedrockTokens').textContent = `${(totalTokens / 1000000).toFixed(2)}M tokens`;
+            
+            document.getElementById('cloudwatchDetail').textContent = `$${cloudwatchCost.toFixed(2)}`;
+        }
+        
+        // Calculate on page load
+        calculateCosts();
+        
+        // Add event listeners for real-time calculation
+        document.querySelectorAll('.input-field').forEach(input => {
+            input.addEventListener('input', calculateCosts);
+        });
+    </script>
+</body>
+</html>

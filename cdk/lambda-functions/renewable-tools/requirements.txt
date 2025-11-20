@@ -1,0 +1,9 @@
+boto3
+pillow
+folium
+shapely
+geopandas
+requests
+numpy
+pandas
+matplotlib

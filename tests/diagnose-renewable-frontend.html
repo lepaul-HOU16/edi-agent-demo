@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Renewable Agent Frontend Diagnostic</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #007bff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 4px solid #007bff;
+            border-radius: 4px;
+        }
+        .log-output {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-entry {
+            margin: 2px 0;
+            padding: 2px 0;
+        }
+        .log-info { color: #4fc3f7; }
+        .log-success { color: #81c784; }
+        .log-warning { color: #ffb74d; }
+        .log-error { color: #e57373; }
+        .log-critical { color: #ff5252; font-weight: bold; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0056b3;
+        }
+        button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        .status {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        .status-pending { background: #fff3cd; color: #856404; }
+        .status-running { background: #cce5ff; color: #004085; }
+        .status-success { background: #d4edda; color: #155724; }
+        .status-error { background: #f8d7da; color: #721c24; }
+        .checklist {
+            list-style: none;
+            padding: 0;
+        }
+        .checklist li {
+            padding: 8px;
+            margin: 4px 0;
+            background: #f8f9fa;
+            border-radius: 4px;
+        }
+        .checklist li::before {
+            content: '⏳ ';
+            margin-right: 8px;
+        }
+        .checklist li.pass::before {
+            content: '✅ ';
+        }
+        .checklist li.fail::before {
+            content: '❌ ';
+        }
+        .checklist li.warn::before {
+            content: '⚠️ ';
+        }
+        input[type="text"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            margin: 5px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        @media (max-width: 768px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Renewable Agent Frontend Diagnostic</h1>
+        <p>This tool helps diagnose renewable agent issues by testing the complete flow from frontend to backend.</p>
+    </div>
+
+    <div class="container">
+        <h2>Test Configuration</h2>
+        <div>
+            <label><strong>Test Query:</strong></label>
+            <input type="text" id="testQuery" value="Analyze terrain at 40.7128, -74.0060" />
+        </div>
+        <div>
+            <label><strong>Session ID:</strong></label>
+            <input type="text" id="sessionId" value="" placeholder="Auto-generated" readonly />
+        </div>
+        <div style="margin-top: 15px;">
+            <button onclick="runDiagnostics()" id="runBtn">🚀 Run Diagnostics</button>
+            <button onclick="clearLogs()">🗑️ Clear Logs</button>
+            <button onclick="copyLogs()">📋 Copy Logs</button>
+        </div>
+    </div>
+
+    <div class="grid">
+        <div class="container">
+            <h2>Test Progress</h2>
+            <ul class="checklist" id="checklist">
+                <li id="check-1">Send message through UI</li>
+                <li id="check-2">Check browser console logs</li>
+                <li id="check-3">Check network request</li>
+                <li id="check-4">Check API response</li>
+                <li id="check-5">Verify response structure</li>
+                <li id="check-6">Check artifacts</li>
+                <li id="check-7">Verify message display</li>
+            </ul>
+        </div>
+
+        <div class="container">
+            <h2>Diagnosis Summary</h2>
+            <div id="summary" style="padding: 15px; background: #f8f9fa; border-radius: 4px; min-height: 200px;">
+                <p style="color: #666;">Run diagnostics to see results...</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <h2>Diagnostic Logs</h2>
+        <div class="log-output" id="logOutput"></div>
+    </div>
+
+    <script>
+        let logs = [];
+        let sessionId = `test-${Date.now()}`;
+        document.getElementById('sessionId').value = sessionId;
+
+        function log(message, level = 'info') {
+            const timestamp = new Date().toISOString();
+            const entry = { timestamp, message, level };
+            logs.push(entry);
+            
+            const logDiv = document.getElementById('logOutput');
+            const logEntry = document.createElement('div');
+            logEntry.className = `log-entry log-${level}`;
+            logEntry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(logEntry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        function updateCheck(id, status) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.className = status;
+            }
+        }
+
+        function updateSummary(html) {
+            document.getElementById('summary').innerHTML = html;
+        }
+
+        function clearLogs() {
+            logs = [];
+            document.getElementById('logOutput').innerHTML = '';
+            document.querySelectorAll('.checklist li').forEach(li => {
+                li.className = '';
+            });
+            updateSummary('<p style="color: #666;">Run diagnostics to see results...</p>');
+        }
+
+        function copyLogs() {
+            const logText = logs.map(l => `[${l.timestamp}] [${l.level.toUpperCase()}] ${l.message}`).join('\n');
+            navigator.clipboard.writeText(logText).then(() => {
+                alert('Logs copied to clipboard!');
+            });
+        }
+
+        async function runDiagnostics() {
+            clearLogs();
+            
+            const runBtn = document.getElementById('runBtn');
+            runBtn.disabled = true;
+            runBtn.textContent = '⏳ Running...';
+            
+            log('═══════════════════════════════════════════════════════════', 'info');
+            log('🔍 STARTING RENEWABLE AGENT DIAGNOSTICS', 'info');
+            log('═══════════════════════════════════════════════════════════', 'info');
+            log('⚠️  NOTE: This diagnostic tool must be run from within the application', 'warning');
+            log('⚠️  Open your application and use the browser console instead', 'warning');
+            log('', 'info');
+            
+            const testQuery = document.getElementById('testQuery').value;
+            sessionId = `test-${Date.now()}`;
+            document.getElementById('sessionId').value = sessionId;
+            
+            log(`Test Query: ${testQuery}`, 'info');
+            log(`Session ID: ${sessionId}`, 'info');
+            log('', 'info');
+            
+            const issues = [];
+            
+            try {
+                // Step 1: Send message
+                log('📤 STEP 1: Sending message through Chat API', 'info');
+                log('─────────────────────────────────────────────────────────', 'info');
+                updateCheck('check-1', 'running');
+                
+                const requestBody = {
+                    message: testQuery,
+                    chatSessionId: sessionId,
+                    conversationHistory: []
+                };
+                
+                log(`Request body: ${JSON.stringify(requestBody, null, 2)}`, 'info');
+                
+                // Try to detect if we're running in the app or standalone
+                const isStandalone = !window.location.href.includes('localhost:') && 
+                                   !window.location.href.includes('127.0.0.1:') &&
+                                   window.location.protocol === 'file:';
+                
+                if (isStandalone) {
+                    log('❌ Running as standalone HTML file', 'error');
+                    log('⚠️  This tool needs to run within the application to access the API', 'warning');
+                    log('', 'info');
+                    log('📋 INSTRUCTIONS:', 'info');
+                    log('1. Start your application (npm run dev)', 'info');
+                    log('2. Open browser Developer Tools (F12)', 'info');
+                    log('3. Go to Console tab', 'info');
+                    log('4. Send a renewable query through the UI', 'info');
+                    log('5. Watch the console logs', 'info');
+                    log('', 'info');
+                    log('OR use the manual diagnostic process:', 'info');
+                    log('See tests/QUICK_START_DIAGNOSTIC.md', 'info');
+                    
+                    updateSummary(`
+                        <h3 style="color: #856404;">⚠️ Standalone Mode Detected</h3>
+                        <p>This diagnostic tool needs to run within your application to access the API.</p>
+                        <p><strong>Quick Fix:</strong></p>
+                        <ol>
+                            <li>Start your application: <code>npm run dev</code></li>
+                            <li>Open the application in your browser</li>
+                            <li>Open Developer Tools (F12) → Console tab</li>
+                            <li>Send a renewable query through the UI</li>
+                            <li>Watch the console logs for diagnostic information</li>
+                        </ol>
+                        <p><strong>Alternative:</strong> Follow the manual process in <code>tests/QUICK_START_DIAGNOSTIC.md</code></p>
+                    `);
+                    
+                    runBtn.disabled = false;
+                    runBtn.textContent = '🚀 Run Diagnostics';
+                    return;
+                }
+                
+                const startTime = performance.now();
+                const response = await fetch('/api/chat/message', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+                const duration = performance.now() - startTime;
+                
+                log(`Response received in ${duration.toFixed(0)}ms`, 'success');
+                log(`Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+                updateCheck('check-1', response.ok ? 'pass' : 'fail');
+                
+                if (!response.ok) {
+                    issues.push({
+                        severity: 'CRITICAL',
+                        component: 'API Request',
+                        issue: `HTTP ${response.status} error`,
+                        action: 'Check API Gateway and Lambda configuration'
+                    });
+                }
+                
+                // Step 2: Parse response
+                log('', 'info');
+                log('📦 STEP 2: Parsing API response', 'info');
+                log('─────────────────────────────────────────────────────────', 'info');
+                updateCheck('check-4', 'running');
+                
+                const data = await response.json();
+                log(`Response data: ${JSON.stringify(data, null, 2)}`, 'info');
+                
+                // Step 3: Verify response structure
+                log('', 'info');
+                log('🔍 STEP 3: Verifying response structure', 'info');
+                log('─────────────────────────────────────────────────────────', 'info');
+                updateCheck('check-5', 'running');
+                
+                const checks = {
+                    hasSuccess: data.hasOwnProperty('success'),
+                    successValue: data.success,
+                    hasMessage: data.hasOwnProperty('message'),
+                    hasResponse: data.hasOwnProperty('response'),
+                    hasResponseText: data.response?.hasOwnProperty('text'),
+                    hasResponseArtifacts: data.response?.hasOwnProperty('artifacts'),
+                    artifactsIsArray: Array.isArray(data.response?.artifacts),
+                    artifactCount: data.response?.artifacts?.length || 0
+                };
+                
+                Object.entries(checks).forEach(([key, value]) => {
+                    const icon = value ? '✅' : '❌';
+                    const level = value ? 'success' : 'error';
+                    log(`${icon} ${key}: ${value}`, level);
+                    
+                    if (!value && key !== 'artifactCount') {
+                        issues.push({
+                            severity: 'HIGH',
+                            component: 'Response Structure',
+                            issue: `Missing or invalid: ${key}`,
+                            action: 'Check Chat Lambda response formatting'
+                        });
+                    }
+                });
+                
+                updateCheck('check-5', checks.hasSuccess && checks.hasResponse ? 'pass' : 'fail');
+                
+                // Step 4: Check artifacts
+                log('', 'info');
+                log('📊 STEP 4: Checking artifacts', 'info');
+                log('─────────────────────────────────────────────────────────', 'info');
+                updateCheck('check-6', 'running');
+                
+                if (checks.artifactCount > 0) {
+                    log(`✅ Found ${checks.artifactCount} artifact(s)`, 'success');
+                    data.response.artifacts.forEach((artifact, i) => {
+                        log(`  Artifact ${i + 1}:`, 'info');
+                        log(`    Type: ${artifact.type}`, 'info');
+                        log(`    Content Type: ${artifact.messageContentType}`, 'info');
+                        log(`    Has Data: ${!!artifact.data}`, artifact.data ? 'success' : 'error');
+                    });
+                    updateCheck('check-6', 'pass');
+                } else {
+                    log('❌ No artifacts found in response', 'error');
+                    updateCheck('check-6', 'fail');
+                    issues.push({
+                        severity: 'CRITICAL',
+                        component: 'Artifacts',
+                        issue: 'No artifacts returned from renewable agent',
+                        action: 'Check renewable orchestrator and tool Lambda logs'
+                    });
+                }
+                
+                // Step 5: Check browser console
+                log('', 'info');
+                log('🖥️ STEP 5: Browser console check', 'info');
+                log('─────────────────────────────────────────────────────────', 'info');
+                updateCheck('check-2', 'running');
+                log('⚠️ Please check browser console for frontend logs', 'warning');
+                log('Look for logs starting with:', 'info');
+                log('  🔵 FRONTEND (ChatBox)', 'info');
+                log('  🔵 FRONTEND (chatUtils)', 'info');
+                updateCheck('check-2', 'warn');
+                
+                // Step 6: Check network tab
+                log('', 'info');
+                log('🌐 STEP 6: Network tab check', 'info');
+                log('─────────────────────────────────────────────────────────', 'info');
+                updateCheck('check-3', 'running');
+                log('⚠️ Please check browser Network tab', 'warning');
+                log('Look for POST request to /api/chat', 'info');
+                log('Verify request payload and response', 'info');
+                updateCheck('check-3', 'warn');
+                
+                // Step 7: Message display
+                log('', 'info');
+                log('💬 STEP 7: Message display check', 'info');
+                log('─────────────────────────────────────────────────────────', 'info');
+                updateCheck('check-7', 'running');
+                log('⚠️ Please check if message appears in chat UI', 'warning');
+                log('Expected behavior:', 'info');
+                log('  1. User message appears immediately', 'info');
+                log('  2. Loading indicator shows', 'info');
+                log('  3. AI response appears with artifacts', 'info');
+                log('  4. Artifacts render as visual components', 'info');
+                updateCheck('check-7', 'warn');
+                
+                // Generate summary
+                log('', 'info');
+                log('═══════════════════════════════════════════════════════════', 'info');
+                log('📋 DIAGNOSIS SUMMARY', 'info');
+                log('═══════════════════════════════════════════════════════════', 'info');
+                
+                if (issues.length === 0) {
+                    log('✅ NO BACKEND ISSUES FOUND', 'success');
+                    log('', 'info');
+                    log('The backend appears to be working correctly.', 'success');
+                    log('If the UI still shows issues, check:', 'info');
+                    log('  1. Frontend display logic (ChatBox component)', 'info');
+                    log('  2. Artifact rendering components', 'info');
+                    log('  3. State management', 'info');
+                    log('  4. Browser console for errors', 'info');
+                    
+                    updateSummary(`
+                        <h3 style="color: #155724;">✅ Backend Working Correctly</h3>
+                        <p>The API is returning proper responses with artifacts.</p>
+                        <p><strong>If UI still shows issues, check:</strong></p>
+                        <ul>
+                            <li>Browser console for frontend errors</li>
+                            <li>ChatMessage component rendering</li>
+                            <li>Artifact component implementations</li>
+                            <li>State management in ChatBox</li>
+                        </ul>
+                    `);
+                } else {
+                    log(`❌ FOUND ${issues.length} ISSUE(S)`, 'error');
+                    log('', 'info');
+                    
+                    let summaryHtml = `<h3 style="color: #721c24;">❌ Found ${issues.length} Issue(s)</h3><ul>`;
+                    
+                    issues.forEach((issue, i) => {
+                        log(`${i + 1}. [${issue.severity}] ${issue.component}`, 'error');
+                        log(`   Issue: ${issue.issue}`, 'error');
+                        log(`   Action: ${issue.action}`, 'info');
+                        log('', 'info');
+                        
+                        summaryHtml += `
+                            <li>
+                                <strong>[${issue.severity}] ${issue.component}</strong><br/>
+                                ${issue.issue}<br/>
+                                <em>Action: ${issue.action}</em>
+                            </li>
+                        `;
+                    });
+                    
+                    summaryHtml += '</ul>';
+                    updateSummary(summaryHtml);
+                }
+                
+                log('═══════════════════════════════════════════════════════════', 'info');
+                log('✅ DIAGNOSTIC TEST COMPLETE', 'success');
+                log('═══════════════════════════════════════════════════════════', 'info');
+                
+            } catch (error) {
+                log('', 'info');
+                log('❌ DIAGNOSTIC TEST FAILED', 'critical');
+                log(`Error: ${error.message}`, 'critical');
+                log(`Stack: ${error.stack}`, 'error');
+                
+                updateSummary(`
+                    <h3 style="color: #721c24;">❌ Test Failed</h3>
+                    <p><strong>Error:</strong> ${error.message}</p>
+                    <p>Check the logs for details.</p>
+                `);
+            } finally {
+                runBtn.disabled = false;
+                runBtn.textContent = '🚀 Run Diagnostics';
+            }
+        }
+    </script>
+</body>
+</html>

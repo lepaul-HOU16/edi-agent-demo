@@ -15,6 +15,7 @@ import PreviewPage from './pages/PreviewPage';
 import CanvasesPage from './pages/CanvasesPage';
 import ProjectsPage from './pages/ProjectsPage';
 import SignInPage from './pages/SignInPage';
+import ReinventDemoPage from './pages/ReinventDemoPage';
 
 function App() {
   return (
@@ -34,6 +35,9 @@ function App() {
         <Route path="/create-new-chat" element={<ProtectedRoute><CreateNewChatPage /></ProtectedRoute>} />
         <Route path="/listChats" element={<ProtectedRoute><ListChatsPage /></ProtectedRoute>} />
         <Route path="/preview/*" element={<ProtectedRoute><PreviewPage /></ProtectedRoute>} />
+        
+        {/* Hidden route for re:Invent demo materials */}
+        <Route path="/reinvent-demo" element={<ProtectedRoute><ReinventDemoPage /></ProtectedRoute>} />
         
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />

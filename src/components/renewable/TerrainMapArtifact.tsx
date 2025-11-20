@@ -11,7 +11,7 @@ import 'leaflet/dist/leaflet.css';
 import { ActionButtons } from './ActionButtons';
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';
 
-// Custom CSS to hide popup tip and style popups + fix table header padding
+// Custom CSS to hide popup tip and style popups + fix table header padding + make layer control prominent
 const popupStyles = `
   /* Hide ALL popup tip elements with maximum specificity */
   .leaflet-popup-tip-container,
@@ -52,6 +52,55 @@ const popupStyles = `
   /* Generic fallback */
   table thead th:first-child {
     padding-left: 16px !important;
+  }
+  
+  /* Make layer control VISIBLE and prominent */
+  .leaflet-control-layers {
+    background: white !important;
+    border: 2px solid #0972d3 !important;
+    border-radius: 4px !important;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+    padding: 8px !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 1000 !important;
+  }
+  
+  .leaflet-control-layers-toggle {
+    background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNiIgaGVpZ2h0PSIzNiI+PHBhdGggZD0iTTAgMGgzNnYzNkgweiIgZmlsbD0iI2ZmZiIvPjxwYXRoIGQ9Ik0xOCAxMGw4IDhoLTE2eiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg==) !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: block !important;
+  }
+  
+  .leaflet-control-layers-expanded {
+    padding: 10px !important;
+    min-width: 150px !important;
+  }
+  
+  .leaflet-control-layers-base label {
+    padding: 6px 8px !important;
+    cursor: pointer !important;
+    display: flex !important;
+    align-items: center !important;
+    margin: 4px 0 !important;
+  }
+  
+  .leaflet-control-layers-base label:hover {
+    background: rgba(9, 114, 211, 0.1) !important;
+    border-radius: 3px !important;
+  }
+  
+  .leaflet-control-layers input[type="radio"] {
+    margin-right: 8px !important;
+    cursor: pointer !important;
+  }
+  
+  .leaflet-control-layers-separator {
+    display: none !important;
   }
 `;
 
@@ -108,11 +157,17 @@ interface TerrainArtifactProps {
   onFollowUpAction?: (action: string) => void;
 }
 
-const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onFollowUpAction }) => {
+const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, actions, onFollowUpAction }) => {
   console.log('🗺️ TerrainMapArtifact: COMPONENT RENDERING');
   
+  // CRITICAL FIX: Unwrap nested data structure if needed
+  // The artifact comes as {type, data: {actual data}, actions}
+  // But we need just the actual data
+  const data = (rawData as any)?.data || rawData;
+  
   // CRITICAL DEBUG: Log the actual data structure received
-  console.log('🗺️ TerrainMapArtifact: Received data:', data);
+  console.log('🗺️ TerrainMapArtifact: Received rawData:', rawData);
+  console.log('🗺️ TerrainMapArtifact: Unwrapped data:', data);
   console.log('🗺️ TerrainMapArtifact: data keys:', Object.keys(data || {}));
   console.log('🗺️ TerrainMapArtifact: data.metrics:', data?.metrics);
   console.log('🗺️ TerrainMapArtifact: data.geojson:', data?.geojson);
@@ -295,7 +350,13 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
 
           console.log('[TerrainMap] Adding tile layers...');
 
-          // Add satellite basemap (matching original notebook)
+          // Add OpenStreetMap tiles (default)
+          const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors',
+            maxZoom: 19,
+          });
+
+          // Add satellite basemap as alternative option
           const satelliteLayer = L.tileLayer(
             'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
             {
@@ -304,26 +365,23 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
             }
           );
 
-          // Add OpenStreetMap tiles
-          const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
-            maxZoom: 19,
-          });
-
-          // Add OSM as default (user preference)
+          // Add OSM as default (as requested)
           osmLayer.addTo(map);
           console.log('[TerrainMap] OSM layer added as default');
 
-          // Add layer control to switch between OSM and satellite
+          // Add layer control to switch between OSM and satellite - ALWAYS EXPANDED
           L.control.layers(
             {
               'Street Map': osmLayer,
               'Satellite': satelliteLayer,
             },
             {},
-            { position: 'topright' }
+            { 
+              position: 'topright',
+              collapsed: false  // ALWAYS SHOW - don't hide behind toggle
+            }
           ).addTo(map);
-          console.log('[TerrainMap] Layer control added');
+          console.log('[TerrainMap] Layer control added (always expanded)');
 
           console.log('[TerrainMap] Adding center marker...');
 
@@ -360,27 +418,32 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
       const getFeatureStyle = (featureType: string, geometry: any, tags: any = {}) => {
         const isLine = geometry?.type === 'LineString' || geometry?.type === 'MultiLineString';
         
-        // FIX: Determine actual feature type from OSM tags if feature_type is 'way' or incorrect
+        // CRITICAL FIX: Backend returns ALL features as 'way' without proper typing
+        // We MUST determine actual type from OSM tags
         let actualFeatureType = featureType;
         
-        if (featureType === 'way' || !featureType || featureType === 'other') {
-          // Identify from OSM tags - order matters (most specific first)
-          if (tags.highway) {
-            actualFeatureType = 'highway';
-            console.log('[TerrainMap] Corrected feature type from "way" to "highway"', { highway: tags.highway });
-          } else if (tags.railway) {
-            actualFeatureType = 'railway';
-            console.log('[TerrainMap] Corrected feature type from "way" to "railway"', { railway: tags.railway });
-          } else if (tags.waterway) {
-            actualFeatureType = 'water';
-            console.log('[TerrainMap] Corrected feature type from "way" to "water" (waterway)', { waterway: tags.waterway });
-          } else if (tags.natural === 'water') {
-            actualFeatureType = 'water';
-            console.log('[TerrainMap] Corrected feature type from "way" to "water" (natural)', { tags });
-          } else if (tags.building) {
-            actualFeatureType = 'building';
-            console.log('[TerrainMap] Corrected feature type from "way" to "building"', { tags });
-          }
+        // ALWAYS check OSM tags to determine actual feature type (backend doesn't do this)
+        if (tags.building) {
+          actualFeatureType = 'building';
+        } else if (tags.natural === 'water' || tags.water) {
+          actualFeatureType = 'water';
+        } else if (tags.waterway) {
+          actualFeatureType = 'water';
+        } else if (tags.highway) {
+          actualFeatureType = 'highway';
+        } else if (tags.railway) {
+          actualFeatureType = 'railway';
+        } else if (tags.landuse === 'industrial' || tags.landuse === 'commercial') {
+          actualFeatureType = 'landuse';
+        } else if (tags.amenity) {
+          actualFeatureType = 'amenity';
+        } else if (tags.leisure) {
+          actualFeatureType = 'leisure';
+        } else if (tags.man_made) {
+          actualFeatureType = 'man_made';
+        } else {
+          // Keep as 'way' or 'other' if we can't determine type
+          actualFeatureType = featureType === 'way' ? 'other' : featureType;
         }
         
         // DIAGNOSTIC LOGGING for water features
@@ -397,109 +460,128 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
         
         switch (actualFeatureType) {
           case 'water':
-            // FIX: Waterways (rivers, streams) should be lines, not filled polygons
+            // Waterways (rivers, streams) should be lines, not filled polygons
             if (tags.waterway) {
-              console.log('[TerrainMap] ✅ Applying waterway styling (blue line, no fill)', { waterway: tags.waterway });
               return {
                 fillColor: 'none',
-                color: 'blue',
-                weight: isLine ? 3 : 2,
-                fillOpacity: 0,  // No fill for waterways
+                color: '#1E90FF',  // Dodger blue for waterways
+                weight: 3,
+                fillOpacity: 0,
                 opacity: 0.8,
-                fill: false,  // Explicitly disable fill for rivers/streams
+                fill: false,
               };
             }
             // Water bodies (lakes, ponds) get filled
-            console.log('[TerrainMap] ✅ Applying water body styling (blue fill with 0.4 opacity)');
             return {
-              fillColor: 'blue',
-              color: 'darkblue',
+              fillColor: '#4169E1',  // Royal blue
+              color: '#00008B',  // Dark blue border
               weight: 2,
-              fillOpacity: 0.4,
-              opacity: 0.8,
-              fill: true,  // Explicitly enable fill for water bodies
+              fillOpacity: 0.5,
+              opacity: 0.9,
+              fill: true,
+            };
+          case 'building':
+            return {
+              fillColor: '#DC143C',  // Crimson red
+              color: '#8B0000',  // Dark red border
+              weight: 1,
+              fillOpacity: 0.6,
+              opacity: 0.9,
+              fill: true,
             };
           case 'highway':
-            // Check if it's a path/track/trail (unpaved)
             const highwayType = tags.highway;
+            // Major roads
+            if (highwayType === 'motorway' || highwayType === 'trunk' || highwayType === 'primary') {
+              return {
+                color: '#FF4500',  // Orange-red for major roads
+                weight: 4,
+                opacity: 0.9,
+                fill: false,
+              };
+            }
+            // Secondary roads
+            if (highwayType === 'secondary' || highwayType === 'tertiary') {
+              return {
+                color: '#FFA500',  // Orange for secondary roads
+                weight: 3,
+                opacity: 0.8,
+                fill: false,
+              };
+            }
+            // Paths and trails
             if (highwayType === 'path' || highwayType === 'track' || 
                 highwayType === 'footway' || highwayType === 'bridleway' ||
                 highwayType === 'cycleway' || highwayType === 'steps') {
-              console.log('[TerrainMap] ✅ Applying path/trail styling (brown dashed line)', { highway: highwayType });
               return {
-                fillColor: 'none',
-                color: '#8B4513',  // Brown color for dirt paths
+                color: '#8B4513',  // Brown for paths
                 weight: 2,
-                fillOpacity: 0,
                 opacity: 0.7,
                 fill: false,
-                dashArray: '5, 5',  // Dashed line for unpaved paths
+                dashArray: '5, 5',
               };
             }
-            // Regular paved highways
-            console.log('[TerrainMap] ✅ Applying highway styling (orange line)', { highway: highwayType });
+            // Default roads
             return {
-              fillColor: 'none',
-              color: 'darkorange',
-              weight: isLine ? 3 : 2,
-              fillOpacity: 0,  // No fill for highways
-              opacity: 1,
-              fill: false,  // Explicitly disable fill
+              color: '#FFD700',  // Gold for other roads
+              weight: 2,
+              opacity: 0.8,
+              fill: false,
             };
           case 'railway':
-            console.log('[TerrainMap] ✅ Applying railway styling (gray dashed line)');
             return {
-              fillColor: 'none',
-              color: '#666666',
+              color: '#696969',  // Dim gray
               weight: 2,
-              fillOpacity: 0,
               opacity: 0.8,
               fill: false,
-              dashArray: '8, 4',  // Dashed line for railways
+              dashArray: '8, 4',
             };
-          case 'building':
-            console.log('[TerrainMap] ✅ Applying building styling (red fill with 0.4 opacity)');
+          case 'landuse':
             return {
-              fillColor: 'red',
-              color: 'darkred',
+              fillColor: '#DDA0DD',  // Plum for landuse
+              color: '#9370DB',  // Medium purple border
+              weight: 1,
+              fillOpacity: 0.3,
+              opacity: 0.7,
+              fill: true,
+            };
+          case 'amenity':
+            return {
+              fillColor: '#FFB6C1',  // Light pink for amenities
+              color: '#FF69B4',  // Hot pink border
               weight: 2,
               fillOpacity: 0.4,
               opacity: 0.8,
-              fill: true,  // Explicitly enable fill
+              fill: true,
             };
-          case 'way':
-            // Generic "way" that couldn't be classified - render as line (likely a path/trail)
-            console.log('[TerrainMap] ⚠️ Unclassified "way" feature, using brown line styling (likely path/trail)');
+          case 'leisure':
             return {
-              fillColor: 'none',
-              color: '#8B4513',  // Brown for unclassified paths
+              fillColor: '#90EE90',  // Light green for leisure
+              color: '#228B22',  // Forest green border
               weight: 2,
-              fillOpacity: 0,
-              opacity: 0.6,
-              fill: false,  // Don't fill unclassified ways
-              dashArray: '5, 5',  // Dashed line
+              fillOpacity: 0.4,
+              opacity: 0.8,
+              fill: true,
+            };
+          case 'man_made':
+            return {
+              fillColor: '#A9A9A9',  // Dark gray for man-made
+              color: '#2F4F4F',  // Dark slate gray border
+              weight: 2,
+              fillOpacity: 0.5,
+              opacity: 0.8,
+              fill: true,
             };
           case 'other':
-            // "other" features are often paths/tracks that weren't properly classified
-            console.log('[TerrainMap] Styling "other" feature as brown dashed line (likely path/track)');
-            return {
-              fillColor: 'none',
-              color: '#8B4513',  // Brown for paths
-              weight: 2,
-              fillOpacity: 0,
-              opacity: 0.7,
-              fill: false,
-              dashArray: '5, 5',  // Dashed line
-            };
           default:
-            console.log('[TerrainMap] Using default styling for feature type:', actualFeatureType);
+            // Minimal styling for unclassified features
             return {
-              fillColor: 'purple',
-              color: 'darkviolet',
-              weight: 2,
-              fillOpacity: 0.4,
-              opacity: 0.8,
-              fill: true,  // Explicitly enable fill
+              fillColor: '#D3D3D3',  // Light gray
+              color: '#808080',  // Gray border
+              weight: 1,
+              fillOpacity: 0.2,
+              opacity: 0.5,
+              fill: true,
             };
         }
       };
@@ -602,13 +684,46 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
 
           console.log('[TerrainMap] Adding GeoJSON layer to map...');
           
-          // DIAGNOSTIC: Log all feature types
+          // DIAGNOSTIC: Log feature types from OSM tags (since backend doesn't type them)
           const featureTypeCounts: Record<string, number> = {};
+          const detectedTypes: Record<string, number> = {};
+          
           processedGeojson.features.forEach(feature => {
-            const type = feature.properties?.feature_type || 'unknown';
-            featureTypeCounts[type] = (featureTypeCounts[type] || 0) + 1;
+            const backendType = feature.properties?.feature_type || 'unknown';
+            const tags = feature.properties?.tags || {};
+            
+            // Count backend types
+            featureTypeCounts[backendType] = (featureTypeCounts[backendType] || 0) + 1;
+            
+            // Detect actual types from tags
+            let detectedType = 'other';
+            if (tags.building) detectedType = 'building';
+            else if (tags.natural === 'water' || tags.water) detectedType = 'water';
+            else if (tags.waterway) detectedType = 'waterway';
+            else if (tags.highway) detectedType = 'highway';
+            else if (tags.railway) detectedType = 'railway';
+            else if (tags.landuse) detectedType = 'landuse';
+            else if (tags.amenity) detectedType = 'amenity';
+            else if (tags.leisure) detectedType = 'leisure';
+            else if (tags.man_made) detectedType = 'man_made';
+            
+            detectedTypes[detectedType] = (detectedTypes[detectedType] || 0) + 1;
           });
-          console.log('[TerrainMap] Feature type distribution:', featureTypeCounts);
+          
+          console.log('[TerrainMap] ═══════════════════════════════════════');
+          console.log('[TerrainMap] BACKEND FEATURE TYPES (from feature_type):');
+          console.log('[TerrainMap] ═══════════════════════════════════════');
+          Object.entries(featureTypeCounts).forEach(([type, count]) => {
+            console.log(`[TerrainMap]   ${type}: ${count} features`);
+          });
+          console.log('[TerrainMap] ═══════════════════════════════════════');
+          console.log('[TerrainMap] DETECTED TYPES (from OSM tags):');
+          console.log('[TerrainMap] ═══════════════════════════════════════');
+          Object.entries(detectedTypes).forEach(([type, count]) => {
+            console.log(`[TerrainMap]   ${type}: ${count} features`);
+          });
+          console.log('[TerrainMap] ═══════════════════════════════════════');
+          console.log('[TerrainMap] Total features to render:', processedGeojson.features.length);
           
           // DIAGNOSTIC: Log sample water features
           const waterFeatures = processedGeojson.features.filter(f => 
@@ -826,7 +941,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
             actions={
               <SpaceBetween direction="horizontal" size="xs">
                 <Badge color="green">
-                  {data.metrics.totalFeatures} Features Found
+                  {data.metrics?.totalFeatures || data.geojson?.features?.length || 0} Features Found
                 </Badge>
               </SpaceBetween>
             }
@@ -837,11 +952,13 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
       >
         <SpaceBetween size="l">
           {/* Workflow CTA Buttons - Guide user through workflow */}
-          <WorkflowCTAButtons
-            completedSteps={['terrain']}
-            projectId={data.projectId}
-            onAction={handleFollowUpAction}
-          />
+          <Box>
+            <WorkflowCTAButtons
+              completedSteps={['terrain']}
+              projectId={data.projectId}
+              onAction={handleFollowUpAction}
+            />
+          </Box>
           
           {/* Legacy Action Buttons (if provided by orchestrator) */}
           {actions && actions.length > 0 && (
@@ -860,16 +977,16 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
           <div>
             <Box variant="awsui-key-label">Coordinates</Box>
             <div style={{ wordBreak: 'break-word', fontSize: '14px' }}>
-              {data.coordinates.lat.toFixed(6)}, {data.coordinates.lng.toFixed(6)}
+              {data.coordinates?.lat?.toFixed(6) || 'N/A'}, {data.coordinates?.lng?.toFixed(6) || 'N/A'}
             </div>
           </div>
           <div>
             <Box variant="awsui-key-label">Total Features</Box>
-            <div>{data.metrics.totalFeatures}</div>
+            <div>{data.metrics?.totalFeatures || data.geojson?.features?.length || 0}</div>
           </div>
           <div>
             <Box variant="awsui-key-label">Analysis Radius</Box>
-            <div>{data.metrics.radiusKm || 5} km</div>
+            <div>{data.metrics?.radiusKm || 5} km</div>
           </div>
           <div>
             <Box variant="awsui-key-label">Data Source</Box>
@@ -884,7 +1001,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
               Feature Breakdown
             </Box>
             <ColumnLayout columns={4} variant="text-grid" minColumnWidth={120}>
-              {Object.entries(data.metrics.featuresByType).map(([type, count]) => (
+              {data.metrics?.featuresByType && Object.entries(data.metrics.featuresByType).map(([type, count]) => (
                 <div key={type}>
                   <Box variant="small" color="text-body-secondary" style={{ wordBreak: 'break-word' }}>{type}</Box>
                   <div style={{ fontSize: '18px', fontWeight: 'bold' }}>{count}</div>
@@ -899,6 +1016,9 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
           <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
             Interactive Map
           </Box>
+          
+
+          
           <div
             style={{
               width: '100%',
@@ -946,10 +1066,10 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
         </Box>
 
         {/* Feature Table with Pagination */}
-        {data.exclusionZones && data.exclusionZones.length > 0 && (
+        {data.geojson?.features && data.geojson.features.length > 0 && (
           <Box>
             <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
-              Features ({data.exclusionZones.length})
+              Features ({data.geojson.features.length})
             </Box>
             <Table
               columnDefinitions={[
@@ -988,7 +1108,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
                   minWidth: 150,
                 },
               ]}
-              items={data.exclusionZones.slice(
+              items={(data.geojson?.features || []).slice(
                 (currentPageIndex - 1) * pageSize,
                 currentPageIndex * pageSize
               )}
@@ -1002,7 +1122,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data, actions, onF
               pagination={
                 <Pagination
                   currentPageIndex={currentPageIndex}
-                  pagesCount={Math.ceil(data.exclusionZones.length / pageSize)}
+                  pagesCount={Math.ceil((data.geojson?.features?.length || 0) / pageSize)}
                   onChange={({ detail }) => setCurrentPageIndex(detail.currentPageIndex)}
                   ariaLabels={{
                     nextPageLabel: 'Next page',

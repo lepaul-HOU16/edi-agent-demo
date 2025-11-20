@@ -5,7 +5,8 @@
  */
 
 import { BaseEnhancedAgent } from './BaseEnhancedAgent';
-import { webBrowserTool } from '../tools/webBrowserTool';
+// TEMPORARY: Using stub webBrowserTool due to ES module compatibility issues
+import { webBrowserTool } from '../tools/webBrowserTool-stub';
 import { 
   ThoughtStep, 
   createThoughtStep, 

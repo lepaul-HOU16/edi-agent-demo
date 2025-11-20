@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lambda Configuration Infographic - AWS Energy Data Insights</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Amazon Ember', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #232F3E 0%, #1a242f 100%);
+            color: #fff;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+        }
+        
+        .header h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #FF9900;
+        }
+        
+        .header p {
+            font-size: 20px;
+            color: #AAB7B8;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+        
+        .lambda-card {
+            background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%);
+            border-radius: 12px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+            border: 2px solid #FF9900;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        
+        .lambda-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(255, 153, 0, 0.3);
+        }
+        
+        .lambda-card h2 {
+            font-size: 28px;
+            color: #FF9900;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .lambda-icon {
+            width: 40px;
+            height: 40px;
+            background: #FF9900;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+        }
+        
+        .config-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .config-item {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #FF9900;
+        }
+        
+        .config-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #AAB7B8;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+        
+        .config-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #fff;
+        }
+        
+        .use-case {
+            background: rgba(255, 153, 0, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            border: 1px solid rgba(255, 153, 0, 0.3);
+        }
+        
+        .use-case-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            color: #FF9900;
+            margin-bottom: 5px;
+            letter-spacing: 1px;
+        }
+        
+        .use-case-text {
+            font-size: 14px;
+            color: #ECF0F1;
+            line-height: 1.6;
+        }
+        
+        .metrics-section {
+            background: linear-gradient(135deg, #16A085 0%, #1ABC9C 100%);
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 50px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .metrics-section h2 {
+            font-size: 36px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .metric-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 25px;
+            border-radius: 8px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .metric-value {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+        
+        .metric-label {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.9;
+        }
+        
+        .best-practices {
+            background: linear-gradient(135deg, #8E44AD 0%, #9B59B6 100%);
+            border-radius: 12px;
+            padding: 40px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .best-practices h2 {
+            font-size: 36px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .practices-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        
+        .practice-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #fff;
+        }
+        
+        .practice-item h3 {
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #fff;
+        }
+        
+        .practice-item p {
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            
+            .lambda-card, .metrics-section, .best-practices {
+                page-break-inside: avoid;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Lambda Configuration Guide</h1>
+            <p>Optimized settings for AWS Energy Data Insights Platform</p>
+        </div>
+        
+        <div class="grid">
+            <!-- Lambda Authorizer -->
+            <div class="lambda-card">
+                <h2>
+                    <div class="lambda-icon">🔐</div>
+                    Lambda Authorizer
+                </h2>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <div class="config-label">Timeout</div>
+                        <div class="config-value">30s</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Memory</div>
+                        <div class="config-value">256 MB</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Concurrency</div>
+                        <div class="config-value">100</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Runtime</div>
+                        <div class="config-value">Node.js 20</div>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-label">Use Case</div>
+                    <div class="use-case-text">
+                        JWT token validation against Cognito JWKS. Fast execution required for every API request. 
+                        Low memory footprint, high concurrency for parallel request handling.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chat Lambda -->
+            <div class="lambda-card">
+                <h2>
+                    <div class="lambda-icon">💬</div>
+                    Chat Lambda
+                </h2>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <div class="config-label">Timeout</div>
+                        <div class="config-value">300s</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Memory</div>
+                        <div class="config-value">1024 MB</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Concurrency</div>
+                        <div class="config-value">50</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Runtime</div>
+                        <div class="config-value">Node.js 20</div>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-label">Use Case</div>
+                    <div class="use-case-text">
+                        Agent orchestration, intent detection, and Bedrock API calls. Handles complex routing logic 
+                        and manages async processing for long-running queries. Medium concurrency for user sessions.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Renewable Orchestrator -->
+            <div class="lambda-card">
+                <h2>
+                    <div class="lambda-icon">🌬️</div>
+                    Renewable Orchestrator
+                </h2>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <div class="config-label">Timeout</div>
+                        <div class="config-value">300s</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Memory</div>
+                        <div class="config-value">1024 MB</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Concurrency</div>
+                        <div class="config-value">20</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Runtime</div>
+                        <div class="config-value">Node.js 20</div>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-label">Use Case</div>
+                    <div class="use-case-text">
+                        Multi-tool coordination for wind farm analysis. Manages project lifecycle, invokes multiple 
+                        tool Lambdas sequentially, and aggregates results. Lower concurrency due to resource-intensive operations.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Tool Lambdas -->
+            <div class="lambda-card">
+                <h2>
+                    <div class="lambda-icon">🛠️</div>
+                    Tool Lambdas
+                </h2>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <div class="config-label">Timeout</div>
+                        <div class="config-value">300s</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Memory</div>
+                        <div class="config-value">2048 MB</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Concurrency</div>
+                        <div class="config-value">10</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Runtime</div>
+                        <div class="config-value">Python 3.12</div>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-label">Use Case</div>
+                    <div class="use-case-text">
+                        Heavy computation for terrain analysis, layout optimization, wake simulation, and report generation. 
+                        High memory for scientific libraries (numpy, scipy, matplotlib). Limited concurrency to control costs.
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Petrophysics Calculator -->
+            <div class="lambda-card">
+                <h2>
+                    <div class="lambda-icon">📊</div>
+                    Petrophysics Calculator
+                </h2>
+                <div class="config-grid">
+                    <div class="config-item">
+                        <div class="config-label">Timeout</div>
+                        <div class="config-value">60s</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Memory</div>
+                        <div class="config-value">512 MB</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Concurrency</div>
+                        <div class="config-value">20</div>
+                    </div>
+                    <div class="config-item">
+                        <div class="config-label">Runtime</div>
+                        <div class="config-value">Python 3.12</div>
+                    </div>
+                </div>
+                <div class="use-case">
+                    <div class="use-case-label">Use Case</div>
+                    <div class="use-case-text">
+                        LAS file processing and petrophysical calculations (porosity, shale volume, water saturation). 
+                        Moderate memory for data processing. Medium concurrency for multiple well analyses.
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Performance Metrics -->
+        <div class="metrics-section">
+            <h2>📈 Performance Benchmarks</h2>
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <div class="metric-value">< 100ms</div>
+                    <div class="metric-label">Auth Latency (p95)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">2-5s</div>
+                    <div class="metric-label">Simple Query (p95)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">30-60s</div>
+                    <div class="metric-label">Complex Analysis (p95)</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">99.9%</div>
+                    <div class="metric-label">Success Rate</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">1000+</div>
+                    <div class="metric-label">Concurrent Users</div>
+                </div>
+                <div class="metric-card">
+                    <div class="metric-value">< 0.1%</div>
+                    <div class="metric-label">Error Rate</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Best Practices -->
+        <div class="best-practices">
+            <h2>✨ Configuration Best Practices</h2>
+            <div class="practices-list">
+                <div class="practice-item">
+                    <h3>🎯 Right-Size Memory</h3>
+                    <p>
+                        Use AWS Lambda Power Tuning to find optimal memory settings. Higher memory = faster CPU, 
+                        but costs more. Balance performance vs cost based on actual usage patterns.
+                    </p>
+                </div>
+                <div class="practice-item">
+                    <h3>⏱️ Set Appropriate Timeouts</h3>
+                    <p>
+                        Set timeouts based on p99 latency + buffer. Too short = failures, too long = wasted resources. 
+                        Use async patterns for operations > 25 seconds.
+                    </p>
+                </div>
+                <div class="practice-item">
+                    <h3>🔄 Manage Concurrency</h3>
+                    <p>
+                        Set reserved concurrency for critical functions. Use provisioned concurrency for consistent 
+                        latency. Monitor throttles and adjust based on traffic patterns.
+                    </p>
+                </div>
+                <div class="practice-item">
+                    <h3>💰 Use ARM64 (Graviton2)</h3>
+                    <p>
+                        Switch to ARM64 architecture for 20% cost savings and better performance. Compatible with 
+                        most Node.js and Python workloads.
+                    </p>
+                </div>
+                <div class="practice-item">
+                    <h3>📦 Optimize Package Size</h3>
+                    <p>
+                        Use Lambda Layers for shared dependencies. Minimize deployment package size for faster 
+                        cold starts. Remove unused dependencies.
+                    </p>
+                </div>
+                <div class="practice-item">
+                    <h3>🔥 Warm Up Functions</h3>
+                    <p>
+                        Use provisioned concurrency for latency-sensitive functions. Implement keep-alive pings 
+                        for critical paths. Monitor cold start metrics.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

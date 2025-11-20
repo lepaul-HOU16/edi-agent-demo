@@ -1,0 +1,104 @@
+graph TB
+    subgraph "Frontend Layer"
+        UI[React/Next.js SPA]
+        CF[CloudFront Distribution]
+        S3F[S3 Frontend Bucket]
+    end
+
+    subgraph "API Layer"
+        APIGW[API Gateway HTTP API]
+        AUTH[Lambda Authorizer]
+        COGNITO[Cognito User Pool]
+    end
+
+    subgraph "Agent Layer"
+        CHAT[Chat Lambda]
+        ROUTER[Agent Router]
+        PETRO[Petrophysics Agent]
+        RENEW[Renewable Proxy Agent]
+        MAINT[Maintenance Agent]
+        EDI[EDIcraft Agent]
+        GENERAL[General Knowledge Agent]
+    end
+
+    subgraph "Orchestration Layer"
+        ORCH[Renewable Orchestrator]
+        INTENT[Intent Router]
+        PROJ[Project Store]
+        SESS[Session Context Manager]
+    end
+
+    subgraph "Tool Layer"
+        TERRAIN[Terrain Analysis Tool]
+        LAYOUT[Layout Optimization Tool]
+        SIMULATION[Wake Simulation Tool]
+        REPORT[Report Generation Tool]
+        PETRO_CALC[Petrophysics Calculator]
+    end
+
+    subgraph "Data Layer"
+        DDB_MSG[ChatMessage Table]
+        DDB_SESS[ChatSession Table]
+        DDB_CTX[SessionContext Table]
+        DDB_PROG[AgentProgress Table]
+        S3_STORAGE[S3 Storage Bucket]
+    end
+
+    subgraph "AI Layer"
+        BEDROCK[AWS Bedrock<br/>Claude 3.5 Sonnet]
+    end
+
+    %% Frontend connections
+    UI --> CF
+    CF --> S3F
+    UI -->|HTTPS| APIGW
+
+    %% API Gateway connections
+    APIGW -->|Authorize| AUTH
+    AUTH -->|Validate JWT| COGNITO
+    APIGW -->|POST /api/chat/message| CHAT
+
+    %% Agent routing
+    CHAT --> ROUTER
+    ROUTER -->|Intent: Petrophysics| PETRO
+    ROUTER -->|Intent: Renewable| RENEW
+    ROUTER -->|Intent: Maintenance| MAINT
+    ROUTER -->|Intent: EDIcraft| EDI
+    ROUTER -->|Intent: General| GENERAL
+
+    %% Renewable orchestration
+    RENEW -->|Async Invoke| ORCH
+    ORCH --> INTENT
+    INTENT -->|Route to Tool| TERRAIN
+    INTENT -->|Route to Tool| LAYOUT
+    INTENT -->|Route to Tool| SIMULATION
+    INTENT -->|Route to Tool| REPORT
+    ORCH --> PROJ
+    ORCH --> SESS
+
+    %% Petrophysics flow
+    PETRO -->|Invoke| PETRO_CALC
+    PETRO_CALC -->|Read LAS Files| S3_STORAGE
+
+    %% AI integration
+    PETRO -->|Generate Response| BEDROCK
+    GENERAL -->|Generate Response| BEDROCK
+    MAINT -->|Generate Response| BEDROCK
+
+    %% Data persistence
+    CHAT -->|Save Messages| DDB_MSG
+    CHAT -->|Update Session| DDB_SESS
+    ORCH -->|Save Context| DDB_CTX
+    ORCH -->|Track Progress| DDB_PROG
+    TERRAIN -->|Store Artifacts| S3_STORAGE
+    LAYOUT -->|Store Artifacts| S3_STORAGE
+    SIMULATION -->|Store Artifacts| S3_STORAGE
+    REPORT -->|Store Artifacts| S3_STORAGE
+
+    %% Polling for results
+    UI -->|Poll for Updates| DDB_MSG
+
+    style ROUTER fill:#ff9900
+    style ORCH fill:#ff9900
+    style BEDROCK fill:#00a1c9
+    style COGNITO fill:#dd344c

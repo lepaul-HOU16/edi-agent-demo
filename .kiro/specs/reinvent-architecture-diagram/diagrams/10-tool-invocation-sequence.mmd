@@ -1,0 +1,135 @@
+```mermaid
+flowchart TD
+    START([User Query Received])
+    
+    PARSE[Parse User Intent]
+    VALIDATE{Valid Query?}
+    ERROR_INVALID[Return Error: Invalid Query]
+    
+    LOAD_CTX[Load Session Context]
+    CHECK_PROJECT{Existing Project?}
+    
+    CREATE_PROJECT[Create New Project]
+    LOAD_PROJECT[Load Project Data]
+    
+    DETERMINE_TOOLS[Determine Required Tools]
+    
+    TERRAIN_CHECK{Need Terrain?}
+    TERRAIN_INVOKE[Invoke Terrain Tool]
+    TERRAIN_STORE[Store Terrain Results]
+    
+    LAYOUT_CHECK{Need Layout?}
+    LAYOUT_INVOKE[Invoke Layout Tool]
+    LAYOUT_STORE[Store Layout Results]
+    
+    SIMULATION_CHECK{Need Simulation?}
+    SIMULATION_INVOKE[Invoke Wake Simulation]
+    SIMULATION_STORE[Store Simulation Results]
+    
+    REPORT_CHECK{Need Report?}
+    REPORT_INVOKE[Invoke Report Generator]
+    REPORT_STORE[Store Report]
+    
+    WINDROSE_CHECK{Need Wind Rose?}
+    WINDROSE_INVOKE[Invoke Wind Rose Tool]
+    WINDROSE_STORE[Store Wind Rose]
+    
+    AGGREGATE[Aggregate All Results]
+    FORMAT[Format Response]
+    SAVE_CTX[Save Session Context]
+    SAVE_MSG[Save to ChatMessage]
+    
+    END([Return Response])
+    
+    START --> PARSE
+    PARSE --> VALIDATE
+    VALIDATE -->|No| ERROR_INVALID
+    VALIDATE -->|Yes| LOAD_CTX
+    
+    LOAD_CTX --> CHECK_PROJECT
+    CHECK_PROJECT -->|No| CREATE_PROJECT
+    CHECK_PROJECT -->|Yes| LOAD_PROJECT
+    
+    CREATE_PROJECT --> DETERMINE_TOOLS
+    LOAD_PROJECT --> DETERMINE_TOOLS
+    
+    DETERMINE_TOOLS --> TERRAIN_CHECK
+    
+    TERRAIN_CHECK -->|Yes| TERRAIN_INVOKE
+    TERRAIN_CHECK -->|No| LAYOUT_CHECK
+    TERRAIN_INVOKE --> TERRAIN_STORE
+    TERRAIN_STORE --> LAYOUT_CHECK
+    
+    LAYOUT_CHECK -->|Yes| LAYOUT_INVOKE
+    LAYOUT_CHECK -->|No| SIMULATION_CHECK
+    LAYOUT_INVOKE --> LAYOUT_STORE
+    LAYOUT_STORE --> SIMULATION_CHECK
+    
+    SIMULATION_CHECK -->|Yes| SIMULATION_INVOKE
+    SIMULATION_CHECK -->|No| REPORT_CHECK
+    SIMULATION_INVOKE --> SIMULATION_STORE
+    SIMULATION_STORE --> REPORT_CHECK
+    
+    REPORT_CHECK -->|Yes| REPORT_INVOKE
+    REPORT_CHECK -->|No| WINDROSE_CHECK
+    REPORT_INVOKE --> REPORT_STORE
+    REPORT_STORE --> WINDROSE_CHECK
+    
+    WINDROSE_CHECK -->|Yes| WINDROSE_INVOKE
+    WINDROSE_CHECK -->|No| AGGREGATE
+    WINDROSE_INVOKE --> WINDROSE_STORE
+    WINDROSE_STORE --> AGGREGATE
+    
+    AGGREGATE --> FORMAT
+    FORMAT --> SAVE_CTX
+    SAVE_CTX --> SAVE_MSG
+    SAVE_MSG --> END
+    
+    ERROR_INVALID --> END
+    
+    style START fill:#4CAF50
+    style END fill:#4CAF50
+    style ERROR_INVALID fill:#f44336
+    style TERRAIN_INVOKE fill:#ff9900
+    style LAYOUT_INVOKE fill:#ff9900
+    style SIMULATION_INVOKE fill:#ff9900
+    style REPORT_INVOKE fill:#ff9900
+    style WINDROSE_INVOKE fill:#ff9900
+```
+
+## Tool Invocation Logic
+
+### Sequential vs Parallel Execution
+
+**Sequential Execution** (Current Implementation):
+- Tools invoked one at a time
+- Each tool waits for previous to complete
+- Simpler error handling
+- Predictable execution order
+
+**Parallel Execution** (Future Enhancement):
+- Independent tools invoked simultaneously
+- Faster overall execution
+- More complex error handling
+- Requires dependency management
+
+### Tool Dependencies
+
+```
+Terrain Analysis (Independent)
+    ↓
+Layout Optimization (Depends on Terrain)
+    ↓
+Wake Simulation (Depends on Layout)
+    ↓
+Report Generation (Depends on All)
+
+Wind Rose (Independent - can run parallel)
+```
+
+### Error Handling Strategy
+
+1. **Tool Failure**: Continue with other tools, mark failed tool in response
+2. **Dependency Failure**: Skip dependent tools, return partial results
+3. **Critical Failure**: Abort orchestration, return error message
+4. **Timeout**: Return partial results with timeout indicator

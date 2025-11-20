@@ -1,0 +1,90 @@
+{
+  "type": "wind_farm_wake_analysis",
+  "data": {
+    "messageContentType": "wind_farm_wake_analysis",
+    "title": "Wake Effect Analysis Complete",
+    "subtitle": "Power loss and efficiency analysis",
+    "projectId": "west-texas-wind-farm-2025",
+    "turbineCount": 18,
+    "totalCapacity": 45.0,
+    "wakeModel": "Jensen (N.O. Jensen, 1983)",
+    "windSpeed": 8.5,
+    "windDirection": 180,
+    "results": {
+      "totalPowerLoss": 12.3,
+      "averageEfficiency": 87.7,
+      "annualEnergyLoss": 18.2,
+      "turbineEfficiencies": [
+        {
+          "turbineId": "T001",
+          "efficiency": 95.2,
+          "powerOutput": 2.38,
+          "wakeAffectedBy": []
+        },
+        {
+          "turbineId": "T002",
+          "efficiency": 89.5,
+          "powerOutput": 2.24,
+          "wakeAffectedBy": ["T001"]
+        },
+        {
+          "turbineId": "T003",
+          "efficiency": 82.1,
+          "powerOutput": 2.05,
+          "wakeAffectedBy": ["T001", "T002"]
+        }
+      ]
+    },
+    "visualizations": {
+      "wakeMap": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/wake-map.png",
+      "efficiencyChart": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/efficiency-chart.png",
+      "powerLossChart": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/power-loss.png"
+    },
+    "recommendations": [
+      "Consider increasing spacing between T002 and T003 to reduce wake effects",
+      "Turbines T001-T003 show cascading wake losses - potential for layout optimization",
+      "Overall efficiency of 87.7% is within acceptable range for this wind direction",
+      "Annual energy loss of 18.2 GWh represents $1.8M in lost revenue at $100/MWh"
+    ],
+    "metadata": {
+      "simulationTimestamp": "2025-01-15T11:45:00Z",
+      "computationTime": 45.2,
+      "wakeModelParameters": {
+        "thrustCoefficient": 0.8,
+        "wakeDecayConstant": 0.075,
+        "turbulenceIntensity": 0.12
+      },
+      "windConditions": {
+        "averageSpeed": 8.5,
+        "predominantDirection": 180,
+        "turbulenceClass": "Medium",
+        "airDensity": 1.225
+      }
+    },
+    "completedSteps": ["terrain", "layout", "wake"],
+    "s3Artifacts": {
+      "wakeMap": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/wake-map.png",
+      "efficiencyChart": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/efficiency-chart.png",
+      "powerLossChart": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/power-loss.png",
+      "detailedReport": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/wake-analysis-report.pdf"
+    }
+  },
+  "actions": [
+    {
+      "label": "Optimize for Wake",
+      "query": "Adjust layout to minimize wake effects",
+      "icon": "refresh",
+      "primary": true
+    },
+    {
+      "label": "Analyze Different Wind Direction",
+      "query": "Run wake simulation for 270° wind direction",
+      "icon": "chart"
+    },
+    {
+      "label": "Generate Report",
+      "query": "Create executive summary with wake analysis",
+      "icon": "document"
+    }
+  ]
+}

@@ -1,0 +1,193 @@
+{
+  "type": "wind_farm_layout",
+  "data": {
+    "messageContentType": "wind_farm_layout",
+    "title": "Layout Optimization Complete",
+    "subtitle": "Intelligent turbine placement with terrain constraints",
+    "projectId": "west-texas-wind-farm-2025",
+    "turbineCount": 18,
+    "totalCapacity": 45.0,
+    "layoutType": "Intelligent Constraint-Based",
+    "windAngle": 180,
+    "spacing": {
+      "downwind": 5.0,
+      "crosswind": 3.0
+    },
+    "turbinePositions": [
+      {
+        "lat": 35.070123,
+        "lng": -101.398456,
+        "id": "T001",
+        "capacity_MW": 2.5,
+        "hub_height_m": 80,
+        "rotor_diameter_m": 100
+      },
+      {
+        "lat": 35.069234,
+        "lng": -101.396789,
+        "id": "T002",
+        "capacity_MW": 2.5,
+        "hub_height_m": 80,
+        "rotor_diameter_m": 100
+      },
+      {
+        "lat": 35.068345,
+        "lng": -101.395012,
+        "id": "T003",
+        "capacity_MW": 2.5,
+        "hub_height_m": 80,
+        "rotor_diameter_m": 100
+      }
+    ],
+    "geojson": {
+      "type": "FeatureCollection",
+      "features": [
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-101.398456, 35.070123]
+          },
+          "properties": {
+            "type": "turbine",
+            "turbine_id": "T001",
+            "capacity_MW": 2.5,
+            "hub_height_m": 80,
+            "rotor_diameter_m": 100,
+            "wind_exposure_score": 9.2,
+            "placement_reason": "Optimal wind exposure, clear of obstacles"
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Point",
+            "coordinates": [-101.396789, 35.069234]
+          },
+          "properties": {
+            "type": "turbine",
+            "turbine_id": "T002",
+            "capacity_MW": 2.5,
+            "hub_height_m": 80,
+            "rotor_diameter_m": 100,
+            "wind_exposure_score": 8.8,
+            "placement_reason": "Good wind exposure, adequate spacing"
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [-101.400, 35.070],
+                [-101.398, 35.070],
+                [-101.398, 35.068],
+                [-101.400, 35.068],
+                [-101.400, 35.070]
+              ]
+            ]
+          },
+          "properties": {
+            "type": "building",
+            "name": "Farm Building",
+            "exclusion_zone": true
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "LineString",
+            "coordinates": [
+              [-101.405, 35.075],
+              [-101.390, 35.060]
+            ]
+          },
+          "properties": {
+            "type": "road",
+            "name": "County Road 12",
+            "highway": "secondary"
+          }
+        },
+        {
+          "type": "Feature",
+          "geometry": {
+            "type": "Polygon",
+            "coordinates": [
+              [
+                [-101.410, 35.080],
+                [-101.385, 35.080],
+                [-101.385, 35.055],
+                [-101.410, 35.055],
+                [-101.410, 35.080]
+              ]
+            ]
+          },
+          "properties": {
+            "type": "perimeter",
+            "name": "Site Boundary"
+          }
+        }
+      ]
+    },
+    "metadata": {
+      "algorithm": "intelligent_placement_v2",
+      "algorithm_proof": "Constraint-based optimization with terrain awareness",
+      "constraints_applied": 15,
+      "terrain_features_considered": [
+        "buildings",
+        "roads",
+        "water_bodies",
+        "property_boundaries"
+      ],
+      "placement_decisions": [
+        {
+          "turbine_id": "T001",
+          "position": [-101.398456, 35.070123],
+          "avoided_features": ["building_123", "water_pond_456"],
+          "wind_exposure_score": 9.2,
+          "placement_reason": "Optimal wind exposure with 150m clearance from buildings"
+        },
+        {
+          "turbine_id": "T002",
+          "position": [-101.396789, 35.069234],
+          "avoided_features": ["road_789"],
+          "wind_exposure_score": 8.8,
+          "placement_reason": "Good wind exposure with adequate road setback"
+        }
+      ],
+      "layout_metadata": {
+        "total_turbines": 18,
+        "site_area_km2": 12.5,
+        "available_area_km2": 10.2,
+        "average_spacing_m": 450,
+        "capacity_factor_estimate": 0.38,
+        "annual_energy_production_GWh": 146.5
+      }
+    },
+    "completedSteps": ["terrain", "layout"],
+    "s3Artifacts": {
+      "interactiveMap": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/layout-map.html",
+      "validationChart": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/layout-validation.png",
+      "spacingAnalysis": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/spacing-analysis.png"
+    }
+  },
+  "actions": [
+    {
+      "label": "Run Wake Simulation",
+      "query": "Simulate wake effects for this layout",
+      "icon": "chart",
+      "primary": true
+    },
+    {
+      "label": "Adjust Layout",
+      "query": "Modify turbine positions to increase spacing",
+      "icon": "edit"
+    },
+    {
+      "label": "Generate Report",
+      "query": "Create executive summary with layout details",
+      "icon": "document"
+    }
+  ]
+}

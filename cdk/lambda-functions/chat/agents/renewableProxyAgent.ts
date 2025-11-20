@@ -114,84 +114,40 @@ export class RenewableProxyAgent extends BaseEnhancedAgent {
       console.log('🟠 BACKEND (Proxy Agent): Preparing Lambda invocation');
       console.log('📦 API Gateway Event:', JSON.stringify(apiGatewayEvent, null, 2));
       
-      // CRITICAL FIX: Invoke synchronously to get results immediately
-      // Async invocation was causing polling issues - results never appeared
+      // ASYNC INVOCATION: Fire and forget to avoid API Gateway timeout
+      // Orchestrator will write results to DynamoDB when complete
       const command = new InvokeCommand({
         FunctionName: this.orchestratorFunctionName,
-        InvocationType: 'RequestResponse', // Synchronous invocation - wait for results
+        InvocationType: 'Event', // Asynchronous invocation - don't wait for results
         Payload: JSON.stringify(apiGatewayEvent)
       });
       
-      console.log('🟠 BACKEND (Proxy Agent): Invoking orchestrator Lambda...');
+      console.log('🟠 BACKEND (Proxy Agent): Invoking orchestrator Lambda ASYNCHRONOUSLY...');
       console.log('   Function:', this.orchestratorFunctionName);
-      console.log('   Type: RequestResponse (synchronous)');
+      console.log('   Type: Event (asynchronous - fire and forget)');
+      console.log('   Session ID:', sessionContext?.chatSessionId);
       
       const invokeResponse = await this.lambdaClient.send(command);
       
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('🟠 BACKEND (Proxy Agent): Orchestrator invocation complete');
+      console.log('🟠 BACKEND (Proxy Agent): Async invocation submitted');
       console.log('═══════════════════════════════════════════════════════════');
       console.log('📊 Status Code:', invokeResponse.StatusCode);
-      console.log('📦 Has Payload:', !!invokeResponse.Payload);
-      console.log('❌ Function Error:', invokeResponse.FunctionError || 'none');
-      console.log('═══════════════════════════════════════════════════════════');
-
-      // Parse the response
-      const rawResponse = JSON.parse(new TextDecoder().decode(invokeResponse.Payload));
-      
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('🟠 BACKEND (Proxy Agent): Raw orchestrator response');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('📦 Raw Response:', JSON.stringify(rawResponse, null, 2));
-      console.log('═══════════════════════════════════════════════════════════');
-      
-      // CRITICAL FIX: Orchestrator returns HTTP-style response with statusCode and body
-      // We need to parse the body to get the actual response
-      let responsePayload;
-      if (rawResponse.statusCode && rawResponse.body) {
-        // HTTP-style response from orchestrator
-        responsePayload = JSON.parse(rawResponse.body);
-        console.log('🟠 BACKEND (Proxy Agent): Parsed body from HTTP response');
-      } else {
-        // Direct response (shouldn't happen but handle it)
-        responsePayload = rawResponse;
-        console.log('🟠 BACKEND (Proxy Agent): Using direct response');
-      }
-      
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('🟠 BACKEND (Proxy Agent): Orchestrator response parsed');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('✅ Success:', responsePayload.success);
-      console.log('📊 Artifact Count:', responsePayload.artifacts?.length || 0);
-      console.log('🧠 Thought Step Count:', responsePayload.thoughtSteps?.length || 0);
-      console.log('💬 Message:', responsePayload.message?.substring(0, 100) + '...');
-      console.log('📦 Full Response:', JSON.stringify(responsePayload, null, 2));
+      console.log('✅ Request accepted - processing in background');
+      console.log('🆔 Session ID for results:', sessionContext?.chatSessionId);
       console.log('═══════════════════════════════════════════════════════════');
 
       // Complete routing step
-      completeThoughtStep(routingStep, 'Analysis complete');
+      completeThoughtStep(routingStep, 'Analysis started - processing in background');
 
-      console.log('🟠 BACKEND (Proxy Agent): Transforming artifacts...');
-      console.log('🟠 BACKEND (Proxy Agent): Raw artifacts from orchestrator:', responsePayload.artifacts);
-      console.log('🟠 BACKEND (Proxy Agent): Artifacts type:', typeof responsePayload.artifacts);
-      console.log('🟠 BACKEND (Proxy Agent): Is array:', Array.isArray(responsePayload.artifacts));
-      
-      // CRITICAL FIX: Ensure artifacts is always an array
-      const artifactsArray = Array.isArray(responsePayload.artifacts) 
-        ? responsePayload.artifacts 
-        : (responsePayload.artifacts ? [responsePayload.artifacts] : []);
-      
-      console.log('🟠 BACKEND (Proxy Agent): Normalized artifacts array:', artifactsArray);
-      
-      const transformedArtifacts = this.transformArtifacts(artifactsArray);
-      console.log('✅ BACKEND (Proxy Agent): Transformed', transformedArtifacts.length, 'artifacts');
-
-      // Return the actual results
+      // CRITICAL FIX: Don't return a message here - the handler already returns "Analysis in Progress"
+      // Returning a message here causes duplicate "Analysis in Progress" messages
+      // Just return success with empty response - handler will provide the user-facing message
       const response: RouterResponse = {
-        success: responsePayload.success,
-        message: responsePayload.message,
-        artifacts: transformedArtifacts,
-        thoughtSteps: [routingStep, ...this.transformThoughtSteps(responsePayload.thoughtSteps || [], routingStep)],
+        success: true,
+        message: '', // Empty - handler provides the "Analysis in Progress" message
+        artifacts: [],
+        thoughtSteps: [routingStep],
         agentUsed: 'renewable_energy',
       };
 

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM Reference Card - Lambda Authorizer</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0.5in;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            color: #232f3e;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #232f3e 0%, #ff9900 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .section h2 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #232f3e;
+            border-bottom: 2px solid #ff9900;
+            padding-bottom: 5px;
+        }
+        
+        .permission-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #ff9900;
+            border-radius: 4px;
+        }
+        
+        .permission-item.required {
+            border-left-color: #d13212;
+        }
+        
+        .permission-item.optional {
+            border-left-color: #1d8102;
+        }
+        
+        .permission-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .permission-action {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .badge.required {
+            background: #d13212;
+            color: white;
+        }
+        
+        .badge.optional {
+            background: #1d8102;
+            color: white;
+        }
+        
+        .permission-resource {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #545b64;
+            margin-top: 5px;
+        }
+        
+        .permission-description {
+            font-size: 13px;
+            color: #545b64;
+            margin-top: 5px;
+        }
+        
+        .code-block {
+            background: #232f3e;
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        
+        .info-box {
+            background: #e7f6fd;
+            border-left: 4px solid #0073bb;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .info-box strong {
+            color: #0073bb;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+            font-size: 12px;
+            color: #545b64;
+            text-align: center;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔐 Lambda Authorizer IAM Permissions</h1>
+        <div class="subtitle">AWS Energy Data Insights Platform | Custom JWT Authorizer</div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Overview</h2>
+        <p><strong>Service Role:</strong> <code>CustomAuthorizerRole</code></p>
+        <p><strong>Function Name:</strong> <code>custom-authorizer</code></p>
+        <p><strong>Purpose:</strong> Validates JWT tokens from Cognito User Pool for API Gateway HTTP API requests</p>
+        <p><strong>Timeout:</strong> 30 seconds | <strong>Memory:</strong> 256 MB</p>
+    </div>
+
+    <div class="section">
+        <h2>🔑 Required IAM Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">cognito-idp:DescribeUserPool</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:cognito-idp:us-east-1:*:userpool/us-east-1_*
+            </div>
+            <div class="permission-description">
+                Retrieve user pool configuration for JWT validation. Required to get JWKS (JSON Web Key Set) endpoint for token signature verification.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">cognito-idp:DescribeUserPoolClient</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:cognito-idp:us-east-1:*:userpool/us-east-1_*
+            </div>
+            <div class="permission-description">
+                Get client configuration for validating token audience (aud claim). Ensures tokens are issued for the correct application.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:CreateLogGroup</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:us-east-1:*:log-group:/aws/lambda/authorizer:*
+            </div>
+            <div class="permission-description">
+                Create CloudWatch log group for Lambda function logs. Standard Lambda permission for logging.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:CreateLogStream</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:us-east-1:*:log-group:/aws/lambda/authorizer:*
+            </div>
+            <div class="permission-description">
+                Create log streams within the log group. Required for writing logs to CloudWatch.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:PutLogEvents</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:us-east-1:*:log-group:/aws/lambda/authorizer:*
+            </div>
+            <div class="permission-description">
+                Write log events to CloudWatch. Essential for debugging and monitoring authorization failures.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📄 Complete IAM Policy JSON</h2>
+        <div class="code-block">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "cognito-idp:DescribeUserPool",
+        "cognito-idp:DescribeUserPoolClient"
+      ],
+      "Resource": "arn:aws:cognito-idp:us-east-1:*:userpool/us-east-1_*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:us-east-1:*:log-group:/aws/lambda/authorizer:*"
+    }
+  ]
+}</div>
+    </div>
+
+    <div class="info-box">
+        <strong>💡 Security Best Practice:</strong> This role follows the principle of least privilege. It only has permissions to read Cognito configuration (not modify) and write logs. No permissions to access user data or other AWS resources.
+    </div>
+
+    <div class="section">
+        <h2>🔄 Authorization Flow</h2>
+        <ol>
+            <li>API Gateway receives request with JWT token in Authorization header</li>
+            <li>Invokes Lambda Authorizer with token</li>
+            <li>Authorizer calls <code>DescribeUserPool</code> to get JWKS endpoint</li>
+            <li>Downloads public keys from JWKS endpoint</li>
+            <li>Verifies JWT signature using public key</li>
+            <li>Validates token expiration, issuer, and audience</li>
+            <li>Returns IAM policy allowing or denying access</li>
+            <li>API Gateway caches authorization decision for 5 minutes</li>
+        </ol>
+    </div>
+
+    <div class="footer">
+        <p>AWS Energy Data Insights Platform | re:Invent Chalk Talk | IAM Reference Card 1 of 5</p>
+        <p>Generated: 2025-01-15 | Version 1.0</p>
+    </div>
+</body>
+</html>

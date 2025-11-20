@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capacity Planning Worksheet - AWS Energy Data Insights</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Amazon Ember', 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #232F3E 0%, #1a242f 100%);
+            color: #fff;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            font-size: 48px;
+            font-weight: 700;
+            margin-bottom: 10px;
+            color: #FF9900;
+        }
+        
+        .header p {
+            font-size: 18px;
+            color: #AAB7B8;
+        }
+        
+        .planning-section {
+            background: linear-gradient(135deg, #2C3E50 0%, #34495E 100%);
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .planning-section h2 {
+            font-size: 32px;
+            color: #FF9900;
+            margin-bottom: 30px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .section-icon {
+            width: 50px;
+            height: 50px;
+            background: #FF9900;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        
+        .input-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 30px;
+        }
+        
+        .input-group {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 4px solid #FF9900;
+        }
+        
+        .input-label {
+            display: block;
+            font-size: 14px;
+            color: #AAB7B8;
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
+        }
+        
+        .input-field {
+            width: 100%;
+            padding: 12px 15px;
+            font-size: 18px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 153, 0, 0.3);
+            border-radius: 8px;
+            color: #fff;
+            font-weight: 700;
+            transition: border-color 0.3s ease;
+        }
+        
+        .input-field:focus {
+            outline: none;
+            border-color: #FF9900;
+        }
+        
+        .input-help {
+            font-size: 12px;
+            color: #7F8C8D;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+        
+        .results-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .result-card {
+            background: rgba(255, 153, 0, 0.1);
+            border: 2px solid rgba(255, 153, 0, 0.3);
+            border-radius: 8px;
+            padding: 25px;
+            text-align: center;
+        }
+        
+        .result-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: #AAB7B8;
+            margin-bottom: 10px;
+        }
+        
+        .result-value {
+            font-size: 36px;
+            font-weight: 700;
+            color: #FF9900;
+            margin-bottom: 5px;
+        }
+        
+        .result-unit {
+            font-size: 14px;
+            color: #7F8C8D;
+        }
+        
+        .recommendations {
+            background: linear-gradient(135deg, #16A085 0%, #1ABC9C 100%);
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .recommendations h2 {
+            font-size: 32px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .recommendation-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 25px;
+        }
+        
+        .recommendation-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 25px;
+            border-left: 4px solid #fff;
+        }
+        
+        .recommendation-card h3 {
+            font-size: 20px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .recommendation-card p {
+            font-size: 14px;
+            line-height: 1.6;
+            opacity: 0.9;
+            margin-bottom: 15px;
+        }
+        
+        .recommendation-value {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 10px 15px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 700;
+            display: inline-block;
+        }
+        
+        .scaling-chart {
+            background: linear-gradient(135deg, #8E44AD 0%, #9B59B6 100%);
+            border-radius: 12px;
+            padding: 40px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+        
+        .scaling-chart h2 {
+            font-size: 32px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .chart-container {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 8px;
+            padding: 30px;
+            overflow-x: auto;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+        
+        th {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            text-align: left;
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            border-bottom: 2px solid rgba(255, 255, 255, 0.3);
+        }
+        
+        td {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 16px;
+        }
+        
+        tr:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        
+        .highlight {
+            background: rgba(255, 153, 0, 0.2);
+            font-weight: 700;
+        }
+        
+        .action-button {
+            width: 100%;
+            padding: 15px;
+            font-size: 18px;
+            background: #FF9900;
+            color: #232F3E;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 700;
+            margin-top: 20px;
+            transition: background 0.3s ease;
+        }
+        
+        .action-button:hover {
+            background: #EC7211;
+        }
+        
+        @media (max-width: 768px) {
+            .input-grid, .results-grid, .recommendation-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        
+        @media print {
+            body {
+                background: white;
+                color: black;
+            }
+            
+            .action-button {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Capacity Planning Worksheet</h1>
+            <p>Plan your infrastructure capacity for optimal performance and cost</p>
+        </div>
+        
+        <!-- Current Load Section -->
+        <div class="planning-section">
+            <h2>
+                <div class="section-icon">📈</div>
+                Current Load Metrics
+            </h2>
+            
+            <div class="input-grid">
+                <div class="input-group">
+                    <label class="input-label">Peak Concurrent Users</label>
+                    <input type="number" id="peakUsers" class="input-field" value="100" min="1">
+                    <div class="input-help">Maximum simultaneous active users during peak hours</div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Average Session Duration (minutes)</label>
+                    <input type="number" id="sessionDuration" class="input-field" value="15" min="1">
+                    <div class="input-help">How long users typically stay active</div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Queries per Session</label>
+                    <input type="number" id="queriesPerSession" class="input-field" value="5" min="1">
+                    <div class="input-help">Average number of queries per user session</div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Complex Query Percentage (%)</label>
+                    <input type="number" id="complexQueryPercent" class="input-field" value="30" min="0" max="100">
+                    <div class="input-help">Percentage of queries requiring heavy computation (>30s)</div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Peak Hours per Day</label>
+                    <input type="number" id="peakHours" class="input-field" value="8" min="1" max="24">
+                    <div class="input-help">Number of hours with peak traffic</div>
+                </div>
+                
+                <div class="input-group">
+                    <label class="input-label">Growth Rate (% per month)</label>
+                    <input type="number" id="growthRate" class="input-field" value="10" min="0" max="100">
+                    <div class="input-help">Expected monthly user growth rate</div>
+                </div>
+            </div>
+            
+            <button class="action-button" onclick="calculateCapacity()">Calculate Capacity Requirements</button>
+        </div>
+        
+        <!-- Capacity Results -->
+        <div class="planning-section">
+            <h2>
+                <div class="section-icon">⚡</div>
+                Required Capacity
+            </h2>
+            
+            <div class="results-grid">
+                <div class="result-card">
+                    <div class="result-label">Lambda Concurrency</div>
+                    <div class="result-value" id="lambdaConcurrency">0</div>
+                    <div class="result-unit">concurrent executions</div>
+                </div>
+                
+                <div class="result-card">
+                    <div class="result-label">API Gateway RPS</div>
+                    <div class="result-value" id="apiGatewayRPS">0</div>
+                    <div class="result-unit">requests per second</div>
+                </div>
+                
+                <div class="result-card">
+                    <div class="result-label">DynamoDB WCU</div>
+                    <div class="result-value" id="dynamoDBWCU">0</div>
+                    <div class="result-unit">write capacity units</div>
+                </div>
+                
+                <div class="result-card">
+                    <div class="result-label">DynamoDB RCU</div>
+                    <div class="result-value" id="dynamoDBRCU">0</div>
+                    <div class="result-unit">read capacity units</div>
+                </div>
+                
+                <div class="result-card">
+                    <div class="result-label">S3 Requests/Hour</div>
+                    <div class="result-value" id="s3Requests">0</div>
+                    <div class="result-unit">GET/PUT requests</div>
+                </div>
+                
+                <div class="result-card">
+                    <div class="result-label">Bedrock TPS</div>
+                    <div class="result-value" id="bedrockTPS">0</div>
+                    <div class="result-unit">tokens per second</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recommendations -->
+        <div class="recommendations">
+            <h2>💡 Configuration Recommendations</h2>
+            
+            <div class="recommendation-grid">
+                <div class="recommendation-card">
+                    <h3>🔧 Lambda Configuration</h3>
+                    <p>
+                        Based on your load, configure Lambda functions with appropriate concurrency limits 
+                        to handle peak traffic without throttling.
+                    </p>
+                    <div class="recommendation-value" id="lambdaRecommendation">
+                        Reserved: 0 | Provisioned: 0
+                    </div>
+                </div>
+                
+                <div class="recommendation-card">
+                    <h3>🗄️ DynamoDB Mode</h3>
+                    <p>
+                        Choose between On-Demand and Provisioned capacity based on traffic predictability 
+                        and cost optimization goals.
+                    </p>
+                    <div class="recommendation-value" id="dynamoDBRecommendation">
+                        On-Demand Mode
+                    </div>
+                </div>
+                
+                <div class="recommendation-card">
+                    <h3>📦 S3 Storage Class</h3>
+                    <p>
+                        Use appropriate storage classes for different artifact types. Enable Intelligent-Tiering 
+                        for automatic cost optimization.
+                    </p>
+                    <div class="recommendation-value">
+                        Standard + Intelligent-Tiering
+                    </div>
+                </div>
+                
+                <div class="recommendation-card">
+                    <h3>🚀 CloudFront CDN</h3>
+                    <p>
+                        Enable CloudFront for static assets and frequently accessed artifacts to reduce 
+                        latency and S3 costs.
+                    </p>
+                    <div class="recommendation-value" id="cloudFrontRecommendation">
+                        Recommended
+                    </div>
+                </div>
+                
+                <div class="recommendation-card">
+                    <h3>🔄 Auto Scaling</h3>
+                    <p>
+                        Configure auto-scaling policies for DynamoDB and Lambda to handle traffic spikes 
+                        while optimizing costs during low usage.
+                    </p>
+                    <div class="recommendation-value">
+                        Target: 70% Utilization
+                    </div>
+                </div>
+                
+                <div class="recommendation-card">
+                    <h3>📊 Monitoring Thresholds</h3>
+                    <p>
+                        Set CloudWatch alarms for key metrics to detect capacity issues before they 
+                        impact users.
+                    </p>
+                    <div class="recommendation-value" id="monitoringRecommendation">
+                        5 Critical Alarms
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Scaling Projections -->
+        <div class="scaling-chart">
+            <h2>📈 6-Month Scaling Projection</h2>
+            
+            <div class="chart-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Users</th>
+                            <th>Lambda Concurrency</th>
+                            <th>DynamoDB WCU/RCU</th>
+                            <th>Monthly Cost</th>
+                            <th>Action Required</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scalingTableBody">
+                        <!-- Populated by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        function calculateCapacity() {
+            // Get input values
+            const peakUsers = parseInt(document.getElementById('peakUsers').value);
+            const sessionDuration = parseInt(document.getElementById('sessionDuration').value);
+            const queriesPerSession = parseInt(document.getElementById('queriesPerSession').value);
+            const complexQueryPercent = parseInt(document.getElementById('complexQueryPercent').value) / 100;
+            const peakHours = parseInt(document.getElementById('peakHours').value);
+            const growthRate = parseInt(document.getElementById('growthRate').value) / 100;
+            
+            // Calculate metrics
+            const queriesPerMinute = (peakUsers * queriesPerSession) / sessionDuration;
+            const queriesPerSecond = queriesPerMinute / 60;
+            
+            // Lambda concurrency (assuming 5s avg for simple, 30s for complex)
+            const simpleQueryDuration = 5;
+            const complexQueryDuration = 30;
+            const avgDuration = (simpleQueryDuration * (1 - complexQueryPercent)) + 
+                               (complexQueryDuration * complexQueryPercent);
+            const lambdaConcurrency = Math.ceil(queriesPerSecond * avgDuration * 1.5); // 50% buffer
+            
+            // API Gateway RPS
+            const apiGatewayRPS = Math.ceil(queriesPerSecond * 1.2); // 20% buffer
+            
+            // DynamoDB capacity (2 writes, 4 reads per query)
+            const dynamoDBWCU = Math.ceil(queriesPerSecond * 2 * 1.3); // 30% buffer
+            const dynamoDBRCU = Math.ceil(queriesPerSecond * 4 * 1.3); // 30% buffer
+            
+            // S3 requests per hour
+            const s3Requests = Math.ceil(queriesPerMinute * 60 * 0.8); // 80% of queries generate artifacts
+            
+            // Bedrock tokens per second (assuming 3000 tokens per query)
+            const bedrockTPS = Math.ceil(queriesPerSecond * 3000);
+            
+            // Update UI
+            document.getElementById('lambdaConcurrency').textContent = lambdaConcurrency;
+            document.getElementById('apiGatewayRPS').textContent = apiGatewayRPS;
+            document.getElementById('dynamoDBWCU').textContent = dynamoDBWCU;
+            document.getElementById('dynamoDBRCU').textContent = dynamoDBRCU;
+            document.getElementById('s3Requests').textContent = s3Requests;
+            document.getElementById('bedrockTPS').textContent = bedrockTPS.toLocaleString();
+            
+            // Lambda recommendation
+            const reservedConcurrency = Math.ceil(lambdaConcurrency * 0.7);
+            const provisionedConcurrency = Math.ceil(lambdaConcurrency * 0.3);
+            document.getElementById('lambdaRecommendation').textContent = 
+                `Reserved: ${reservedConcurrency} | Provisioned: ${provisionedConcurrency}`;
+            
+            // DynamoDB recommendation
+            if (dynamoDBWCU < 100 && dynamoDBRCU < 100) {
+                document.getElementById('dynamoDBRecommendation').textContent = 'On-Demand Mode';
+            } else {
+                document.getElementById('dynamoDBRecommendation').textContent = 
+                    `Provisioned: ${dynamoDBWCU} WCU / ${dynamoDBRCU} RCU`;
+            }
+            
+            // CloudFront recommendation
+            if (peakUsers > 500) {
+                document.getElementById('cloudFrontRecommendation').textContent = 'Highly Recommended';
+            } else {
+                document.getElementById('cloudFrontRecommendation').textContent = 'Optional';
+            }
+            
+            // Generate scaling table
+            generateScalingTable(peakUsers, lambdaConcurrency, dynamoDBWCU, dynamoDBRCU, growthRate);
+        }
+        
+        function generateScalingTable(baseUsers, baseConcurrency, baseWCU, baseRCU, growthRate) {
+            const tableBody = document.getElementById('scalingTableBody');
+            tableBody.innerHTML = '';
+            
+            let currentUsers = baseUsers;
+            let currentConcurrency = baseConcurrency;
+            let currentWCU = baseWCU;
+            let currentRCU = baseRCU;
+            
+            for (let month = 1; month <= 6; month++) {
+                // Apply growth
+                currentUsers = Math.ceil(currentUsers * (1 + growthRate));
+                currentConcurrency = Math.ceil(currentConcurrency * (1 + growthRate));
+                currentWCU = Math.ceil(currentWCU * (1 + growthRate));
+                currentRCU = Math.ceil(currentRCU * (1 + growthRate));
+                
+                // Estimate cost (simplified)
+                const monthlyCost = Math.ceil(
+                    (currentUsers * 10 * 30 * 0.0001) + // Lambda
+                    (currentWCU * 0.00065 * 2592000) + // DynamoDB writes
+                    (currentRCU * 0.00013 * 2592000) + // DynamoDB reads
+                    (currentUsers * 0.1 * 0.023) + // S3
+                    (currentUsers * 10 * 30 * 0.003 * 3) // Bedrock
+                );
+                
+                // Determine action
+                let action = 'Monitor';
+                let rowClass = '';
+                if (currentConcurrency > 100) {
+                    action = 'Increase Reserved Concurrency';
+                    rowClass = 'highlight';
+                }
+                if (currentWCU > 1000 || currentRCU > 1000) {
+                    action = 'Review DynamoDB Capacity';
+                    rowClass = 'highlight';
+                }
+                
+                const row = `
+                    <tr class="${rowClass}">
+                        <td>Month ${month}</td>
+                        <td>${currentUsers.toLocaleString()}</td>
+                        <td>${currentConcurrency}</td>
+                        <td>${currentWCU} / ${currentRCU}</td>
+                        <td>$${monthlyCost.toLocaleString()}</td>
+                        <td>${action}</td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            }
+        }
+        
+        // Calculate on page load
+        calculateCapacity();
+        
+        // Add event listeners
+        document.querySelectorAll('.input-field').forEach(input => {
+            input.addEventListener('input', () => {
+                // Debounce calculation
+                clearTimeout(window.calcTimeout);
+                window.calcTimeout = setTimeout(calculateCapacity, 500);
+            });
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interactive Demo Script</title>
+    <style>
+        body {
+            font-family: 'Amazon Ember', 'Helvetica Neue', Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f9f9f9;
+            color: #16191f;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #232f3e;
+            border-bottom: 3px solid #ff9900;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #232f3e;
+            margin-top: 40px;
+            border-left: 4px solid #ff9900;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #545b64;
+            margin-top: 30px;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background: #232f3e;
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border-left: 4px solid #ff9900;
+        }
+        pre code {
+            background: transparent;
+            color: #ffffff;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #232f3e;
+            color: white;
+            font-weight: 600;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        blockquote {
+            border-left: 4px solid #ff9900;
+            padding-left: 20px;
+            margin: 20px 0;
+            color: #545b64;
+            font-style: italic;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #ff9900;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        @media print {
+            body {
+                background: white;
+            }
+            .back-link {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="/reinvent-demo" class="back-link">← Back to Demo Materials</a>
+    <div id="content">
+<pre>
+# Interactive Demo Script - AWS re:Invent Chalk Talk
+
+## Pre-Demo Setup Checklist
+
+### 30 Minutes Before
+- [ ] Open AWS Console in browser tab 1
+- [ ] Open application UI in browser tab 2 (logged in)
+- [ ] Open CloudWatch Logs in browser tab 3
+- [ ] Open backup slides in browser tab 4
+- [ ] Test internet connectivity
+- [ ] Verify microphone and screen sharing
+- [ ] Clear browser cache and cookies
+- [ ] Close unnecessary applications
+- [ ] Set browser zoom to 125% for visibility
+- [ ] Disable browser notifications
+- [ ] Have water nearby
+
+### 5 Minutes Before
+- [ ] Navigate to sign-in page
+- [ ] Have demo credentials ready (write on paper backup)
+- [ ] Open terminal with AWS CLI ready
+- [ ] Test one quick query to warm up Lambdas
+- [ ] Verify CloudWatch logs are streaming
+- [ ] Check audience can see screen clearly
+
+## Demo Flow Overview
+
+**Total Time: 15 minutes**
+
+1. Introduction & Architecture (3 min)
+2. Live Demo - Simple Query (3 min)
+3. Live Demo - Complex Orchestration (4 min)
+4. Behind the Scenes - CloudWatch (2 min)
+5. Starter Kit Walkthrough (2 min)
+6. Q&A Setup (1 min)
+
+---
+
+## Part 1: Introduction & Architecture (3 minutes)
+
+### Script
+
+**[Show Title Slide]**
+
+"Good afternoon everyone! Today we're going to dive deep into building multi-agent AI systems on AWS. I'm going to show you a real production system that's running right now, and then we'll look at how you can build something similar."
+
+**[Switch to Architecture Diagram]**
+
+"Here's what we built - an AI-powered platform for energy data analysis. But the patterns we're using apply to any domain."
+
+**[Point to components]**
+
+"The key insight here is the **agent router pattern**. Instead of one monolithic AI agent trying to do everything, we have specialized agents:
+- Petrophysics agent for oil & gas analysis
+- Renewable energy agent for wind farm design
+- Maintenance agent for equipment monitoring
+- And a general knowledge agent as fallback"
+
+**[Point to orchestrator]**
+
+"For complex workflows, we use an orchestrator that coordinates multiple tool Lambdas. This is where it gets interesting - we can chain together terrain analysis, layout optimization, wake simulation, and report generation."
+
+**[Point to async pattern]**
+
+"And because some analyses take 30-60 seconds, we use an async processing pattern with polling. The user gets immediate feedback, and results appear when ready."
+
+"Alright, enough slides. Let's see it in action."
+
+---
+
+## Part 2: Live Demo - Simple Query (3 minutes)
+
+### Setup
+**[Switch to Application UI - Tab 2]**
+
+"I'm already logged in using Cognito authentication. Let me show you a simple query first."
+
+### Demo Query 1: Petrophysics Analysis
+
+**Type in chat:**
+```
+Analyze porosity for well NLOG_F02-1 using density method
+```
+
+**Expected Response Time:** 3-5 seconds
+
+**While waiting, narrate:**
+"Behind the scenes, the agent router is detecting this is a petrophysics query. It's routing to the petrophysics agent, which is calling an MCP server to fetch well data from S3 and perform calculations."
+
+**Expected Output:**
+- Professional response with SPE/API standards
+- Porosity calculation results
+- Interactive log visualization
+- Data quality metrics
+
+**[Point to visualization]**
+
+"Notice the professional formatting - this follows industry standards. The agent isn't just returning JSON, it's generating publication-quality analysis."
+
+**[Point to thought steps if visible]**
+
+"And here's the transparency - you can see the agent's reasoning process. Intent detection, parameter extraction, tool selection, execution."
+
+### Demo Query 2: General Knowledge (Fallback)
+
+**Type in chat:**
+```
+What's the weather like in Las Vegas today?
+```
+
+**Expected Response Time:** 2-3 seconds
+
+**Narrate:**
+"This query doesn't match any specialized agent patterns, so it routes to the general knowledge agent powered by Claude 3.5 Sonnet."
+
+**Expected Output:**
+- Conversational response about weather
+- No specialized artifacts
+- Quick response time
+
+**Key Point:**
+"The router gracefully falls back to general knowledge when needed. No hallucinations, no confusion."
+
+---
+
+## Part 3: Live Demo - Complex Orchestration (4 minutes)
+
+### Demo Query 3: Renewable Energy Analysis
+
+**Type in chat:**
+```
+Analyze wind farm potential at coordinates 35.0, -101.4 with 5km radius
+```
+
+**Expected Response Time:** 8-12 seconds (async processing)
+
+**Immediately narrate:**
+"This is a complex query that triggers the renewable energy orchestrator. Watch what happens..."
+
+**[Point to loading indicator]**
+
+"You'll see 'Analysis in Progress' - this is the async pattern. The orchestrator is being invoked asynchronously because this analysis takes 30+ seconds."
+
+**[Switch to CloudWatch Logs - Tab 3]**
+
+"Let me show you what's happening behind the scenes while we wait."
+
+**[Point to logs]**
+
+"Here's the orchestrator Lambda starting up. It's:
+1. Parsing the intent - terrain analysis
+2. Invoking the terrain tool Lambda
+3. The tool is fetching OpenStreetMap data
+4. Generating a Folium visualization
+5. Storing the artifact in S3
+6. Writing results to DynamoDB"
+
+**[Switch back to UI - Tab 2]**
+
+"And... there we go! The results are appearing."
+
+**Expected Output:**
+- Interactive terrain map with 151 features
+- Wind resource data overlay
+- Suitability analysis
+- Downloadable artifacts
+
+**[Interact with map]**
+
+"This is a fully interactive Leaflet map. You can zoom, pan, click on features. All generated by the Python tool Lambda."
+
+**[Point to feature count]**
+
+"151 features identified - roads, buildings, water bodies, protected areas. All real data from OpenStreetMap."
+
+### Demo Query 4: Follow-up Orchestration
+
+**Type in chat:**
+```
+Optimize turbine layout for this site
+```
+
+**Expected Response Time:** 10-15 seconds
+
+**Narrate:**
+"Now the orchestrator maintains context. It knows we're working on the same project, so it can chain this analysis."
+
+**[Point to thought steps]**
+
+"The orchestrator is:
+1. Retrieving the previous terrain analysis
+2. Invoking the layout optimization tool
+3. Running wake effect calculations
+4. Generating optimal turbine positions"
+
+**Expected Output:**
+- Optimized layout map
+- Turbine positions with coordinates
+- Energy production estimates
+- Wake loss analysis
+
+**Key Point:**
+"This is the power of the orchestrator pattern - it maintains project context across multiple queries and coordinates complex workflows."
+
+---
+
+## Part 4: Behind the Scenes - CloudWatch (2 minutes)
+
+**[Switch to CloudWatch Logs - Tab 3]**
+
+"Let me show you the observability side. This is critical for production systems."
+
+**[Point to log groups]**
+
+"We have separate log groups for:
+- Chat Lambda - handles routing
+- Orchestrator Lambda - coordinates workflows
+- Tool Lambdas - perform specialized processing"
+
+**[Open recent log stream]**
+
+"Here's the complete trace of that last query. You can see:
+- Request received with user context
+- Intent detection: 'layout_optimization'
+- Tool invocation with parameters
+- Execution time: 12.3 seconds
+- Artifact stored: s3://bucket/renewable-projects/..."
+
+**[Point to metrics]**
+
+"And we're tracking:
+- Invocation counts
+- Duration percentiles
+- Error rates
+- Concurrent executions"
+
+**Key Point:**
+"This isn't a toy demo - this is production-grade observability. You need this for real systems."
+
+---
+
+## Part 5: Starter Kit Walkthrough (2 minutes)
+
+**[Switch to GitHub repository or local files]**
+
+"Now, how do you build something like this? We've created a starter kit."
+
+**[Show directory structure]**
+
+```
+starter-kit/
+├── cdk/                    # Infrastructure as code
+├── examples/               # 3 example agents
+│   ├── weather-agent/
+│   ├── calculator-agent/
+│   └── data-analysis-agent/
+├── docs/                   # Integration guides
+└── scripts/                # Deployment scripts
+```
+
+**[Open example agent file]**
+
+"Here's a complete example agent. It's about 50 lines of code."
+
+**[Point to key sections]**
+
+"You need:
+1. Agent class extending BaseEnhancedAgent
+2. Intent detection patterns
+3. Tool invocation logic
+4. Response formatting"
+
+**[Open integration checklist]**
+
+"And we have a step-by-step checklist:
+- Create agent class ✓
+- Add intent patterns ✓
+- Register with router ✓
+- Create tool Lambda (if needed) ✓
+- Configure IAM permissions ✓
+- Deploy and test ✓"
+
+**[Show CDK template]**
+
+"The infrastructure is all CDK. You can deploy this entire stack with one command."
+
+**Key Point:**
+"This isn't just documentation - it's a working template you can clone and customize."
+
+---
+
+## Part 6: Q&A Setup (1 minute)
+
+**[Return to architecture diagram or summary slide]**
+
+"So to recap:
+- Agent router pattern for specialized agents
+- Orchestrator pattern for complex workflows
+- Async processing for long-running tasks
+- Production-grade observability
+- Starter kit to get you going"
+
+"The code and documentation are available at [show QR code or URL]."
+
+"Now, I'd love to hear your questions. Who wants to go first?"
+
+---
+
+## Example Queries by Agent Type
+
+### Petrophysics Agent
+```
+1. "Show me well data for NLOG_F02-1"
+2. "Calculate porosity for well NLOG_F02-1 using density method"
+3. "Analyze shale volume for well NLOG_F02-1 using Larionov tertiary method"
+4. "Correlate wells NLOG_F02-1 and NLOG_F03-2"
+5. "Assess data quality for GR curve in well NLOG_F02-1"
+```
+
+**Expected Response Time:** 3-8 seconds
+**Key Features:** Professional formatting, interactive visualizations, industry standards
+
+### Renewable Energy Agent
+```
+1. "Analyze wind farm potential at 35.0, -101.4"
+2. "Analyze terrain at coordinates 40.7128, -74.0060 with 10km radius"
+3. "Optimize turbine layout for this site"
+4. "Run wake simulation for the optimized layout"
+5. "Generate executive report for this wind farm project"
+```
+
+**Expected Response Time:** 8-30 seconds (async)
+**Key Features:** Interactive maps, real OSM data, Python visualizations
+
+### Maintenance Agent
+```
+1. "Check equipment status for turbine T-001"
+2. "Predict maintenance needs for compressor C-042"
+3. "Analyze failure patterns in pump P-123"
+```
+
+**Expected Response Time:** 4-6 seconds
+**Key Features:** Equipment monitoring, predictive analytics
+
+### General Knowledge Agent
+```
+1. "What's the weather in Las Vegas?"
+2. "Explain the Bernoulli principle"
+3. "What are best practices for wind farm siting?"
+```
+
+**Expected Response Time:** 2-4 seconds
+**Key Features:** Conversational responses, no specialized artifacts
+
+---
+
+## Expected Response Times
+
+| Query Type | Sync/Async | Time Range | Notes |
+|------------|------------|------------|-------|
+| Simple petrophysics | Sync | 3-8s | Direct calculation |
+| Well correlation | Sync | 5-10s | Multiple data fetches |
+| Terrain analysis | Async | 15-30s | OSM data + visualization |
+| Layout optimization | Async | 20-40s | Complex calculations |
+| Wake simulation | Async | 25-45s | Iterative solver |
+| Report generation | Async | 10-20s | PDF generation |
+| General knowledge | Sync | 2-4s | LLM only |
+
+---
+
+## Troubleshooting Guide
+
+### Issue 1: Query Times Out
+
+**Symptoms:**
+- Loading indicator never disappears
+- No response after 30 seconds
+- Console shows 504 error
+
+**Diagnosis:**
+1. Check CloudWatch logs for Lambda errors
+2. Verify Lambda timeout settings (should be 300s)
+3. Check DynamoDB for partial results
+
+**Recovery:**
+- Switch to backup slides showing expected output
+- Explain: "This is why we have async processing - in production, the user would get results via polling"
+- Continue with next demo query
+
+**Backup Slide:** Show pre-recorded screenshot of successful query
+
+### Issue 2: Authentication Fails
+
+**Symptoms:**
+- Can't log in
+- 401 Unauthorized errors
+- Cognito errors in console
+
+**Diagnosis:**
+1. Check if demo user exists in Cognito
+2. Verify password is correct
+3. Check Lambda authorizer logs
+
+**Recovery:**
+- Use backup authenticated session (keep browser tab open)
+- Or switch to backup slides with screenshots
+- Explain: "Authentication is handled by Cognito with JWT tokens"
+
+**Backup Slide:** Show authentication flow diagram
+
+### Issue 3: Artifacts Don't Render
+
+**Symptoms:**
+- Response text appears but no visualization
+- "Visualization Unavailable" message
+- Console shows 404 for S3 artifacts
+
+**Diagnosis:**
+1. Check S3 bucket permissions
+2. Verify artifact URL in response
+3. Check browser console for CORS errors
+
+**Recovery:**
+- Show CloudWatch logs proving artifact was generated
+- Display artifact JSON structure
+- Switch to backup slide with pre-rendered visualization
+- Explain: "The artifact was generated and stored in S3, this is a rendering issue"
+
+**Backup Slide:** Show example artifact with full visualization
+
+### Issue 4: Wrong Agent Routes
+
+**Symptoms:**
+- Petrophysics query goes to general agent
+- No specialized response
+- Generic answer instead of analysis
+
+**Diagnosis:**
+1. Check query matches intent patterns
+2. Verify agent router logic
+3. Check CloudWatch for routing decision
+
+**Recovery:**
+- Rephrase query with more specific keywords
+- Or switch to pre-tested query from script
+- Explain: "Intent detection uses pattern matching - in production we'd tune these patterns"
+
+**Backup Slide:** Show intent detection algorithm
+
+### Issue 5: Slow Internet Connection
+
+**Symptoms:**
+- UI loads slowly
+- Artifacts take long to display
+- Timeout errors
+
+**Diagnosis:**
+1. Check venue WiFi speed
+2. Test with mobile hotspot
+3. Verify CloudFront distribution
+
+**Recovery:**
+- Switch to backup slides immediately
+- Use pre-recorded video of demo
+- Walk through screenshots instead of live demo
+- Explain: "This is running in AWS us-east-1, normally sub-second response times"
+
+**Backup Slide:** Full demo walkthrough with screenshots
+
+### Issue 6: Lambda Cold Start
+
+**Symptoms:**
+- First query takes 15-20 seconds
+- Subsequent queries are fast
+- CloudWatch shows initialization time
+
+**Diagnosis:**
+1. Check Lambda logs for cold start indicators
+2. Verify provisioned concurrency settings
+3. Note initialization duration
+
+**Recovery:**
+- Acknowledge it: "This is a cold start - the Lambda is initializing"
+- Explain: "In production, we use provisioned concurrency to avoid this"
+- Continue with demo - subsequent queries will be fast
+- Use this as teaching moment about Lambda optimization
+
+**Backup Slide:** Show Lambda cold start vs warm start metrics
+
+---
+
+## Backup Slides Content
+
+### Slide 1: Successful Petrophysics Query
+- Screenshot of query and response
+- Highlighted: Professional formatting, visualization, metrics
+- Talking points: "This is what you'd see - industry-standard analysis"
+
+### Slide 2: Terrain Analysis Results
+- Screenshot of interactive map with 151 features
+- Highlighted: Feature types, wind data, suitability score
+- Talking points: "Real OpenStreetMap data, fully interactive"
+
+### Slide 3: Layout Optimization Output
+- Screenshot of optimized turbine layout
+- Highlighted: Turbine positions, energy estimates, wake losses
+- Talking points: "Orchestrator coordinated multiple tool invocations"
+
+### Slide 4: CloudWatch Logs Trace
+- Screenshot of complete log trace
+- Highlighted: Request flow, timing, artifact storage
+- Talking points: "Production-grade observability"
+
+### Slide 5: Starter Kit Overview
+- Screenshot of GitHub repository
+- Highlighted: Examples, templates, documentation
+- Talking points: "Everything you need to get started"
+
+---
+
+## Common Demo Issues - Quick Reference
+
+| Issue | Quick Fix | Backup Plan |
+|-------|-----------|-------------|
+| Timeout | Wait 10s more | Backup slide |
+| Auth fail | Use backup session | Show auth diagram |
+| No artifacts | Check S3 logs | Show JSON structure |
+| Wrong agent | Rephrase query | Use tested query |
+| Slow WiFi | Switch to hotspot | Use screenshots |
+| Cold start | Acknowledge & wait | Explain optimization |
+| Console error | Check CloudWatch | Continue with next query |
+| Map won't load | Refresh page | Show static image |
+
+---
+
+## Post-Demo Actions
+
+### Immediate (During Q&A)
+- [ ] Keep CloudWatch logs open for questions
+- [ ] Have architecture diagram ready
+- [ ] Be ready to show code examples
+- [ ] Have QR code/URL visible
+
+### After Session
+- [ ] Note any issues encountered
+- [ ] Update troubleshooting guide
+- [ ] Collect attendee questions
+- [ ] Share starter kit link with attendees
+
+---
+
+## Demo Confidence Builders
+
+### Practice Runs
+- [ ] Run complete demo 3 times before session
+- [ ] Test on venue WiFi if possible
+- [ ] Time each section
+- [ ] Practice transitions between tabs
+- [ ] Rehearse troubleshooting responses
+
+### Backup Preparations
+- [ ] Create backup slides for each demo section
+- [ ] Record video of successful demo
+- [ ] Take screenshots of all expected outputs
+- [ ] Print paper copy of script
+- [ ] Have mobile hotspot ready
+
+### Mental Preparation
+- "The demo might fail, and that's okay"
+- "I have backup slides for everything"
+- "Live demos show authenticity"
+- "Failures are teaching moments"
+- "The audience wants me to succeed"
+
+---
+
+## Presenter Notes
+
+### Energy & Pacing
+- Start with high energy for introduction
+- Slow down during live demo (let audience absorb)
+- Speed up for backup slides if needed
+- End with enthusiasm for Q&A
+
+### Audience Engagement
+- Make eye contact during narration
+- Pause after key points
+- Ask rhetorical questions: "Notice what's happening here?"
+- Acknowledge when things go wrong: "And this is why we test!"
+
+### Technical Credibility
+- Use precise terminology
+- Acknowledge limitations honestly
+- Show real logs and errors
+- Explain trade-offs in design decisions
+
+### Time Management
+- Check time after each section
+- If running long, skip CloudWatch deep-dive
+- If running short, add more Q&A time
+- Always leave 5 minutes for questions
+
+---
+
+## Success Metrics
+
+### Demo Success
+- [ ] At least 2 queries executed successfully
+- [ ] Audience saw real-time processing
+- [ ] Showed both simple and complex workflows
+- [ ] Demonstrated observability
+- [ ] Shared starter kit
+
+### Audience Engagement
+- [ ] Questions asked during Q&A
+- [ ] Attendees took photos of slides
+- [ ] Requests for starter kit link
+- [ ] Follow-up conversations after session
+
+### Learning Outcomes
+- Audience understands agent router pattern
+- Audience sees value of orchestrator for complex workflows
+- Audience knows how to get started with starter kit
+- Audience appreciates production considerations
+
+---
+
+## Final Checklist
+
+**30 min before:**
+- [ ] All browser tabs open and tested
+- [ ] Logged into application
+- [ ] CloudWatch logs streaming
+- [ ] Backup slides ready
+- [ ] Water nearby
+
+**5 min before:**
+- [ ] Screen sharing tested
+- [ ] Microphone tested
+- [ ] Audience can see screen
+- [ ] One warm-up query executed
+
+**During demo:**
+- [ ] Breathe
+- [ ] Smile
+- [ ] Have fun
+- [ ] Trust your preparation
+
+**Remember:** You've built something amazing. Show it with confidence!
+</pre>
+    </div>
+</body>
+</html>

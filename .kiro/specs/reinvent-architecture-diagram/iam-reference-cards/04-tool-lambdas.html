@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM Reference Card - Tool Lambdas</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0.5in;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            color: #232f3e;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #232f3e 0%, #ff9900 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .section h2 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #232f3e;
+            border-bottom: 2px solid #ff9900;
+            padding-bottom: 5px;
+        }
+        
+        .permission-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #ff9900;
+            border-radius: 4px;
+        }
+        
+        .permission-item.required {
+            border-left-color: #d13212;
+        }
+        
+        .permission-item.optional {
+            border-left-color: #1d8102;
+        }
+        
+        .permission-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .permission-action {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .badge.required {
+            background: #d13212;
+            color: white;
+        }
+        
+        .badge.optional {
+            background: #1d8102;
+            color: white;
+        }
+        
+        .permission-resource {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #545b64;
+            margin-top: 5px;
+        }
+        
+        .permission-description {
+            font-size: 13px;
+            color: #545b64;
+            margin-top: 5px;
+        }
+        
+        .code-block {
+            background: #232f3e;
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        
+        .info-box {
+            background: #e7f6fd;
+            border-left: 4px solid #0073bb;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .info-box strong {
+            color: #0073bb;
+        }
+        
+        .tool-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .tool-card {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        .tool-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #232f3e;
+        }
+        
+        .tool-card p {
+            margin: 0;
+            font-size: 12px;
+            color: #545b64;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+            font-size: 12px;
+            color: #545b64;
+            text-align: center;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔧 Tool Lambdas IAM Permissions</h1>
+        <div class="subtitle">AWS Energy Data Insights Platform | Python-Based Analysis Tools</div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Overview</h2>
+        <p><strong>Service Role:</strong> <code>RenewableToolsRole</code></p>
+        <p><strong>Function Names:</strong> <code>renewable-tools-*</code> (terrain, layout, simulation, report, windrose)</p>
+        <p><strong>Purpose:</strong> Execute domain-specific analysis using Python scientific libraries (pandas, geopandas, py-wake, matplotlib)</p>
+        <p><strong>Timeout:</strong> 300 seconds | <strong>Memory:</strong> 2048 MB</p>
+    </div>
+
+    <div class="section">
+        <h2>🛠️ Tool Lambda Functions</h2>
+        <div class="tool-grid">
+            <div class="tool-card">
+                <h3>🗺️ Terrain Analysis</h3>
+                <p>Fetches OSM data, analyzes topography, identifies constraints, generates interactive map visualization</p>
+            </div>
+            <div class="tool-card">
+                <h3>📐 Layout Optimization</h3>
+                <p>Optimizes turbine placement using wind data and terrain constraints, generates GeoJSON layout</p>
+            </div>
+            <div class="tool-card">
+                <h3>💨 Wake Simulation</h3>
+                <p>Simulates wake effects using py-wake, calculates energy production and losses</p>
+            </div>
+            <div class="tool-card">
+                <h3>📊 Report Generation</h3>
+                <p>Aggregates all analysis results into comprehensive PDF report with charts and tables</p>
+            </div>
+            <div class="tool-card">
+                <h3>🌹 Wind Rose</h3>
+                <p>Generates wind rose visualization from NREL wind data showing directional distribution</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📦 S3 Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">s3:PutObject</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:s3:::storage-bucket/renewable-projects/*
+            </div>
+            <div class="permission-description">
+                Store generated visualizations (HTML maps, PNG charts, PDF reports) and analysis results (JSON data). This is the primary output mechanism for tool Lambdas.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">s3:GetObject</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:s3:::storage-bucket/renewable-projects/*
+            </div>
+            <div class="permission-description">
+                Read artifacts from previous analysis steps. For example, layout optimization reads terrain analysis results, wake simulation reads layout data.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📊 CloudWatch Logs Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:CreateLogGroup</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:*:*:log-group:/aws/lambda/renewable-tools-*:*
+            </div>
+            <div class="permission-description">
+                Standard Lambda logging permission. Each tool Lambda has its own log group.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:CreateLogStream</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:*:*:log-group:/aws/lambda/renewable-tools-*:*
+            </div>
+            <div class="permission-description">
+                Create log streams for each tool invocation. Essential for debugging analysis failures.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:PutLogEvents</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:*:*:log-group:/aws/lambda/renewable-tools-*:*
+            </div>
+            <div class="permission-description">
+                Write analysis logs including data processing steps, calculation results, and error details. Critical for troubleshooting scientific computations.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📄 Complete IAM Policy JSON</h2>
+        <div class="code-block">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject"
+      ],
+      "Resource": "arn:aws:s3:::storage-bucket/renewable-projects/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/renewable-tools-*:*"
+    }
+  ]
+}</div>
+    </div>
+
+    <div class="info-box">
+        <strong>💡 Minimal Permissions:</strong> Tool Lambdas have the most restrictive permissions in the system. They only need S3 access for artifact storage and standard CloudWatch logging. They don't access DynamoDB, invoke other Lambdas, or call external APIs (except public OSM/NREL endpoints).
+    </div>
+
+    <div class="section">
+        <h2>🔄 Tool Lambda Workflow</h2>
+        <ol>
+            <li><strong>Invocation:</strong> Orchestrator invokes tool Lambda with analysis parameters</li>
+            <li><strong>Data Fetching:</strong> Tool fetches external data (OSM, NREL) or reads from S3</li>
+            <li><strong>Processing:</strong> Executes scientific computations using Python libraries</li>
+            <li><strong>Visualization:</strong> Generates charts, maps, or reports using matplotlib/folium</li>
+            <li><strong>Storage:</strong> Stores artifacts in S3 under project directory</li>
+            <li><strong>Response:</strong> Returns artifact metadata to orchestrator</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>📦 Python Dependencies</h2>
+        <p>Tool Lambdas use Lambda Layers for Python dependencies:</p>
+        <ul>
+            <li><strong>Scientific:</strong> numpy, pandas, scipy, geopandas</li>
+            <li><strong>Visualization:</strong> matplotlib, seaborn, folium, plotly</li>
+            <li><strong>Wind Analysis:</strong> py-wake (wake modeling)</li>
+            <li><strong>Geospatial:</strong> shapely, fiona, pyproj</li>
+            <li><strong>Data Fetching:</strong> requests, osmnx</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>🎯 Artifact Types Generated</h2>
+        <ul>
+            <li><strong>Terrain Analysis:</strong> Interactive HTML map with OSM features (151 features typical)</li>
+            <li><strong>Layout Optimization:</strong> GeoJSON with turbine coordinates and metadata</li>
+            <li><strong>Wake Simulation:</strong> JSON with energy production data and wake loss calculations</li>
+            <li><strong>Report:</strong> PDF with comprehensive analysis summary and visualizations</li>
+            <li><strong>Wind Rose:</strong> PNG/SVG wind rose diagram showing directional distribution</li>
+        </ul>
+    </div>
+
+    <div class="footer">
+        <p>AWS Energy Data Insights Platform | re:Invent Chalk Talk | IAM Reference Card 4 of 5</p>
+        <p>Generated: 2025-01-15 | Version 1.0</p>
+    </div>
+</body>
+</html>

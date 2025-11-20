@@ -1,0 +1,49 @@
+graph TB
+    subgraph "👤 User Layer"
+        USER[User Browser]
+    end
+
+    subgraph "🔐 Security"
+        AUTH[Cognito Auth]
+    end
+
+    subgraph "🤖 AI Agents"
+        ROUTER[Agent Router<br/>🎯 Intent Detection]
+        PETRO[⛽ Oil & Gas]
+        WIND[💨 Wind Energy]
+        GENERAL[💬 General Chat]
+    end
+
+    subgraph "🛠️ Tools"
+        TERRAIN[🗺️ Terrain]
+        LAYOUT[📐 Layout]
+        CALC[🧮 Calculations]
+    end
+
+    subgraph "💾 Data"
+        DB[(Messages)]
+        FILES[(Artifacts)]
+    end
+
+    USER -->|1. Query| AUTH
+    AUTH -->|2. Validated| ROUTER
+    ROUTER -->|Oil & Gas?| PETRO
+    ROUTER -->|Wind Farm?| WIND
+    ROUTER -->|Other?| GENERAL
+    
+    WIND --> TERRAIN
+    WIND --> LAYOUT
+    PETRO --> CALC
+    
+    TERRAIN --> FILES
+    LAYOUT --> FILES
+    CALC --> FILES
+    
+    ROUTER --> DB
+    DB -->|3. Response| USER
+    FILES -->|4. Visualizations| USER
+
+    style ROUTER fill:#ff9900,stroke:#232f3e,stroke-width:3px
+    style USER fill:#ec7211,stroke:#232f3e,stroke-width:3px
+    style DB fill:#3b48cc,stroke:#232f3e,stroke-width:3px
+    style FILES fill:#569a31,stroke:#232f3e,stroke-width:3px

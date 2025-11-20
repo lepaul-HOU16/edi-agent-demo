@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Data Flow Architecture - Architecture Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1920px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #232f3e;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #545b64;
+            margin-bottom: 30px;
+        }
+        .diagram-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 400px;
+            background: white;
+        }
+        .actions {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+        .btn {
+            display: inline-block;
+            padding: 10px 20px;
+            margin-right: 10px;
+            background: #ff9900;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            font-weight: 500;
+        }
+        .btn:hover {
+            background: #ec7211;
+        }
+        .instructions {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f0f8ff;
+            border-left: 4px solid #ff9900;
+            border-radius: 4px;
+        }
+        .instructions h3 {
+            margin-top: 0;
+            color: #232f3e;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 5px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Data Flow Architecture</h1>
+        <p class="subtitle">AWS Energy Data Insights Platform - Architecture Diagram</p>
+        
+        <div class="diagram-container">
+            <div class="mermaid">
+graph LR
+    subgraph "User Interface"
+        UI[React Components]
+    end
+
+    subgraph "API Gateway"
+        APIGW[HTTP API]
+        AUTH[Authorizer]
+    end
+
+    subgraph "Processing Layer"
+        CHAT[Chat Lambda]
+        AGENTS[Agent Layer]
+        TOOLS[Tool Lambdas]
+    end
+
+    subgraph "Data Storage"
+        DDB[(DynamoDB)]
+        S3[(S3 Bucket)]
+    end
+
+    subgraph "AI Services"
+        BEDROCK[Bedrock]
+    end
+
+    UI -->|1. User Query| APIGW
+    APIGW -->|2. Validate| AUTH
+    AUTH -->|3. Authorized| CHAT
+    CHAT -->|4. Route| AGENTS
+    AGENTS -->|5. Invoke| TOOLS
+    TOOLS -->|6. Generate| BEDROCK
+    TOOLS -->|7. Store Artifacts| S3
+    AGENTS -->|8. Save Response| DDB
+    DDB -->|9. Poll Updates| UI
+    S3 -->|10. Fetch Artifacts| UI
+
+    style APIGW fill:#ff9900
+    style CHAT fill:#ff9900
+    style DDB fill:#3b48cc
+    style S3 fill:#569a31
+    style BEDROCK fill:#00a1c9
+
+            </div>
+        </div>
+        
+        <div class="actions">
+            <a href="#" class="btn" onclick="exportSVG(); return false;">Export as SVG</a>
+            <a href="#" class="btn" onclick="exportPNG(); return false;">Export as PNG</a>
+            <a href="index.html" class="btn" style="background: #545b64;">Back to Index</a>
+        </div>
+        
+        <div class="instructions">
+            <h3>📥 How to Export High-Resolution Diagrams</h3>
+            <ol>
+                <li><strong>For PNG (Recommended for Presentations):</strong>
+                    <ul>
+                        <li>Right-click on the diagram</li>
+                        <li>Select "Inspect" or "Inspect Element"</li>
+                        <li>Find the SVG element in the inspector</li>
+                        <li>Right-click the SVG and "Copy" → "Copy outerHTML"</li>
+                        <li>Paste into an SVG editor or use online converter</li>
+                        <li>Export as PNG at 1920x1080 or higher</li>
+                    </ul>
+                </li>
+                <li><strong>For SVG (Vector Format):</strong>
+                    <ul>
+                        <li>Click "Export as SVG" button above</li>
+                        <li>Or right-click diagram → "Save image as..."</li>
+                        <li>Choose SVG format</li>
+                    </ul>
+                </li>
+                <li><strong>Alternative: Use Mermaid Live Editor:</strong>
+                    <ul>
+                        <li>Visit <a href="https://mermaid.live/" target="_blank">mermaid.live</a></li>
+                        <li>Copy the diagram code from this page</li>
+                        <li>Paste into the editor</li>
+                        <li>Use "Actions" → "Export PNG/SVG/PDF"</li>
+                        <li>Set resolution to 1920x1080 or higher</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+    </div>
+    
+    <script>
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#ff9900',
+                primaryTextColor: '#232f3e',
+                primaryBorderColor: '#232f3e',
+                lineColor: '#545b64',
+                secondaryColor: '#ec7211',
+                tertiaryColor: '#ffffff'
+            },
+            flowchart: {
+                curve: 'basis',
+                padding: 20
+            },
+            sequence: {
+                actorMargin: 50,
+                boxMargin: 10,
+                boxTextMargin: 5,
+                noteMargin: 10,
+                messageMargin: 35
+            }
+        });
+        
+        function exportSVG() {
+            const svg = document.querySelector('.mermaid svg');
+            if (svg) {
+                const svgData = new XMLSerializer().serializeToString(svg);
+                const blob = new Blob([svgData], { type: 'image/svg+xml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'data flow architecture.svg';
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        }
+        
+        function exportPNG() {
+            alert('To export as PNG:\n\n1. Right-click on the diagram\n2. Select "Save image as..."\n3. Or use browser screenshot tools\n4. Or copy to image editor and export\n\nFor high-resolution PNG, use Mermaid Live Editor (see instructions below).');
+        }
+    </script>
+</body>
+</html>

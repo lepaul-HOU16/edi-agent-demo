@@ -39,18 +39,23 @@ const ChatBox = (params: {
   
   // Create stable callback using useCallback with proper dependencies
   const handleMessagesUpdated = useCallback((updatedMessages: any[]) => {
-    console.log('🔄 ChatBox: Messages updated from polling, refreshing UI');
-    setMessages((prevMessages) => combineAndSortMessages(prevMessages, updatedMessages as Message[]));
+    console.log('🔄 ChatBox: Messages updated from polling');
+    console.log('🔄 ChatBox: Received', updatedMessages.length, 'messages');
+    console.log('🔄 ChatBox: Messages:', updatedMessages.map(m => ({ role: m.role, artifacts: m.artifacts?.length || 0 })));
+    setMessages((prevMessages) => {
+      const combined = combineAndSortMessages(prevMessages, updatedMessages as Message[]);
+      console.log('🔄 ChatBox: Combined messages:', combined.length);
+      return combined;
+    });
   }, [setMessages]);
   
-  // POLLING: Disabled due to infinite loop issues
-  // TODO: Implement proper GraphQL subscription instead
-  // useChatMessagePolling({
-  //   chatSessionId,
-  //   enabled: false,
-  //   interval: 3000,
-  //   onMessagesUpdated: handleMessagesUpdated,
-  // });
+  // POLLING: Enabled for async processing results
+  useChatMessagePolling({
+    chatSessionId,
+    enabled: true,
+    interval: 5000, // Poll every 5 seconds
+    onMessagesUpdated: handleMessagesUpdated,
+  });
 
 
 

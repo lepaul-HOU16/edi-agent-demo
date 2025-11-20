@@ -30,26 +30,89 @@ export function useChatMessagePolling({
   const lastMessageCountRef = useRef<number>(0);
 
   useEffect(() => {
-    // TEMPORARY: Polling disabled during REST API migration
-    // Messages are loaded directly from DynamoDB on page load
-    // Real-time updates will be implemented via WebSocket later
-    console.log('[useChatMessagePolling] Polling temporarily disabled during REST API migration');
-    
     if (!enabled || !chatSessionId) {
+      console.log('[useChatMessagePolling] Polling disabled or no session ID');
       return;
     }
 
-    // TODO: Implement REST API polling when messages endpoint is available
-    // For now, rely on page refresh to get updated messages
-    
+    console.log('[useChatMessagePolling] Starting polling for session:', chatSessionId);
+    setIsPolling(true);
+
+    const pollMessages = async () => {
+      try {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://hbt1j807qf.execute-api.us-east-1.amazonaws.com';
+        
+        console.log('[useChatMessagePolling] Polling...', {
+          sessionId: chatSessionId,
+          apiUrl: API_BASE_URL,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Get auth token using the proper auth method
+        const { getAuthToken } = await import('@/lib/api/client');
+        const token = await getAuthToken();
+
+        if (!token) {
+          console.error('[useChatMessagePolling] No auth token available');
+          return;
+        }
+
+        const url = `${API_BASE_URL}/api/chat/sessions/${chatSessionId}/messages`;
+        console.log('[useChatMessagePolling] Fetching from:', url);
+
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        console.log('[useChatMessagePolling] Response status:', response.status);
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('[useChatMessagePolling] Failed to fetch messages:', response.status, errorText);
+          return;
+        }
+
+        const data = await response.json();
+        console.log('[useChatMessagePolling] Response data:', data);
+        
+        const messages = data.data || data.messages || [];
+
+        console.log('[useChatMessagePolling] Fetched messages:', messages.length, 'Previous:', lastMessageCountRef.current);
+
+        // Check if we have new messages
+        if (messages.length > lastMessageCountRef.current) {
+          console.log('[useChatMessagePolling] ✨ New messages detected:', messages.length - lastMessageCountRef.current);
+          console.log('[useChatMessagePolling] Calling onMessagesUpdated with', messages.length, 'messages');
+          onMessagesUpdated?.(messages);
+          lastMessageCountRef.current = messages.length;
+          setLastUpdateTime(Date.now());
+        } else {
+          console.log('[useChatMessagePolling] No new messages');
+        }
+      } catch (error) {
+        console.error('[useChatMessagePolling] Polling error:', error);
+      }
+    };
+
+    // Poll immediately
+    pollMessages();
+
+    // Then poll at interval
+    intervalRef.current = setInterval(pollMessages, interval);
+
     // Cleanup
     return () => {
+      console.log('[useChatMessagePolling] Stopping polling');
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
       }
+      setIsPolling(false);
     };
-  }, [chatSessionId, enabled, interval]);
+  }, [chatSessionId, enabled, interval, onMessagesUpdated]);
 
   return {
     isPolling,

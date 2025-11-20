@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM Reference Card - Petrophysics Calculator</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0.5in;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            color: #232f3e;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #232f3e 0%, #ff9900 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .section h2 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #232f3e;
+            border-bottom: 2px solid #ff9900;
+            padding-bottom: 5px;
+        }
+        
+        .permission-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #ff9900;
+            border-radius: 4px;
+        }
+        
+        .permission-item.required {
+            border-left-color: #d13212;
+        }
+        
+        .permission-item.optional {
+            border-left-color: #1d8102;
+        }
+        
+        .permission-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .permission-action {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .badge.required {
+            background: #d13212;
+            color: white;
+        }
+        
+        .badge.optional {
+            background: #1d8102;
+            color: white;
+        }
+        
+        .permission-resource {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #545b64;
+            margin-top: 5px;
+        }
+        
+        .permission-description {
+            font-size: 13px;
+            color: #545b64;
+            margin-top: 5px;
+        }
+        
+        .code-block {
+            background: #232f3e;
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        
+        .info-box {
+            background: #e7f6fd;
+            border-left: 4px solid #0073bb;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .info-box strong {
+            color: #0073bb;
+        }
+        
+        .calculation-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 15px 0;
+        }
+        
+        .calculation-card {
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 12px;
+        }
+        
+        .calculation-card h3 {
+            margin: 0 0 8px 0;
+            font-size: 14px;
+            color: #232f3e;
+        }
+        
+        .calculation-card p {
+            margin: 0;
+            font-size: 12px;
+            color: #545b64;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+            font-size: 12px;
+            color: #545b64;
+            text-align: center;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🛢️ Petrophysics Calculator IAM Permissions</h1>
+        <div class="subtitle">AWS Energy Data Insights Platform | Well Log Analysis & Calculations</div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Overview</h2>
+        <p><strong>Service Role:</strong> <code>PetrophysicsCalculatorRole</code></p>
+        <p><strong>Function Name:</strong> <code>petrophysics-calculator</code></p>
+        <p><strong>Purpose:</strong> Processes LAS files, performs petrophysical calculations (porosity, shale volume, water saturation), and generates professional analysis reports</p>
+        <p><strong>Timeout:</strong> 60 seconds | <strong>Memory:</strong> 512 MB</p>
+    </div>
+
+    <div class="section">
+        <h2>🧮 Calculation Capabilities</h2>
+        <div class="calculation-grid">
+            <div class="calculation-card">
+                <h3>📊 Porosity Calculations</h3>
+                <p>Density, neutron, effective, and total porosity using industry-standard methods</p>
+            </div>
+            <div class="calculation-card">
+                <h3>🪨 Shale Volume</h3>
+                <p>Larionov (tertiary/pre-tertiary), linear, and Clavier methods</p>
+            </div>
+            <div class="calculation-card">
+                <h3>💧 Water Saturation</h3>
+                <p>Archie equation with configurable parameters (a, m, n, Rw)</p>
+            </div>
+            <div class="calculation-card">
+                <h3>📈 Multi-Well Correlation</h3>
+                <p>Cross-well analysis and geological interpretation</p>
+            </div>
+            <div class="calculation-card">
+                <h3>✅ Data Quality Assessment</h3>
+                <p>Completeness, outlier detection, and environmental corrections validation</p>
+            </div>
+            <div class="calculation-card">
+                <h3>📉 Statistical Analysis</h3>
+                <p>Mean, median, std dev, percentiles for curve data</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📦 S3 Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">s3:GetObject</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:s3:::storage-bucket/well-data/*
+            </div>
+            <div class="permission-description">
+                Read LAS (Log ASCII Standard) files for petrophysical analysis. LAS files contain well log curves (GR, RHOB, NPHI, RT, etc.) required for all calculations.
+            </div>
+        </div>
+
+        <div class="permission-item optional">
+            <div class="permission-header">
+                <span class="permission-action">s3:PutObject</span>
+                <span class="badge optional">Optional</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:s3:::storage-bucket/petrophysics-results/*
+            </div>
+            <div class="permission-description">
+                Store calculation results and generated reports. Optional if results are returned inline to chat Lambda instead of stored separately.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📊 CloudWatch Logs Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:CreateLogGroup</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:*:*:log-group:/aws/lambda/petrophysics-calculator:*
+            </div>
+            <div class="permission-description">
+                Standard Lambda logging permission for CloudWatch log group creation.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:CreateLogStream</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:*:*:log-group:/aws/lambda/petrophysics-calculator:*
+            </div>
+            <div class="permission-description">
+                Create log streams for each calculation request. Essential for debugging LAS file parsing and calculation errors.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:PutLogEvents</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:*:*:log-group:/aws/lambda/petrophysics-calculator:*
+            </div>
+            <div class="permission-description">
+                Write calculation logs including input parameters, intermediate results, and final outputs. Critical for validating calculation accuracy.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📄 Complete IAM Policy JSON</h2>
+        <div class="code-block">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": "s3:GetObject",
+      "Resource": "arn:aws:s3:::storage-bucket/well-data/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:PutObject",
+      "Resource": "arn:aws:s3:::storage-bucket/petrophysics-results/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/petrophysics-calculator:*"
+    }
+  ]
+}</div>
+    </div>
+
+    <div class="info-box">
+        <strong>💡 Read-Only Data Access:</strong> This Lambda only needs read access to well data. It doesn't modify source LAS files, ensuring data integrity. Write access to results directory is optional and can be removed if results are returned inline.
+    </div>
+
+    <div class="section">
+        <h2>🔄 Calculation Workflow</h2>
+        <ol>
+            <li><strong>Invocation:</strong> Chat Lambda invokes with calculation request (well name, curve names, method)</li>
+            <li><strong>LAS File Retrieval:</strong> Reads LAS file from S3 using well name</li>
+            <li><strong>Data Parsing:</strong> Parses LAS file format, extracts curve data and metadata</li>
+            <li><strong>Data Validation:</strong> Checks for null values (-999.25, -9999), validates curve availability</li>
+            <li><strong>Calculation:</strong> Executes requested petrophysical calculation using industry-standard formulas</li>
+            <li><strong>Quality Assessment:</strong> Evaluates data quality and calculation confidence</li>
+            <li><strong>Response Generation:</strong> Formats results according to SPE/API standards</li>
+            <li><strong>Return:</strong> Returns calculation results to chat Lambda for display</li>
+        </ol>
+    </div>
+
+    <div class="section">
+        <h2>📐 Industry Standards Compliance</h2>
+        <ul>
+            <li><strong>SPE Standards:</strong> Society of Petroleum Engineers calculation methodologies</li>
+            <li><strong>API RP 40:</strong> Recommended practices for core analysis</li>
+            <li><strong>ISO GUM:</strong> Guide to the expression of uncertainty in measurement</li>
+            <li><strong>LAS 2.0/3.0:</strong> Log ASCII Standard file format support</li>
+        </ul>
+    </div>
+
+    <div class="section">
+        <h2>📊 Example LAS File Structure</h2>
+        <div class="code-block">~Version Information
+VERS.   2.0 : CWLS LOG ASCII STANDARD - VERSION 2.0
+WRAP.   NO  : ONE LINE PER DEPTH STEP
+
+~Well Information
+WELL.   WELL-001        : WELL NAME
+FLD .   PERMIAN BASIN   : FIELD
+LOC .   TEXAS           : LOCATION
+
+~Curve Information
+DEPT.M              : DEPTH
+GR  .API            : GAMMA RAY
+RHOB.G/C3           : BULK DENSITY
+NPHI.V/V            : NEUTRON POROSITY
+RT  .OHMM           : TRUE RESISTIVITY
+
+~ASCII
+2500.00  75.5  2.45  0.18  12.5
+2500.50  78.2  2.43  0.19  11.8
+...</div>
+    </div>
+
+    <div class="footer">
+        <p>AWS Energy Data Insights Platform | re:Invent Chalk Talk | IAM Reference Card 5 of 5</p>
+        <p>Generated: 2025-01-15 | Version 1.0</p>
+    </div>
+</body>
+</html>

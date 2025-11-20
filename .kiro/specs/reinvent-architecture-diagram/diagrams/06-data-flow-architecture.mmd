@@ -1,0 +1,41 @@
+graph LR
+    subgraph "User Interface"
+        UI[React Components]
+    end
+
+    subgraph "API Gateway"
+        APIGW[HTTP API]
+        AUTH[Authorizer]
+    end
+
+    subgraph "Processing Layer"
+        CHAT[Chat Lambda]
+        AGENTS[Agent Layer]
+        TOOLS[Tool Lambdas]
+    end
+
+    subgraph "Data Storage"
+        DDB[(DynamoDB)]
+        S3[(S3 Bucket)]
+    end
+
+    subgraph "AI Services"
+        BEDROCK[Bedrock]
+    end
+
+    UI -->|1. User Query| APIGW
+    APIGW -->|2. Validate| AUTH
+    AUTH -->|3. Authorized| CHAT
+    CHAT -->|4. Route| AGENTS
+    AGENTS -->|5. Invoke| TOOLS
+    TOOLS -->|6. Generate| BEDROCK
+    TOOLS -->|7. Store Artifacts| S3
+    AGENTS -->|8. Save Response| DDB
+    DDB -->|9. Poll Updates| UI
+    S3 -->|10. Fetch Artifacts| UI
+
+    style APIGW fill:#ff9900
+    style CHAT fill:#ff9900
+    style DDB fill:#3b48cc
+    style S3 fill:#569a31
+    style BEDROCK fill:#00a1c9

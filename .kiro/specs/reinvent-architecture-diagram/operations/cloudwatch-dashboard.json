@@ -1,0 +1,455 @@
+{
+  "widgets": [
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApiGateway", "Count", {"stat": "Sum", "label": "Total Requests"}],
+          [".", "4XXError", {"stat": "Sum", "label": "4XX Errors"}],
+          [".", "5XXError", {"stat": "Sum", "label": "5XX Errors"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "API Gateway - Request Volume",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/ApiGateway", "Latency", {"stat": "Average", "label": "Average"}],
+          ["...", {"stat": "p50", "label": "p50"}],
+          ["...", {"stat": "p95", "label": "p95"}],
+          ["...", {"stat": "p99", "label": "p99"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "API Gateway - Latency",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Milliseconds"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 0
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/Lambda", "Invocations", {"stat": "Sum", "label": "Chat Lambda"}],
+          ["...", {"stat": "Sum", "label": "Orchestrator"}],
+          ["...", {"stat": "Sum", "label": "Tool Lambdas"}],
+          ["...", {"stat": "Sum", "label": "Authorizer"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "Lambda - Invocations",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 6
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/Lambda", "Errors", {"stat": "Sum", "label": "Chat Lambda"}],
+          ["...", {"stat": "Sum", "label": "Orchestrator"}],
+          ["...", {"stat": "Sum", "label": "Tool Lambdas"}],
+          ["...", {"stat": "Sum", "label": "Authorizer"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "Lambda - Errors",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 6
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/Lambda", "Duration", {"stat": "Average", "label": "Chat Lambda - Avg"}],
+          ["...", {"stat": "p95", "label": "Chat Lambda - p95"}],
+          ["...", {"stat": "Average", "label": "Orchestrator - Avg"}],
+          ["...", {"stat": "p95", "label": "Orchestrator - p95"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Lambda - Duration",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Milliseconds"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 12
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/Lambda", "ConcurrentExecutions", {"stat": "Maximum", "label": "Chat Lambda"}],
+          ["...", {"stat": "Maximum", "label": "Orchestrator"}],
+          ["...", {"stat": "Maximum", "label": "Tool Lambdas"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Lambda - Concurrent Executions",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 12
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/Lambda", "Throttles", {"stat": "Sum", "label": "Chat Lambda"}],
+          ["...", {"stat": "Sum", "label": "Orchestrator"}],
+          ["...", {"stat": "Sum", "label": "Tool Lambdas"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "Lambda - Throttles",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 18
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/DynamoDB", "ConsumedReadCapacityUnits", {"stat": "Sum", "label": "ChatMessage"}],
+          ["...", {"stat": "Sum", "label": "ChatSession"}],
+          ["...", {"stat": "Sum", "label": "SessionContext"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "DynamoDB - Read Capacity",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Units"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 18
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/DynamoDB", "ConsumedWriteCapacityUnits", {"stat": "Sum", "label": "ChatMessage"}],
+          ["...", {"stat": "Sum", "label": "ChatSession"}],
+          ["...", {"stat": "Sum", "label": "SessionContext"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "DynamoDB - Write Capacity",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Units"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 24
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/DynamoDB", "UserErrors", {"stat": "Sum", "label": "ChatMessage"}],
+          ["...", {"stat": "Sum", "label": "ChatSession"}],
+          ["...", {"stat": "Sum", "label": "SessionContext"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "DynamoDB - User Errors",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 24
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/DynamoDB", "SystemErrors", {"stat": "Sum", "label": "ChatMessage"}],
+          ["...", {"stat": "Sum", "label": "ChatSession"}],
+          ["...", {"stat": "Sum", "label": "SessionContext"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "DynamoDB - System Errors",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 30
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/S3", "NumberOfObjects", {"stat": "Average", "label": "Total Objects"}],
+          [".", "BucketSizeBytes", {"stat": "Average", "label": "Total Size"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "S3 - Storage Metrics",
+        "period": 86400,
+        "yAxis": {
+          "left": {
+            "label": "Count / Bytes"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 30
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/S3", "AllRequests", {"stat": "Sum", "label": "Total Requests"}],
+          [".", "GetRequests", {"stat": "Sum", "label": "GET Requests"}],
+          [".", "PutRequests", {"stat": "Sum", "label": "PUT Requests"}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "S3 - Request Volume",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 36
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          ["AWS/S3", "4xxErrors", {"stat": "Sum", "label": "4XX Errors"}],
+          [".", "5xxErrors", {"stat": "Sum", "label": "5XX Errors"}]
+        ],
+        "view": "timeSeries",
+        "stacked": true,
+        "region": "us-east-1",
+        "title": "S3 - Errors",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Count"
+          }
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 36
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/chat'\n| fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 20",
+        "region": "us-east-1",
+        "stacked": false,
+        "title": "Recent Errors - Chat Lambda",
+        "view": "table"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 42
+    },
+    {
+      "type": "log",
+      "properties": {
+        "query": "SOURCE '/aws/lambda/renewable-orchestrator'\n| fields @timestamp, @message\n| filter @message like /ERROR/\n| sort @timestamp desc\n| limit 20",
+        "region": "us-east-1",
+        "stacked": false,
+        "title": "Recent Errors - Orchestrator",
+        "view": "table"
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 42
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [{"expression": "m1/m2*100", "label": "Error Rate %", "id": "e1"}],
+          ["AWS/Lambda", "Errors", {"id": "m1", "visible": false}],
+          [".", "Invocations", {"id": "m2", "visible": false}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "Lambda - Error Rate %",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Percent",
+            "min": 0,
+            "max": 10
+          }
+        },
+        "annotations": {
+          "horizontal": [
+            {
+              "label": "Target < 1%",
+              "value": 1,
+              "fill": "below",
+              "color": "#2ca02c"
+            },
+            {
+              "label": "Warning > 5%",
+              "value": 5,
+              "fill": "above",
+              "color": "#d62728"
+            }
+          ]
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 0,
+      "y": 48
+    },
+    {
+      "type": "metric",
+      "properties": {
+        "metrics": [
+          [{"expression": "(m1+m2)/(m3)*100", "label": "API Error Rate %", "id": "e1"}],
+          ["AWS/ApiGateway", "4XXError", {"id": "m1", "visible": false}],
+          [".", "5XXError", {"id": "m2", "visible": false}],
+          [".", "Count", {"id": "m3", "visible": false}]
+        ],
+        "view": "timeSeries",
+        "stacked": false,
+        "region": "us-east-1",
+        "title": "API Gateway - Error Rate %",
+        "period": 300,
+        "yAxis": {
+          "left": {
+            "label": "Percent",
+            "min": 0,
+            "max": 10
+          }
+        },
+        "annotations": {
+          "horizontal": [
+            {
+              "label": "Target < 1%",
+              "value": 1,
+              "fill": "below",
+              "color": "#2ca02c"
+            },
+            {
+              "label": "Warning > 5%",
+              "value": 5,
+              "fill": "above",
+              "color": "#d62728"
+            }
+          ]
+        }
+      },
+      "width": 12,
+      "height": 6,
+      "x": 12,
+      "y": 48
+    }
+  ]
+}

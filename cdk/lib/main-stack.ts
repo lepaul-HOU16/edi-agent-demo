@@ -748,6 +748,30 @@ export class MainStack extends cdk.Stack {
     });
 
     // ============================================================================
+    // Renewable Tools Lambda - COMPLETE ORIGINAL CODE (Must be before orchestrator)
+    // ============================================================================
+    
+    // Create renewable tools Lambda with COMPLETE original code from renewables repo
+    // This replaces the simplified "renewable-terrain-simple" stub
+    const renewableToolsFunction = new lambda.DockerImageFunction(this, 'RenewableToolsFunction', {
+      functionName: 'renewable-tools-complete',
+      description: 'Complete renewable tools with ALL original functionality including water features',
+      code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '../lambda-functions/renewable-tools'), {
+        cmd: ['handler.handler'],  // Explicitly set the handler
+      }),
+      timeout: cdk.Duration.minutes(5),
+      memorySize: 2048,
+      environment: {
+        NREL_API_KEY: process.env.NREL_API_KEY || 'demo-key',
+        S3_BUCKET: storageBucket.bucketName,
+        REGION: this.region,
+      },
+    });
+    
+    // Grant S3 permissions
+    storageBucket.grantReadWrite(renewableToolsFunction);
+
+    // ============================================================================
     // Renewable Energy Orchestrator Lambda and Routes (Phase 2, Task 5.3)
     // ============================================================================
 
@@ -763,10 +787,10 @@ export class MainStack extends cdk.Stack {
         CHAT_MESSAGE_TABLE_NAME: chatMessageTable.tableName,
         SESSION_CONTEXT_TABLE: sessionContextTable.tableName,
         RENEWABLE_S3_BUCKET: storageBucket.bucketName,
-        // Tool Lambda function names - pointing to standalone tool Lambdas
-        RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME: 'renewable-terrain-simple',
-        RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME: 'renewable-layout-simple',
-        RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME: 'renewable-simulation-simple',
+        // Tool Lambda function names - will be updated after tools Lambda is created
+        RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME: 'renewable-tools-complete',
+        RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME: 'renewable-tools-complete',
+        RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME: 'renewable-tools-complete',
         FORCE_REFRESH: Date.now().toString(), // Force Lambda update
       },
     });
@@ -830,6 +854,12 @@ export class MainStack extends cdk.Stack {
       value: renewableOrchestratorFunction.functionArn,
       description: 'ARN of renewable orchestrator Lambda function',
       exportName: `${id}-RenewableOrchestratorFunctionArn`,
+    });
+    
+    new cdk.CfnOutput(this, 'RenewableToolsFunctionArn', {
+      value: renewableToolsFunction.functionArn,
+      description: 'ARN of complete renewable tools Lambda function',
+      exportName: `${id}-RenewableToolsFunctionArn`,
     });
 
     new cdk.CfnOutput(this, 'RenewableAnalyzeEndpoint', {

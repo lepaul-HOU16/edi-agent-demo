@@ -1,0 +1,131 @@
+```mermaid
+stateDiagram-v2
+    [*] --> Initialized: User starts new project
+    
+    Initialized --> TerrainAnalysis: Request terrain analysis
+    Initialized --> WindRoseGeneration: Request wind rose
+    
+    TerrainAnalysis --> TerrainComplete: Analysis complete
+    TerrainComplete --> LayoutOptimization: Request layout
+    TerrainComplete --> WindRoseGeneration: Request wind rose
+    TerrainComplete --> ReportGeneration: Request report
+    
+    LayoutOptimization --> LayoutComplete: Optimization complete
+    LayoutComplete --> WakeSimulation: Request simulation
+    LayoutComplete --> ReportGeneration: Request report
+    LayoutComplete --> WindRoseGeneration: Request wind rose
+    
+    WakeSimulation --> SimulationComplete: Simulation complete
+    SimulationComplete --> ReportGeneration: Request report
+    SimulationComplete --> LayoutOptimization: Re-optimize layout
+    
+    WindRoseGeneration --> WindRoseComplete: Wind rose complete
+    WindRoseComplete --> TerrainAnalysis: Request terrain
+    WindRoseComplete --> ReportGeneration: Request report
+    
+    TerrainComplete --> ReportGeneration: Generate report
+    LayoutComplete --> ReportGeneration: Generate report
+    SimulationComplete --> ReportGeneration: Generate report
+    WindRoseComplete --> ReportGeneration: Generate report
+    
+    ReportGeneration --> ProjectComplete: Report generated
+    
+    ProjectComplete --> LayoutOptimization: Modify layout
+    ProjectComplete --> WakeSimulation: Re-run simulation
+    ProjectComplete --> ReportGeneration: Regenerate report
+    ProjectComplete --> [*]: Project archived
+    
+    TerrainAnalysis --> Error: Analysis failed
+    LayoutOptimization --> Error: Optimization failed
+    WakeSimulation --> Error: Simulation failed
+    ReportGeneration --> Error: Report failed
+    WindRoseGeneration --> Error: Wind rose failed
+    
+    Error --> TerrainAnalysis: Retry terrain
+    Error --> LayoutOptimization: Retry layout
+    Error --> WakeSimulation: Retry simulation
+    Error --> ReportGeneration: Retry report
+    Error --> WindRoseGeneration: Retry wind rose
+    Error --> [*]: Abandon project
+    
+    note right of Initialized
+        Project created with:
+        - Project name
+        - Location coordinates
+        - Initial parameters
+    end note
+    
+    note right of TerrainComplete
+        Terrain data includes:
+        - OSM features
+        - Elevation data
+        - Land use classification
+        - Exclusion zones
+    end note
+    
+    note right of LayoutComplete
+        Layout includes:
+        - Turbine positions
+        - Access roads
+        - Electrical layout
+        - Optimization metrics
+    end note
+    
+    note right of SimulationComplete
+        Simulation results:
+        - Wake losses
+        - Energy production
+        - Capacity factor
+        - Performance metrics
+    end note
+    
+    note right of ProjectComplete
+        Complete project with:
+        - All analysis results
+        - Visualizations
+        - PDF report
+        - Downloadable data
+    end note
+```
+
+## State Transitions
+
+### State Persistence
+
+**SessionContext Table Structure:**
+```json
+{
+  "session_id": "session-123",
+  "active_project": "west-texas-wind-farm",
+  "project_state": "LayoutComplete",
+  "project_data": {
+    "terrain": {
+      "status": "complete",
+      "s3_key": "renewable-projects/west-texas-wind-farm/terrain.json",
+      "timestamp": "2025-01-15T10:30:00Z"
+    },
+    "layout": {
+      "status": "complete",
+      "s3_key": "renewable-projects/west-texas-wind-farm/layout.json",
+      "timestamp": "2025-01-15T10:45:00Z"
+    },
+    "simulation": {
+      "status": "pending"
+    }
+  },
+  "last_updated": "2025-01-15T10:45:00Z"
+}
+```
+
+### Valid State Transitions
+
+| From State | To State | Trigger |
+|------------|----------|---------|
+| Initialized | TerrainAnalysis | "Analyze terrain at..." |
+| Initialized | WindRoseGeneration | "Show wind rose for..." |
+| TerrainComplete | LayoutOptimization | "Optimize turbine layout" |
+| LayoutComplete | WakeSimulation | "Run wake simulation" |
+| Any Complete | ReportGeneration | "Generate report" |
+| ProjectComplete | Any Analysis | "Modify/Re-run..." |
+| Any State | Error | Tool failure |
+| Error | Any State | Retry command |

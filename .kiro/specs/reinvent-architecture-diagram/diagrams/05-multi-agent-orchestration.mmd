@@ -1,0 +1,56 @@
+graph TB
+    subgraph "Agent Router (Traffic Controller)"
+        ROUTER[Agent Router<br/>Intent Detection]
+    end
+
+    subgraph "Specialized Agents"
+        PETRO[Petrophysics Agent<br/>Oil & Gas Analysis]
+        RENEW[Renewable Proxy Agent<br/>Wind Farm Analysis]
+        MAINT[Maintenance Agent<br/>Equipment Monitoring]
+        EDI[EDIcraft Agent<br/>Minecraft Visualization]
+        GENERAL[General Knowledge Agent<br/>Fallback]
+    end
+
+    subgraph "Petrophysics Tools"
+        PETRO_DISC[Well Data Discovery]
+        PETRO_LOG[Log Curve Analysis]
+        PETRO_CALC[Porosity/Shale/Saturation]
+        PETRO_CORR[Multi-well Correlation]
+    end
+
+    subgraph "Renewable Orchestrator"
+        ORCH[Orchestrator Lambda]
+        TERRAIN[Terrain Analysis Tool]
+        LAYOUT[Layout Optimization Tool]
+        SIMULATION[Wake Simulation Tool]
+        REPORT[Report Generation Tool]
+    end
+
+    subgraph "AI Services"
+        BEDROCK[AWS Bedrock<br/>Claude 3.5 Sonnet]
+    end
+
+    ROUTER -->|Intent: Petrophysics| PETRO
+    ROUTER -->|Intent: Renewable| RENEW
+    ROUTER -->|Intent: Maintenance| MAINT
+    ROUTER -->|Intent: EDIcraft| EDI
+    ROUTER -->|Intent: General| GENERAL
+
+    PETRO --> PETRO_DISC
+    PETRO --> PETRO_LOG
+    PETRO --> PETRO_CALC
+    PETRO --> PETRO_CORR
+
+    RENEW --> ORCH
+    ORCH --> TERRAIN
+    ORCH --> LAYOUT
+    ORCH --> SIMULATION
+    ORCH --> REPORT
+
+    PETRO --> BEDROCK
+    GENERAL --> BEDROCK
+    MAINT --> BEDROCK
+
+    style ROUTER fill:#ff9900
+    style ORCH fill:#ff9900
+    style BEDROCK fill:#00a1c9

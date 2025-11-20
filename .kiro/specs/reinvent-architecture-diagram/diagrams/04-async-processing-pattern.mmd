@@ -1,0 +1,40 @@
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant ChatLambda
+    participant Orchestrator
+    participant DynamoDB
+    participant S3
+
+    User->>Frontend: Submit query
+    Frontend->>ChatLambda: POST /api/chat/message
+    ChatLambda->>DynamoDB: Save user message
+    
+    Note over ChatLambda: Start 25s timeout
+    
+    ChatLambda->>ChatLambda: Try sync processing
+    
+    alt Processing completes < 25s
+        ChatLambda->>DynamoDB: Save AI response
+        ChatLambda-->>Frontend: Complete response
+    else Processing exceeds 25s
+        ChatLambda->>ChatLambda: Self-invoke async
+        ChatLambda->>DynamoDB: Save "Processing" message
+        ChatLambda-->>Frontend: "Analysis in Progress"
+        
+        Note over Frontend: Start polling
+        loop Every 2 seconds
+            Frontend->>ChatLambda: GET messages
+            ChatLambda->>DynamoDB: Query messages
+            DynamoDB-->>Frontend: Messages
+        end
+        
+        Note over Orchestrator: Background processing
+        Orchestrator->>Orchestrator: Execute analysis
+        Orchestrator->>S3: Store artifacts
+        Orchestrator->>DynamoDB: Save AI response
+        
+        Frontend->>DynamoDB: Poll detects new message
+        Frontend->>S3: Fetch artifacts
+        Frontend->>User: Display results
+    end

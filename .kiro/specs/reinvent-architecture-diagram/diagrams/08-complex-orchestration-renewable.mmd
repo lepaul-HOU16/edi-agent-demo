@@ -1,0 +1,236 @@
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant APIGateway as API Gateway
+    participant ChatLambda as Chat Lambda<br/>(300s, 1024MB)
+    participant AgentRouter as Agent Router
+    participant RenewAgent as Renewable Proxy Agent
+    participant Orchestrator as Renewable Orchestrator<br/>(300s, 1024MB)
+    participant IntentRouter as Intent Router
+    participant TerrainTool as Terrain Tool<br/>(300s, 2048MB)
+    participant LayoutTool as Layout Tool<br/>(300s, 2048MB)
+    participant SimTool as Simulation Tool<br/>(300s, 2048MB)
+    participant ReportTool as Report Tool<br/>(300s, 2048MB)
+    participant S3
+    participant DynamoDB
+
+    Note over User,DynamoDB: Complex Renewable Energy Analysis (~45-60 seconds total)
+
+    %% User Query
+    User->>Frontend: "Analyze wind farm site at 35.067, -101.395"
+    Frontend->>APIGateway: POST /api/chat/message
+    
+    APIGateway->>ChatLambda: Invoke
+    Note right of APIGateway: Latency: ~50ms
+
+    %% Save User Message
+    ChatLambda->>DynamoDB: PutItem (user message)
+    DynamoDB-->>ChatLambda: Success
+
+    %% Intent Detection
+    ChatLambda->>AgentRouter: routeQuery(message)
+    AgentRouter->>AgentRouter: detectIntent()
+    Note right of AgentRouter: Pattern: "wind farm"<br/>→ renewable
+    
+    AgentRouter->>RenewAgent: processQuery()
+
+    %% Async Invocation Decision
+    RenewAgent->>RenewAgent: Estimate processing time
+    Note right of RenewAgent: Expected: 45-60s<br/>Threshold: 25s<br/>→ Use async pattern
+
+    %% Start Async Processing
+    RenewAgent->>Orchestrator: InvokeAsync
+    Note right of RenewAgent: InvocationType: Event<br/>(fire-and-forget)
+    
+    RenewAgent-->>ChatLambda: "Processing" response
+    Note left of RenewAgent: {<br/>  "message": "Analysis in Progress...",<br/>  "processing": true<br/>}
+
+    %% Save Processing Message
+    ChatLambda->>DynamoDB: PutItem (processing message)
+    DynamoDB-->>ChatLambda: Success
+
+    %% Return to User
+    ChatLambda-->>APIGateway: Response
+    APIGateway-->>Frontend: 200 OK
+    Frontend->>User: "Analysis in Progress..."
+    
+    Note over Frontend: Start polling every 2s
+
+    %% Background Processing Begins
+    Note over Orchestrator,DynamoDB: Background Processing (45-60s)
+
+    %% Initialize Project
+    Orchestrator->>DynamoDB: GetItem (session context)
+    DynamoDB-->>Orchestrator: Session data
+    
+    Orchestrator->>Orchestrator: Create/load project
+    Note right of Orchestrator: Project: west-texas-wind-farm
+
+    Orchestrator->>DynamoDB: PutItem (project metadata)
+    DynamoDB-->>Orchestrator: Success
+
+    %% Thought Step: Intent Analysis
+    Orchestrator->>Orchestrator: Generate thought step
+    Note right of Orchestrator: {<br/>  "type": "intent_detection",<br/>  "title": "Analyzing Request",<br/>  "summary": "Full site analysis required"<br/>}
+
+    Orchestrator->>DynamoDB: PutItem (thought step)
+
+    %% Step 1: Terrain Analysis
+    Orchestrator->>IntentRouter: Route to terrain tool
+    IntentRouter->>TerrainTool: Invoke
+    Note right of IntentRouter: {<br/>  "latitude": 35.067,<br/>  "longitude": -101.395,<br/>  "radius_km": 5<br/>}
+
+    TerrainTool->>TerrainTool: Fetch OSM data<br/>Analyze terrain<br/>Generate visualization
+    Note right of TerrainTool: Latency: ~15s<br/>- OSM API: 3s<br/>- Processing: 10s<br/>- Viz generation: 2s
+
+    TerrainTool->>S3: PutObject (terrain-map.html)
+    Note right of S3: 151 features<br/>Interactive map
+    S3-->>TerrainTool: S3 URL
+
+    TerrainTool-->>Orchestrator: Terrain results
+    Note left of TerrainTool: {<br/>  "artifact": {<br/>    "type": "terrain_analysis",<br/>    "s3Key": "...",<br/>    "featureCount": 151<br/>  },<br/>  "suitability": 0.85<br/>}
+
+    Orchestrator->>Orchestrator: Generate thought step
+    Note right of Orchestrator: {<br/>  "type": "execution",<br/>  "title": "Terrain Analysis Complete",<br/>  "summary": "151 features, 85% suitable"<br/>}
+
+    Orchestrator->>DynamoDB: PutItem (thought step)
+
+    %% Step 2: Layout Optimization
+    Orchestrator->>IntentRouter: Route to layout tool
+    IntentRouter->>LayoutTool: Invoke
+    Note right of IntentRouter: {<br/>  "terrain_data": {...},<br/>  "turbine_model": "GE 2.5-120",<br/>  "target_capacity": 100<br/>}
+
+    LayoutTool->>LayoutTool: Optimize turbine placement<br/>Calculate spacing<br/>Generate layout
+    Note right of LayoutTool: Latency: ~12s<br/>- Optimization: 10s<br/>- Viz generation: 2s
+
+    LayoutTool->>S3: PutObject (layout-map.geojson)
+    S3-->>LayoutTool: S3 URL
+
+    LayoutTool-->>Orchestrator: Layout results
+    Note left of LayoutTool: {<br/>  "artifact": {...},<br/>  "turbine_count": 40,<br/>  "capacity_mw": 100<br/>}
+
+    Orchestrator->>Orchestrator: Generate thought step
+    Note right of Orchestrator: {<br/>  "type": "execution",<br/>  "title": "Layout Optimized",<br/>  "summary": "40 turbines, 100 MW"<br/>}
+
+    Orchestrator->>DynamoDB: PutItem (thought step)
+
+    %% Step 3: Wake Simulation
+    Orchestrator->>IntentRouter: Route to simulation tool
+    IntentRouter->>SimTool: Invoke
+    Note right of IntentRouter: {<br/>  "layout": {...},<br/>  "wind_data": {...}<br/>}
+
+    SimTool->>SimTool: Run wake simulation<br/>Calculate losses<br/>Generate visualization
+    Note right of SimTool: Latency: ~15s<br/>- Simulation: 12s<br/>- Viz generation: 3s
+
+    SimTool->>S3: PutObject (wake-simulation.png)
+    S3-->>SimTool: S3 URL
+
+    SimTool-->>Orchestrator: Simulation results
+    Note left of SimTool: {<br/>  "artifact": {...},<br/>  "wake_losses": 0.08,<br/>  "aep_gwh": 285<br/>}
+
+    Orchestrator->>Orchestrator: Generate thought step
+    Note right of Orchestrator: {<br/>  "type": "execution",<br/>  "title": "Wake Simulation Complete",<br/>  "summary": "8% losses, 285 GWh/yr"<br/>}
+
+    Orchestrator->>DynamoDB: PutItem (thought step)
+
+    %% Step 4: Report Generation
+    Orchestrator->>IntentRouter: Route to report tool
+    IntentRouter->>ReportTool: Invoke
+    Note right of IntentRouter: {<br/>  "project_data": {...},<br/>  "all_results": {...}<br/>}
+
+    ReportTool->>ReportTool: Generate comprehensive report<br/>Create PDF
+    Note right of ReportTool: Latency: ~8s<br/>- Report gen: 6s<br/>- PDF creation: 2s
+
+    ReportTool->>S3: PutObject (report.pdf)
+    S3-->>ReportTool: S3 URL
+
+    ReportTool-->>Orchestrator: Report artifact
+    Note left of ReportTool: {<br/>  "artifact": {<br/>    "type": "report",<br/>    "s3Key": "...",<br/>    "pages": 12<br/>  }<br/>}
+
+    Orchestrator->>Orchestrator: Generate thought step
+    Note right of Orchestrator: {<br/>  "type": "completion",<br/>  "title": "Analysis Complete",<br/>  "summary": "Full report generated"<br/>}
+
+    Orchestrator->>DynamoDB: PutItem (thought step)
+
+    %% Save Final AI Message
+    Orchestrator->>DynamoDB: PutItem (AI message)
+    Note right of DynamoDB: {<br/>  "role": "ai",<br/>  "content": {...},<br/>  "artifacts": [<br/>    terrain, layout,<br/>    simulation, report<br/>  ],<br/>  "thoughtSteps": [...]<br/>}
+    DynamoDB-->>Orchestrator: Success
+
+    %% Frontend Polling Detects New Message
+    Note over Frontend: Polling cycle (~2s interval)
+    
+    Frontend->>APIGateway: GET /api/chat/sessions/{id}/messages
+    APIGateway->>ChatLambda: Invoke
+    ChatLambda->>DynamoDB: Query (messages)
+    DynamoDB-->>ChatLambda: Messages (including new AI message)
+    ChatLambda-->>APIGateway: Response
+    APIGateway-->>Frontend: Messages
+
+    Frontend->>Frontend: Detect new AI message<br/>Stop polling
+
+    %% Fetch Artifacts
+    Frontend->>S3: GetObject (terrain-map.html)
+    S3-->>Frontend: Terrain visualization
+    
+    Frontend->>S3: GetObject (layout-map.geojson)
+    S3-->>Frontend: Layout data
+    
+    Frontend->>S3: GetObject (wake-simulation.png)
+    S3-->>Frontend: Simulation image
+    
+    Frontend->>S3: GetObject (report.pdf)
+    S3-->>Frontend: Report PDF
+
+    %% Display Results
+    Frontend->>Frontend: Render all artifacts<br/>Display thought steps<br/>Show interactive maps
+    
+    Frontend->>User: Display complete analysis
+
+    %% Error Handling
+    Note over User,DynamoDB: Error Scenarios
+
+    alt Tool Lambda Timeout
+        TerrainTool-xOrchestrator: Timeout (300s)
+        Orchestrator->>Orchestrator: Generate error thought step
+        Orchestrator->>DynamoDB: Save error message
+        Note right of Orchestrator: "Terrain analysis timed out"
+        Orchestrator->>Orchestrator: Continue with partial results
+    end
+
+    alt S3 Storage Failure
+        TerrainTool-xS3: PutObject failed
+        TerrainTool->>TerrainTool: Retry with backoff
+        TerrainTool->>S3: Retry PutObject
+        alt Retry Success
+            S3-->>TerrainTool: Success
+        else Retry Failed
+            TerrainTool-->>Orchestrator: Error response
+            Orchestrator->>DynamoDB: Save error message
+        end
+    end
+
+    alt DynamoDB Throttling
+        Orchestrator-xDynamoDB: ProvisionedThroughputExceededException
+        Orchestrator->>Orchestrator: Exponential backoff
+        Orchestrator->>DynamoDB: Retry PutItem
+        DynamoDB-->>Orchestrator: Success
+    end
+
+    alt Orchestrator Failure
+        Orchestrator-xDynamoDB: Lambda error
+        Note over Orchestrator: Dead Letter Queue captures failure
+        Note over User: User sees "Processing" indefinitely
+        Note over User: Manual intervention required
+    end
+
+    %% Performance Annotations
+    Note over User,DynamoDB: Total Latency Breakdown
+    Note over ChatLambda,RenewAgent: Sync Response: 2s
+    Note over Orchestrator,TerrainTool: Terrain Analysis: 15s
+    Note over Orchestrator,LayoutTool: Layout Optimization: 12s
+    Note over Orchestrator,SimTool: Wake Simulation: 15s
+    Note over Orchestrator,ReportTool: Report Generation: 8s
+    Note over Orchestrator,DynamoDB: DynamoDB Operations: 5s
+    Note over User,Frontend: Total: 45-60 seconds
+    Note over Frontend: Polling Overhead: 0-2s

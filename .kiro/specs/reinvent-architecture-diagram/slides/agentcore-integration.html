@@ -1,0 +1,1027 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AgentCore Integration - AWS re:Invent Chalk Talk</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/theme/black.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
+    <style>
+        .reveal h1, .reveal h2, .reveal h3 { text-transform: none; }
+        .reveal pre { width: 100%; }
+        .reveal code { max-height: 500px; }
+        .reveal .slides section { text-align: left; }
+        .reveal .center { text-align: center; }
+        .aws-orange { color: #FF9900; }
+        .aws-blue { color: #232F3E; }
+        .highlight-box { 
+            background: rgba(255, 153, 0, 0.1); 
+            border-left: 4px solid #FF9900; 
+            padding: 15px; 
+            margin: 20px 0;
+        }
+        .architecture-diagram {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+        .code-small { font-size: 0.5em; }
+        .code-medium { font-size: 0.6em; }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+
+            <!-- Slide 1: Title -->
+            <section class="center">
+                <h1 class="aws-orange">AgentCore Integration</h1>
+                <h3>Building Multi-Agent AI Systems on AWS</h3>
+                <p>AWS re:Invent 2025 - Chalk Talk</p>
+                <p style="margin-top: 50px; font-size: 0.8em;">
+                    Energy Data Insights Platform<br>
+                    Powered by AWS Bedrock & Lambda
+                </p>
+            </section>
+
+            <!-- Slide 2: Agenda -->
+            <section>
+                <h2 class="aws-orange">What We'll Cover</h2>
+                <ul>
+                    <li>Agent Router Pattern</li>
+                    <li>Intent Detection Algorithm</li>
+                    <li>Multi-Agent Orchestration</li>
+                    <li>Pattern Matching Examples</li>
+                    <li>Starter Kit Approach</li>
+                </ul>
+                <div class="highlight-box">
+                    <strong>Goal:</strong> Learn how to build extensible AI agent systems that route queries to specialized agents
+                </div>
+            </section>
+
+            <!-- Slide 3: The Challenge -->
+            <section>
+                <h2 class="aws-orange">The Challenge</h2>
+                <h3>One AI Agent Can't Do Everything</h3>
+                <ul>
+                    <li><strong>Domain Complexity:</strong> Oil & gas, renewable energy, maintenance</li>
+                    <li><strong>Tool Diversity:</strong> Different APIs, calculations, visualizations</li>
+                    <li><strong>Response Formats:</strong> Text, charts, maps, 3D models</li>
+                    <li><strong>Processing Time:</strong> 1 second to 60 seconds</li>
+                </ul>
+                <div class="highlight-box">
+                    <strong>Solution:</strong> Multiple specialized agents coordinated by a router
+                </div>
+            </section>
+
+            <!-- Slide 4: Agent Router Architecture -->
+            <section>
+                <h2 class="aws-orange">Agent Router Architecture</h2>
+                <pre><code class="language-plaintext" style="font-size: 0.5em;">
+┌─────────────────────────────────────────────────────────────┐
+│                      Chat Lambda                             │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │              Agent Router                              │  │
+│  │  - Intent detection via pattern matching              │  │
+│  │  - Priority-based routing                             │  │
+│  │  - Context preservation                               │  │
+│  └───────────────────────────────────────────────────────┘  │
+│                           │                                  │
+│         ┌─────────────────┼─────────────────┐               │
+│         ▼                 ▼                 ▼               │
+│  ┌──────────┐      ┌──────────┐     ┌──────────┐          │
+│  │  Petro   │      │ Renewable│     │ General  │          │
+│  │  Agent   │      │  Agent   │     │  Agent   │          │
+│  └──────────┘      └──────────┘     └──────────┘          │
+│       │                  │                 │                │
+│       ▼                  ▼                 ▼                │
+│  ┌──────────┐      ┌──────────┐     ┌──────────┐          │
+│  │   MCP    │      │Orchestr- │     │ Bedrock  │          │
+│  │  Tools   │      │  ator    │     │  Claude  │          │
+│  └──────────┘      └──────────┘     └──────────┘          │
+└─────────────────────────────────────────────────────────────┘
+                </code></pre>
+                <p><strong>Key Concept:</strong> Single entry point, multiple specialized handlers</p>
+            </section>
+
+            <!-- Slide 5: Agent Router Code -->
+            <section>
+                <h2 class="aws-orange">Agent Router Implementation</h2>
+                <pre><code class="language-typescript" class="code-medium">
+class AgentRouter {
+  private petrophysicsAgent: PetrophysicsAgent;
+  private renewableAgent: RenewableProxyAgent;
+  private maintenanceAgent: MaintenanceAgent;
+  private generalAgent: GeneralKnowledgeAgent;
+  
+  async routeQuery(message: string, context?: SessionContext) {
+    // Detect intent from user message
+    const agentType = this.determineAgentType(message);
+    
+    // Route to appropriate agent
+    switch (agentType) {
+      case 'renewable':
+        return await this.renewableAgent.processQuery(
+          message, [], context
+        );
+      case 'petrophysics':
+        return await this.petrophysicsAgent.processMessage(message);
+      case 'maintenance':
+        return await this.maintenanceAgent.processMessage(message);
+      default:
+        return await this.generalAgent.processMessage(message);
+    }
+  }
+}
+                </code></pre>
+            </section>
+
+            <!-- Slide 6: Intent Detection Algorithm -->
+            <section>
+                <h2 class="aws-orange">Intent Detection Algorithm</h2>
+                <h3>Priority-Based Pattern Matching</h3>
+                <pre><code class="language-typescript" class="code-medium">
+private determineAgentType(message: string): AgentType {
+  const lowerMessage = message.toLowerCase();
+  
+  // Priority 1: EDIcraft (Minecraft visualization)
+  if (this.matchesPatterns(lowerMessage, edicraftPatterns)) {
+    return 'edicraft';
+  }
+  
+  // Priority 2: Maintenance (equipment monitoring)
+  if (this.matchesPatterns(lowerMessage, maintenancePatterns)) {
+    return 'maintenance';
+  }
+  
+  // Priority 3: Renewable energy
+  if (this.matchesPatterns(lowerMessage, renewablePatterns)) {
+    return 'renewable';
+  }
+  
+  // Priority 4: Petrophysics
+  if (this.matchesPatterns(lowerMessage, petrophysicsPatterns)) {
+    return 'petrophysics';
+  }
+  
+  // Default: General knowledge
+  return 'general';
+}
+                </code></pre>
+            </section>
+
+            <!-- Slide 7: Intent Detection Flow -->
+            <section>
+                <h2 class="aws-orange">Intent Detection Flow</h2>
+                <div class="mermaid">
+                    <pre style="background: white; padding: 20px; border-radius: 8px;">
+graph TD
+    A[User Query] --> B{Match EDIcraft?}
+    B -->|Yes| C[EDIcraft Agent]
+    B -->|No| D{Match Maintenance?}
+    D -->|Yes| E[Maintenance Agent]
+    D -->|No| F{Match Renewable?}
+    F -->|Yes| G[Renewable Agent]
+    F -->|No| H{Match Petrophysics?}
+    H -->|Yes| I[Petrophysics Agent]
+    H -->|No| J[General Agent]
+    
+    style C fill:#FF9900
+    style E fill:#FF9900
+    style G fill:#FF9900
+    style I fill:#FF9900
+    style J fill:#FF9900
+                    </pre>
+                </div>
+                <p><strong>Key:</strong> Test patterns in priority order, first match wins</p>
+            </section>
+
+            <!-- Slide 8: Pattern Matching Examples - Renewable -->
+            <section>
+                <h2 class="aws-orange">Pattern Matching: Renewable Energy</h2>
+                <pre><code class="language-typescript" class="code-medium">
+const renewablePatterns = [
+  /wind.*farm/i,
+  /turbine.*placement/i,
+  /terrain.*analysis/i,
+  /layout.*optimization/i,
+  /wake.*simulation/i,
+  /wind.*rose/i,
+  /renewable.*energy/i,
+  /site.*assessment/i
+];
+
+// Example queries that match:
+"Analyze terrain at 35.0, -101.4 for wind farm"
+"Optimize turbine layout for my project"
+"Generate wake simulation report"
+"Show me the wind rose for this location"
+                </code></pre>
+                <div class="highlight-box">
+                    <strong>Pattern Strategy:</strong> Use domain-specific keywords and phrases
+                </div>
+            </section>
+
+            <!-- Slide 9: Pattern Matching Examples - Petrophysics -->
+            <section>
+                <h2 class="aws-orange">Pattern Matching: Petrophysics</h2>
+                <pre><code class="language-typescript" class="code-medium">
+const petrophysicsPatterns = [
+  /porosity/i,
+  /shale.*volume/i,
+  /water.*saturation/i,
+  /log.*curve/i,
+  /well.*correlation/i,
+  /las.*file/i,
+  /gamma.*ray/i,
+  /density.*log/i,
+  /neutron.*porosity/i
+];
+
+// Example queries that match:
+"Calculate porosity for WELL-001"
+"Show me shale volume analysis"
+"Correlate wells WELL-001, WELL-002, WELL-003"
+"Analyze gamma ray log for depth 2000-3000m"
+                </code></pre>
+                <div class="highlight-box">
+                    <strong>Pattern Strategy:</strong> Technical terms from domain vocabulary
+                </div>
+            </section>
+
+            <!-- Slide 10: Pattern Matching Examples - Maintenance -->
+            <section>
+                <h2 class="aws-orange">Pattern Matching: Maintenance</h2>
+                <pre><code class="language-typescript" class="code-medium">
+const maintenancePatterns = [
+  /equipment.*status/i,
+  /predictive.*maintenance/i,
+  /failure.*prediction/i,
+  /sensor.*data/i,
+  /anomaly.*detection/i,
+  /maintenance.*schedule/i
+];
+
+// Example queries that match:
+"What's the status of pump P-101?"
+"Predict failures for compressor C-205"
+"Show me anomalies in sensor data"
+"Generate maintenance schedule for next month"
+                </code></pre>
+                <div class="highlight-box">
+                    <strong>Pattern Strategy:</strong> Operational and monitoring keywords
+                </div>
+            </section>
+
+            <!-- Slide 11: Advanced Pattern Matching -->
+            <section>
+                <h2 class="aws-orange">Advanced Pattern Matching</h2>
+                <h3>Exclusion Patterns</h3>
+                <pre><code class="language-typescript" class="code-small">
+{
+  type: 'calculate_porosity',
+  test: () => this.matchesAny(query, [
+    'enhanced.*professional.*methodology',
+    'spe.*api.*standards'
+  ]) && !this.matchesAny(query, [
+    // CRITICAL: These exclusions prevent confusion
+    'integrated.*porosity.*analysis.*well-001.*well-002',
+    'multi.*well.*porosity'
+  ]),
+}
+                </code></pre>
+                <div class="highlight-box">
+                    <strong>Why Exclusions?</strong> Prevent cross-contamination between similar intents
+                    <ul>
+                        <li>Single-well porosity vs multi-well correlation</li>
+                        <li>Basic analysis vs professional methodology</li>
+                        <li>Quick query vs comprehensive report</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Slide 12: Base Enhanced Agent -->
+            <section>
+                <h2 class="aws-orange">Base Enhanced Agent</h2>
+                <h3>Common Functionality for All Agents</h3>
+                <pre><code class="language-typescript" class="code-medium">
+class BaseEnhancedAgent {
+  protected verbose: boolean;
+  
+  constructor(verbose: boolean = true) {
+    this.verbose = verbose;
+  }
+  
+  protected generateThoughtSteps(
+    operation: string,
+    details: string
+  ): ThoughtStep[] {
+    return [{
+      id: `step_${Date.now()}`,
+      type: 'execution',
+      timestamp: Date.now(),
+      title: operation,
+      summary: details,
+      status: 'complete'
+    }];
+  }
+  
+  protected handleError(error: Error): AgentResponse {
+    return {
+      success: false,
+      message: `Error: ${error.message}`,
+      thoughtSteps: this.generateThoughtSteps(
+        'Error Handling',
+        error.message
+      )
+    };
+  }
+}
+                </code></pre>
+            </section>
+
+            <!-- Slide 13: Specialized Agent Example -->
+            <section>
+                <h2 class="aws-orange">Specialized Agent: Petrophysics</h2>
+                <pre><code class="language-typescript" class="code-small">
+export class PetrophysicsAgent extends BaseEnhancedAgent {
+  private mcpClient: MCPClient;
+  
+  async processMessage(message: string): Promise<AgentResponse> {
+    const thoughtSteps = [];
+    
+    // Step 1: Intent detection
+    thoughtSteps.push(this.createThoughtStep(
+      'intent_detection',
+      'Analyzing Request',
+      'Understanding petrophysical analysis requirements'
+    ));
+    
+    // Step 2: Call MCP tools
+    const result = await this.mcpClient.callTool(
+      'calculate_porosity',
+      { wellName: 'WELL-001', method: 'density' }
+    );
+    
+    // Step 3: Format response
+    return {
+      success: true,
+      message: this.formatProfessionalResponse(result),
+      artifacts: this.generateArtifacts(result),
+      thoughtSteps
+    };
+  }
+}
+                </code></pre>
+            </section>
+
+            <!-- Slide 14: Multi-Agent Orchestration -->
+            <section>
+                <h2 class="aws-orange">Multi-Agent Orchestration</h2>
+                <h3>Renewable Energy Example</h3>
+                <pre><code class="language-typescript" class="code-small">
+export class RenewableProxyAgent extends BaseEnhancedAgent {
+  async processQuery(message: string): Promise<AgentResponse> {
+    // Invoke orchestrator Lambda asynchronously
+    const invokeCommand = new InvokeCommand({
+      FunctionName: process.env.RENEWABLE_ORCHESTRATOR_FUNCTION_NAME,
+      InvocationType: 'Event', // Async
+      Payload: JSON.stringify({
+        query: message,
+        sessionId: context.sessionId,
+        projectName: context.activeProject
+      })
+    });
+    
+    await this.lambdaClient.send(invokeCommand);
+    
+    // Return immediate "processing" response
+    return {
+      success: true,
+      message: 'Analysis in progress...',
+      processing: true,
+      thoughtSteps: [{
+        type: 'orchestration',
+        title: 'Starting Analysis',
+        summary: 'Coordinating multiple tools for comprehensive analysis'
+      }]
+    };
+  }
+}
+                </code></pre>
+            </section>
+
+            <!-- Slide 15: Orchestrator Pattern -->
+            <section>
+                <h2 class="aws-orange">Orchestrator Pattern</h2>
+                <h3>Coordinating Multiple Tools</h3>
+                <pre><code class="language-typescript" class="code-small">
+class RenewableOrchestrator {
+  async processQuery(query: string): Promise<void> {
+    // Parse intent
+    const intent = this.parseIntent(query);
+    
+    // Route to appropriate tool
+    switch (intent.type) {
+      case 'terrain_analysis':
+        await this.invokeTerrainTool(intent.params);
+        break;
+      case 'layout_optimization':
+        await this.invokeLayoutTool(intent.params);
+        break;
+      case 'wake_simulation':
+        await this.invokeSimulationTool(intent.params);
+        break;
+    }
+    
+    // Save results to DynamoDB
+    await this.saveResults(results);
+  }
+  
+  private async invokeTerrainTool(params: any) {
+    const result = await this.lambdaClient.send(new InvokeCommand({
+      FunctionName: process.env.RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME,
+      Payload: JSON.stringify(params)
+    }));
+    return JSON.parse(new TextDecoder().decode(result.Payload));
+  }
+}
+                </code></pre>
+            </section>
+
+            <!-- Slide 16: Thought Steps Pattern -->
+            <section>
+                <h2 class="aws-orange">Thought Steps: Chain of Thought</h2>
+                <h3>Transparent Reasoning</h3>
+                <pre><code class="language-typescript" class="code-medium">
+interface ThoughtStep {
+  id: string;
+  type: 'intent_detection' | 'parameter_extraction' | 
+        'tool_selection' | 'execution' | 'completion';
+  timestamp: number;
+  title: string;
+  summary: string;
+  status: 'in_progress' | 'complete' | 'error';
+  context?: Record<string, any>;
+  confidence?: number;
+  duration?: number;
+}
+
+// Example usage
+const thoughtSteps: ThoughtStep[] = [
+  {
+    id: 'step_1',
+    type: 'intent_detection',
+    title: 'Analyzing User Request',
+    summary: 'Intent detected: terrain_analysis with 10/10 confidence',
+    status: 'complete',
+    confidence: 1.0
+  },
+  {
+    id: 'step_2',
+    type: 'tool_selection',
+    title: 'Selecting Analysis Tools',
+    summary: 'Using OSM data + NREL wind resource API',
+    status: 'complete'
+  }
+];
+                </code></pre>
+            </section>
+
+            <!-- Slide 17: Starter Kit - Step 1 -->
+            <section>
+                <h2 class="aws-orange">Starter Kit: Adding a New Agent</h2>
+                <h3>Step 1: Create Agent Class</h3>
+                <pre><code class="language-typescript" class="code-small">
+// myNewAgent.ts
+import { BaseEnhancedAgent } from './BaseEnhancedAgent';
+
+export class MyNewAgent extends BaseEnhancedAgent {
+  constructor() {
+    super(true); // Enable verbose logging
+  }
+
+  async processMessage(message: string): Promise<any> {
+    const thoughtSteps = [];
+    
+    // Step 1: Intent detection
+    thoughtSteps.push(this.createThoughtStep(
+      'intent_detection',
+      'Analyzing Request',
+      'Understanding user intent for my domain'
+    ));
+    
+    // Step 2: Execute domain logic
+    const result = await this.executeDomainLogic(message);
+    
+    // Step 3: Return response
+    return {
+      success: true,
+      message: result.message,
+      artifacts: result.artifacts || [],
+      thoughtSteps
+    };
+  }
+}
+                </code></pre>
+            </section>
+
+            <!-- Slide 18: Starter Kit - Step 2 -->
+            <section>
+                <h2 class="aws-orange">Starter Kit: Register with Router</h2>
+                <h3>Step 2: Update Agent Router</h3>
+                <pre><code class="language-typescript" class="code-small">
+// agentRouter.ts
+import { MyNewAgent } from './myNewAgent';
+
+export class AgentRouter {
+  private myNewAgent: MyNewAgent;
+  
+  constructor() {
+    // ... existing agents
+    this.myNewAgent = new MyNewAgent();
+  }
+  
+  private determineAgentType(message: string): AgentType {
+    // Add your patterns at appropriate priority level
+    const myNewPatterns = [
+      /my.*domain.*keyword/i,
+      /specific.*pattern/i
+    ];
+    
+    if (this.matchesPatterns(message, myNewPatterns)) {
+      return 'mynew';
+    }
+    
+    // ... existing patterns
+  }
+  
+  async routeQuery(message: string, context?: SessionContext) {
+    const agentType = this.determineAgentType(message);
+    
+    switch (agentType) {
+      case 'mynew':
+        return await this.myNewAgent.processMessage(message);
+      // ... existing cases
+    }
+  }
+}
+                </code></pre>
+            </section>
+
+            <!-- Slide 19: Starter Kit - Step 3 -->
+            <section>
+                <h2 class="aws-orange">Starter Kit: Add Tool Lambda</h2>
+                <h3>Step 3: Create Tool Lambda (Optional)</h3>
+                <pre><code class="language-typescript" class="code-small">
+// CDK Stack
+const myNewToolFunction = new lambda.Function(this, 'MyNewToolFunction', {
+  functionName: 'my-new-tool',
+  runtime: lambda.Runtime.PYTHON_3_12,
+  handler: 'handler.handler',
+  code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-functions/my-new-tool')),
+  timeout: cdk.Duration.minutes(5),
+  memorySize: 1024,
+  environment: {
+    STORAGE_BUCKET: storageBucket.bucketName
+  }
+});
+
+// Grant permissions
+storageBucket.grantReadWrite(myNewToolFunction);
+myNewToolFunction.grantInvoke(chatFunction.function);
+
+// Add environment variable to chat Lambda
+chatFunction.addEnvironment(
+  'MY_NEW_TOOL_FUNCTION_NAME',
+  myNewToolFunction.functionName
+);
+                </code></pre>
+            </section>
+
+            <!-- Slide 20: Starter Kit - Step 4 -->
+            <section>
+                <h2 class="aws-orange">Starter Kit: Invoke Tool Lambda</h2>
+                <h3>Step 4: Implement Tool Invocation</h3>
+                <pre><code class="language-typescript" class="code-medium">
+import { LambdaClient, InvokeCommand } from '@aws-sdk/client-lambda';
+
+export class MyNewAgent extends BaseEnhancedAgent {
+  private lambdaClient = new LambdaClient({});
+  
+  private async invokeTool(params: any) {
+    const command = new InvokeCommand({
+      FunctionName: process.env.MY_NEW_TOOL_FUNCTION_NAME,
+      Payload: JSON.stringify(params)
+    });
+    
+    const response = await this.lambdaClient.send(command);
+    const result = JSON.parse(
+      new TextDecoder().decode(response.Payload)
+    );
+    
+    return result;
+  }
+  
+  async processMessage(message: string) {
+    const result = await this.invokeTool({
+      query: message,
+      // ... other params
+    });
+    
+    return this.formatResponse(result);
+  }
+}
+                </code></pre>
+            </section>
+
+            <!-- Slide 21: Integration Checklist -->
+            <section>
+                <h2 class="aws-orange">Integration Checklist</h2>
+                <ul style="font-size: 0.8em;">
+                    <li>✅ Create agent class extending <code>BaseEnhancedAgent</code></li>
+                    <li>✅ Implement <code>processMessage()</code> method</li>
+                    <li>✅ Add intent detection patterns to <code>AgentRouter</code></li>
+                    <li>✅ Register agent in router constructor</li>
+                    <li>✅ Add routing case in <code>routeQuery()</code></li>
+                    <li>✅ Create tool Lambda (if needed)</li>
+                    <li>✅ Configure IAM permissions</li>
+                    <li>✅ Define artifact types</li>
+                    <li>✅ Create frontend rendering component</li>
+                    <li>✅ Register artifact renderer</li>
+                    <li>✅ Add unit tests</li>
+                    <li>✅ Deploy and verify</li>
+                </ul>
+            </section>
+
+            <!-- Slide 22: Real-World Example - Petrophysics -->
+            <section>
+                <h2 class="aws-orange">Real-World Example: Petrophysics</h2>
+                <h3>Query: "Calculate porosity for WELL-001"</h3>
+                <div style="font-size: 0.7em;">
+                    <ol>
+                        <li><strong>Router:</strong> Matches "porosity" → routes to PetrophysicsAgent</li>
+                        <li><strong>Agent:</strong> Detects intent → calculate_porosity</li>
+                        <li><strong>MCP Client:</strong> Calls petrophysics MCP server</li>
+                        <li><strong>Tool:</strong> Reads LAS file from S3, calculates porosity</li>
+                        <li><strong>Response:</strong> Professional SPE/API standard report</li>
+                        <li><strong>Artifacts:</strong> Log curve visualization, statistics table</li>
+                    </ol>
+                </div>
+                <div class="highlight-box">
+                    <strong>Result:</strong> User sees interactive log plot with porosity curve overlaid on density log
+                </div>
+            </section>
+
+            <!-- Slide 23: Real-World Example - Renewable -->
+            <section>
+                <h2 class="aws-orange">Real-World Example: Renewable Energy</h2>
+                <h3>Query: "Analyze terrain at 35.0, -101.4"</h3>
+                <div style="font-size: 0.7em;">
+                    <ol>
+                        <li><strong>Router:</strong> Matches "terrain" → routes to RenewableAgent</li>
+                        <li><strong>Agent:</strong> Invokes orchestrator Lambda asynchronously</li>
+                        <li><strong>Orchestrator:</strong> Parses intent → terrain_analysis</li>
+                        <li><strong>Tool Lambda:</strong> Fetches OSM data, NREL wind data</li>
+                        <li><strong>Visualization:</strong> Generates interactive Leaflet map</li>
+                        <li><strong>Storage:</strong> Saves HTML artifact to S3</li>
+                        <li><strong>DynamoDB:</strong> Updates message with artifact reference</li>
+                        <li><strong>Frontend:</strong> Polls, detects new message, renders map</li>
+                    </ol>
+                </div>
+                <div class="highlight-box">
+                    <strong>Result:</strong> User sees interactive map with 151 terrain features, wind rose, and suitability analysis
+                </div>
+            </section>
+
+            <!-- Slide 24: Key Design Patterns -->
+            <section>
+                <h2 class="aws-orange">Key Design Patterns</h2>
+                <div style="font-size: 0.8em;">
+                    <h3>1. Priority-Based Routing</h3>
+                    <p>Test patterns in order, first match wins</p>
+                    
+                    <h3>2. Async Processing</h3>
+                    <p>Fire-and-forget for long-running tasks, poll for results</p>
+                    
+                    <h3>3. Thought Steps</h3>
+                    <p>Transparent reasoning builds user trust</p>
+                    
+                    <h3>4. Base Agent Class</h3>
+                    <p>Common functionality, consistent error handling</p>
+                    
+                    <h3>5. Tool Invocation</h3>
+                    <p>Lambda-to-Lambda for specialized processing</p>
+                    
+                    <h3>6. Artifact Generation</h3>
+                    <p>Rich visualizations stored in S3, referenced in DynamoDB</p>
+                </div>
+            </section>
+
+            <!-- Slide 25: Benefits of This Architecture -->
+            <section>
+                <h2 class="aws-orange">Benefits of This Architecture</h2>
+                <ul>
+                    <li><strong>Extensibility:</strong> Add new agents without modifying existing ones</li>
+                    <li><strong>Specialization:</strong> Each agent optimized for its domain</li>
+                    <li><strong>Scalability:</strong> Independent Lambda scaling per agent</li>
+                    <li><strong>Maintainability:</strong> Clear separation of concerns</li>
+                    <li><strong>Testability:</strong> Test each agent independently</li>
+                    <li><strong>Transparency:</strong> Thought steps show reasoning</li>
+                    <li><strong>Performance:</strong> Async processing prevents timeouts</li>
+                </ul>
+            </section>
+
+            <!-- Slide 26: Lessons Learned -->
+            <section>
+                <h2 class="aws-orange">Lessons Learned</h2>
+                <div style="font-size: 0.8em;">
+                    <h3>✅ What Worked Well</h3>
+                    <ul>
+                        <li>Priority-based routing prevents ambiguity</li>
+                        <li>Exclusion patterns prevent cross-contamination</li>
+                        <li>Async processing handles long-running tasks</li>
+                        <li>Thought steps build user trust</li>
+                    </ul>
+                    
+                    <h3>⚠️ Challenges</h3>
+                    <ul>
+                        <li>Pattern maintenance as agents grow</li>
+                        <li>Debugging async flows across Lambdas</li>
+                        <li>Managing environment variables at scale</li>
+                        <li>Artifact size optimization for S3</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Slide 27: Best Practices -->
+            <section>
+                <h2 class="aws-orange">Best Practices</h2>
+                <ol style="font-size: 0.8em;">
+                    <li><strong>Start Simple:</strong> Begin with 2-3 agents, add more as needed</li>
+                    <li><strong>Test Patterns:</strong> Validate intent detection with real queries</li>
+                    <li><strong>Use Exclusions:</strong> Prevent pattern overlap with negative patterns</li>
+                    <li><strong>Log Everything:</strong> Structured logging for debugging</li>
+                    <li><strong>Monitor Routing:</strong> Track which agents handle which queries</li>
+                    <li><strong>Version Agents:</strong> Deploy new versions without breaking existing</li>
+                    <li><strong>Cache Responses:</strong> Reduce Bedrock API calls for common queries</li>
+                    <li><strong>Optimize Artifacts:</strong> Compress large visualizations</li>
+                </ol>
+            </section>
+
+            <!-- Slide 28: Performance Metrics -->
+            <section>
+                <h2 class="aws-orange">Performance Metrics</h2>
+                <table style="font-size: 0.7em; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Agent Type</th>
+                            <th>Avg Latency</th>
+                            <th>Success Rate</th>
+                            <th>Artifact Size</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>General Knowledge</td>
+                            <td>1.2s</td>
+                            <td>99.5%</td>
+                            <td>N/A</td>
+                        </tr>
+                        <tr>
+                            <td>Petrophysics</td>
+                            <td>3.5s</td>
+                            <td>98.2%</td>
+                            <td>150 KB</td>
+                        </tr>
+                        <tr>
+                            <td>Renewable (Terrain)</td>
+                            <td>8.5s</td>
+                            <td>97.8%</td>
+                            <td>75 KB</td>
+                        </tr>
+                        <tr>
+                            <td>Renewable (Layout)</td>
+                            <td>25s</td>
+                            <td>96.5%</td>
+                            <td>200 KB</td>
+                        </tr>
+                        <tr>
+                            <td>Maintenance</td>
+                            <td>2.8s</td>
+                            <td>98.9%</td>
+                            <td>50 KB</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p style="font-size: 0.7em; margin-top: 20px;">
+                    <strong>Note:</strong> Latencies include tool invocation, processing, and artifact generation
+                </p>
+            </section>
+
+            <!-- Slide 29: Cost Analysis -->
+            <section>
+                <h2 class="aws-orange">Cost Analysis</h2>
+                <div style="font-size: 0.7em;">
+                    <h3>Monthly Cost Breakdown (1000 users, 10 queries/user/day)</h3>
+                    <table style="width: 100%;">
+                        <tr>
+                            <td>Lambda Invocations</td>
+                            <td>300K requests × $0.20/1M</td>
+                            <td>$0.06</td>
+                        </tr>
+                        <tr>
+                            <td>Lambda Duration</td>
+                            <td>300K × 5s × $0.0000166667/GB-s</td>
+                            <td>$24.94</td>
+                        </tr>
+                        <tr>
+                            <td>DynamoDB</td>
+                            <td>600K writes + 1.2M reads</td>
+                            <td>$1.50</td>
+                        </tr>
+                        <tr>
+                            <td>S3 Storage</td>
+                            <td>100 GB × $0.023/GB</td>
+                            <td>$2.30</td>
+                        </tr>
+                        <tr>
+                            <td>Bedrock (Claude 3.5)</td>
+                            <td>300K requests × 1M tokens</td>
+                            <td>$150.00</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Total</strong></td>
+                            <td></td>
+                            <td><strong>~$179/month</strong></td>
+                        </tr>
+                    </table>
+                    <p style="margin-top: 20px;">
+                        <strong>Cost per query:</strong> $0.006 (~0.6 cents)
+                    </p>
+                </div>
+            </section>
+
+            <!-- Slide 30: Scaling Considerations -->
+            <section>
+                <h2 class="aws-orange">Scaling Considerations</h2>
+                <div style="font-size: 0.8em;">
+                    <h3>Horizontal Scaling</h3>
+                    <ul>
+                        <li>Lambda auto-scales to 1000 concurrent executions</li>
+                        <li>DynamoDB on-demand scales automatically</li>
+                        <li>S3 handles unlimited requests</li>
+                    </ul>
+                    
+                    <h3>Vertical Scaling</h3>
+                    <ul>
+                        <li>Increase Lambda memory for faster processing</li>
+                        <li>Use ARM64 (Graviton2) for better price/performance</li>
+                        <li>Optimize artifact generation algorithms</li>
+                    </ul>
+                    
+                    <h3>Bottlenecks to Watch</h3>
+                    <ul>
+                        <li>Bedrock API rate limits (default: 10 TPS)</li>
+                        <li>Lambda concurrent execution limits</li>
+                        <li>DynamoDB hot partitions</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Slide 31: Monitoring Dashboard -->
+            <section>
+                <h2 class="aws-orange">Monitoring Dashboard</h2>
+                <div style="font-size: 0.7em;">
+                    <h3>Key Metrics to Track</h3>
+                    <ul>
+                        <li><strong>Agent Routing:</strong> Distribution of queries across agents</li>
+                        <li><strong>Success Rate:</strong> Percentage of successful responses</li>
+                        <li><strong>Latency:</strong> P50, P95, P99 response times</li>
+                        <li><strong>Error Rate:</strong> 4xx and 5xx errors by agent</li>
+                        <li><strong>Tool Invocations:</strong> Frequency of tool Lambda calls</li>
+                        <li><strong>Artifact Generation:</strong> Success rate and size distribution</li>
+                        <li><strong>Cost:</strong> Daily spend by service</li>
+                    </ul>
+                    
+                    <h3>CloudWatch Alarms</h3>
+                    <ul>
+                        <li>Error rate > 5% in 5 minutes</li>
+                        <li>P95 latency > 10 seconds</li>
+                        <li>Lambda throttles > 10 in 5 minutes</li>
+                        <li>Daily cost > $50</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Slide 32: Security Considerations -->
+            <section>
+                <h2 class="aws-orange">Security Considerations</h2>
+                <ul style="font-size: 0.8em;">
+                    <li><strong>Authentication:</strong> Cognito JWT validation on every request</li>
+                    <li><strong>Authorization:</strong> User-level data isolation in DynamoDB</li>
+                    <li><strong>Encryption:</strong> TLS 1.2+ in transit, AES-256 at rest</li>
+                    <li><strong>IAM:</strong> Least privilege for all Lambda roles</li>
+                    <li><strong>Secrets:</strong> AWS Secrets Manager for API keys</li>
+                    <li><strong>Logging:</strong> No PII in CloudWatch logs</li>
+                    <li><strong>Audit:</strong> CloudTrail for all API calls</li>
+                    <li><strong>CORS:</strong> Restricted origins in production</li>
+                </ul>
+            </section>
+
+            <!-- Slide 33: Future Enhancements -->
+            <section>
+                <h2 class="aws-orange">Future Enhancements</h2>
+                <div style="font-size: 0.8em;">
+                    <h3>Short Term (3-6 months)</h3>
+                    <ul>
+                        <li>Add more specialized agents (geology, drilling, production)</li>
+                        <li>Implement response caching for common queries</li>
+                        <li>Add streaming responses for real-time feedback</li>
+                        <li>Enhance artifact compression and optimization</li>
+                    </ul>
+                    
+                    <h3>Long Term (6-12 months)</h3>
+                    <ul>
+                        <li>Multi-modal support (images, PDFs, videos)</li>
+                        <li>Agent collaboration (agents calling other agents)</li>
+                        <li>Fine-tuned models for domain-specific tasks</li>
+                        <li>Real-time collaboration features</li>
+                        <li>Mobile app with offline capabilities</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Slide 34: Resources -->
+            <section>
+                <h2 class="aws-orange">Resources</h2>
+                <div style="font-size: 0.8em;">
+                    <h3>Documentation</h3>
+                    <ul>
+                        <li>AWS Bedrock: <a href="https://aws.amazon.com/bedrock/">aws.amazon.com/bedrock</a></li>
+                        <li>Lambda Best Practices: <a href="https://docs.aws.amazon.com/lambda/latest/dg/best-practices.html">AWS Lambda Docs</a></li>
+                        <li>DynamoDB Design: <a href="https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/best-practices.html">DynamoDB Best Practices</a></li>
+                    </ul>
+                    
+                    <h3>GitHub Repository</h3>
+                    <ul>
+                        <li>Starter Kit: <code>github.com/aws-samples/agentcore-starter-kit</code></li>
+                        <li>Example Agents: <code>github.com/aws-samples/bedrock-agents-examples</code></li>
+                    </ul>
+                    
+                    <h3>Contact</h3>
+                    <ul>
+                        <li>Email: agentcore-team@amazon.com</li>
+                        <li>Slack: #agentcore-community</li>
+                    </ul>
+                </div>
+            </section>
+
+            <!-- Slide 35: Q&A -->
+            <section class="center">
+                <h1 class="aws-orange">Questions?</h1>
+                <p style="margin-top: 50px; font-size: 1.2em;">
+                    Let's discuss your use cases!
+                </p>
+                <div style="margin-top: 80px; font-size: 0.8em;">
+                    <p>Scan for starter kit:</p>
+                    <div style="background: white; padding: 20px; display: inline-block; margin-top: 20px;">
+                        <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://github.com/aws-samples/agentcore-starter-kit" alt="QR Code">
+                    </div>
+                </div>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/reveal.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/highlight/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/notes/notes.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.5.0/plugin/markdown/markdown.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    
+    <script>
+        // Initialize Reveal.js
+        Reveal.initialize({
+            hash: true,
+            slideNumber: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight, RevealNotes, RevealMarkdown ],
+            width: 1920,
+            height: 1080,
+            margin: 0.04,
+            minScale: 0.2,
+            maxScale: 2.0
+        });
+
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            securityLevel: 'loose'
+        });
+    </script>
+</body>
+</html>

@@ -323,4 +323,43 @@ scripts/test-output/
 # DEMO_NOW.md
 # *_COMPLETE.md
 # *_STATUS.md
-# *_SUMMARY.mdrenewable-python-layer.zip
+# *_SUMMARY.md
+
+# CDK outputs
+cdk/cdk-outputs.json
+cdk.out/
+
+# Lambda deployment artifacts
+lambda-deployment/
+lambda-layer/
+lambda-layers/
+*.zip
+
+# Test files and payloads in root
+test-*.js
+test-*.json
+test-*.html
+
+# Deployment and fix scripts in root
+deploy-*.sh
+fix-*.sh
+rebuild-*.sh
+add-*.sh
+check-*.js
+
+# Root-level markdown documentation (should be in docs/)
+/*_COMPLETE.md
+/*_FIX*.md
+/*_STATUS.md
+/*_SUMMARY.md
+/*_DIAGNOSIS.md
+/*_NEEDED.md
+/*_ISSUE.md
+/*_GUIDE.md
+/DEMO-*.md
+/TESTING_GUIDE.md
+/RESTORE_*.md
+
+# Keep only essential root docs
+!README.md
+!LICENSE

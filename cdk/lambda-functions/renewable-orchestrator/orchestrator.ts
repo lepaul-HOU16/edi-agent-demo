@@ -2165,15 +2165,15 @@ async function invokeLambdaWithRetry(
       
     } catch (error) {
       lastError = error as Error;
-      const errorMessage = lastError?.message || String(error);
+      const errorMessage = lastError?.message || String(error) || 'Unknown error';
       
       console.error(`❌ Lambda invocation attempt ${attempt + 1}/${maxRetries} failed`);
       console.error(`   Function: ${functionName}`);
       console.error(`   Error: ${errorMessage.substring(0, 500)}`); // Limit error message length
       
       // Check if this is a timeout error
-      const isTimeout = errorMessage.toLowerCase().includes('timeout') || 
-                       errorMessage.toLowerCase().includes('timed out');
+      const isTimeout = errorMessage && (errorMessage.toLowerCase().includes('timeout') || 
+                       errorMessage.toLowerCase().includes('timed out'));
       
       if (isTimeout) {
         console.warn('⚠️ Lambda timeout detected - function exceeded time limit');

@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Presenter Cheat Sheet</title>
+    <style>
+        body {
+            font-family: 'Amazon Ember', 'Helvetica Neue', Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f9f9f9;
+            color: #16191f;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #232f3e;
+            border-bottom: 3px solid #ff9900;
+            padding-bottom: 10px;
+            margin-bottom: 30px;
+        }
+        h2 {
+            color: #232f3e;
+            margin-top: 40px;
+            border-left: 4px solid #ff9900;
+            padding-left: 15px;
+        }
+        h3 {
+            color: #545b64;
+            margin-top: 30px;
+        }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+        }
+        pre {
+            background: #232f3e;
+            color: #ffffff;
+            padding: 20px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border-left: 4px solid #ff9900;
+        }
+        pre code {
+            background: transparent;
+            color: #ffffff;
+            padding: 0;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #232f3e;
+            color: white;
+            font-weight: 600;
+        }
+        tr:hover {
+            background: #f5f5f5;
+        }
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        blockquote {
+            border-left: 4px solid #ff9900;
+            padding-left: 20px;
+            margin: 20px 0;
+            color: #545b64;
+            font-style: italic;
+        }
+        .back-link {
+            display: inline-block;
+            margin-bottom: 20px;
+            color: #ff9900;
+            text-decoration: none;
+            font-weight: 600;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        @media print {
+            body {
+                background: white;
+            }
+            .back-link {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a href="/reinvent-demo" class="back-link">← Back to Demo Materials</a>
+    <div id="content">
+<pre>
+# Presenter Cheat Sheet - Quick Reference
+
+## 🚀 Quick Access URLs
+
+```
+Application UI:     https://[your-cloudfront-url]
+AWS Console:        https://console.aws.amazon.com
+CloudWatch Logs:    https://console.aws.amazon.com/cloudwatch/home?region=us-east-1#logsV2:log-groups
+GitHub Starter Kit: https://github.com/aws-samples/multi-agent-starter-kit
+Backup Slides:      file://./backup-slides.html
+```
+
+## 🔑 Demo Credentials
+
+```
+Username: demo-user@example.com
+Password: [Write on paper - don't commit]
+Region:   us-east-1
+```
+
+## ⏱️ Timing Breakdown (15 min total)
+
+| Section | Time | Key Points |
+|---------|------|------------|
+| Intro & Architecture | 3 min | Agent router, orchestrator, async |
+| Simple Query Demo | 3 min | Petrophysics, general knowledge |
+| Complex Demo | 4 min | Terrain, layout, orchestration |
+| CloudWatch | 2 min | Observability, logs, metrics |
+| Starter Kit | 2 min | Templates, examples, deployment |
+| Q&A Setup | 1 min | Recap, share links |
+
+## 📝 Demo Queries (Copy-Paste Ready)
+
+### Query 1: Petrophysics (3-5s)
+```
+Analyze porosity for well NLOG_F02-1 using density method
+```
+**Expected:** Professional report, visualization, metrics
+
+### Query 2: General Knowledge (2-3s)
+```
+What's the weather like in Las Vegas today?
+```
+**Expected:** Conversational response, no artifacts
+
+### Query 3: Terrain Analysis (8-12s async)
+```
+Analyze wind farm potential at coordinates 35.0, -101.4 with 5km radius
+```
+**Expected:** Interactive map, 151 features, wind data
+
+### Query 4: Layout Optimization (10-15s async)
+```
+Optimize turbine layout for this site
+```
+**Expected:** 25 turbines, energy estimates, wake analysis
+
+## 🎯 Key Talking Points
+
+### Agent Router Pattern
+- "Specialized agents instead of one monolithic agent"
+- "Pattern matching routes queries to the right expert"
+- "Graceful fallback to general knowledge"
+
+### Orchestrator Pattern
+- "Coordinates multiple tool Lambdas"
+- "Maintains project context across queries"
+- "Chains complex workflows automatically"
+
+### Async Processing
+- "API Gateway has 29-second timeout"
+- "Fire-and-forget with polling for long tasks"
+- "User gets immediate feedback, results appear when ready"
+
+### Production Grade
+- "This isn't a toy - it's running in production"
+- "Complete observability with CloudWatch"
+- "Cost-effective: $0.002 per complex query"
+
+### Starter Kit
+- "Working template, not just documentation"
+- "Deploy to your AWS account in one command"
+- "First custom agent in 30 minutes"
+
+## 🔧 Troubleshooting Quick Fixes
+
+| Problem | Quick Fix | Backup |
+|---------|-----------|--------|
+| Timeout | Wait 10s more | Slide 2 or 3 |
+| Auth fail | Use backup tab | Show auth diagram |
+| No artifacts | Check S3 logs | Show JSON |
+| Wrong agent | Rephrase query | Use tested query |
+| Slow WiFi | Mobile hotspot | Screenshots |
+| Cold start | Acknowledge & wait | Explain optimization |
+
+## 🆘 Emergency Procedures
+
+### If Live Demo Completely Fails:
+1. Press `E` key to show emergency banner on backup slides
+2. Say: "Let me show you what this looks like when it works"
+3. Walk through backup slides 1-5
+4. Maintain energy and enthusiasm
+5. Use it as teaching moment: "This is why we test!"
+
+### If One Query Fails:
+1. Acknowledge it: "Interesting - let's see what happened"
+2. Check CloudWatch logs (teaching moment)
+3. Try next query
+4. If that fails too → switch to backup slides
+
+### If Internet Fails:
+1. Switch to backup slides immediately
+2. Use mobile hotspot if available
+3. Walk through screenshots
+4. Focus on architecture and patterns
+
+## 📱 Browser Tab Layout
+
+```
+Tab 1: AWS Console (CloudWatch Logs)
+Tab 2: Application UI (logged in)
+Tab 3: Backup Slides (backup-slides.html)
+Tab 4: GitHub Starter Kit
+Tab 5: This cheat sheet
+```
+
+## ⌨️ Keyboard Shortcuts
+
+### Backup Slides:
+- `→` or `Space`: Next slide
+- `←`: Previous slide
+- `Home`: First slide
+- `End`: Last slide
+- `E`: Toggle emergency banner
+
+### Browser:
+- `Cmd/Ctrl + T`: New tab
+- `Cmd/Ctrl + W`: Close tab
+- `Cmd/Ctrl + Tab`: Switch tabs
+- `Cmd/Ctrl + R`: Refresh page
+
+## 📊 Expected Metrics
+
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Simple query | 3-8s | Petrophysics, general |
+| Complex query | 8-30s | Terrain, layout, simulation |
+| Cold start | +5-10s | First query only |
+| Artifact size | 1-3 MB | Maps, visualizations |
+| Cost per query | $0.002-0.005 | Very economical |
+
+## 🎤 Opening Lines
+
+"Good afternoon everyone! Today we're diving deep into building multi-agent AI systems on AWS. I'm going to show you a real production system that's running right now, and then we'll look at how you can build something similar."
+
+## 🎤 Closing Lines
+
+"So to recap: agent router pattern for specialized agents, orchestrator pattern for complex workflows, async processing for long-running tasks, production-grade observability, and a starter kit to get you going. The code and documentation are available at [show QR code]. Now, I'd love to hear your questions. Who wants to go first?"
+
+## 🎬 Pre-Demo Checklist (Print This!)
+
+**30 Minutes Before:**
+- [ ] All browser tabs open
+- [ ] Logged into application
+- [ ] CloudWatch logs streaming
+- [ ] Backup slides tested
+- [ ] Water nearby
+- [ ] Bathroom break taken
+
+**5 Minutes Before:**
+- [ ] Screen sharing tested
+- [ ] Microphone tested
+- [ ] One warm-up query executed
+- [ ] Audience can see screen
+- [ ] Deep breath taken
+
+**During Demo:**
+- [ ] Smile
+- [ ] Make eye contact
+- [ ] Speak clearly
+- [ ] Pause for effect
+- [ ] Have fun!
+
+## 💡 Pro Tips
+
+1. **Slow Down**: You know this inside out, audience is seeing it first time
+2. **Pause After Key Points**: Let them absorb
+3. **Acknowledge Failures**: "And this is why we test!" - turns failure into teaching moment
+4. **Use Backup Slides Confidently**: They're not a failure, they're a backup plan
+5. **Energy Management**: Start high, maintain throughout, end strong
+6. **Time Checks**: Glance at clock after each section
+7. **Audience Engagement**: "Notice what's happening here?" - rhetorical questions
+8. **Technical Credibility**: Use precise terms, acknowledge limitations
+
+## 🎯 Success Criteria
+
+- [ ] At least 2 queries executed successfully
+- [ ] Showed both simple and complex workflows
+- [ ] Demonstrated observability
+- [ ] Shared starter kit
+- [ ] Audience asked questions
+- [ ] Had fun!
+
+## 📞 Emergency Contacts
+
+```
+AWS Support:     [phone number]
+Venue IT:        [phone number]
+Backup Presenter: [name/phone]
+```
+
+## 🧘 Mental Preparation
+
+**Before going on stage:**
+- "I've prepared thoroughly"
+- "I have backup plans for everything"
+- "The audience wants me to succeed"
+- "Live demos show authenticity"
+- "Failures are teaching moments"
+- "I've got this!"
+
+**If something goes wrong:**
+- "This is expected in live demos"
+- "I have backup slides ready"
+- "I can turn this into a teaching moment"
+- "The audience is on my side"
+- "Stay calm and confident"
+
+## 🎁 Giveaways/Handouts
+
+- [ ] QR code to starter kit (on slides)
+- [ ] Business cards (if applicable)
+- [ ] Link to documentation
+- [ ] Survey link (if applicable)
+
+---
+
+## 🚨 EMERGENCY PHONE NUMBERS
+
+**Print this section and keep in pocket:**
+
+```
+Venue WiFi Password: _______________
+Backup Hotspot Password: _______________
+AWS Account ID: _______________
+Demo User Password: _______________
+Emergency Contact: _______________
+```
+
+---
+
+**Remember:** You've built something amazing. The preparation is done. Now just show it with confidence and enthusiasm. The audience is rooting for you!
+
+**Good luck! 🚀**
+</pre>
+    </div>
+</body>
+</html>

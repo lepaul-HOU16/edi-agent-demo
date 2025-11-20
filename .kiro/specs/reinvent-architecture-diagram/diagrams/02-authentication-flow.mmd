@@ -1,0 +1,28 @@
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant CloudFront
+    participant APIGateway
+    participant Authorizer
+    participant Cognito
+    participant ChatLambda
+
+    User->>Frontend: Enter credentials
+    Frontend->>Cognito: SignIn(username, password)
+    Cognito-->>Frontend: JWT tokens (ID, Access, Refresh)
+    Frontend->>Frontend: Store session in memory
+    
+    Note over Frontend: User sends chat message
+    
+    User->>Frontend: Send chat message
+    Frontend->>Frontend: Get JWT from session
+    Frontend->>APIGateway: POST /api/chat/message<br/>Authorization: Bearer {JWT}
+    APIGateway->>Authorizer: Validate token
+    Authorizer->>Cognito: Get JWKS (public keys)
+    Cognito-->>Authorizer: Public keys
+    Authorizer->>Authorizer: Verify JWT signature
+    Authorizer-->>APIGateway: Allow (user context)
+    APIGateway->>ChatLambda: Invoke with user context
+    ChatLambda-->>APIGateway: Response
+    APIGateway-->>Frontend: JSON response
+    Frontend->>User: Display result

@@ -1,0 +1,162 @@
+{
+  "type": "wind_rose_analysis",
+  "data": {
+    "messageContentType": "wind_rose_analysis",
+    "title": "Wind Rose Analysis Complete",
+    "subtitle": "Wind direction and speed distribution",
+    "projectId": "west-texas-wind-farm-2025",
+    "coordinates": {
+      "lat": 35.067482,
+      "lng": -101.395466
+    },
+    "windData": {
+      "averageSpeed": 7.2,
+      "predominantDirection": 180,
+      "maxSpeed": 15.8,
+      "calmPercentage": 3.2,
+      "dataPoints": 8760,
+      "dataPeriod": "2024-01-01 to 2024-12-31"
+    },
+    "directionBins": [
+      {
+        "direction": "N",
+        "angle": 0,
+        "frequency": 8.5,
+        "averageSpeed": 6.2,
+        "speedBins": {
+          "0-5": 3.2,
+          "5-10": 4.1,
+          "10-15": 1.2,
+          "15+": 0.0
+        }
+      },
+      {
+        "direction": "NNE",
+        "angle": 22.5,
+        "frequency": 6.8,
+        "averageSpeed": 6.5,
+        "speedBins": {
+          "0-5": 2.8,
+          "5-10": 3.2,
+          "10-15": 0.8,
+          "15+": 0.0
+        }
+      },
+      {
+        "direction": "NE",
+        "angle": 45,
+        "frequency": 5.2,
+        "averageSpeed": 6.8,
+        "speedBins": {
+          "0-5": 2.1,
+          "5-10": 2.5,
+          "10-15": 0.6,
+          "15+": 0.0
+        }
+      },
+      {
+        "direction": "S",
+        "angle": 180,
+        "frequency": 18.5,
+        "averageSpeed": 8.9,
+        "speedBins": {
+          "0-5": 4.2,
+          "5-10": 9.8,
+          "10-15": 4.2,
+          "15+": 0.3
+        }
+      },
+      {
+        "direction": "SSW",
+        "angle": 202.5,
+        "frequency": 15.2,
+        "averageSpeed": 8.2,
+        "speedBins": {
+          "0-5": 3.8,
+          "5-10": 8.1,
+          "10-15": 3.1,
+          "15+": 0.2
+        }
+      },
+      {
+        "direction": "SW",
+        "angle": 225,
+        "frequency": 12.8,
+        "averageSpeed": 7.8,
+        "speedBins": {
+          "0-5": 3.5,
+          "5-10": 6.9,
+          "10-15": 2.3,
+          "15+": 0.1
+        }
+      }
+    ],
+    "energyRose": {
+      "description": "Energy production potential by direction",
+      "directionContributions": [
+        {
+          "direction": "S",
+          "angle": 180,
+          "energyContribution": 28.5,
+          "capacityFactor": 0.42
+        },
+        {
+          "direction": "SSW",
+          "angle": 202.5,
+          "energyContribution": 22.3,
+          "capacityFactor": 0.39
+        },
+        {
+          "direction": "SW",
+          "angle": 225,
+          "energyContribution": 16.8,
+          "capacityFactor": 0.36
+        }
+      ]
+    },
+    "visualizations": {
+      "windRose": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/wind-rose.png",
+      "energyRose": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/energy-rose.png",
+      "speedDistribution": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/speed-distribution.png",
+      "interactivePlot": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/wind-rose-interactive.html"
+    },
+    "recommendations": [
+      "Predominant wind from south (180°) - align turbine rows perpendicular to this direction",
+      "Strong secondary wind from SSW (202.5°) - consider dual-optimized layout",
+      "Average wind speed of 7.2 m/s indicates excellent wind resource (Class 3-4)",
+      "Low calm percentage (3.2%) suggests consistent wind availability"
+    ],
+    "metadata": {
+      "dataSource": "NREL Wind Toolkit",
+      "measurementHeight": 80,
+      "dataResolution": "hourly",
+      "qualityScore": 0.95,
+      "analysisTimestamp": "2025-01-15T12:00:00Z"
+    },
+    "completedSteps": ["terrain", "windrose"],
+    "s3Artifacts": {
+      "windRose": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/wind-rose.png",
+      "energyRose": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/energy-rose.png",
+      "speedDistribution": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/speed-distribution.png",
+      "interactivePlot": "s3://storage-bucket/renewable-projects/west-texas-wind-farm-2025/wind-rose-interactive.html"
+    }
+  },
+  "actions": [
+    {
+      "label": "Optimize Layout",
+      "query": "Optimize turbine layout based on wind rose data",
+      "icon": "grid",
+      "primary": true
+    },
+    {
+      "label": "Energy Production Estimate",
+      "query": "Calculate annual energy production using wind rose",
+      "icon": "chart"
+    },
+    {
+      "label": "Generate Report",
+      "query": "Create wind resource assessment report",
+      "icon": "document"
+    }
+  ]
+}

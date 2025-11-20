@@ -59,20 +59,16 @@ export const WorkflowCTAButtons: React.FC<WorkflowCTAButtonsProps> = ({
   projectId,
   onAction
 }) => {
-  // Determine which buttons should be enabled
-  // A button is enabled if its prerequisite step is completed
+  // Determine which buttons should be shown
+  // Show the NEXT step button (not the completed step button)
   const getEnabledButtons = (): WorkflowCTAButton[] => {
-    const enabled = WORKFLOW_BUTTONS.filter(button => {
-      // Check if the prerequisite step is completed
-      return completedSteps.includes(button.step);
+    // Find the next step that hasn't been completed yet
+    const nextButton = WORKFLOW_BUTTONS.find(button => {
+      return !completedSteps.includes(button.step);
     });
     
-    // If no buttons enabled, show the first button as a hint
-    if (enabled.length === 0 && WORKFLOW_BUTTONS.length > 0) {
-      return [WORKFLOW_BUTTONS[0]];
-    }
-    
-    return enabled;
+    // Return only the next button, not all completed ones
+    return nextButton ? [nextButton] : [];
   };
 
   const enabledButtons = getEnabledButtons();
@@ -85,7 +81,7 @@ export const WorkflowCTAButtons: React.FC<WorkflowCTAButtonsProps> = ({
   const headerText = hasCompletedSteps ? 'Next Steps' : 'Suggested Next Step';
 
   return (
-    <Box margin={{ top: 'm', bottom: 's' }} padding={{ vertical: 's', horizontal: 'm' }}>
+    <>
       <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
         {headerText}
       </Box>
@@ -105,7 +101,7 @@ export const WorkflowCTAButtons: React.FC<WorkflowCTAButtonsProps> = ({
           </Button>
         ))}
       </SpaceBetween>
-    </Box>
+    </>
   );
 };
 

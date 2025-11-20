@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Building Multi-Agent AI Systems with AWS Bedrock - AWS re:Invent</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/theme/black.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/monokai.css">
+    <style>
+        .reveal h1, .reveal h2, .reveal h3 { text-transform: none; }
+        .reveal pre { width: 100%; }
+        .reveal code { max-height: 500px; }
+        .aws-orange { color: #FF9900; }
+        .diagram-container { background: white; padding: 20px; border-radius: 10px; }
+        .qr-code { width: 200px; height: 200px; margin: 20px auto; }
+        .two-column { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .key-point { background: rgba(255, 153, 0, 0.2); padding: 10px; border-left: 4px solid #FF9900; }
+    </style>
+</head>
+<body>
+    <div class="reveal">
+        <div class="slides">
+            
+            <!-- Title Slide -->
+            <section>
+                <h1>Building Multi-Agent AI Systems</h1>
+                <h3>with <span class="aws-orange">AWS Bedrock</span> and AgentCore</h3>
+                <p>AWS re:Invent 2025 - Chalk Talk</p>
+                <p><small>Energy Data Insights Platform Case Study</small></p>
+            </section>
+
+            <!-- Agenda -->
+            <section>
+                <h2>Agenda</h2>
+                <ol>
+                    <li>Problem & Solution Overview</li>
+                    <li>Architecture Deep Dive</li>
+                    <li>AgentCore Integration Pattern</li>
+                    <li>Multi-Agent Orchestration</li>
+                    <li>Security & IAM Model</li>
+                    <li>Starter Kit & Live Demo</li>
+                    <li>Q&A</li>
+                </ol>
+            </section>
+
+            <!-- Section 1: Problem Statement -->
+            <section>
+                <section>
+                    <h2>The Challenge</h2>
+                    <div class="key-point">
+                        <p><strong>How do you build production-grade AI agents that:</strong></p>
+                        <ul>
+                            <li>Handle multiple specialized domains</li>
+                            <li>Coordinate complex workflows</li>
+                            <li>Scale reliably</li>
+                            <li>Maintain security</li>
+                        </ul>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Use Case: Energy Data Analysis</h2>
+                    <div class="two-column">
+                        <div>
+                            <h4>Domains</h4>
+                            <ul>
+                                <li>Petrophysics</li>
+                                <li>Renewable Energy</li>
+                                <li>Equipment Maintenance</li>
+                                <li>3D Visualization</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Requirements</h4>
+                            <ul>
+                                <li>Natural language queries</li>
+                                <li>Complex calculations</li>
+                                <li>Long-running analysis</li>
+                                <li>Rich visualizations</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </section>
+
+            <!-- Section 2: Architecture Overview -->
+            <section>
+                <section>
+                    <h2>Solution Architecture</h2>
+                    <img src="../diagrams/01-high-level-architecture.png" alt="Architecture" style="max-height: 500px;">
+                </section>
+
+                <section>
+                    <h2>Key Components</h2>
+                    <ul>
+                        <li><strong>Frontend</strong>: React/Next.js on CloudFront</li>
+                        <li><strong>API Layer</strong>: API Gateway + Lambda Authorizer</li>
+                        <li><strong>Agent Layer</strong>: Multi-agent router system</li>
+                        <li><strong>Orchestration</strong>: Complex workflow coordinator</li>
+                        <li><strong>Tools</strong>: Domain-specific Lambda functions</li>
+                        <li><strong>AI</strong>: AWS Bedrock (Claude 3.5 Sonnet)</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Authentication Flow</h2>
+                    <img src="../diagrams/06-authentication-flow.png" alt="Auth Flow" style="max-height: 500px;">
+                </section>
+            </section>
+
+            <!-- Section 3: AgentCore Integration -->
+            <section>
+                <section>
+                    <h2>AgentCore Integration Pattern</h2>
+                    <p>Custom implementation for fine-grained control</p>
+                </section>
+
+                <section>
+                    <h2>Agent Router Architecture</h2>
+                    <pre><code class="typescript" data-trim>
+class AgentRouter {
+  private determineAgentType(message: string): AgentType {
+    // Priority-based pattern matching
+    if (this.matchesPatterns(message, edicraftPatterns)) {
+      return 'edicraft';
+    }
+    if (this.matchesPatterns(message, renewablePatterns)) {
+      return 'renewable';
+    }
+    if (this.matchesPatterns(message, petrophysicsPatterns)) {
+      return 'petrophysics';
+    }
+    return 'general';
+  }
+  
+  async routeQuery(message: string) {
+    const agentType = this.determineAgentType(message);
+    return await this.agents[agentType].processQuery(message);
+  }
+}
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h2>Intent Detection Flow</h2>
+                    <img src="../diagrams/03-agent-routing-flow.png" alt="Routing" style="max-height: 500px;">
+                </section>
+
+                <section>
+                    <h2>Thought Steps Pattern</h2>
+                    <pre><code class="typescript" data-trim>
+interface ThoughtStep {
+  id: string;
+  type: 'intent_detection' | 'parameter_extraction' | 
+        'tool_selection' | 'execution' | 'completion';
+  timestamp: number;
+  title: string;
+  summary: string;
+  status: 'in_progress' | 'complete' | 'error';
+  confidence?: number;
+}
+
+// Provides transparency into agent reasoning
+                    </code></pre>
+                </section>
+            </section>
+
+            <!-- Section 4: Multi-Agent Orchestration -->
+            <section>
+                <section>
+                    <h2>Multi-Agent Orchestration</h2>
+                    <p>Coordinating complex workflows across specialized agents</p>
+                </section>
+
+                <section>
+                    <h2>Orchestrator Architecture</h2>
+                    <img src="../diagrams/09-orchestrator-architecture.png" alt="Orchestrator" style="max-height: 500px;">
+                </section>
+
+                <section>
+                    <h2>Tool Invocation Sequence</h2>
+                    <img src="../diagrams/10-tool-invocation-sequence.png" alt="Tool Sequence" style="max-height: 500px;">
+                </section>
+
+                <section>
+                    <h2>Async Processing Pattern</h2>
+                    <div class="key-point">
+                        <p><strong>Challenge</strong>: API Gateway 29-second timeout</p>
+                        <p><strong>Solution</strong>: Fire-and-forget with polling</p>
+                    </div>
+                    <img src="../diagrams/04-async-processing-pattern.png" alt="Async" style="max-height: 400px;">
+                </section>
+
+                <section>
+                    <h2>Async Implementation</h2>
+                    <pre><code class="typescript" data-trim>
+const TIMEOUT_MS = 25000;
+
+try {
+  response = await Promise.race([
+    agentHandler(event),
+    timeoutPromise
+  ]);
+} catch (error) {
+  if (error.message === 'PROCESSING_TIMEOUT') {
+    // Self-invoke asynchronously
+    await lambdaClient.send(new InvokeCommand({
+      FunctionName: process.env.AWS_LAMBDA_FUNCTION_NAME,
+      InvocationType: 'Event',
+      Payload: JSON.stringify(asyncPayload)
+    }));
+    
+    return { processing: true, message: 'Analysis in Progress...' };
+  }
+}
+                    </code></pre>
+                </section>
+            </section>
+
+            <!-- Section 5: Security & IAM -->
+            <section>
+                <section>
+                    <h2>Security & IAM Model</h2>
+                    <p>Least privilege permissions for each component</p>
+                </section>
+
+                <section>
+                    <h2>Lambda Authorizer</h2>
+                    <pre><code class="json" data-trim>
+{
+  "Effect": "Allow",
+  "Action": [
+    "cognito-idp:DescribeUserPool",
+    "cognito-idp:DescribeUserPoolClient"
+  ],
+  "Resource": "arn:aws:cognito-idp:*:*:userpool/*"
+}
+                    </code></pre>
+                    <p><small>Validates JWT tokens against Cognito JWKS</small></p>
+                </section>
+
+                <section>
+                    <h2>Chat Lambda Permissions</h2>
+                    <pre><code class="json" data-trim>
+{
+  "Effect": "Allow",
+  "Action": [
+    "dynamodb:PutItem",
+    "dynamodb:Query",
+    "s3:GetObject",
+    "s3:PutObject",
+    "bedrock:InvokeModel",
+    "lambda:InvokeFunction"
+  ],
+  "Resource": [
+    "arn:aws:dynamodb:*:*:table/ChatMessage-*",
+    "arn:aws:s3:::storage-bucket/*",
+    "arn:aws:bedrock:*:*:foundation-model/anthropic.claude-*",
+    "arn:aws:lambda:*:*:function:*-calculator"
+  ]
+}
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h2>IAM Reference Cards</h2>
+                    <p>One-page reference for each Lambda role</p>
+                    <ul>
+                        <li>Lambda Authorizer</li>
+                        <li>Chat Lambda</li>
+                        <li>Renewable Orchestrator</li>
+                        <li>Tool Lambdas</li>
+                        <li>Petrophysics Calculator</li>
+                    </ul>
+                    <p><small>Available in handout and online</small></p>
+                </section>
+            </section>
+
+            <!-- Section 6: Starter Kit -->
+            <section>
+                <section>
+                    <h2>Starter Kit</h2>
+                    <p>Deploy your own multi-agent system in 15 minutes</p>
+                </section>
+
+                <section>
+                    <h2>What's Included</h2>
+                    <ul>
+                        <li>Complete CDK infrastructure templates</li>
+                        <li>3 example agent implementations</li>
+                        <li>Code templates for new agents</li>
+                        <li>Deployment scripts</li>
+                        <li>Testing utilities</li>
+                        <li>Documentation</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Quick Start</h2>
+                    <pre><code class="bash" data-trim>
+# Clone starter kit
+git clone https://github.com/[repo]/aws-agentcore-starter-kit
+cd aws-agentcore-starter-kit
+
+# Install dependencies
+npm install
+
+# Configure AWS credentials
+aws configure
+
+# Deploy
+npm run deploy
+
+# Test
+npm run test
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h2>Adding a New Agent</h2>
+                    <pre><code class="typescript" data-trim>
+// 1. Create agent class
+export class MyNewAgent extends BaseEnhancedAgent {
+  async processMessage(message: string) {
+    // Your logic here
+  }
+}
+
+// 2. Register with router
+router.registerAgent('mynew', new MyNewAgent());
+
+// 3. Add intent patterns
+const patterns = [/my.*domain.*keyword/i];
+
+// 4. Deploy
+npm run deploy
+                    </code></pre>
+                </section>
+
+                <section>
+                    <h2>Access the Starter Kit</h2>
+                    <div class="qr-code">
+                        <!-- QR code would be generated here -->
+                        <svg viewBox="0 0 200 200" style="background: white; padding: 10px;">
+                            <text x="100" y="100" text-anchor="middle" font-size="12" fill="black">
+                                QR Code: GitHub Repo
+                            </text>
+                        </svg>
+                    </div>
+                    <p>https://github.com/[your-repo]/aws-agentcore-starter-kit</p>
+                </section>
+            </section>
+
+            <!-- Section 7: Live Demo -->
+            <section>
+                <section>
+                    <h2>Live Demo</h2>
+                    <p>Let's see it in action!</p>
+                </section>
+
+                <section>
+                    <h2>Demo 1: Simple Query</h2>
+                    <p><strong>Query</strong>: "Calculate porosity for Well-001"</p>
+                    <p><strong>Expected Flow</strong>:</p>
+                    <ol>
+                        <li>Intent detection → petrophysics</li>
+                        <li>Tool invocation → calculator</li>
+                        <li>Response with visualization</li>
+                    </ol>
+                    <p><small>Duration: ~2 seconds</small></p>
+                </section>
+
+                <section>
+                    <h2>Demo 2: Complex Orchestration</h2>
+                    <p><strong>Query</strong>: "Analyze wind farm site at 35.0, -101.4"</p>
+                    <p><strong>Expected Flow</strong>:</p>
+                    <ol>
+                        <li>Intent detection → renewable</li>
+                        <li>Orchestrator invocation</li>
+                        <li>Multiple tool calls (terrain, layout, simulation)</li>
+                        <li>Async processing</li>
+                        <li>Artifacts rendered</li>
+                    </ol>
+                    <p><small>Duration: ~30 seconds</small></p>
+                </section>
+
+                <section>
+                    <h2>Demo 3: Multi-Well Analysis</h2>
+                    <p><strong>Query</strong>: "Correlate porosity across Well-001, Well-002, Well-003"</p>
+                    <p><strong>Expected Flow</strong>:</p>
+                    <ol>
+                        <li>Multi-well intent detection</li>
+                        <li>Parallel data retrieval</li>
+                        <li>Crossplot generation</li>
+                        <li>Professional report</li>
+                    </ol>
+                    <p><small>Duration: ~5 seconds</small></p>
+                </section>
+            </section>
+
+            <!-- Section 8: Key Takeaways -->
+            <section>
+                <section>
+                    <h2>Key Takeaways</h2>
+                    <ol>
+                        <li><strong>Agent Router Pattern</strong>: Priority-based intent detection</li>
+                        <li><strong>Async Processing</strong>: Handle long-running workflows</li>
+                        <li><strong>Thought Steps</strong>: Transparent reasoning</li>
+                        <li><strong>Least Privilege IAM</strong>: Security by design</li>
+                        <li><strong>Starter Kit</strong>: Reusable patterns</li>
+                    </ol>
+                </section>
+
+                <section>
+                    <h2>Best Practices</h2>
+                    <ul>
+                        <li>Start with simple agents, add complexity incrementally</li>
+                        <li>Use pattern matching for intent detection</li>
+                        <li>Implement async processing for long operations</li>
+                        <li>Provide thought steps for transparency</li>
+                        <li>Follow least privilege for IAM</li>
+                        <li>Test with real user queries</li>
+                    </ul>
+                </section>
+
+                <section>
+                    <h2>Common Pitfalls</h2>
+                    <ul>
+                        <li>❌ Over-engineering intent detection</li>
+                        <li>❌ Ignoring API Gateway timeouts</li>
+                        <li>❌ Overly permissive IAM policies</li>
+                        <li>❌ Not handling async failures</li>
+                        <li>❌ Skipping thought steps</li>
+                    </ul>
+                </section>
+            </section>
+
+            <!-- Section 9: Resources -->
+            <section>
+                <section>
+                    <h2>Resources</h2>
+                    <div class="two-column">
+                        <div>
+                            <h4>Documentation</h4>
+                            <ul>
+                                <li>Starter Kit</li>
+                                <li>Integration Guide</li>
+                                <li>IAM Reference Cards</li>
+                                <li>Code Templates</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4>Support</h4>
+                            <ul>
+                                <li>GitHub Repository</li>
+                                <li>Community Slack</li>
+                                <li>Office Hours</li>
+                                <li>Email Support</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section>
+                    <h2>Next Steps</h2>
+                    <ol>
+                        <li>Clone the starter kit</li>
+                        <li>Deploy to your AWS account</li>
+                        <li>Customize for your use case</li>
+                        <li>Join the community</li>
+                        <li>Share your implementation</li>
+                    </ol>
+                </section>
+            </section>
+
+            <!-- Q&A -->
+            <section>
+                <h2>Questions?</h2>
+                <div class="two-column">
+                    <div>
+                        <h4>Scan for Resources</h4>
+                        <div class="qr-code">
+                            <svg viewBox="0 0 200 200" style="background: white; padding: 10px;">
+                                <text x="100" y="100" text-anchor="middle" font-size="12" fill="black">
+                                    QR Code: Resources
+                                </text>
+                            </svg>
+                        </div>
+                    </div>
+                    <div>
+                        <h4>Contact</h4>
+                        <p>GitHub: [repo-url]</p>
+                        <p>Email: [email]</p>
+                        <p>Slack: [slack-url]</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Thank You -->
+            <section>
+                <h1>Thank You!</h1>
+                <p>Building Multi-Agent AI Systems with AWS Bedrock</p>
+                <p><small>AWS re:Invent 2025</small></p>
+            </section>
+
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/dist/reveal.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/highlight/highlight.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/reveal.js@4.5.0/plugin/notes/notes.js"></script>
+    <script>
+        Reveal.initialize({
+            hash: true,
+            slideNumber: true,
+            transition: 'slide',
+            plugins: [ RevealHighlight, RevealNotes ]
+        });
+    </script>
+</body>
+</html>

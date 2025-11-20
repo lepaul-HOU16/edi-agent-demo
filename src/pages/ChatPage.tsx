@@ -428,7 +428,6 @@ function Page() {
                             <AgentSwitcher
                                 selectedAgent={selectedAgent}
                                 onAgentChange={handleAgentChange}
-                                iconOnly={true}
                             />
                             <SegmentedControl
                             selectedId={selectedId}

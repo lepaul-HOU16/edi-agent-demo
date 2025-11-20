@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM Permissions Summary Matrix</title>
+    <style>
+        @page {
+            size: letter landscape;
+            margin: 0.5in;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            color: #232f3e;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #232f3e 0%, #ff9900 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 28px;
+        }
+        
+        .header p {
+            margin: 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .matrix-container {
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        
+        th {
+            background: #232f3e;
+            color: white;
+            padding: 12px 8px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: bold;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        
+        th.rotate {
+            writing-mode: vertical-rl;
+            text-orientation: mixed;
+            padding: 8px 6px;
+            min-width: 40px;
+            text-align: center;
+        }
+        
+        td {
+            padding: 10px 8px;
+            border-bottom: 1px solid #eee;
+            font-size: 11px;
+        }
+        
+        td.service {
+            font-weight: bold;
+            background: #f8f9fa;
+            position: sticky;
+            left: 0;
+            z-index: 5;
+        }
+        
+        td.check {
+            text-align: center;
+            font-size: 18px;
+        }
+        
+        .required {
+            color: #d13212;
+        }
+        
+        .optional {
+            color: #1d8102;
+        }
+        
+        .not-used {
+            color: #ddd;
+        }
+        
+        .legend {
+            display: flex;
+            gap: 30px;
+            justify-content: center;
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+        }
+        
+        .legend-icon {
+            font-size: 18px;
+        }
+        
+        .summary-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .stat-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid #ff9900;
+        }
+        
+        .stat-card h3 {
+            margin: 0 0 5px 0;
+            font-size: 14px;
+            color: #545b64;
+        }
+        
+        .stat-card .value {
+            font-size: 28px;
+            font-weight: bold;
+            color: #232f3e;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+            font-size: 12px;
+            color: #545b64;
+            text-align: center;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>🔐 IAM Permissions Summary Matrix</h1>
+        <p>AWS Energy Data Insights Platform | Complete Permission Mapping</p>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item">
+            <span class="legend-icon required">✓</span>
+            <span><strong>Required</strong> - Essential for function operation</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-icon optional">○</span>
+            <span><strong>Optional</strong> - Enhances functionality</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-icon not-used">—</span>
+            <span><strong>Not Used</strong> - Not required by this function</span>
+        </div>
+    </div>
+
+    <div class="summary-stats">
+        <div class="stat-card">
+            <h3>Total Lambda Functions</h3>
+            <div class="value">5</div>
+        </div>
+        <div class="stat-card">
+            <h3>Unique Permissions</h3>
+            <div class="value">23</div>
+        </div>
+        <div class="stat-card">
+            <h3>AWS Services Used</h3>
+            <div class="value">6</div>
+        </div>
+        <div class="stat-card">
+            <h3>Most Permissive</h3>
+            <div class="value">Chat Lambda</div>
+        </div>
+    </div>
+
+    <div class="matrix-container">
+        <table>
+            <thead>
+                <tr>
+                    <th style="min-width: 200px;">Service / Action</th>
+                    <th class="rotate">Lambda Authorizer</th>
+                    <th class="rotate">Chat Lambda</th>
+                    <th class="rotate">Renewable Orchestrator</th>
+                    <th class="rotate">Tool Lambdas</th>
+                    <th class="rotate">Petrophysics Calculator</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Cognito Permissions -->
+                <tr>
+                    <td class="service">🔐 Amazon Cognito</td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                </tr>
+                <tr>
+                    <td>cognito-idp:DescribeUserPool</td>
+                    <td class="check required">✓</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                <tr>
+                    <td>cognito-idp:DescribeUserPoolClient</td>
+                    <td class="check required">✓</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                
+                <!-- DynamoDB Permissions -->
+                <tr>
+                    <td class="service">🗄️ Amazon DynamoDB</td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                </tr>
+                <tr>
+                    <td>dynamodb:PutItem</td>
+                    <td class="check not-used">—</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                <tr>
+                    <td>dynamodb:GetItem</td>
+                    <td class="check not-used">—</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                <tr>
+                    <td>dynamodb:Query</td>
+                    <td class="check not-used">—</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                <tr>
+                    <td>dynamodb:UpdateItem</td>
+                    <td class="check not-used">—</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                
+                <!-- S3 Permissions -->
+                <tr>
+                    <td class="service">📦 Amazon S3</td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                </tr>
+                <tr>
+                    <td>s3:GetObject</td>
+                    <td class="check not-used">—</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                </tr>
+                <tr>
+                    <td>s3:PutObject</td>
+                    <td class="check not-used">—</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check optional">○</td>
+                </tr>
+                <tr>
+                    <td>s3:ListBucket</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                    <td class="check required">✓</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                
+                <!-- Bedrock Permissions -->
+                <tr>
+                    <td class="service">🤖 Amazon Bedrock</td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                </tr>
+                <tr>
+                    <td>bedrock:InvokeModel</td>
+                    <td class="check not-used">—</td>
+                    <td class="check required">✓</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                <tr>
+                    <td>bedrock:InvokeModelWithResponseStream</td>
+                    <td class="check not-used">—</td>
+                    <td class="check optional">○</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                
+                <!-- Lambda Permissions -->
+                <tr>
+                    <td class="service">⚡ AWS Lambda</td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                </tr>
+                <tr>
+                    <td>lambda:InvokeFunction</td>
+                    <td class="check not-used">—</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check not-used">—</td>
+                    <td class="check not-used">—</td>
+                </tr>
+                
+                <!-- CloudWatch Logs Permissions -->
+                <tr>
+                    <td class="service">📊 CloudWatch Logs</td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                    <td class="check"></td>
+                </tr>
+                <tr>
+                    <td>logs:CreateLogGroup</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                </tr>
+                <tr>
+                    <td>logs:CreateLogStream</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                </tr>
+                <tr>
+                    <td>logs:PutLogEvents</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                    <td class="check required">✓</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="summary-stats" style="margin-top: 30px;">
+        <div class="stat-card">
+            <h3>Lambda Authorizer</h3>
+            <div class="value">5</div>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #545b64;">permissions (all required)</p>
+        </div>
+        <div class="stat-card">
+            <h3>Chat Lambda</h3>
+            <div class="value">15</div>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #545b64;">permissions (14 required, 1 optional)</p>
+        </div>
+        <div class="stat-card">
+            <h3>Renewable Orchestrator</h3>
+            <div class="value">12</div>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #545b64;">permissions (all required)</p>
+        </div>
+        <div class="stat-card">
+            <h3>Tool Lambdas</h3>
+            <div class="value">5</div>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #545b64;">permissions (all required)</p>
+        </div>
+        <div class="stat-card">
+            <h3>Petrophysics Calculator</h3>
+            <div class="value">6</div>
+            <p style="margin: 5px 0 0 0; font-size: 12px; color: #545b64;">permissions (5 required, 1 optional)</p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <p>AWS Energy Data Insights Platform | re:Invent Chalk Talk | IAM Permissions Summary Matrix</p>
+        <p>Generated: 2025-01-15 | Version 1.0</p>
+    </div>
+</body>
+</html>

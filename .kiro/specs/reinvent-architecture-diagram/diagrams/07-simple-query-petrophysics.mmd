@@ -1,0 +1,128 @@
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant APIGateway as API Gateway
+    participant ChatLambda as Chat Lambda<br/>(300s, 1024MB)
+    participant AgentRouter as Agent Router
+    participant PetroAgent as Petrophysics Agent
+    participant PetroCalc as Petrophysics Calculator<br/>(60s, 512MB)
+    participant S3
+    participant Bedrock as AWS Bedrock<br/>(Claude 3.5 Sonnet)
+    participant DynamoDB
+
+    Note over User,DynamoDB: Simple Petrophysics Query (~3-5 seconds total)
+
+    %% User Query
+    User->>Frontend: "Calculate porosity for WELL-001"
+    Frontend->>APIGateway: POST /api/chat/message
+    Note right of Frontend: {<br/>  "chatSessionId": "session-123",<br/>  "message": "Calculate porosity..."<br/>}
+    
+    APIGateway->>ChatLambda: Invoke (with user context)
+    Note right of APIGateway: Latency: ~50ms
+
+    %% Save User Message
+    ChatLambda->>DynamoDB: PutItem (user message)
+    Note right of DynamoDB: Latency: ~20ms
+    DynamoDB-->>ChatLambda: Success
+
+    %% Intent Detection
+    ChatLambda->>AgentRouter: routeQuery(message)
+    Note right of ChatLambda: Latency: ~10ms
+    
+    AgentRouter->>AgentRouter: detectIntent()
+    Note right of AgentRouter: Pattern matching:<br/>- Check "porosity"<br/>- Check "WELL-001"<br/>→ petrophysics
+    
+    AgentRouter->>PetroAgent: processMessage()
+    Note right of AgentRouter: Latency: ~2000ms
+
+    %% Thought Step 1: Intent Detection
+    PetroAgent->>PetroAgent: Generate thought step
+    Note right of PetroAgent: {<br/>  "type": "intent_detection",<br/>  "title": "Analyzing Request",<br/>  "summary": "Detected porosity calculation"<br/>}
+
+    %% Thought Step 2: Data Retrieval
+    PetroAgent->>S3: GetObject (WELL-001.las)
+    Note right of S3: Latency: ~100ms
+    S3-->>PetroAgent: LAS file data
+    
+    PetroAgent->>PetroAgent: Generate thought step
+    Note right of PetroAgent: {<br/>  "type": "execution",<br/>  "title": "Retrieving Well Data",<br/>  "summary": "Loaded WELL-001.las"<br/>}
+
+    %% Thought Step 3: Tool Invocation
+    PetroAgent->>PetroCalc: Invoke (calculate_porosity)
+    Note right of PetroAgent: {<br/>  "wellName": "WELL-001",<br/>  "method": "density",<br/>  "parameters": {...}<br/>}
+    
+    PetroCalc->>PetroCalc: Parse LAS file<br/>Extract RHOB curve<br/>Calculate porosity
+    Note right of PetroCalc: Latency: ~500ms
+    
+    PetroCalc-->>PetroAgent: Calculation results
+    Note left of PetroCalc: {<br/>  "porosity": {<br/>    "mean": 0.18,<br/>    "min": 0.05,<br/>    "max": 0.32<br/>  },<br/>  "artifact": {...}<br/>}
+    
+    PetroAgent->>PetroAgent: Generate thought step
+    Note right of PetroAgent: {<br/>  "type": "execution",<br/>  "title": "Calculating Porosity",<br/>  "summary": "Density method: 18% avg"<br/>}
+
+    %% Thought Step 4: AI Response Generation
+    PetroAgent->>Bedrock: InvokeModel
+    Note right of PetroAgent: {<br/>  "model": "claude-3-5-sonnet",<br/>  "prompt": "Explain porosity results..."<br/>}
+    
+    Bedrock->>Bedrock: Generate response
+    Note right of Bedrock: Latency: ~1000ms
+    
+    Bedrock-->>PetroAgent: AI response
+    Note left of Bedrock: Professional analysis<br/>with SPE standards
+    
+    PetroAgent->>PetroAgent: Generate thought step
+    Note right of PetroAgent: {<br/>  "type": "completion",<br/>  "title": "Analysis Complete",<br/>  "summary": "Generated professional report"<br/>}
+
+    %% Return to Chat Lambda
+    PetroAgent-->>AgentRouter: Response with artifacts
+    AgentRouter-->>ChatLambda: Response
+    
+    %% Save AI Message
+    ChatLambda->>DynamoDB: PutItem (AI message)
+    Note right of DynamoDB: {<br/>  "role": "ai",<br/>  "content": {...},<br/>  "artifacts": [...],<br/>  "thoughtSteps": [...]<br/>}
+    DynamoDB-->>ChatLambda: Success
+
+    %% Return to Frontend
+    ChatLambda-->>APIGateway: Response
+    APIGateway-->>Frontend: 200 OK + JSON
+    
+    Frontend->>Frontend: Render message<br/>Display artifacts<br/>Show thought steps
+    Frontend->>User: Display results
+
+    %% Error Handling
+    Note over User,DynamoDB: Error Scenarios
+
+    alt LAS File Not Found
+        S3--xPetroAgent: 404 Not Found
+        PetroAgent->>PetroAgent: Generate error thought step
+        PetroAgent-->>ChatLambda: Error response
+        ChatLambda->>DynamoDB: Save error message
+        ChatLambda-->>Frontend: Error response
+        Frontend->>User: "Well data not found"
+    end
+
+    alt Calculation Error
+        PetroCalc--xPetroAgent: Invalid data
+        PetroAgent->>PetroAgent: Generate error thought step
+        PetroAgent-->>ChatLambda: Error response
+        ChatLambda-->>Frontend: Error response
+        Frontend->>User: "Unable to calculate porosity"
+    end
+
+    alt Bedrock Throttling
+        Bedrock--xPetroAgent: ThrottlingException
+        PetroAgent->>PetroAgent: Retry with backoff
+        PetroAgent->>Bedrock: Retry InvokeModel
+        Bedrock-->>PetroAgent: Success
+    end
+
+    %% Performance Annotations
+    Note over User,Frontend: Total Latency Breakdown
+    Note over Frontend,APIGateway: API Gateway: 50ms
+    Note over ChatLambda,DynamoDB: DynamoDB Write: 20ms
+    Note over AgentRouter,PetroAgent: Intent Detection: 10ms
+    Note over PetroAgent,S3: S3 Read: 100ms
+    Note over PetroAgent,PetroCalc: Calculation: 500ms
+    Note over PetroAgent,Bedrock: AI Generation: 1000ms
+    Note over ChatLambda,DynamoDB: DynamoDB Write: 20ms
+    Note over User,Frontend: Total: ~3-5 seconds

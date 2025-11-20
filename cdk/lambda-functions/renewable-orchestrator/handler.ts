@@ -172,9 +172,15 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     }
     
     // ============================================
-    // STRANDS AGENT ROUTING (NEW!)
+    // STRANDS AGENT ROUTING (DISABLED - NOT DEPLOYED)
     // ============================================
-    if (isStrandsAgentAvailable()) {
+    // CRITICAL FIX: Strands Agent Lambda is not deployed, so we skip this path
+    // and use the legacy direct tool invocation instead.
+    // The Strands Agent returns empty artifacts with polling metadata, but the
+    // frontend doesn't implement polling, causing "No artifacts" issue.
+    const strandsAgentDisabled = true; // Force disable until Lambda is deployed
+    
+    if (!strandsAgentDisabled && isStrandsAgentAvailable()) {
       console.log('🤖 STRANDS AGENTS AVAILABLE - Using intelligent agent system');
       
       try {
@@ -186,7 +192,7 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         
         console.log('✅ Strands Agent response received');
         
-        return {
+        const finalResponse = {
           success: agentResponse.success,
           message: agentResponse.message,
           artifacts: agentResponse.artifacts,
@@ -197,6 +203,16 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
             requestId
           }
         };
+
+        // Write results to DynamoDB if sessionId and userId are provided
+        if (event.sessionId && event.userId) {
+          console.log('📝 Writing results to ChatMessage table for async processing');
+          await writeResultsToChatMessage(event.sessionId, event.userId, finalResponse);
+        } else {
+          console.log('⚠️  Skipping DynamoDB write (no sessionId or userId)');
+        }
+        
+        return finalResponse;
       } catch (agentError: any) {
         // Check if this is a timeout or throttling error
         const errorMessage = agentError.message || String(agentError);
@@ -1301,12 +1317,13 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     console.log(`📤 Full Response: ${JSON.stringify(response, null, 2)}`);
     console.log('═══════════════════════════════════════════════════════════');
     
-    // CRITICAL: Do NOT save to database - frontend handles all saves
-    // This prevents duplicate messages (orchestrator + frontend both saving)
-    // Frontend save ensures proper loading state management and UI updates
+    // Write results to DynamoDB if sessionId and userId are provided
+    // This is needed for async processing where the frontend polls for results
     if (event.sessionId && event.userId) {
-      console.log('🔄 Session context provided - frontend will save message with artifacts');
-      console.log('   (Orchestrator skips save to prevent duplicates)');
+      console.log('📝 Writing results to ChatMessage table for async processing');
+      await writeResultsToChatMessage(event.sessionId, event.userId, response);
+    } else {
+      console.log('⚠️  Skipping DynamoDB write (no sessionId or userId)');
     }
     
     return response;
@@ -1359,7 +1376,7 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       }
     });
     
-    return {
+    const errorResponse = {
       success: false,
       message: errorResult.formatted,
       artifacts: [],
@@ -1376,6 +1393,19 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         }
       }
     };
+
+    // Write error message to DynamoDB if sessionId and userId are provided
+    if (event.sessionId && event.userId) {
+      console.log('📝 Writing error message to ChatMessage table');
+      try {
+        await writeResultsToChatMessage(event.sessionId, event.userId, errorResponse);
+      } catch (writeError) {
+        console.error('❌ Failed to write error message to DynamoDB:', writeError);
+        // Don't throw - return the error response anyway
+      }
+    }
+
+    return errorResponse;
   }
 }
 
@@ -2180,7 +2210,9 @@ async function invokeLambdaWithRetry(
           inferredType = 'wake_simulation';
         } else if (body.turbine_count && body.layout) {
           inferredType = 'layout_optimization';
-        } else if (body.feature_count) {
+        } else if (body.feature_counts || body.feature_count || body.exclusionZones || body.geojson || body.GeoJSON_data || (body.result && body.result.GeoJSON_data)) {
+          // CRITICAL FIX: Check for feature_counts (plural), exclusionZones, geojson, or GeoJSON_data
+          // The terrain tool returns GeoJSON_data (capital letters with underscore)
           inferredType = 'terrain_analysis';
         }
         
@@ -2196,15 +2228,15 @@ async function invokeLambdaWithRetry(
       
     } catch (error) {
       lastError = error as Error;
-      const errorMessage = lastError?.message || String(error);
+      const errorMessage = lastError?.message || String(error) || 'Unknown error';
       
       console.error(`❌ Lambda invocation attempt ${attempt + 1}/${maxRetries} failed`);
       console.error(`   Function: ${functionName}`);
       console.error(`   Error: ${errorMessage.substring(0, 500)}`); // Limit error message length
       
       // Check if this is a timeout error
-      const isTimeout = errorMessage.toLowerCase().includes('timeout') || 
-                       errorMessage.toLowerCase().includes('timed out');
+      const isTimeout = errorMessage && (errorMessage.toLowerCase().includes('timeout') || 
+                       errorMessage.toLowerCase().includes('timed out'));
       
       if (isTimeout) {
         console.warn('⚠️ Lambda timeout detected - function exceeded time limit');
@@ -2367,10 +2399,14 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
       case 'terrain_analysis':
         console.log('🔍 TERRAIN DEBUG - result.data keys:', Object.keys(result.data));
         console.log('🔍 TERRAIN DEBUG - has geojson:', !!result.data.geojson);
-        console.log('🔍 TERRAIN DEBUG - has mapHtml:', !!result.data.mapHtml);
-        console.log('🔍 TERRAIN DEBUG - geojson type:', typeof result.data.geojson);
-        if (result.data.geojson) {
-          console.log('🔍 TERRAIN DEBUG - geojson features:', result.data.geojson.features?.length);
+        console.log('🔍 TERRAIN DEBUG - has GeoJSON_data:', !!result.data.GeoJSON_data);
+        console.log('🔍 TERRAIN DEBUG - has result.GeoJSON_data:', !!(result.data.result && result.data.result.GeoJSON_data));
+        
+        // CRITICAL FIX: Handle both geojson and GeoJSON_data formats
+        const geojsonData = result.data.geojson || result.data.GeoJSON_data || (result.data.result && result.data.result.GeoJSON_data);
+        
+        if (geojsonData) {
+          console.log('🔍 TERRAIN DEBUG - geojson features:', geojsonData.features?.length);
         }
         
         artifact = {
@@ -2383,7 +2419,7 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
             projectId: result.data.projectId || effectiveProjectId, // Fallback to orchestrator's projectId
             exclusionZones: result.data.exclusionZones,
             metrics: result.data.metrics,
-            geojson: result.data.geojson,
+            geojson: geojsonData,  // Use the extracted geojson data
             // CRITICAL FIX: Don't include mapHtml/mapUrl - let frontend build map with Leaflet
             // mapHtml: result.data.mapHtml,
             // mapUrl: result.data.mapUrl,
@@ -3101,19 +3137,14 @@ async function writeResultsToChatMessage(
       console.warn('⚠️  Response message is empty, using default message');
     }
     
-    // CRITICAL: Serialize artifacts and thoughtSteps as JSON strings
-    // Amplify's AWSJSON type expects strings, not objects
-    const serializedArtifacts = response.artifacts?.map(artifact => 
-      typeof artifact === 'string' ? artifact : JSON.stringify(artifact)
-    ) || [];
+    // Keep artifacts and thoughtSteps as objects (not strings)
+    // DynamoDB DocumentClient handles the serialization
+    const artifacts = response.artifacts || [];
+    const thoughtSteps = response.thoughtSteps || [];
     
-    const serializedThoughtSteps = response.thoughtSteps?.map(step => 
-      typeof step === 'string' ? step : JSON.stringify(step)
-    ) || [];
+    console.log(`   Preparing ${artifacts.length} artifacts and ${thoughtSteps.length} thought steps`);
     
-    console.log(`   Serialized ${serializedArtifacts.length} artifacts and ${serializedThoughtSteps.length} thought steps`);
-    
-    const chatMessage = {
+    const chatMessage: Record<string, any> = {
       id: `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       chatSessionId: sessionId,
       owner: userId,
@@ -3122,11 +3153,19 @@ async function writeResultsToChatMessage(
         text: response.message || 'Analysis complete'
       },
       responseComplete: true,
-      artifacts: serializedArtifacts,
-      thoughtSteps: serializedThoughtSteps,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
+
+    // Only add artifacts if they exist and are not empty
+    if (artifacts.length > 0) {
+      chatMessage.artifacts = artifacts;
+    }
+
+    // Only add thoughtSteps if they exist and are not empty
+    if (thoughtSteps.length > 0) {
+      chatMessage.thoughtSteps = thoughtSteps;
+    }
     
     console.log(`   Message ID: ${chatMessage.id}`);
     
@@ -3139,8 +3178,8 @@ async function writeResultsToChatMessage(
     console.log('✅ Results written to ChatMessage table', {
       messageId: chatMessage.id,
       chatSessionId: sessionId,
-      artifactCount: serializedArtifacts.length,
-      thoughtStepCount: serializedThoughtSteps.length,
+      artifactCount: artifacts.length,
+      thoughtStepCount: thoughtSteps.length,
       duration: `${duration}ms`
     });
     

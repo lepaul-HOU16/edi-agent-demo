@@ -1,0 +1,159 @@
+```mermaid
+sequenceDiagram
+    participant User
+    participant Frontend
+    participant ChatLambda
+    participant RenewableProxy
+    participant Orchestrator
+    participant TerrainTool
+    participant LayoutTool
+    participant DynamoDB
+    participant S3
+    
+    Note over User,S3: Timeline: 0s - 60s
+    
+    User->>Frontend: "Analyze terrain and optimize layout"
+    Note right of User: t=0s
+    
+    Frontend->>ChatLambda: POST /api/chat/message
+    Note right of Frontend: t=0.1s
+    
+    ChatLambda->>DynamoDB: Save user message
+    Note right of ChatLambda: t=0.2s
+    
+    ChatLambda->>RenewableProxy: Route to renewable agent
+    Note right of ChatLambda: t=0.3s
+    
+    RenewableProxy->>Orchestrator: Async invoke
+    Note right of RenewableProxy: t=0.5s<br/>InvocationType: Event
+    
+    RenewableProxy-->>ChatLambda: Processing message
+    Note right of RenewableProxy: t=0.6s
+    
+    ChatLambda->>DynamoDB: Save "Analysis in Progress"
+    Note right of ChatLambda: t=0.7s
+    
+    ChatLambda-->>Frontend: 200 OK (processing=true)
+    Note right of ChatLambda: t=0.8s
+    
+    Frontend-->>User: "Analysis in Progress..."
+    Note right of Frontend: t=0.9s
+    
+    Note over Frontend: Start polling every 2s
+    
+    rect rgb(255, 240, 200)
+        Note over Orchestrator,S3: Background Processing (25-45s)
+        
+        Orchestrator->>Orchestrator: Parse intent
+        Note right of Orchestrator: t=1s
+        
+        Orchestrator->>DynamoDB: Load session context
+        Note right of Orchestrator: t=1.5s
+        
+        Orchestrator->>DynamoDB: Save thought step: "Analyzing terrain"
+        Note right of Orchestrator: t=2s
+        
+        Orchestrator->>TerrainTool: Invoke terrain analysis
+        Note right of Orchestrator: t=2.5s
+        
+        TerrainTool->>TerrainTool: Fetch OSM data (15s)
+        Note right of TerrainTool: t=2.5s - 17.5s
+        
+        TerrainTool->>TerrainTool: Generate visualization (5s)
+        Note right of TerrainTool: t=17.5s - 22.5s
+        
+        TerrainTool->>S3: Store terrain map HTML
+        Note right of TerrainTool: t=22.5s
+        
+        TerrainTool-->>Orchestrator: Terrain results + S3 key
+        Note right of TerrainTool: t=23s
+        
+        Orchestrator->>DynamoDB: Save thought step: "Optimizing layout"
+        Note right of Orchestrator: t=23.5s
+        
+        Orchestrator->>LayoutTool: Invoke layout optimization
+        Note right of Orchestrator: t=24s
+        
+        LayoutTool->>LayoutTool: Run optimization algorithm (15s)
+        Note right of LayoutTool: t=24s - 39s
+        
+        LayoutTool->>LayoutTool: Generate visualization (3s)
+        Note right of LayoutTool: t=39s - 42s
+        
+        LayoutTool->>S3: Store layout visualization
+        Note right of LayoutTool: t=42s
+        
+        LayoutTool-->>Orchestrator: Layout results + S3 key
+        Note right of LayoutTool: t=42.5s
+        
+        Orchestrator->>Orchestrator: Aggregate results
+        Note right of Orchestrator: t=43s
+        
+        Orchestrator->>DynamoDB: Save AI response with artifacts
+        Note right of Orchestrator: t=44s
+        
+        Orchestrator->>DynamoDB: Update session context
+        Note right of Orchestrator: t=44.5s
+    end
+    
+    Note over Frontend: Polling continues...
+    
+    Frontend->>ChatLambda: GET /api/chat/sessions/{id}/messages
+    Note right of Frontend: t=45s (poll #23)
+    
+    ChatLambda->>DynamoDB: Query messages
+    Note right of ChatLambda: t=45.1s
+    
+    DynamoDB-->>ChatLambda: New AI message found
+    Note right of DynamoDB: t=45.2s
+    
+    ChatLambda-->>Frontend: Messages with artifacts
+    Note right of ChatLambda: t=45.3s
+    
+    Frontend->>S3: Fetch terrain map HTML
+    Note right of Frontend: t=45.5s
+    
+    S3-->>Frontend: Terrain visualization
+    Note right of S3: t=45.7s
+    
+    Frontend->>S3: Fetch layout visualization
+    Note right of Frontend: t=46s
+    
+    S3-->>Frontend: Layout visualization
+    Note right of S3: t=46.2s
+    
+    Frontend-->>User: Display complete results
+    Note right of Frontend: t=46.5s
+    
+    Note over User: Total time: ~46 seconds
+```
+
+## Timing Analysis
+
+### Performance Breakdown
+
+| Phase | Duration | Percentage |
+|-------|----------|------------|
+| Request/Response | 0.9s | 2% |
+| Terrain Analysis | 21s | 45% |
+| Layout Optimization | 18.5s | 40% |
+| Result Aggregation | 2s | 4% |
+| Polling Detection | 1s | 2% |
+| Artifact Retrieval | 1.5s | 3% |
+| Frontend Rendering | 0.6s | 1% |
+| **Total** | **46.5s** | **100%** |
+
+### Optimization Opportunities
+
+1. **Parallel Tool Execution**: Run independent tools simultaneously
+   - Current: 39.5s (sequential)
+   - Optimized: 21s (parallel) - 47% faster
+
+2. **Caching**: Cache OSM data for repeated locations
+   - Saves: 15s per cached location
+
+3. **Progressive Results**: Stream results as they complete
+   - User sees terrain at t=23s instead of t=46s
+
+4. **Pre-computation**: Pre-fetch common data during idle time
+   - Reduces first-request latency by 30%

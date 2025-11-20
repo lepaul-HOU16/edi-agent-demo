@@ -1,0 +1,95 @@
+sequenceDiagram
+    participant User
+    participant Browser
+    participant CloudFront
+    participant APIGateway as API Gateway<br/>(HTTP API)
+    participant Authorizer as Lambda Authorizer<br/>(30s, 256MB)
+    participant Cognito as Cognito User Pool
+    participant ChatLambda as Chat Lambda<br/>(300s, 1024MB)
+    participant DynamoDB
+
+    Note over User,DynamoDB: Authentication Flow (~500ms total)
+
+    %% Initial Sign In
+    User->>Browser: Enter credentials
+    Note right of Browser: Username + Password
+    
+    Browser->>Cognito: InitiateAuth
+    Note right of Cognito: Latency: ~200ms
+    Cognito->>Cognito: Validate credentials
+    Cognito-->>Browser: JWT tokens
+    Note left of Cognito: ID Token (1hr)<br/>Access Token (1hr)<br/>Refresh Token (30d)
+    
+    Browser->>Browser: Store tokens in memory
+    Note right of Browser: sessionStorage<br/>(not localStorage)
+
+    %% API Request with JWT
+    User->>Browser: Send chat message
+    Browser->>Browser: Get JWT from session
+    
+    Browser->>APIGateway: POST /api/chat/message<br/>Authorization: Bearer {JWT}
+    Note right of APIGateway: Latency: ~50ms
+    
+    APIGateway->>Authorizer: Validate token
+    Note right of Authorizer: Latency: ~100ms
+    
+    Authorizer->>Cognito: Get JWKS (cached)
+    Note right of Cognito: Public keys for<br/>signature verification
+    Cognito-->>Authorizer: Public keys
+    
+    Authorizer->>Authorizer: Verify JWT signature<br/>Check expiration<br/>Validate claims
+    
+    alt Token Valid
+        Authorizer-->>APIGateway: Allow + User Context
+        Note left of Authorizer: {<br/>  "principalId": "user-123",<br/>  "context": {<br/>    "userId": "user-123",<br/>    "email": "user@example.com"<br/>  }<br/>}
+        
+        APIGateway->>ChatLambda: Invoke with user context
+        Note right of ChatLambda: Latency: ~2000ms
+        
+        ChatLambda->>DynamoDB: Save message
+        ChatLambda->>ChatLambda: Process query
+        ChatLambda->>DynamoDB: Save response
+        
+        ChatLambda-->>APIGateway: Response
+        APIGateway-->>Browser: 200 OK + JSON
+        Browser->>User: Display result
+        
+    else Token Invalid/Expired
+        Authorizer-->>APIGateway: Deny
+        Note left of Authorizer: {<br/>  "statusCode": 401,<br/>  "message": "Unauthorized"<br/>}
+        
+        APIGateway-->>Browser: 401 Unauthorized
+        
+        Browser->>Browser: Check refresh token
+        
+        alt Refresh Token Valid
+            Browser->>Cognito: RefreshToken
+            Cognito-->>Browser: New JWT tokens
+            Browser->>APIGateway: Retry with new token
+        else Refresh Token Expired
+            Browser->>User: Redirect to sign in
+        end
+    end
+
+    %% Error Handling
+    Note over User,DynamoDB: Error Scenarios
+
+    alt Network Error
+        Browser-xCognito: Connection failed
+        Browser->>User: "Network error, please retry"
+    end
+
+    alt Cognito Service Error
+        Cognito--xBrowser: 500 Internal Error
+        Browser->>User: "Authentication service unavailable"
+    end
+
+    alt Invalid Credentials
+        Cognito-->>Browser: NotAuthorizedException
+        Browser->>User: "Invalid username or password"
+    end
+
+    alt Rate Limiting
+        Cognito-->>Browser: TooManyRequestsException
+        Browser->>User: "Too many attempts, please wait"
+    end

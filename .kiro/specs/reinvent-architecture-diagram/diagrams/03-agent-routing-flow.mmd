@@ -1,0 +1,34 @@
+sequenceDiagram
+    participant User
+    participant ChatLambda
+    participant AgentRouter
+    participant PetroAgent
+    participant RenewableAgent
+    participant Orchestrator
+    participant ToolLambda
+    participant DynamoDB
+    participant S3
+
+    User->>ChatLambda: "Analyze terrain at 35.0, -101.4"
+    ChatLambda->>DynamoDB: Save user message
+    ChatLambda->>AgentRouter: routeQuery(message)
+    AgentRouter->>AgentRouter: detectIntent()<br/>→ renewable
+    AgentRouter->>RenewableAgent: processQuery()
+    RenewableAgent->>Orchestrator: Async invoke
+    RenewableAgent-->>ChatLambda: Processing message
+    ChatLambda->>DynamoDB: Save "Analysis in Progress"
+    ChatLambda-->>User: "Analysis in Progress..."
+    
+    Note over Orchestrator: Background processing
+    Orchestrator->>Orchestrator: parseIntent()<br/>→ terrain_analysis
+    Orchestrator->>ToolLambda: Invoke terrain tool
+    ToolLambda->>ToolLambda: Fetch OSM data<br/>Generate visualization
+    ToolLambda->>S3: Store artifact
+    ToolLambda-->>Orchestrator: Artifact metadata
+    Orchestrator->>DynamoDB: Save AI response with artifacts
+    
+    User->>ChatLambda: Poll for updates
+    ChatLambda->>DynamoDB: Query messages
+    DynamoDB-->>ChatLambda: New AI message
+    ChatLambda-->>User: Response with artifacts
+    User->>S3: Fetch artifact for display

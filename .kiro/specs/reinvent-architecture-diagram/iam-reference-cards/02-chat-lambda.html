@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IAM Reference Card - Chat Lambda</title>
+    <style>
+        @page {
+            size: letter;
+            margin: 0.5in;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 8.5in;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            color: #232f3e;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #232f3e 0%, #ff9900 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 24px;
+        }
+        
+        .header .subtitle {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+        }
+        
+        .section h2 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #232f3e;
+            border-bottom: 2px solid #ff9900;
+            padding-bottom: 5px;
+        }
+        
+        .permission-item {
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-left: 4px solid #ff9900;
+            border-radius: 4px;
+        }
+        
+        .permission-item.required {
+            border-left-color: #d13212;
+        }
+        
+        .permission-item.optional {
+            border-left-color: #1d8102;
+        }
+        
+        .permission-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
+        }
+        
+        .permission-action {
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 14px;
+        }
+        
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+        
+        .badge.required {
+            background: #d13212;
+            color: white;
+        }
+        
+        .badge.optional {
+            background: #1d8102;
+            color: white;
+        }
+        
+        .permission-resource {
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #545b64;
+            margin-top: 5px;
+        }
+        
+        .permission-description {
+            font-size: 13px;
+            color: #545b64;
+            margin-top: 5px;
+        }
+        
+        .code-block {
+            background: #232f3e;
+            color: #ffffff;
+            padding: 15px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            overflow-x: auto;
+            margin-top: 10px;
+        }
+        
+        .info-box {
+            background: #e7f6fd;
+            border-left: 4px solid #0073bb;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .info-box strong {
+            color: #0073bb;
+        }
+        
+        .warning-box {
+            background: #fff8e1;
+            border-left: 4px solid #ff9900;
+            padding: 12px;
+            margin: 15px 0;
+            border-radius: 4px;
+        }
+        
+        .warning-box strong {
+            color: #ff9900;
+        }
+        
+        .footer {
+            margin-top: 30px;
+            padding-top: 15px;
+            border-top: 2px solid #ddd;
+            font-size: 12px;
+            color: #545b64;
+            text-align: center;
+        }
+        
+        @media print {
+            body {
+                padding: 0;
+            }
+            
+            .no-print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>💬 Chat Lambda IAM Permissions</h1>
+        <div class="subtitle">AWS Energy Data Insights Platform | Agent Router & Orchestrator</div>
+    </div>
+
+    <div class="section">
+        <h2>📋 Overview</h2>
+        <p><strong>Service Role:</strong> <code>ChatLambdaRole</code></p>
+        <p><strong>Function Name:</strong> <code>chat</code></p>
+        <p><strong>Purpose:</strong> Routes user queries to specialized agents, manages conversation state, invokes tool Lambdas, and generates AI responses</p>
+        <p><strong>Timeout:</strong> 300 seconds | <strong>Memory:</strong> 1024 MB</p>
+    </div>
+
+    <div class="section">
+        <h2>🗄️ DynamoDB Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">dynamodb:PutItem</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resources:</strong><br>
+                • arn:aws:dynamodb:*:*:table/ChatMessage-*<br>
+                • arn:aws:dynamodb:*:*:table/ChatSession-*<br>
+                • arn:aws:dynamodb:*:*:table/SessionContext-*
+            </div>
+            <div class="permission-description">
+                Save chat messages, create/update sessions, and persist session context. Critical for conversation history and state management.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">dynamodb:GetItem</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resources:</strong> Same as PutItem
+            </div>
+            <div class="permission-description">
+                Retrieve individual messages and session data. Used for context retrieval and message updates.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">dynamodb:Query</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resources:</strong><br>
+                • arn:aws:dynamodb:*:*:table/ChatMessage-*/index/*<br>
+                • arn:aws:dynamodb:*:*:table/ChatSession-*/index/*
+            </div>
+            <div class="permission-description">
+                Query conversation history using GSI (chatSessionId-createdAt-index). Essential for retrieving message history for context.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">dynamodb:UpdateItem</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resources:</strong> Same as PutItem
+            </div>
+            <div class="permission-description">
+                Update existing messages (e.g., marking as complete) and session metadata (e.g., lastMessageAt timestamp).
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📦 S3 Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">s3:GetObject</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:s3:::storage-bucket/*
+            </div>
+            <div class="permission-description">
+                Read LAS files for petrophysical analysis and retrieve generated artifacts. Required for well data discovery and analysis workflows.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">s3:PutObject</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:s3:::storage-bucket/*
+            </div>
+            <div class="permission-description">
+                Store generated artifacts (visualizations, reports, analysis results). Critical for artifact persistence and retrieval.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>🤖 Bedrock Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">bedrock:InvokeModel</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:bedrock:*:*:foundation-model/anthropic.claude-*
+            </div>
+            <div class="permission-description">
+                Invoke Claude 3.5 Sonnet for AI response generation. Used by general knowledge agent and other agents requiring LLM capabilities.
+            </div>
+        </div>
+
+        <div class="permission-item optional">
+            <div class="permission-header">
+                <span class="permission-action">bedrock:InvokeModelWithResponseStream</span>
+                <span class="badge optional">Optional</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:bedrock:*:*:foundation-model/anthropic.claude-*
+            </div>
+            <div class="permission-description">
+                Enable streaming responses for real-time user experience. Optional but recommended for improved UX.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>⚡ Lambda Invocation Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">lambda:InvokeFunction</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resources:</strong><br>
+                • arn:aws:lambda:*:*:function:petrophysics-calculator<br>
+                • arn:aws:lambda:*:*:function:renewable-orchestrator<br>
+                • arn:aws:lambda:*:*:function:*-chat (self-invocation)
+            </div>
+            <div class="permission-description">
+                Invoke specialized tool Lambdas for domain-specific processing. Self-invocation enables async processing pattern for long-running queries.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📊 CloudWatch Logs Permissions</h2>
+        
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:CreateLogGroup</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:*:*:log-group:/aws/lambda/chat:*
+            </div>
+            <div class="permission-description">
+                Standard Lambda logging permission. Required for CloudWatch log group creation.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:CreateLogStream</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:*:*:log-group:/aws/lambda/chat:*
+            </div>
+            <div class="permission-description">
+                Create log streams for each Lambda invocation. Essential for debugging and monitoring.
+            </div>
+        </div>
+
+        <div class="permission-item required">
+            <div class="permission-header">
+                <span class="permission-action">logs:PutLogEvents</span>
+                <span class="badge required">Required</span>
+            </div>
+            <div class="permission-resource">
+                <strong>Resource:</strong> arn:aws:logs:*:*:log-group:/aws/lambda/chat:*
+            </div>
+            <div class="permission-description">
+                Write log events to CloudWatch. Critical for troubleshooting agent routing and processing issues.
+            </div>
+        </div>
+    </div>
+
+    <div class="section">
+        <h2>📄 Complete IAM Policy JSON</h2>
+        <div class="code-block">{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "dynamodb:PutItem",
+        "dynamodb:GetItem",
+        "dynamodb:Query",
+        "dynamodb:UpdateItem"
+      ],
+      "Resource": [
+        "arn:aws:dynamodb:*:*:table/ChatMessage-*",
+        "arn:aws:dynamodb:*:*:table/ChatMessage-*/index/*",
+        "arn:aws:dynamodb:*:*:table/ChatSession-*",
+        "arn:aws:dynamodb:*:*:table/SessionContext-*"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": "arn:aws:s3:::storage-bucket/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "bedrock:InvokeModel",
+        "bedrock:InvokeModelWithResponseStream"
+      ],
+      "Resource": "arn:aws:bedrock:*:*:foundation-model/anthropic.claude-*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "lambda:InvokeFunction",
+      "Resource": [
+        "arn:aws:lambda:*:*:function:petrophysics-calculator",
+        "arn:aws:lambda:*:*:function:renewable-orchestrator",
+        "arn:aws:lambda:*:*:function:*-chat"
+      ]
+    },
+    {
+      "Effect": "Allow",
+      "Action": [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents"
+      ],
+      "Resource": "arn:aws:logs:*:*:log-group:/aws/lambda/chat:*"
+    }
+  ]
+}</div>
+    </div>
+
+    <div class="warning-box">
+        <strong>⚠️ Self-Invocation Pattern:</strong> The chat Lambda can invoke itself asynchronously to handle long-running queries that exceed API Gateway's 29-second timeout. This requires the <code>lambda:InvokeFunction</code> permission on its own function ARN.
+    </div>
+
+    <div class="info-box">
+        <strong>💡 Security Note:</strong> This role has broad permissions due to its central orchestration role. In production, consider splitting into separate roles for different agent types or implementing resource-based policies for finer-grained control.
+    </div>
+
+    <div class="footer">
+        <p>AWS Energy Data Insights Platform | re:Invent Chalk Talk | IAM Reference Card 2 of 5</p>
+        <p>Generated: 2025-01-15 | Version 1.0</p>
+    </div>
+</body>
+</html>
