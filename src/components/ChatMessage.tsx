@@ -1093,6 +1093,7 @@ const ChatMessage = (params: {
                 ? progressSteps[progressSteps.length - 1]?.step 
                 : '';
             const thinkingBlocks = (message as any).thinking || [];
+            const thoughtSteps = (message as any).thoughtSteps || [];
 
             // Render progress indicator and thinking display
             const progressComponents = (
@@ -1108,6 +1109,12 @@ const ChatMessage = (params: {
                         <ExtendedThinkingDisplay
                             thinking={thinkingBlocks}
                             defaultExpanded={false}
+                        />
+                    )}
+                    {thoughtSteps.length > 0 && (
+                        <ExtendedThinkingDisplay
+                            thinking={thoughtSteps}
+                            defaultExpanded={true}
                         />
                     )}
                 </>

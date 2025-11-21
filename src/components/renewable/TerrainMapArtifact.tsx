@@ -370,7 +370,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
           console.log('[TerrainMap] OSM layer added as default');
 
           // Add layer control to switch between OSM and satellite - ALWAYS EXPANDED
-          L.control.layers(
+          const layerControl = L.control.layers(
             {
               'Street Map': osmLayer,
               'Satellite': satelliteLayer,
@@ -381,6 +381,15 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
               collapsed: false  // ALWAYS SHOW - don't hide behind toggle
             }
           ).addTo(map);
+          
+          // Force the control to be visible with explicit styling
+          const controlElement = (layerControl as any).getContainer();
+          if (controlElement) {
+            controlElement.style.display = 'block';
+            controlElement.style.visibility = 'visible';
+            controlElement.style.zIndex = '1000';
+          }
+          
           console.log('[TerrainMap] Layer control added (always expanded)');
 
           console.log('[TerrainMap] Adding center marker...');
@@ -848,10 +857,24 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
             closeButton: false,  // Remove the white X button
             autoPan: false,      // Disable auto-pan
             keepInView: false,   // Don't keep in view
-            offset: [0, 0]       // No offset (might remove tip positioning)
           });
-            },
-          }).addTo(map);
+          
+          // Add buffer zone circle if bufferMeters is specified
+          const bufferMeters = props.bufferMeters || 0;
+          if (bufferMeters > 0 && feature.geometry.type === 'Point') {
+            const coords = feature.geometry.coordinates;
+            const bufferCircle = L.circle([coords[1], coords[0]], {
+              radius: bufferMeters,
+              color: props.color || '#FF0000',
+              fillColor: props.fillColor || '#FF000020',
+              fillOpacity: 0.1,
+              weight: 1,
+              dashArray: '5, 5'
+            });
+            bufferCircle.addTo(map);
+          }
+        }
+      }).addTo(map);
           
           console.log('[TerrainMap] GeoJSON layer added successfully', {
             layerCount: Object.keys((geoJsonLayer as any)._layers).length
