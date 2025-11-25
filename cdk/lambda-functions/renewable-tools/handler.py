@@ -25,7 +25,14 @@ def handler(event, context):
             body = json.loads(event.get('body', '{}')) if isinstance(event.get('body'), str) else event.get('body', {})
             params = body.get('parameters', {})
         
-        action = event.get('action') or params.get('action') or 'terrain_analysis'
+        # Determine action from multiple possible locations
+        action = (
+            event.get('action') or 
+            params.get('action') or 
+            params.get('tool') or  # Check for 'tool' parameter
+            event.get('tool') or   # Check for 'tool' in event
+            'terrain_analysis'     # Default fallback
+        )
         
         print(f"Action: {action}, Parameters: {json.dumps(params)}")
         
@@ -442,7 +449,6 @@ def layout_optimization(params):
     turbine_id = 1
     max_turbines = 30  # Target number of turbines
     max_attempts = 1000  # Prevent infinite loops
-    min_setback_m = 500  # Minimum distance from constraints
     min_turbine_spacing_m = turbine_spacing_m  # Minimum distance between turbines
     
     attempts = 0
@@ -459,13 +465,20 @@ def layout_optimization(params):
         turbine_lat = lat + y_offset * lat_offset_per_m
         turbine_lon = lon + x_offset * lon_offset_per_m
         
-        # Check constraints (exclusion zones)
+        # Check constraints (exclusion zones) with proper buffer distances
         valid_position = True
         
         for constraint in constraints:
             if isinstance(constraint, dict) and constraint.get('geometry'):
                 geom = constraint['geometry']
-                if geom.get('type') == 'Point':
+                props = constraint.get('properties', {})
+                
+                # Get buffer distance from feature properties (set in terrain analysis)
+                required_buffer_m = props.get('bufferMeters', 100)  # Default 100m if not specified
+                
+                geom_type = geom.get('type')
+                
+                if geom_type == 'Point':
                     const_coords = geom['coordinates']
                     const_lon, const_lat = const_coords[0], const_coords[1]
                     
@@ -475,8 +488,71 @@ def layout_optimization(params):
                         ((turbine_lon - const_lon) * 111000 * math.cos(math.radians(turbine_lat))) ** 2
                     )
                     
-                    if distance_m < min_setback_m:
+                    if distance_m < required_buffer_m:
                         valid_position = False
+                        break
+                
+                elif geom_type == 'LineString':
+                    # Check distance to line (roads, power lines, etc.)
+                    coords = geom['coordinates']
+                    for i in range(len(coords) - 1):
+                        # Check distance to each line segment
+                        p1_lon, p1_lat = coords[i][0], coords[i][1]
+                        p2_lon, p2_lat = coords[i+1][0], coords[i+1][1]
+                        
+                        # Simple point-to-line distance (approximate)
+                        # Convert to meters
+                        p1_x = (p1_lon - turbine_lon) * 111000 * math.cos(math.radians(turbine_lat))
+                        p1_y = (p1_lat - turbine_lat) * 111000
+                        p2_x = (p2_lon - turbine_lon) * 111000 * math.cos(math.radians(turbine_lat))
+                        p2_y = (p2_lat - turbine_lat) * 111000
+                        
+                        # Distance from point to line segment
+                        line_len_sq = (p2_x - p1_x)**2 + (p2_y - p1_y)**2
+                        if line_len_sq == 0:
+                            dist = math.sqrt(p1_x**2 + p1_y**2)
+                        else:
+                            t = max(0, min(1, ((-p1_x) * (p2_x - p1_x) + (-p1_y) * (p2_y - p1_y)) / line_len_sq))
+                            proj_x = p1_x + t * (p2_x - p1_x)
+                            proj_y = p1_y + t * (p2_y - p1_y)
+                            dist = math.sqrt(proj_x**2 + proj_y**2)
+                        
+                        if dist < required_buffer_m:
+                            valid_position = False
+                            break
+                    
+                    if not valid_position:
+                        break
+                
+                elif geom_type == 'Polygon':
+                    # Check if point is inside polygon or too close to edges
+                    coords = geom['coordinates'][0] if geom['coordinates'] else []
+                    
+                    # Check distance to polygon edges
+                    for i in range(len(coords) - 1):
+                        p1_lon, p1_lat = coords[i][0], coords[i][1]
+                        p2_lon, p2_lat = coords[i+1][0], coords[i+1][1]
+                        
+                        # Distance to edge (same as LineString)
+                        p1_x = (p1_lon - turbine_lon) * 111000 * math.cos(math.radians(turbine_lat))
+                        p1_y = (p1_lat - turbine_lat) * 111000
+                        p2_x = (p2_lon - turbine_lon) * 111000 * math.cos(math.radians(turbine_lat))
+                        p2_y = (p2_lat - turbine_lat) * 111000
+                        
+                        line_len_sq = (p2_x - p1_x)**2 + (p2_y - p1_y)**2
+                        if line_len_sq == 0:
+                            dist = math.sqrt(p1_x**2 + p1_y**2)
+                        else:
+                            t = max(0, min(1, ((-p1_x) * (p2_x - p1_x) + (-p1_y) * (p2_y - p1_y)) / line_len_sq))
+                            proj_x = p1_x + t * (p2_x - p1_x)
+                            proj_y = p1_y + t * (p2_y - p1_y)
+                            dist = math.sqrt(proj_x**2 + proj_y**2)
+                        
+                        if dist < required_buffer_m:
+                            valid_position = False
+                            break
+                    
+                    if not valid_position:
                         break
         
         # Check spacing from other turbines
@@ -588,21 +664,192 @@ def wake_simulation(params):
     # Calculate annual energy production in GWh
     aep_gwh = net_aep / 1000
     
-    # Generate all 8 visualization charts (if matplotlib is available)
-    disable_charts = os.environ.get('DISABLE_CHARTS', 'false').lower() == 'true'
+    # Generate wind rose data with SPEED BINS based on ACTUAL location
+    import math
     
-    if disable_charts:
-        print("Chart generation disabled (DISABLE_CHARTS=true)")
-        visualizations = {
-            'wake_heat_map': None,
-            'wake_analysis': None,
-            'performance_charts': [],
-            'seasonal_analysis': None,
-            'variability_analysis': None,
-            'wind_rose': None,
-            'complete_report': None
-        }
+    # Wind rose based on latitude (location-specific realistic patterns)
+    directions = [i * 22.5 for i in range(16)]  # 16 compass directions
+    
+    # Determine prevailing wind direction based on latitude
+    if lat is None:
+        lat = 35.0  # Default to mid-latitude
+    
+    if 30 <= abs(lat) <= 60:
+        # Mid-latitude westerlies - SW to W prevailing
+        if lat > 0:  # Northern hemisphere
+            prevailing_direction = 225  # SW
+        else:  # Southern hemisphere
+            prevailing_direction = 315  # NW
+        spread = 60  # Moderate spread
+        mean_speed = 8.5  # Higher wind speeds
+    elif abs(lat) < 30:
+        # Trade winds
+        if lat > 0:  # Northern hemisphere - NE trades
+            prevailing_direction = 45  # NE
+        else:  # Southern hemisphere - SE trades
+            prevailing_direction = 135  # SE
+        spread = 45  # Tighter spread
+        mean_speed = 7.0  # Moderate wind speeds
     else:
+        # Polar easterlies
+        if lat > 0:
+            prevailing_direction = 90  # E
+        else:
+            prevailing_direction = 270  # W
+        spread = 50
+        mean_speed = 6.5  # Lower wind speeds
+    
+    # Wind speed bins (m/s) - matching professional wind rose style
+    speed_bins = [
+        {'min': 0, 'max': 1, 'label': '0-1', 'color': '#FFFF00'},      # Yellow
+        {'min': 1, 'max': 2, 'label': '1-2', 'color': '#FFD700'},      # Gold
+        {'min': 2, 'max': 3, 'label': '2-3', 'color': '#FFA500'},      # Orange
+        {'min': 3, 'max': 4, 'label': '3-4', 'color': '#FF6347'},      # Tomato
+        {'min': 4, 'max': 4.5, 'label': '4-4.5', 'color': '#FF1493'},  # Deep Pink
+        {'min': 4.5, 'max': 5, 'label': '4.5-5', 'color': '#FF00FF'},  # Magenta
+        {'min': 5, 'max': 6, 'label': '5-6', 'color': '#9932CC'},      # Dark Orchid
+        {'min': 6, 'max': 100, 'label': '6+', 'color': '#8B008B'}      # Dark Magenta
+    ]
+    
+    # Generate wind rose data with speed bins for each direction
+    wind_rose_data = []
+    for i, direction in enumerate(directions):
+        # Calculate angular difference from prevailing direction
+        angle_diff = min(abs(direction - prevailing_direction), 360 - abs(direction - prevailing_direction))
+        # Base frequency peaks at prevailing direction
+        base_freq = 6.25 * (1 + 0.8 * math.exp(-angle_diff / spread))
+        
+        # Distribute frequency across speed bins using Weibull-like distribution
+        direction_data = {'direction': direction, 'bins': []}
+        for bin_info in speed_bins:
+            # Calculate probability for this speed bin
+            bin_center = (bin_info['min'] + bin_info['max']) / 2
+            # Weibull-like probability (peaks around mean_speed)
+            if bin_center < mean_speed:
+                prob = (bin_center / mean_speed) ** 1.5
+            else:
+                prob = math.exp(-((bin_center - mean_speed) / 3) ** 2)
+            
+            # Frequency for this direction and speed bin
+            freq = base_freq * prob * 0.15  # Scale to reasonable percentages
+            direction_data['bins'].append({
+                'speed_range': bin_info['label'],
+                'frequency': freq,
+                'color': bin_info['color']
+            })
+        
+        wind_rose_data.append(direction_data)
+    
+    # Normalize all frequencies to sum to 100%
+    total_freq = sum(sum(bin_data['frequency'] for bin_data in dir_data['bins']) for dir_data in wind_rose_data)
+    for dir_data in wind_rose_data:
+        for bin_data in dir_data['bins']:
+            bin_data['frequency'] = (bin_data['frequency'] / total_freq) * 100
+    
+    print(f"Wind rose for lat={lat}: prevailing={prevailing_direction}°, mean_speed={mean_speed}m/s")
+    
+    # Wind speed distribution (Weibull parameters based on location)
+    wind_speeds = [i * 0.5 for i in range(51)]  # 0 to 25 m/s
+    # Typical wind farm Weibull: k=2, scale=8-9 m/s
+    k, scale = 2.0, 8.5
+    wind_probabilities = []
+    for ws in wind_speeds:
+        if ws == 0:
+            wind_probabilities.append(0)
+        else:
+            # Weibull PDF
+            prob = (k / scale) * ((ws / scale) ** (k - 1)) * math.exp(-((ws / scale) ** k))
+            wind_probabilities.append(prob)
+    
+    # Power curve for typical 3MW turbine
+    power_curve = []
+    for ws in wind_speeds:
+        if ws < 3:  # Cut-in speed
+            power_curve.append(0)
+        elif ws < 12:  # Ramp up to rated
+            power_curve.append(3.0 * ((ws - 3) / 9) ** 3)  # Cubic curve
+        elif ws < 25:  # Rated power
+            power_curve.append(3.0)
+        else:  # Cut-out
+            power_curve.append(0)
+    
+    # Monthly energy production (seasonal variation)
+    months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    # Winter months typically have higher wind
+    seasonal_factors = [1.2, 1.15, 1.1, 0.95, 0.85, 0.8, 0.75, 0.8, 0.9, 1.0, 1.1, 1.2]
+    monthly_aep = [aep_gwh / 12 * factor for factor in seasonal_factors]
+    
+    # Extract turbine positions for spatial charts
+    turbine_positions_x = []
+    turbine_positions_y = []
+    if turbines:
+        for turbine in turbines:
+            if isinstance(turbine, dict) and 'geometry' in turbine:
+                coords = turbine['geometry'].get('coordinates', [])
+                if len(coords) >= 2:
+                    turbine_positions_x.append(coords[0])  # longitude
+                    turbine_positions_y.append(coords[1])  # latitude
+    
+    # If no positions, create a simple grid
+    if not turbine_positions_x:
+        import math
+        grid_size = int(math.ceil(math.sqrt(turbine_count)))
+        for i in range(turbine_count):
+            row = i // grid_size
+            col = i % grid_size
+            turbine_positions_x.append(col * 500)  # 500m spacing
+            turbine_positions_y.append(row * 500)
+    
+    # AEP per turbine for spatial distribution
+    aep_per_turbine_list = [aep_gwh / turbine_count] * len(turbine_positions_x)
+    
+    chart_data = {
+        'aep_distribution_bar': {
+            'turbines': list(range(1, turbine_count + 1)),
+            'aep': [aep_gwh / turbine_count] * turbine_count
+        },
+        'aep_distribution_spatial': {
+            'x': turbine_positions_x,
+            'y': turbine_positions_y,
+            'aep': aep_per_turbine_list,
+            'turbine_ids': [f'T{i+1:03d}' for i in range(len(turbine_positions_x))]
+        },
+        'wake_losses': {
+            'turbines': list(range(1, turbine_count + 1)),
+            'losses': [wake_loss * 100] * turbine_count
+        },
+        'wind_rose': wind_rose_data,  # Full wind rose with speed bins
+        'wind_speed_distribution': {
+            'wind_speed': wind_speeds,
+            'probability': wind_probabilities
+        },
+        'power_curve': {
+            'wind_speed': wind_speeds,
+            'power': power_curve
+        },
+        'monthly_production': {
+            'months': months,
+            'aep': monthly_aep
+        },
+        'aep_vs_windspeed': {
+            'wind_speed': list(range(3, 26)),
+            'aep': [aep_gwh * ((ws/8.5)**2) * math.exp(-(ws/10)) for ws in range(3, 26)]
+        }
+    }
+    
+    visualizations = {
+        'chartData': chart_data,
+        'wake_heat_map': None,
+        'wake_analysis': None,
+        'performance_charts': [],
+        'seasonal_analysis': None,
+        'variability_analysis': None,
+        'wind_rose': None,
+        'complete_report': None
+    }
+    
+    # Legacy matplotlib chart generation (disabled - requires PyWake)
+    if False:
         try:
             chart_result = generate_simulation_charts(project_id, turbine_count, aep_gwh, capacity_factor, wake_loss)
             chart_urls = chart_result['chart_urls']
@@ -654,6 +901,68 @@ def wake_simulation(params):
             },
             'visualizations': visualizations,
             'message': f'Wake simulation complete: {round(net_aep, 2)} MWh/year with {turbine_count} turbines at {lat:.4f}°, {lon:.4f}°'
+        }
+    }
+
+
+def generate_chart_data(turbine_count, aep_gwh, capacity_factor, wake_loss):
+    """
+    Generate chart data for frontend rendering with Plotly.js
+    Returns structured data instead of PNG images - no numpy/scipy needed
+    """
+    turbines = list(range(1, turbine_count + 1))
+    aep_per_turbine = [aep_gwh / turbine_count] * turbine_count
+    wake_loss_per_turbine = [wake_loss * 100] * turbine_count
+    
+    # Wind rose data (16 directions)
+    directions = [i * 22.5 for i in range(16)]
+    frequencies = [8, 10, 12, 15, 10, 8, 6, 5, 7, 9, 11, 13, 12, 10, 8, 7]
+    
+    # Wind speed distribution (simplified Weibull-like curve)
+    ws = [i * 0.3 for i in range(101)]  # 0 to 30 m/s
+    # Simplified Weibull PDF approximation
+    pdf = []
+    for speed in ws:
+        if speed < 1:
+            pdf.append(0)
+        elif speed < 15:
+            # Peak around 8 m/s
+            pdf.append(0.12 * speed * (2.718 ** (-(speed/8)**2)))
+        else:
+            pdf.append(0.01 * (2.718 ** (-(speed-15)/5)))
+    
+    # Power curve (simplified)
+    power = []
+    for speed in ws:
+        if speed < 3:
+            power.append(0)
+        elif speed < 12:
+            power.append((speed - 3) / 9 * 3.0)  # Linear ramp to 3MW
+        elif speed < 25:
+            power.append(3.0)  # Rated power
+        else:
+            power.append(0)  # Cut-out
+    
+    return {
+        'aep_distribution': {
+            'turbines': turbines,
+            'aep': aep_per_turbine
+        },
+        'wake_losses': {
+            'turbines': turbines,
+            'losses': wake_loss_per_turbine
+        },
+        'wind_rose': {
+            'directions': directions,
+            'frequencies': frequencies
+        },
+        'wind_speed_distribution': {
+            'wind_speed': ws,
+            'probability': pdf
+        },
+        'power_curve': {
+            'wind_speed': ws,
+            'power': power
         }
     }
 

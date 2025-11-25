@@ -872,14 +872,56 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
 
       console.log('[LayoutMap] Rendered terrain layers:', terrainLayers.length);
 
-      // STEP 2: Render turbine markers on top of terrain features
+      // STEP 2: Render turbine markers with labels on top of terrain features
       const markers: any[] = [];
       turbineFeatures.forEach((feature: any, index: number) => {
         const coords = feature.geometry.coordinates;
         const props = feature.properties || {};
+        const turbineLabel = props.turbine_id || `T${index + 1}`;
         
-        // Use default Leaflet marker (blue teardrop) to match notebook visualization
-        const marker = L.marker([coords[1], coords[0]])
+        // Create custom icon with label
+        const customIcon = L.divIcon({
+          className: 'custom-turbine-marker',
+          html: `
+            <div style="
+              position: relative;
+              width: 30px;
+              height: 30px;
+            ">
+              <div style="
+                position: absolute;
+                top: 0;
+                left: 0;
+                width: 30px;
+                height: 30px;
+                background-color: #0972d3;
+                border: 3px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+              "></div>
+              <div style="
+                position: absolute;
+                top: 32px;
+                left: 50%;
+                transform: translateX(-50%);
+                background-color: white;
+                color: #0972d3;
+                padding: 2px 6px;
+                border-radius: 3px;
+                font-size: 11px;
+                font-weight: bold;
+                white-space: nowrap;
+                box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+                font-family: 'Amazon Ember', Arial, sans-serif;
+              ">${turbineLabel}</div>
+            </div>
+          `,
+          iconSize: [30, 50],
+          iconAnchor: [15, 15],
+          popupAnchor: [0, -15]
+        });
+        
+        const marker = L.marker([coords[1], coords[0]], { icon: customIcon })
           .addTo(map)
           .bindPopup(`
             <div style="
@@ -888,7 +930,7 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
               font-family: 'Amazon Ember', Arial, sans-serif;
             ">
               <div style="font-size: 16px; font-weight: bold; color: #0972d3; margin-bottom: 8px;">
-                ${props.turbine_id || `Turbine ${index + 1}`}
+                ${turbineLabel}
               </div>
               <div style="font-size: 13px; color: #545b64;">
                 <strong>Capacity:</strong> ${props.capacity_MW || 2.5} MW<br/>

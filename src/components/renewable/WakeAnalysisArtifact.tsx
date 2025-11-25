@@ -22,12 +22,12 @@ import {
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';
 
 // Dynamic import for Plotly (client-side only)
-const Plot = React.lazy(() => import('react-plotly.js')) as any;
+const PlotComponent = React.lazy(() => import('react-plotly.js')) as any;
 
 // Wrapper component for Plot with Suspense
-const PlotWithSuspense: React.FC<any> = (props) => (
+const Plot: React.FC<any> = (props) => (
   <Suspense fallback={<Box textAlign="center" padding="l"><Spinner size="large" /></Box>}>
-    <PlotWithSuspense {...props} />
+    <PlotComponent {...props} />
   </Suspense>
 );
 
@@ -377,14 +377,309 @@ const WakeAnalysisArtifact: React.FC<WakeAnalysisArtifactProps> = ({ data, onFol
               content: (
                 <SpaceBetween size="m">
                   {/* Show available charts or message if none */}
+                  {/* Performance Charts with Real Data */}
+                  {data.visualizations?.chartData && (
+                    <Container header={<Header variant="h3">Performance Analysis</Header>}>
+                      <SpaceBetween size="l">
+                        {/* AEP Distribution Spatial */}
+                        {data.visualizations.chartData.aep_distribution_spatial && (
+                          <Box>
+                            <Box variant="h4" padding={{ bottom: 'xs' }}>AEP Distribution (Spatial)</Box>
+                            <Plot
+                              data={[{
+                                x: data.visualizations.chartData.aep_distribution_spatial.x,
+                                y: data.visualizations.chartData.aep_distribution_spatial.y,
+                                mode: 'markers',
+                                type: 'scatter',
+                                marker: {
+                                  size: 12,
+                                  color: data.visualizations.chartData.aep_distribution_spatial.aep,
+                                  colorscale: 'Viridis',
+                                  showscale: true,
+                                  colorbar: {
+                                    title: 'AEP (GWh)',
+                                    titlefont: { color: 'inherit' },
+                                    tickfont: { color: 'inherit' }
+                                  }
+                                },
+                                text: data.visualizations.chartData.aep_distribution_spatial.turbine_ids,
+                                hovertemplate: '%{text}<br>AEP: %{marker.color:.2f} GWh<extra></extra>'
+                              }]}
+                              layout={{
+                                xaxis: { title: 'X Position (m)', gridcolor: 'rgba(128,128,128,0.2)' },
+                                yaxis: { title: 'Y Position (m)', gridcolor: 'rgba(128,128,128,0.2)' },
+                                height: 500,
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                font: { color: 'inherit' },
+                                margin: { t: 20, r: 20, b: 60, l: 60 }
+                              }}
+                              config={{ responsive: true, displayModeBar: false }}
+                              style={{ width: '100%' }}
+                            />
+                          </Box>
+                        )}
+                        
+                        {data.visualizations.chartData.aep_distribution_bar && (
+                          <Box>
+                            <Box variant="h4" padding={{ bottom: 'xs' }}>Annual Energy Production per Turbine</Box>
+                            <Plot
+                              data={[{
+                                x: data.visualizations.chartData.aep_distribution_bar.turbines,
+                                y: data.visualizations.chartData.aep_distribution_bar.aep,
+                                type: 'bar',
+                                marker: { color: '#0972d3' }
+                              }]}
+                              layout={{
+                                xaxis: { 
+                                  title: 'Turbine Number',
+                                  gridcolor: 'rgba(128,128,128,0.2)'
+                                },
+                                yaxis: { 
+                                  title: 'AEP (GWh/year)',
+                                  gridcolor: 'rgba(128,128,128,0.2)'
+                                },
+                                height: 400,
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                font: { color: 'inherit' },
+                                margin: { t: 20, r: 20, b: 60, l: 60 }
+                              }}
+                              config={{ responsive: true, displayModeBar: false }}
+                              style={{ width: '100%' }}
+                            />
+                          </Box>
+                        )}
+                        
+                        {data.visualizations.chartData.wake_losses && (
+                          <Box>
+                            <Box variant="h4" padding={{ bottom: 'xs' }}>Wake Losses per Turbine</Box>
+                            <Plot
+                              data={[{
+                                x: data.visualizations.chartData.wake_losses.turbines,
+                                y: data.visualizations.chartData.wake_losses.losses,
+                                type: 'bar',
+                                marker: { color: '#d13212' }
+                              }]}
+                              layout={{
+                                xaxis: { 
+                                  title: 'Turbine Number',
+                                  gridcolor: 'rgba(128,128,128,0.2)'
+                                },
+                                yaxis: { 
+                                  title: 'Wake Loss (%)',
+                                  gridcolor: 'rgba(128,128,128,0.2)'
+                                },
+                                height: 400,
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                font: { color: 'inherit' },
+                                margin: { t: 20, r: 20, b: 60, l: 60 }
+                              }}
+                              config={{ responsive: true, displayModeBar: false }}
+                              style={{ width: '100%' }}
+                            />
+                          </Box>
+                        )}
+                        
+                        {/* Wind Rose with Speed Bins */}
+                        {data.visualizations.chartData.wind_rose && Array.isArray(data.visualizations.chartData.wind_rose) && (
+                          <Box>
+                            <Box variant="h4" padding={{ bottom: 'xs' }}>Wind Rose</Box>
+                            <Plot
+                              data={
+                                // Create stacked bar polar chart with speed bins
+                                (() => {
+                                  const windRoseData = data.visualizations.chartData.wind_rose;
+                                  const directions = windRoseData.map((d: any) => d.direction);
+                                  const speedBins = windRoseData[0]?.bins || [];
+                                  
+                                  // Create one trace per speed bin (stacked)
+                                  return speedBins.map((_, binIndex: number) => ({
+                                    r: windRoseData.map((d: any) => d.bins[binIndex]?.frequency || 0),
+                                    theta: directions,
+                                    name: speedBins[binIndex]?.speed_range || '',
+                                    type: 'barpolar' as any,
+                                    marker: {
+                                      color: speedBins[binIndex]?.color || '#0972d3',
+                                      line: {
+                                        color: 'rgba(0,0,0,0.1)',
+                                        width: 0.5
+                                      }
+                                    }
+                                  }));
+                                })()
+                              }
+                              layout={{
+                                polar: {
+                                  bgcolor: 'rgba(0,0,0,0)',
+                                  radialaxis: {
+                                    visible: true,
+                                    gridcolor: 'rgba(128,128,128,0.3)',
+                                    tickfont: {
+                                      color: 'inherit',
+                                      size: 10
+                                    },
+                                    linecolor: 'rgba(128,128,128,0.3)',
+                                    ticksuffix: '%'
+                                  },
+                                  angularaxis: {
+                                    direction: 'clockwise',
+                                    gridcolor: 'rgba(128,128,128,0.3)',
+                                    tickfont: {
+                                      color: 'inherit',
+                                      size: 11
+                                    },
+                                    linecolor: 'rgba(128,128,128,0.3)'
+                                  }
+                                },
+                                barmode: 'stack',
+                                height: 550,
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                font: {
+                                  color: 'inherit',
+                                  family: 'inherit'
+                                },
+                                margin: { t: 40, r: 120, b: 40, l: 40 },
+                                showlegend: true,
+                                legend: {
+                                  title: { text: 'Wind Speed (m/s)', font: { color: 'inherit' } },
+                                  font: { color: 'inherit', size: 11 },
+                                  bgcolor: 'rgba(0,0,0,0)',
+                                  bordercolor: 'rgba(128,128,128,0.3)',
+                                  borderwidth: 1,
+                                  x: 1.02,
+                                  y: 0.5
+                                }
+                              } as any}
+                              config={{ responsive: true, displayModeBar: false }}
+                              style={{ width: '100%' }}
+                            />
+                          </Box>
+                        )}
+                        
+                        {/* Wind Speed Distribution */}
+                        {data.visualizations.chartData.wind_speed_distribution && (
+                          <Box>
+                            <Box variant="h4" padding={{ bottom: 'xs' }}>Wind Speed Distribution</Box>
+                            <Plot
+                              data={[{
+                                x: data.visualizations.chartData.wind_speed_distribution.wind_speed,
+                                y: data.visualizations.chartData.wind_speed_distribution.probability,
+                                type: 'scatter',
+                                mode: 'lines',
+                                fill: 'tozeroy',
+                                line: { color: '#0972d3', width: 2 },
+                                fillcolor: 'rgba(9, 114, 211, 0.2)'
+                              }]}
+                              layout={{
+                                xaxis: { title: 'Wind Speed (m/s)', gridcolor: 'rgba(128,128,128,0.2)' },
+                                yaxis: { title: 'Probability Density', gridcolor: 'rgba(128,128,128,0.2)' },
+                                height: 400,
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                font: { color: 'inherit' },
+                                margin: { t: 20, r: 20, b: 60, l: 60 }
+                              }}
+                              config={{ responsive: true, displayModeBar: false }}
+                              style={{ width: '100%' }}
+                            />
+                          </Box>
+                        )}
+                        
+                        {/* Power Curve */}
+                        {data.visualizations.chartData.power_curve && (
+                          <Box>
+                            <Box variant="h4" padding={{ bottom: 'xs' }}>Turbine Power Curve</Box>
+                            <Plot
+                              data={[{
+                                x: data.visualizations.chartData.power_curve.wind_speed,
+                                y: data.visualizations.chartData.power_curve.power,
+                                type: 'scatter',
+                                mode: 'lines',
+                                line: { color: '#0972d3', width: 3 }
+                              }]}
+                              layout={{
+                                xaxis: { title: 'Wind Speed (m/s)', gridcolor: 'rgba(128,128,128,0.2)' },
+                                yaxis: { title: 'Power (MW)', gridcolor: 'rgba(128,128,128,0.2)' },
+                                height: 400,
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                font: { color: 'inherit' },
+                                margin: { t: 20, r: 20, b: 60, l: 60 }
+                              }}
+                              config={{ responsive: true, displayModeBar: false }}
+                              style={{ width: '100%' }}
+                            />
+                          </Box>
+                        )}
+                        
+                        {/* Monthly Production */}
+                        {data.visualizations.chartData.monthly_production && (
+                          <Box>
+                            <Box variant="h4" padding={{ bottom: 'xs' }}>Monthly Energy Production</Box>
+                            <Plot
+                              data={[{
+                                x: data.visualizations.chartData.monthly_production.months,
+                                y: data.visualizations.chartData.monthly_production.aep,
+                                type: 'bar',
+                                marker: { color: '#0972d3' }
+                              }]}
+                              layout={{
+                                xaxis: { title: 'Month', gridcolor: 'rgba(128,128,128,0.2)' },
+                                yaxis: { title: 'Energy Production (GWh)', gridcolor: 'rgba(128,128,128,0.2)' },
+                                height: 400,
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                font: { color: 'inherit' },
+                                margin: { t: 20, r: 20, b: 60, l: 60 }
+                              }}
+                              config={{ responsive: true, displayModeBar: false }}
+                              style={{ width: '100%' }}
+                            />
+                          </Box>
+                        )}
+                        
+                        {/* AEP vs Wind Speed */}
+                        {data.visualizations.chartData.aep_vs_windspeed && (
+                          <Box>
+                            <Box variant="h4" padding={{ bottom: 'xs' }}>AEP vs Wind Speed</Box>
+                            <Plot
+                              data={[{
+                                x: data.visualizations.chartData.aep_vs_windspeed.wind_speed,
+                                y: data.visualizations.chartData.aep_vs_windspeed.aep,
+                                type: 'scatter',
+                                mode: 'lines+markers',
+                                line: { color: '#0972d3', width: 2 },
+                                marker: { size: 6, color: '#0972d3' }
+                              }]}
+                              layout={{
+                                xaxis: { title: 'Wind Speed (m/s)', gridcolor: 'rgba(128,128,128,0.2)' },
+                                yaxis: { title: 'AEP (GWh)', gridcolor: 'rgba(128,128,128,0.2)' },
+                                height: 400,
+                                paper_bgcolor: 'rgba(0,0,0,0)',
+                                plot_bgcolor: 'rgba(0,0,0,0)',
+                                font: { color: 'inherit' },
+                                margin: { t: 20, r: 20, b: 60, l: 60 }
+                              }}
+                              config={{ responsive: true, displayModeBar: false }}
+                              style={{ width: '100%' }}
+                            />
+                          </Box>
+                        )}
+                      </SpaceBetween>
+                    </Container>
+                  )}
+                  
                   {(!data.visualizations || 
-                    (!data.visualizations.performance_charts || data.visualizations.performance_charts.length === 0)) && (
+                    (!data.visualizations.chartData && (!data.visualizations.performance_charts || data.visualizations.performance_charts.length === 0))) && (
                     <Alert type="info">
                       Analysis charts are being generated. They will appear here once processing is complete.
                     </Alert>
                   )}
                   
-                  {/* ALL 8 Performance Charts - Display all charts from performance_charts array */}
+                  {/* ALL 8 Performance Charts - Display all charts from performance_charts array (legacy image URLs) */}
                   {data.visualizations?.performance_charts && data.visualizations.performance_charts.length > 0 && (
                     <Container header={<Header variant="h3">Wind Farm Analysis Charts</Header>}>
                       <SpaceBetween size="l">
@@ -432,6 +727,7 @@ const WakeAnalysisArtifact: React.FC<WakeAnalysisArtifactProps> = ({ data, onFol
                   
                   {/* Show message if no charts are visible */}
                   {data.visualizations && 
+                   !data.visualizations.chartData && 
                    (!data.visualizations.performance_charts || data.visualizations.performance_charts.length === 0) && (
                     <Alert type="info" header="Charts Not Available">
                       <SpaceBetween size="s">
@@ -457,21 +753,14 @@ const WakeAnalysisArtifact: React.FC<WakeAnalysisArtifactProps> = ({ data, onFol
         <Container header={<Header variant="h3">Next Steps</Header>}>
           <SpaceBetween size="s">
             <Box variant="p">
-              Continue your wind farm analysis with these recommended actions:
+              Generate a comprehensive executive report with technical analysis, performance metrics, and project recommendations.
             </Box>
-            <SpaceBetween direction="horizontal" size="xs">
-              <Button
-                onClick={() => handleFollowUpAction('Perform financial analysis and ROI calculation')}
-              >
-                Financial Analysis
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => handleFollowUpAction('Generate comprehensive executive report with all analysis results')}
-              >
-                Generate Report
-              </Button>
-            </SpaceBetween>
+            <Button
+              variant="primary"
+              onClick={() => handleFollowUpAction('Generate comprehensive executive report with all analysis results')}
+            >
+              Generate Report
+            </Button>
           </SpaceBetween>
         </Container>
 

@@ -762,21 +762,20 @@ export class MainStack extends cdk.Stack {
     // Renewable Tools Lambda - COMPLETE ORIGINAL CODE (Must be before orchestrator)
     // ============================================================================
     
-    // Create renewable tools Lambda - use existing layer with matplotlib
-    // Note: matplotlib charts generation temporarily disabled due to Lambda layer size limits
-    // Renewable tools Lambda (charts disabled - matplotlib not available in basic Lambda)
+    // Renewable tools Lambda - returns chart data for frontend Plotly.js rendering
     const renewableToolsFunction = new lambda.Function(this, 'RenewableToolsFunction', {
-      description: 'Renewable tools Lambda (charts disabled - no matplotlib)',
+      description: 'Renewable tools Lambda - returns chart data for client-side rendering',
       runtime: lambda.Runtime.PYTHON_3_12,
       handler: 'handler.handler',
       code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-functions/renewable-tools')),
       timeout: cdk.Duration.minutes(5),
-      memorySize: 512,
+      memorySize: 1024,
       environment: {
-        NREL_API_KEY: process.env.NREL_API_KEY || 'demo-key',
+        NREL_API_KEY: process.env.NREL_API_KEY || 'Fkh6pFT1SPsn9SBw8TDMSl7EnjEeGzNe5mfGQSA2',
         S3_BUCKET: storageBucket.bucketName,
+        RENEWABLE_S3_BUCKET: storageBucket.bucketName,
         REGION: this.region,
-        DISABLE_CHARTS: 'true',  // Charts disabled - matplotlib not available
+        RETURN_CHART_DATA: 'true',  // Return data for frontend Plotly.js rendering
       },
     });
     

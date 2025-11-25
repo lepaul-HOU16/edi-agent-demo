@@ -38,6 +38,9 @@ body {
   width: 100%;
   height: 100%;
   z-index: 1;
+  /* Enable hardware acceleration for smooth rendering */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
 }
 
 .leaflet-control-container {
@@ -51,6 +54,23 @@ body {
 
 .leaflet-pane {
   z-index: 200;
+  /* Enable hardware acceleration for smooth panning */
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+}
+
+/* Smooth tile rendering */
+.leaflet-tile-container {
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
+}
+
+.leaflet-tile {
+  /* Smooth tile transitions */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  transform: translate3d(0, 0, 0);
+  -webkit-transform: translate3d(0, 0, 0);
 }
 
 
