@@ -54,3 +54,415 @@ body {
 }
 
 
+
+/* Dark Mode Border Fixes */
+/* Subtle borders for dark mode - not too strong */
+[data-awsui-theme="dark"] .awsui_panel,
+[data-awsui-theme="dark"] [class*="panel"],
+[data-awsui-theme="dark"] [class*="container"] {
+  border-color: #2a3642 !important;
+}
+
+[data-awsui-theme="dark"] [class*="bottom-border"],
+[data-awsui-theme="dark"] [class*="border-bottom"] {
+  border-bottom-color: #2a3642 !important;
+}
+
+/* Fix for Data Catalog map container borders */
+[data-awsui-mode="dark"] .leaflet-container {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for Cloudscape container borders in dark mode */
+[data-awsui-mode="dark"] [class*="awsui_container"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for split panel borders */
+[data-awsui-mode="dark"] [class*="awsui_split-panel"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for table borders */
+[data-awsui-mode="dark"] [class*="awsui_table"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for card borders */
+[data-awsui-mode="dark"] [class*="awsui_card"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for ContentLayout borders in dark mode */
+[data-awsui-mode="dark"] [class*="awsui_content-layout"],
+[data-awsui-mode="dark"] [class*="awsui_layout"],
+[data-awsui-mode="dark"] [class*="content-wrapper"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for main content area borders */
+[data-awsui-mode="dark"] main,
+[data-awsui-mode="dark"] [role="main"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for grid borders */
+[data-awsui-mode="dark"] [class*="awsui_grid"],
+[data-awsui-mode="dark"] [class*="grid-column"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for any dividers in dark mode */
+[data-awsui-mode="dark"] hr,
+[data-awsui-mode="dark"] [class*="divider"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for TopNavigation bottom border in dark mode */
+[data-awsui-mode="dark"] [class*="awsui_top-navigation"],
+[data-awsui-mode="dark"] header[class*="awsui"] {
+  border-bottom-color: #2a3642 !important;
+}
+
+/* Fix for BreadcrumbGroup bottom border in dark mode */
+[data-awsui-mode="dark"] [class*="awsui_breadcrumb"],
+[data-awsui-mode="dark"] nav[class*="awsui"] {
+  border-bottom-color: #2a3642 !important;
+}
+
+/* Fix for SegmentedControl borders in dark mode */
+[data-awsui-mode="dark"] [class*="awsui_segmented-control"] {
+  border-color: #2a3642 !important;
+  border-bottom-color: #2a3642 !important;
+}
+
+/* Fix for breadcrumb and header borders in dark mode */
+[data-awsui-mode="dark"] [class*="awsui_breadcrumb"],
+[data-awsui-mode="dark"] [class*="awsui_header"] {
+  border-bottom-color: #2a3642 !important;
+}
+
+/* Fix for content header divider in dark mode */
+[data-awsui-mode="dark"] [class*="header-variant-divider"],
+[data-awsui-mode="dark"] [class*="awsui_header-variant"] {
+  border-bottom-color: #2a3642 !important;
+}
+
+/* Light Mode Border Fixes */
+/* More visible borders for light mode */
+[data-awsui-mode="light"] .awsui_panel,
+[data-awsui-mode="light"] [class*="panel"],
+[data-awsui-mode="light"] [class*="container"] {
+  border-color: #d5dbdb !important;
+}
+
+[data-awsui-mode="light"] [class*="bottom-border"],
+[data-awsui-mode="light"] [class*="border-bottom"] {
+  border-bottom-color: #d5dbdb !important;
+}
+
+/* Fix for Data Catalog map container borders in light mode */
+[data-awsui-mode="light"] .leaflet-container {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for Cloudscape container borders in light mode */
+[data-awsui-mode="light"] [class*="awsui_container"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for split panel borders in light mode */
+[data-awsui-theme="light"] [class*="awsui_split-panel"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for table borders in light mode */
+[data-awsui-theme="light"] [class*="awsui_table"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for card borders in light mode */
+[data-awsui-theme="light"] [class*="awsui_card"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for ContentLayout borders in light mode */
+[data-awsui-theme="light"] [class*="awsui_content-layout"],
+[data-awsui-theme="light"] [class*="awsui_layout"],
+[data-awsui-theme="light"] [class*="content-wrapper"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for main content area borders in light mode */
+[data-awsui-theme="light"] main,
+[data-awsui-theme="light"] [role="main"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for grid borders in light mode */
+[data-awsui-theme="light"] [class*="awsui_grid"],
+[data-awsui-theme="light"] [class*="grid-column"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for any dividers in light mode */
+[data-awsui-theme="light"] hr,
+[data-awsui-theme="light"] [class*="divider"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for TopNavigation bottom border in light mode */
+[data-awsui-theme="light"] [class*="awsui_top-navigation"],
+[data-awsui-theme="light"] header[class*="awsui"] {
+  border-bottom-color: #d5dbdb !important;
+}
+
+/* Fix for BreadcrumbGroup bottom border in light mode */
+[data-awsui-theme="light"] [class*="awsui_breadcrumb"],
+[data-awsui-theme="light"] nav[class*="awsui"] {
+  border-bottom-color: #d5dbdb !important;
+}
+
+/* Fix for SegmentedControl borders in light mode */
+[data-awsui-theme="light"] [class*="awsui_segmented-control"] {
+  border-color: #d5dbdb !important;
+  border-bottom-color: #d5dbdb !important;
+}
+
+/* Additional Dark Mode Border Fixes for Report and Workspace */
+/* Using awsui-mode attribute for better specificity */
+
+/* Fix for Alert component borders in dark mode */
+[awsui-mode="dark"] [class*="awsui_alert"],
+[awsui-mode="dark"] [class*="awsui_flash"],
+[data-awsui-mode="dark"] [class*="awsui_alert"],
+[data-awsui-mode="dark"] [class*="awsui_flash"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for Box component borders in dark mode */
+[awsui-mode="dark"] [class*="awsui_box"],
+[data-awsui-mode="dark"] [class*="awsui_box"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for Container borders in dark mode */
+[awsui-mode="dark"] [class*="awsui_container"],
+[data-awsui-mode="dark"] [class*="awsui_container"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for ExpandableSection borders in dark mode */
+[awsui-mode="dark"] [class*="awsui_expandable-section"],
+[data-awsui-mode="dark"] [class*="awsui_expandable-section"] {
+  border-color: #2a3642 !important;
+  border-bottom-color: #2a3642 !important;
+}
+
+/* Fix for SpaceBetween dividers in dark mode */
+[awsui-mode="dark"] [class*="awsui_space-between"] > *,
+[data-awsui-mode="dark"] [class*="awsui_space-between"] > * {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for Button borders in dark mode */
+[awsui-mode="dark"] [class*="awsui_button"],
+[data-awsui-mode="dark"] [class*="awsui_button"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for Input and Form control borders in dark mode */
+[awsui-mode="dark"] [class*="awsui_input"],
+[awsui-mode="dark"] [class*="awsui_select"],
+[awsui-mode="dark"] [class*="awsui_textarea"],
+[data-awsui-mode="dark"] [class*="awsui_input"],
+[data-awsui-mode="dark"] [class*="awsui_select"],
+[data-awsui-mode="dark"] [class*="awsui_textarea"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for Modal borders in dark mode */
+[awsui-mode="dark"] [class*="awsui_modal"],
+[awsui-mode="dark"] [class*="awsui_dialog"],
+[data-awsui-mode="dark"] [class*="awsui_modal"],
+[data-awsui-mode="dark"] [class*="awsui_dialog"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for Tabs borders in dark mode */
+[awsui-mode="dark"] [class*="awsui_tabs"],
+[data-awsui-mode="dark"] [class*="awsui_tabs"] {
+  border-bottom-color: #2a3642 !important;
+}
+
+/* Fix for all border utilities in dark mode */
+[awsui-mode="dark"] [class*="border"],
+[awsui-mode="dark"] [class*="awsui"][class*="border"],
+[data-awsui-mode="dark"] [class*="border"],
+[data-awsui-mode="dark"] [class*="awsui"][class*="border"] {
+  border-color: #2a3642 !important;
+}
+
+/* Fix for Header borders in dark mode */
+[awsui-mode="dark"] [class*="awsui_header"],
+[data-awsui-mode="dark"] [class*="awsui_header"] {
+  border-bottom-color: #2a3642 !important;
+}
+
+/* Additional Light Mode Border Fixes for Report and Workspace */
+
+/* Fix for Alert component borders in light mode */
+[awsui-mode="light"] [class*="awsui_alert"],
+[awsui-mode="light"] [class*="awsui_flash"],
+[data-awsui-mode="light"] [class*="awsui_alert"],
+[data-awsui-mode="light"] [class*="awsui_flash"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for Box component borders in light mode */
+[awsui-mode="light"] [class*="awsui_box"],
+[data-awsui-mode="light"] [class*="awsui_box"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for Container borders in light mode */
+[awsui-mode="light"] [class*="awsui_container"],
+[data-awsui-mode="light"] [class*="awsui_container"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for ExpandableSection borders in light mode */
+[awsui-mode="light"] [class*="awsui_expandable-section"],
+[data-awsui-mode="light"] [class*="awsui_expandable-section"] {
+  border-color: #d5dbdb !important;
+  border-bottom-color: #d5dbdb !important;
+}
+
+/* Fix for SpaceBetween dividers in light mode */
+[awsui-mode="light"] [class*="awsui_space-between"] > *,
+[data-awsui-mode="light"] [class*="awsui_space-between"] > * {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for Button borders in light mode */
+[awsui-mode="light"] [class*="awsui_button"],
+[data-awsui-mode="light"] [class*="awsui_button"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for Input and Form control borders in light mode */
+[awsui-mode="light"] [class*="awsui_input"],
+[awsui-mode="light"] [class*="awsui_select"],
+[awsui-mode="light"] [class*="awsui_textarea"],
+[data-awsui-mode="light"] [class*="awsui_input"],
+[data-awsui-mode="light"] [class*="awsui_select"],
+[data-awsui-mode="light"] [class*="awsui_textarea"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for Modal borders in light mode */
+[awsui-mode="light"] [class*="awsui_modal"],
+[awsui-mode="light"] [class*="awsui_dialog"],
+[data-awsui-mode="light"] [class*="awsui_modal"],
+[data-awsui-mode="light"] [class*="awsui_dialog"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for Tabs borders in light mode */
+[awsui-mode="light"] [class*="awsui_tabs"],
+[data-awsui-mode="light"] [class*="awsui_tabs"] {
+  border-bottom-color: #d5dbdb !important;
+}
+
+/* Fix for all border utilities in light mode */
+[awsui-mode="light"] [class*="border"],
+[awsui-mode="light"] [class*="awsui"][class*="border"],
+[data-awsui-mode="light"] [class*="border"],
+[data-awsui-mode="light"] [class*="awsui"][class*="border"] {
+  border-color: #d5dbdb !important;
+}
+
+/* Fix for Header borders in light mode */
+[awsui-mode="light"] [class*="awsui_header"],
+[data-awsui-mode="light"] [class*="awsui_header"] {
+  border-bottom-color: #d5dbdb !important;
+}
+
+
+/* CRITICAL: Body-level theme targeting for dark mode borders */
+body[data-awsui-mode="dark"] [class*="awsui_container"]:not([class*="awsui_tabs"]),
+body[data-awsui-mode="dark"] [class*="awsui_alert"],
+body[data-awsui-mode="dark"] [class*="awsui_box"]:not([class*="awsui_tabs"]),
+body[data-awsui-mode="dark"] [class*="awsui_panel"] {
+  border-color: #2a3642 !important;
+}
+
+body[data-awsui-mode="dark"] [class*="awsui_header"]:not([class*="awsui_tabs"]),
+body[data-awsui-mode="dark"] [class*="awsui_breadcrumb"],
+body[data-awsui-mode="dark"] nav:not([class*="awsui_tabs"]) {
+  border-bottom-color: #2a3642 !important;
+}
+
+/* CRITICAL: Body-level theme targeting for light mode borders */
+body[data-awsui-mode="light"] [class*="awsui_container"]:not([class*="awsui_tabs"]),
+body[data-awsui-mode="light"] [class*="awsui_alert"],
+body[data-awsui-mode="light"] [class*="awsui_box"]:not([class*="awsui_tabs"]),
+body[data-awsui-mode="light"] [class*="awsui_panel"] {
+  border-color: #d5dbdb !important;
+}
+
+body[data-awsui-mode="light"] [class*="awsui_header"]:not([class*="awsui_tabs"]),
+body[data-awsui-mode="light"] [class*="awsui_breadcrumb"],
+body[data-awsui-mode="light"] nav:not([class*="awsui_tabs"]) {
+  border-bottom-color: #d5dbdb !important;
+}
+
+
+/* Fix panel background in dark mode */
+body[data-awsui-mode="dark"] .awsui_panel,
+body[data-awsui-mode="dark"] [class*="panel"] {
+  background-color: transparent !important;
+}
+
+/* Fix reset-chat bottom border */
+body[data-awsui-mode="dark"] .reset-chat {
+  border-bottom-color: #2a3642 !important;
+}
+
+body[data-awsui-mode="light"] .reset-chat {
+  border-bottom-color: #d5dbdb !important;
+}
+
+
+/* CRITICAL: Force panel background to be dark in dark mode */
+body[data-awsui-mode="dark"] .panel,
+body[data-awsui-mode="dark"] div.panel {
+  background-color: var(--awsui-color-background-layout-main) !important;
+  background: var(--awsui-color-background-layout-main) !important;
+}
+
+body[data-awsui-mode="light"] .panel,
+body[data-awsui-mode="light"] div.panel {
+  background-color: var(--awsui-color-background-layout-main) !important;
+  background: var(--awsui-color-background-layout-main) !important;
+}
+
+
+/* Fix panel border in dark mode - make it match reset-chat border */
+body[data-awsui-mode="dark"] .panel,
+body[data-awsui-mode="dark"] div.panel {
+  border: 1px solid #2a3642 !important;
+  border-color: #2a3642 !important;
+}
+
+body[data-awsui-mode="light"] .panel,
+body[data-awsui-mode="light"] div.panel {
+  border: 1px solid #d5dbdb !important;
+  border-color: #d5dbdb !important;
+}
+
+/* NUCLEAR FIX: Force ALL Cloudscape component borders in dark mode to match theme */
+[data-awsui-mode="dark"] div[class*="awsui"][class*="root"],
+[data-awsui-mode="dark"] div[class*="awsui_root"] {
+  border-color: #2a3642 !important;
+}

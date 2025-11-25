@@ -391,7 +391,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     const path = event.requestContext.http.path;
     const method = event.requestContext.http.method;
 
-    // POST /api/projects/delete
+    // POST /api/projects/delete (legacy support)
     if (path === '/api/projects/delete' && method === 'POST') {
       const body = parseBody<{ projectId: string }>(event);
       const validationError = validateRequired(body, ['projectId']);
@@ -415,10 +415,21 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       return successResponse(result, 'Project renamed successfully');
     }
 
+    // DELETE /api/projects/{projectId}
+    if (path.startsWith('/api/projects/') && method === 'DELETE') {
+      const projectId = path.split('/').pop();
+      if (!projectId || projectId === 'delete' || projectId === 'rename') {
+        return errorResponse('Project ID is required', 'INVALID_INPUT', 400);
+      }
+
+      const result = await deleteProject(projectId, user.sub);
+      return successResponse(result, 'Project deleted successfully');
+    }
+
     // GET /api/projects/{projectId}
     if (path.startsWith('/api/projects/') && method === 'GET') {
       const projectId = path.split('/').pop();
-      if (!projectId) {
+      if (!projectId || projectId === 'delete' || projectId === 'rename') {
         return errorResponse('Project ID is required', 'INVALID_INPUT', 400);
       }
 

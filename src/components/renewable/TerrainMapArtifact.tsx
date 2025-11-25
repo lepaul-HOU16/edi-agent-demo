@@ -11,8 +11,53 @@ import 'leaflet/dist/leaflet.css';
 import { ActionButtons } from './ActionButtons';
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';
 
-// Custom CSS to hide popup tip and style popups + fix table header padding + make layer control prominent
+// Custom CSS to hide popup tip and style popups + fix table header padding + FORCE CONTROLS VISIBLE
 const popupStyles = `
+  /* FORCE ONLY LEAFLET CONTROLS TO BE VISIBLE, NOT THE ENTIRE MAP */
+  .terrain-map-container .leaflet-control-container,
+  .terrain-map-container .leaflet-top,
+  .terrain-map-container .leaflet-bottom,
+  .terrain-map-container .leaflet-left,
+  .terrain-map-container .leaflet-right {
+    overflow: visible !important;
+    z-index: 1000 !important;
+  }
+  
+  .terrain-map-container .leaflet-control {
+    overflow: visible !important;
+  }
+  
+  /* FORCE controls to be visible with absolute positioning */
+  .terrain-map-container .leaflet-top.leaflet-right {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    z-index: 1000 !important;
+  }
+  
+  .terrain-map-container .leaflet-control {
+    position: relative !important;
+    float: none !important;
+    clear: both !important;
+    margin-bottom: 10px !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+  }
+  
+  .terrain-map-container .leaflet-control-layers {
+    display: block !important;
+    width: 200px !important;
+    max-width: 200px !important;
+  }
+  
+  .terrain-map-container .leaflet-bar {
+    display: block !important;
+  }
+  
   /* Hide ALL popup tip elements with maximum specificity */
   .leaflet-popup-tip-container,
   .leaflet-popup-tip,
@@ -54,53 +99,171 @@ const popupStyles = `
     padding-left: 16px !important;
   }
   
-  /* Make layer control VISIBLE and prominent */
+  /* Fix dark mode Container border flash - wrapper approach */
+  .terrain-artifact-dark-mode > div > div {
+    border-color: #2a3642 !important;
+  }
+  
+  .terrain-artifact-light-mode > div > div {
+    border-color: #d5dbdb !important;
+  }
+  
+  /* FORCE ALL LEAFLET CONTROLS TO BE VISIBLE - NUCLEAR OPTION */
+  .leaflet-control,
+  .leaflet-bar,
+  .leaflet-control-layers,
+  .leaflet-control-zoom,
+  .leaflet-control-attribution,
+  .force-visible-control {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 9999 !important;
+    position: relative !important;
+    pointer-events: auto !important;
+  }
+  
+  /* Override any parent container that might hide controls */
+  .leaflet-top,
+  .leaflet-right,
+  .leaflet-bottom,
+  .leaflet-left {
+    display: block !important;
+    visibility: visible !important;
+    pointer-events: none !important;
+    position: absolute !important;
+  }
+  
+  .leaflet-top {
+    top: 0 !important;
+  }
+  
+  .leaflet-right {
+    right: 0 !important;
+  }
+  
+  .leaflet-bottom {
+    bottom: 0 !important;
+  }
+  
+  .leaflet-left {
+    left: 0 !important;
+  }
+  
+  .leaflet-top.leaflet-right {
+    top: 10px !important;
+    right: 10px !important;
+  }
+  
+  .leaflet-top.leaflet-left {
+    top: 10px !important;
+    left: 10px !important;
+  }
+  
+  .leaflet-bottom.leaflet-right {
+    bottom: 0 !important;
+    right: 0 !important;
+  }
+  
+  .leaflet-bottom.leaflet-left {
+    bottom: 10px !important;
+    left: 10px !important;
+  }
+  
+  /* Make sure controls inside containers are visible */
+  .leaflet-top > *,
+  .leaflet-right > *,
+  .leaflet-bottom > *,
+  .leaflet-left > * {
+    pointer-events: auto !important;
+    display: block !important;
+    visibility: visible !important;
+    margin-bottom: 10px !important;
+  }
+  
+  /* Layer control specific styling */
   .leaflet-control-layers {
     background: white !important;
     border: 2px solid #0972d3 !important;
     border-radius: 4px !important;
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
-    padding: 8px !important;
-    font-size: 13px !important;
+    padding: 10px !important;
+    font-size: 14px !important;
     font-weight: 500 !important;
-    display: block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    z-index: 1000 !important;
+    min-width: 180px !important;
   }
   
   .leaflet-control-layers-toggle {
-    background-image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNiIgaGVpZ2h0PSIzNiI+PHBhdGggZD0iTTAgMGgzNnYzNkgweiIgZmlsbD0iI2ZmZiIvPjxwYXRoIGQ9Ik0xOCAxMGw4IDhoLTE2eiIgZmlsbD0iIzMzMyIvPjwvc3ZnPg==) !important;
-    width: 36px !important;
-    height: 36px !important;
-    display: block !important;
+    display: none !important;
   }
   
   .leaflet-control-layers-expanded {
+    display: block !important;
     padding: 10px !important;
-    min-width: 150px !important;
   }
   
-  .leaflet-control-layers-base label {
-    padding: 6px 8px !important;
+  .leaflet-control-layers-base,
+  .leaflet-control-layers-overlays {
+    display: block !important;
+  }
+  
+  .leaflet-control-layers-base label,
+  .leaflet-control-layers-overlays label {
+    padding: 8px !important;
     cursor: pointer !important;
     display: flex !important;
     align-items: center !important;
     margin: 4px 0 !important;
+    font-size: 14px !important;
   }
   
-  .leaflet-control-layers-base label:hover {
+  .leaflet-control-layers-base label:hover,
+  .leaflet-control-layers-overlays label:hover {
     background: rgba(9, 114, 211, 0.1) !important;
     border-radius: 3px !important;
   }
   
-  .leaflet-control-layers input[type="radio"] {
+  .leaflet-control-layers input[type="radio"],
+  .leaflet-control-layers input[type="checkbox"] {
     margin-right: 8px !important;
     cursor: pointer !important;
+    width: 16px !important;
+    height: 16px !important;
   }
   
   .leaflet-control-layers-separator {
-    display: none !important;
+    border-top: 1px solid #ddd !important;
+    margin: 8px 0 !important;
+  }
+  
+  /* Zoom control styling */
+  .leaflet-control-zoom {
+    border: 2px solid rgba(0,0,0,0.2) !important;
+    border-radius: 4px !important;
+  }
+  
+  .leaflet-control-zoom a {
+    display: block !important;
+    width: 30px !important;
+    height: 30px !important;
+    line-height: 30px !important;
+    text-align: center !important;
+    background: white !important;
+    color: #333 !important;
+    font-size: 18px !important;
+    font-weight: bold !important;
+  }
+  
+  .leaflet-control-zoom a:hover {
+    background: #f4f4f4 !important;
+  }
+  
+  /* Custom buffer control styling */
+  .leaflet-bar.leaflet-control {
+    background: white !important;
+    border: 2px solid rgba(0,0,0,0.2) !important;
+    border-radius: 4px !important;
+    box-shadow: 0 1px 5px rgba(0,0,0,0.4) !important;
   }
 `;
 
@@ -178,9 +341,13 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
   
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const perimeterLayerRef = useRef<any>(null);
+  const tileLayerRef = useRef<any>(null); // Track current tile layer
   const initializingRef = useRef<boolean>(false); // Prevent multiple initializations
   const renderCountRef = useRef<number>(0); // Track render count
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
+  const [showPerimeter, setShowPerimeter] = useState(true);
+  const [isDarkMode, setIsDarkMode] = useState(document.body.getAttribute('data-awsui-mode') === 'dark');
   const pageSize = 5;
 
   // Log every render to diagnose the flashing
@@ -318,10 +485,17 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
               touchZoom: true,
               doubleClickZoom: true,
               scrollWheelZoom: true,
+              smoothWheelZoom: true,  // Enable smooth scroll zoom
+              smoothSensitivity: 2,   // Higher = more responsive
               boxZoom: true,
               keyboard: true,
               zoomControl: true,
               attributionControl: true,
+              zoomDelta: 0.75,        // Larger increments for faster zoom
+              zoomSnap: 0.25,         // Balanced fractional zoom levels
+              wheelPxPerZoomLevel: 30, // Even less pixels = faster zoom
+              zoomAnimation: true,    // Enable smooth zoom animation
+              zoomAnimationThreshold: 4, // Always animate zoom
             });
             
             console.log('[TerrainMap] Map instance created successfully', {
@@ -350,10 +524,19 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
 
           console.log('[TerrainMap] Adding tile layers...');
 
-          // Add OpenStreetMap tiles (default)
-          const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors',
+          // Add map tiles - use CartoDB for light mode (more reliable than OSM)
+          const isDarkMode = document.body.getAttribute('data-awsui-mode') === 'dark';
+          const tileUrl = isDarkMode 
+            ? 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
+            : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+          const attribution = isDarkMode
+            ? '© Stadia Maps © OpenMapTiles © OpenStreetMap contributors'
+            : '© OpenStreetMap contributors © CARTO';
+          
+          let osmLayer = L.tileLayer(tileUrl, {
+            attribution,
             maxZoom: 19,
+            subdomains: 'abcd',
           });
 
           // Add satellite basemap as alternative option
@@ -367,30 +550,176 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
 
           // Add OSM as default (as requested)
           osmLayer.addTo(map);
+          tileLayerRef.current = osmLayer; // Store reference to current tile layer
           console.log('[TerrainMap] OSM layer added as default');
+          console.log('[TerrainMap] Tile URL:', tileUrl);
+          console.log('[TerrainMap] Dark mode:', isDarkMode);
 
-          // Add layer control to switch between OSM and satellite - ALWAYS EXPANDED
-          const layerControl = L.control.layers(
-            {
-              'Street Map': osmLayer,
-              'Satellite': satelliteLayer,
+          // Create custom satellite toggle control - ICON ONLY, SAME WIDTH AS ZOOM
+          const SatelliteControl = L.Control.extend({
+            options: {
+              position: 'topleft'  // BELOW zoom controls
             },
-            {},
-            { 
-              position: 'topright',
-              collapsed: false  // ALWAYS SHOW - don't hide behind toggle
+            
+            onAdd: function() {
+              const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+              const button = L.DomUtil.create('a', '', container);
+              
+              // Match zoom button styling EXACTLY - same width, icon only
+              button.href = '#';
+              button.title = 'Toggle satellite view';
+              button.innerHTML = '🛰️';
+              button.style.width = '30px';
+              button.style.height = '30px';
+              button.style.lineHeight = '30px';
+              button.style.display = 'block';
+              button.style.textAlign = 'center';
+              button.style.textDecoration = 'none';
+              button.style.fontSize = '18px';
+              
+              // Prevent map interactions when clicking the control
+              L.DomEvent.disableClickPropagation(button);
+              L.DomEvent.disableScrollPropagation(button);
+              
+              let isSatellite = false;
+              
+              button.onclick = function(e) {
+                e.preventDefault();
+                if (isSatellite) {
+                  // Switch to street map
+                  map.removeLayer(satelliteLayer);
+                  map.addLayer(osmLayer);
+                  button.innerHTML = '🛰️';
+                  isSatellite = false;
+                  console.log('[TerrainMap] Switched to street map');
+                } else {
+                  // Switch to satellite
+                  map.removeLayer(osmLayer);
+                  map.addLayer(satelliteLayer);
+                  button.innerHTML = '🗺️';
+                  isSatellite = true;
+                  console.log('[TerrainMap] Switched to satellite');
+                }
+                return false;
+              };
+              
+              return container;
             }
-          ).addTo(map);
+          });
           
-          // Force the control to be visible with explicit styling
-          const controlElement = (layerControl as any).getContainer();
-          if (controlElement) {
-            controlElement.style.display = 'block';
-            controlElement.style.visibility = 'visible';
-            controlElement.style.zIndex = '1000';
-          }
+          const satelliteControl = new SatelliteControl();
+          map.addControl(satelliteControl);
+          console.log('[TerrainMap] Satellite toggle control added');
+
+          // Add custom buffer zones toggle control - ICON ONLY, SAME WIDTH AS ZOOM
+          const BufferControl = L.Control.extend({
+            options: {
+              position: 'topleft'  // BELOW satellite control
+            },
+            
+            onAdd: function() {
+              const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+              const button = L.DomUtil.create('a', '', container);
+              
+              // Match zoom button styling EXACTLY - same width, icon only
+              button.href = '#';
+              button.title = 'Toggle exclusion zone buffers';
+              button.innerHTML = '⚠️';
+              button.style.width = '30px';
+              button.style.height = '30px';
+              button.style.lineHeight = '30px';
+              button.style.display = 'block';
+              button.style.textAlign = 'center';
+              button.style.textDecoration = 'none';
+              button.style.fontSize = '18px';
+              
+              // Prevent map interactions when clicking the control
+              L.DomEvent.disableClickPropagation(button);
+              L.DomEvent.disableScrollPropagation(button);
+              
+              button.onclick = function(e) {
+                e.preventDefault();
+                const buffers = perimeterLayerRef.current;
+                if (buffers && buffers.length > 0) {
+                  // Check if first buffer is visible
+                  const isVisible = map.hasLayer(buffers[0]);
+                  
+                  if (isVisible) {
+                    // Hide all buffers
+                    buffers.forEach((buffer: any) => {
+                      if (map.hasLayer(buffer)) {
+                        map.removeLayer(buffer);
+                      }
+                    });
+                    button.style.opacity = '0.5';
+                    console.log('[TerrainMap] Buffer zones hidden');
+                  } else {
+                    // Show all buffers
+                    buffers.forEach((buffer: any) => {
+                      if (!map.hasLayer(buffer)) {
+                        map.addLayer(buffer);
+                      }
+                    });
+                    button.style.opacity = '1';
+                    console.log('[TerrainMap] Buffer zones shown');
+                  }
+                }
+                return false;
+              };
+              
+              return container;
+            }
+          });
           
-          console.log('[TerrainMap] Layer control added (always expanded)');
+          const bufferControl = new BufferControl();
+          map.addControl(bufferControl);
+          console.log('[TerrainMap] Buffer zones toggle control added');
+          
+          // DEBUG: Check if controls are actually in the DOM
+          setTimeout(() => {
+            const allControls = mapRef.current?.querySelectorAll('.leaflet-control');
+            console.log('[TerrainMap] ===== CONTROL DEBUG =====');
+            console.log('[TerrainMap] Total controls found:', allControls?.length);
+            allControls?.forEach((control, index) => {
+              console.log(`[TerrainMap] Control ${index}:`, {
+                className: control.className,
+                display: (control as HTMLElement).style.display,
+                visibility: (control as HTMLElement).style.visibility,
+                zIndex: (control as HTMLElement).style.zIndex,
+                position: (control as HTMLElement).style.position,
+                innerHTML: control.innerHTML.substring(0, 100)
+              });
+            });
+            
+            const topRight = mapRef.current?.querySelector('.leaflet-top.leaflet-right');
+            console.log('[TerrainMap] Top-right container:', {
+              exists: !!topRight,
+              display: (topRight as HTMLElement)?.style.display,
+              visibility: (topRight as HTMLElement)?.style.visibility,
+              childCount: topRight?.children.length,
+              computedStyle: topRight ? window.getComputedStyle(topRight as HTMLElement).display : 'N/A',
+              offsetWidth: (topRight as HTMLElement)?.offsetWidth,
+              offsetHeight: (topRight as HTMLElement)?.offsetHeight
+            });
+            
+            // Check each control's computed styles and position
+            allControls?.forEach((control, index) => {
+              const computed = window.getComputedStyle(control as HTMLElement);
+              const rect = (control as HTMLElement).getBoundingClientRect();
+              console.log(`[TerrainMap] Control ${index} computed:`, {
+                display: computed.display,
+                visibility: computed.visibility,
+                opacity: computed.opacity,
+                zIndex: computed.zIndex,
+                position: computed.position,
+                top: computed.top,
+                right: computed.right,
+                width: rect.width,
+                height: rect.height,
+                isVisible: rect.width > 0 && rect.height > 0
+              });
+            });
+          }, 1000);
 
           console.log('[TerrainMap] Adding center marker...');
 
@@ -584,6 +913,16 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
           case 'other':
           default:
             // Minimal styling for unclassified features
+            // Check if it's a line geometry - don't fill lines
+            if (isLine) {
+              return {
+                color: '#808080',  // Gray line
+                weight: 2,
+                opacity: 0.6,
+                fill: false,
+              };
+            }
+            // Polygon features get filled
             return {
               fillColor: '#D3D3D3',  // Light gray
               color: '#808080',  // Gray border
@@ -859,19 +1198,35 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
             keepInView: false,   // Don't keep in view
           });
           
-          // Add buffer zone circle if bufferMeters is specified
-          const bufferMeters = props.bufferMeters || 0;
-          if (bufferMeters > 0 && feature.geometry.type === 'Point') {
-            const coords = feature.geometry.coordinates;
-            const bufferCircle = L.circle([coords[1], coords[0]], {
-              radius: bufferMeters,
-              color: props.color || '#FF0000',
-              fillColor: props.fillColor || '#FF000020',
-              fillOpacity: 0.1,
-              weight: 1,
-              dashArray: '5, 5'
+          // Add visual buffer zones using Turf.js
+          const bufferMeters = feature.properties?.bufferMeters || 0;
+          if (bufferMeters > 0) {
+            import('@turf/turf').then((turf) => {
+              try {
+                // Create buffer polygon around the feature
+                const buffered = turf.buffer(feature as any, bufferMeters / 1000, { units: 'kilometers' });
+                
+                if (buffered) {
+                  // Render buffer with tinted color - NON-INTERACTIVE so clicks pass through
+                  const bufferLayer = L.geoJSON(buffered, {
+                    style: {
+                      color: feature.properties?.color || '#FF0000',
+                      fillColor: feature.properties?.fillColor || '#FF000020',
+                      fillOpacity: 0.15,
+                      weight: 1,
+                      dashArray: '5, 5'
+                    },
+                    interactive: false,  // CRITICAL: Make buffers non-interactive so feature clicks work
+                    pane: 'tilePane'     // CRITICAL: Put on tile pane (below overlays) so features are clickable
+                  }).addTo(map);
+                  
+                  // Store buffer layer for toggle control
+                  bufferLayers.push(bufferLayer);
+                }
+              } catch (e) {
+                console.warn('[TerrainMap] Could not create buffer for feature:', e);
+              }
             });
-            bufferCircle.addTo(map);
           }
         }
       }).addTo(map);
@@ -879,6 +1234,10 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
           console.log('[TerrainMap] GeoJSON layer added successfully', {
             layerCount: Object.keys((geoJsonLayer as any)._layers).length
           });
+
+          // Store buffer layers for toggle control
+          const bufferLayers: any[] = [];
+          perimeterLayerRef.current = bufferLayers;
 
           // Wait for map to be fully ready before fitting bounds
           map.whenReady(() => {
@@ -949,6 +1308,58 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
     };
   }, [data.projectId]); // Only re-run if projectId changes (new terrain analysis)
 
+  // Handle theme changes for tile layer
+  useEffect(() => {
+    const handleThemeChange = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const newIsDark = customEvent.detail?.isDark ?? (document.body.getAttribute('data-awsui-mode') === 'dark');
+      console.log('[TerrainMap] Theme change event received, newIsDark:', newIsDark);
+      
+      if (!mapInstanceRef.current) {
+        console.log('[TerrainMap] Map not ready yet, skipping tile update');
+        return;
+      }
+      
+      import('leaflet').then((L) => {
+        if (!mapInstanceRef.current) return;
+        
+        const newTileUrl = newIsDark 
+          ? 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
+          : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+        const newAttribution = newIsDark
+          ? '© Stadia Maps © OpenMapTiles © OpenStreetMap contributors'
+          : '© OpenStreetMap contributors';
+        
+        // Remove current tile layer if it exists
+        if (tileLayerRef.current) {
+          mapInstanceRef.current.removeLayer(tileLayerRef.current);
+          console.log('[TerrainMap] Removed old tile layer');
+        }
+        
+        // Add new tile layer
+        const newTileLayer = L.tileLayer(newTileUrl, {
+          attribution: newAttribution,
+          maxZoom: 19,
+          subdomains: 'abcd',
+        });
+        newTileLayer.addTo(mapInstanceRef.current);
+        tileLayerRef.current = newTileLayer; // Store reference
+        console.log('[TerrainMap] Theme changed, tile layer updated to:', newIsDark ? 'dark' : 'light');
+      });
+      
+      // Update isDarkMode state to trigger wrapper class change
+      setIsDarkMode(newIsDark);
+    };
+    
+    window.addEventListener('themechange', handleThemeChange);
+    console.log('[TerrainMap] Theme change listener registered');
+    
+    return () => {
+      window.removeEventListener('themechange', handleThemeChange);
+      console.log('[TerrainMap] Theme change listener removed');
+    };
+  }, []);
+
   const handleFollowUpAction = (action: string) => {
     if (onFollowUpAction) {
       onFollowUpAction(action);
@@ -956,23 +1367,24 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
   };
 
   return (
-    <Container
-        header={
-          <Header
-            variant="h2"
-            description={data.message || 'Real-time terrain analysis using OpenStreetMap data'}
-            actions={
-              <SpaceBetween direction="horizontal" size="xs">
-                <Badge color="green">
-                  {data.metrics?.totalFeatures || data.geojson?.features?.length || 0} Features Found
-                </Badge>
-              </SpaceBetween>
-            }
-          >
-            {data.title || 'Terrain Analysis'}
-          </Header>
-        }
-      >
+    <div className={isDarkMode ? 'terrain-artifact-dark-mode' : 'terrain-artifact-light-mode'}>
+      <Container
+          header={
+            <Header
+              variant="h2"
+              description={data.message || 'Real-time terrain analysis using OpenStreetMap data'}
+              actions={
+                <SpaceBetween direction="horizontal" size="xs">
+                  <Badge color="green">
+                    {data.metrics?.totalFeatures || data.geojson?.features?.length || 0} Features Found
+                  </Badge>
+                </SpaceBetween>
+              }
+            >
+              {data.title || 'Terrain Analysis'}
+            </Header>
+          }
+        >
         <SpaceBetween size="l">
           {/* Workflow CTA Buttons - Guide user through workflow */}
           <Box>
@@ -1047,7 +1459,9 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
               width: '100%',
               maxWidth: '100%',
               height: '600px',
-              border: '1px solid #e9ebed',
+              border: isDarkMode 
+                ? '1px solid #414d5c' 
+                : '1px solid #e9ebed',
               borderRadius: '8px',
               overflow: 'hidden',
               position: 'relative',
@@ -1070,6 +1484,7 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
               <div
                 ref={mapRef}
                 key={`terrain-map-${data.projectId}`}
+                className="terrain-map-container"
                 style={{
                   width: '100%',
                   height: '100%',
@@ -1077,7 +1492,9 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
                   zIndex: 1,
                   pointerEvents: 'auto',
                   touchAction: 'none',
-                  minHeight: '600px', // Prevent collapse during initialization
+                  minHeight: '600px',
+                  overflow: 'hidden', // Keep map contained
+                  borderRadius: '4px',
                 }}
               />
             ) : (
@@ -1099,11 +1516,27 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
                 {
                   id: 'type',
                   header: 'Type',
-                  cell: (item: GeoJSONFeature) => (
-                    <Box padding={{ left: 's' }}>
-                      {item.properties.feature_type || 'Unknown'}
-                    </Box>
-                  ),
+                  cell: (item: GeoJSONFeature) => {
+                    const tags = item.properties?.tags || {};
+                    let featureType = item.properties?.feature_type || 'way';
+                    
+                    // Detect actual type from OSM tags
+                    if (tags.building) featureType = 'building';
+                    else if (tags.natural === 'water' || tags.water) featureType = 'water';
+                    else if (tags.waterway) featureType = 'waterway';
+                    else if (tags.highway) featureType = 'highway';
+                    else if (tags.railway) featureType = 'railway';
+                    else if (tags.landuse) featureType = 'landuse';
+                    else if (tags.amenity) featureType = 'amenity';
+                    else if (tags.leisure) featureType = 'leisure';
+                    else if (tags.man_made) featureType = 'man_made';
+                    
+                    return (
+                      <Box padding={{ left: 's' }}>
+                        {featureType}
+                      </Box>
+                    );
+                  },
                   minWidth: 120,
                 },
                 {
@@ -1142,18 +1575,6 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
                 </Box>
               }
               contentDensity="comfortable"
-              pagination={
-                <Pagination
-                  currentPageIndex={currentPageIndex}
-                  pagesCount={Math.ceil((data.geojson?.features?.length || 0) / pageSize)}
-                  onChange={({ detail }) => setCurrentPageIndex(detail.currentPageIndex)}
-                  ariaLabels={{
-                    nextPageLabel: 'Next page',
-                    previousPageLabel: 'Previous page',
-                    pageLabel: (pageNumber) => `Page ${pageNumber}`,
-                  }}
-                />
-              }
             />
           </Box>
         )}
@@ -1189,12 +1610,27 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
           </Box>
         )}
 
-        {/* Project ID */}
-        <Box variant="small" color="text-body-secondary">
-          Project ID: {data.projectId}
-        </Box>
+        {/* Project ID and Pagination */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box variant="small" color="text-body-secondary">
+            Project ID: {data.projectId}
+          </Box>
+          {data.geojson?.features && data.geojson.features.length > 0 && (
+            <Pagination
+              currentPageIndex={currentPageIndex}
+              pagesCount={Math.ceil((data.geojson?.features?.length || 0) / pageSize)}
+              onChange={({ detail }) => setCurrentPageIndex(detail.currentPageIndex)}
+              ariaLabels={{
+                nextPageLabel: 'Next page',
+                previousPageLabel: 'Previous page',
+                pageLabel: (pageNumber) => `Page ${pageNumber}`,
+              }}
+            />
+          )}
+        </div>
       </SpaceBetween>
     </Container>
+    </div>
   );
 };
 

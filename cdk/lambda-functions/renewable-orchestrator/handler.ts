@@ -44,6 +44,13 @@ interface ValidationResult {
   canProceed: boolean;
 }
 
+interface PrerequisiteValidationResult {
+  isValid: boolean;
+  missingPrerequisites: string[];
+  errorMessage?: string;
+  suggestions?: string[];
+}
+
 const lambdaClient = new LambdaClient({});
 
 /**
@@ -205,12 +212,8 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         };
 
         // Write results to DynamoDB if sessionId and userId are provided
-        if (event.sessionId && event.userId) {
-          console.log('📝 Writing results to ChatMessage table for async processing');
-          await writeResultsToChatMessage(event.sessionId, event.userId, finalResponse);
-        } else {
-          console.log('⚠️  Skipping DynamoDB write (no sessionId or userId)');
-        }
+        // DO NOT write to DynamoDB - the chat Lambda handles that
+        console.log('✅ Orchestrator skipping DynamoDB write (chat Lambda will handle it)');
         
         return finalResponse;
       } catch (agentError: any) {
@@ -720,56 +723,9 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         const isExplicitNewAnalysis = /\b(analyze|create|new|generate|run|perform|do)\b.*\bterrain\b/i.test(event.query) ||
                                       /\bterrain\b.*\b(analyze|analysis|create|new|generate|run|perform)\b/i.test(event.query);
         
-        // Check for duplicates ONLY if this is NOT an explicit new analysis request
-        if (intent.type === 'terrain_analysis' && 
-            intent.params.latitude && 
-            intent.params.longitude && 
-            !isExplicitNewAnalysis) {
-          console.log('🔍 Checking for duplicate projects at coordinates (ambiguous query)...');
-          
-          const { ProjectLifecycleManager } = await import('../shared/projectLifecycleManager');
-          const lifecycleManager = new ProjectLifecycleManager(
-            projectStore,
-            projectResolver,
-            projectNameGenerator,
-            sessionContextManager
-          );
-          
-          const duplicateCheck = await lifecycleManager.checkForDuplicates(
-            {
-              latitude: intent.params.latitude,
-              longitude: intent.params.longitude
-            },
-            1.0 // 1km radius
-          );
-          
-          if (duplicateCheck.hasDuplicates) {
-            console.log(`⚠️  Found ${duplicateCheck.duplicates.length} duplicate project(s)`);
-            
-            // Return prompt to user asking what they want to do
-            return {
-              success: true,
-              message: duplicateCheck.userPrompt,
-              artifacts: [],
-              thoughtSteps,
-              responseComplete: true,
-              metadata: {
-                executionTime: Date.now() - startTime,
-                toolsUsed: ['duplicate_detection'],
-                duplicateProjects: duplicateCheck.duplicates.map(d => ({
-                  name: d.project.project_name,
-                  distance: d.distanceKm
-                })),
-                requiresUserChoice: true,
-                duplicateCheckResult: duplicateCheck
-              }
-            };
-          }
-          
-          console.log('✅ No duplicates found, proceeding with new project');
-        } else if (isExplicitNewAnalysis) {
-          console.log('✅ Explicit new analysis request detected - skipping duplicate check');
-        }
+        // DISABLED: Duplicate check is too slow (loads 50+ projects from S3)
+        // Just create a new project every time
+        console.log('✅ Duplicate check disabled for performance - creating new project');
         
         // No existing project found - generate new project name
         const coordinates = intent.params.latitude && intent.params.longitude
@@ -990,9 +946,61 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     console.log('✅ Parameter validation passed');
     console.log(`📦 Final parameters: ${JSON.stringify(intentWithDefaults.params, null, 2)}`);
     
+    // Step 4.5: Validate prerequisites for financial analysis and compare scenarios
+    const prerequisiteValidationStartTime = Date.now();
+    thoughtSteps.push({
+      step: thoughtSteps.length + 1,
+      action: 'Validating prerequisites',
+      reasoning: 'Checking if required workflow steps are complete',
+      status: 'in_progress',
+      timestamp: new Date(prerequisiteValidationStartTime).toISOString()
+    });
+    
+    const prerequisiteValidation = validatePrerequisites(intentWithDefaults, projectData);
+    const prerequisiteValidationDuration = Date.now() - prerequisiteValidationStartTime;
+    
+    // Update thought step with completion
+    thoughtSteps[thoughtSteps.length - 1] = {
+      ...thoughtSteps[thoughtSteps.length - 1],
+      status: prerequisiteValidation.isValid ? 'complete' : 'error',
+      duration: prerequisiteValidationDuration,
+      result: prerequisiteValidation.isValid 
+        ? 'All prerequisites satisfied' 
+        : `Missing: ${prerequisiteValidation.missingPrerequisites.join(', ')}`,
+      ...(prerequisiteValidation.isValid ? {} : {
+        error: {
+          message: prerequisiteValidation.errorMessage || 'Prerequisites not met',
+          suggestion: prerequisiteValidation.suggestions?.join('; ') || 'Complete required steps first'
+        }
+      })
+    };
+    
+    if (!prerequisiteValidation.isValid) {
+      console.log('❌ Prerequisite validation failed');
+      console.log(`   Missing: ${prerequisiteValidation.missingPrerequisites.join(', ')}`);
+      console.log(`   Error: ${prerequisiteValidation.errorMessage}`);
+      
+      return {
+        success: false,
+        message: prerequisiteValidation.errorMessage || 'Prerequisites not met',
+        artifacts: [],
+        thoughtSteps,
+        metadata: {
+          executionTime: Date.now() - startTime,
+          toolsUsed: [],
+          prerequisiteValidation: {
+            missingPrerequisites: prerequisiteValidation.missingPrerequisites,
+            suggestions: prerequisiteValidation.suggestions
+          }
+        }
+      } as OrchestratorResponse;
+    }
+    
+    console.log('✅ Prerequisite validation passed');
+    
     const toolStartTime = Date.now();
     thoughtSteps.push({
-      step: 6,
+      step: thoughtSteps.length + 1,
       action: `Calling ${intentWithDefaults.type} tool`,
       reasoning: `Query matches ${intentWithDefaults.type} pattern with ${intentWithDefaults.confidence}% confidence, all parameters validated`,
       status: 'in_progress',
@@ -1317,14 +1325,9 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     console.log(`📤 Full Response: ${JSON.stringify(response, null, 2)}`);
     console.log('═══════════════════════════════════════════════════════════');
     
-    // Write results to DynamoDB if sessionId and userId are provided
-    // This is needed for async processing where the frontend polls for results
-    if (event.sessionId && event.userId) {
-      console.log('📝 Writing results to ChatMessage table for async processing');
-      await writeResultsToChatMessage(event.sessionId, event.userId, response);
-    } else {
-      console.log('⚠️  Skipping DynamoDB write (no sessionId or userId)');
-    }
+    // DO NOT write to DynamoDB here - the chat Lambda handles that
+    // The orchestrator just returns the response
+    console.log('✅ Orchestrator returning response with artifacts:', response.artifacts?.length || 0);
     
     return response;
     
@@ -1376,7 +1379,7 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       }
     });
     
-    const errorResponse = {
+    const errorResponse: OrchestratorResponse = {
       success: false,
       message: errorResult.formatted,
       artifacts: [],
@@ -1384,7 +1387,7 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       metadata: {
         executionTime: Date.now() - startTime,
         toolsUsed,
-        errorCategory: 'RENEWABLE_WORKFLOW_ERROR',
+        errorCategory: 'RENEWABLE_WORKFLOW_ERROR' as const,
         errorTitle: errorResult.template.title,
         error: {
           type: error instanceof Error ? error.name : 'UnknownError',
@@ -1394,17 +1397,9 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       }
     };
 
-    // Write error message to DynamoDB if sessionId and userId are provided
-    if (event.sessionId && event.userId) {
-      console.log('📝 Writing error message to ChatMessage table');
-      try {
-        await writeResultsToChatMessage(event.sessionId, event.userId, errorResponse);
-      } catch (writeError) {
-        console.error('❌ Failed to write error message to DynamoDB:', writeError);
-        // Don't throw - return the error response anyway
-      }
-    }
-
+    // DO NOT write to DynamoDB - the chat Lambda handles that
+    console.log('✅ Orchestrator returning error response (chat Lambda will handle DynamoDB)');
+    
     return errorResponse;
   }
 }
@@ -1758,6 +1753,80 @@ async function quickValidationCheck(): Promise<ValidationResult> {
 }
 
 /**
+ * Validate prerequisites for financial analysis and compare scenarios
+ * Requirements: 4.5, 5.5
+ */
+function validatePrerequisites(
+  intent: RenewableIntent,
+  projectData: any
+): PrerequisiteValidationResult {
+  console.log('🔍 Validating prerequisites for intent:', intent.type);
+  
+  // Financial analysis requires completed layout and simulation
+  if (intent.type === 'report_generation' && 
+      (intent.params.originalIntent === 'financial_analysis' || 
+       /financial|roi|economic|lcoe|npv|irr|payback/i.test(intent.params.query || ''))) {
+    
+    console.log('💰 Checking financial analysis prerequisites');
+    
+    const hasLayout = !!(projectData?.layout_results || projectData?.layoutResults);
+    const hasSimulation = !!(projectData?.simulation_results || projectData?.simulationResults);
+    
+    console.log(`   - Has layout: ${hasLayout}`);
+    console.log(`   - Has simulation: ${hasSimulation}`);
+    
+    if (!hasLayout || !hasSimulation) {
+      const missing: string[] = [];
+      if (!hasLayout) missing.push('layout optimization');
+      if (!hasSimulation) missing.push('wake simulation');
+      
+      return {
+        isValid: false,
+        missingPrerequisites: missing,
+        errorMessage: `Financial analysis requires completed ${missing.join(' and ')}. Please complete these steps first.`,
+        suggestions: [
+          !hasLayout ? 'Run: "generate turbine layout for this project"' : '',
+          !hasSimulation ? 'Run: "run wake simulation for this project"' : '',
+          'Then try financial analysis again'
+        ].filter(Boolean)
+      };
+    }
+    
+    console.log('✅ Financial analysis prerequisites satisfied');
+  }
+  
+  // Compare scenarios requires at least 2 projects
+  if (intent.type === 'compare_scenarios' || 
+      (intent.params.originalIntent === 'compare_scenarios')) {
+    
+    console.log('📊 Checking compare scenarios prerequisites');
+    
+    // This will be validated in the generateScenarioComparisonArtifact function
+    // which has access to all projects. Here we just check if we have project context.
+    if (!projectData) {
+      return {
+        isValid: false,
+        missingPrerequisites: ['project data'],
+        errorMessage: 'Scenario comparison requires at least 2 projects with complete analysis. Please create and complete multiple projects first.',
+        suggestions: [
+          'Create a new project with terrain analysis',
+          'Complete layout optimization and wake simulation',
+          'Repeat for at least one more project',
+          'Then compare scenarios'
+        ]
+      };
+    }
+    
+    console.log('✅ Compare scenarios prerequisites check passed (full validation in artifact generation)');
+  }
+  
+  return {
+    isValid: true,
+    missingPrerequisites: []
+  };
+}
+
+/**
  * Call appropriate tool Lambda(s) with fallback
  */
 async function callToolLambdasWithFallback(
@@ -1792,6 +1861,7 @@ async function callToolLambdas(
         // Use lightweight ZIP-deployed terrain Lambda
         functionName = process.env.RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME || 'renewable-terrain-simple';
         payload = {
+          action: 'terrain_analysis',  // CRITICAL: Tell Lambda which tool to use
           parameters: {
             project_id: intent.params.project_id,
             latitude: intent.params.latitude,
@@ -1851,14 +1921,30 @@ async function callToolLambdas(
         }
         console.log('───────────────────────────────────────────────────────────');
         
+        // Extract terrain features from context for constraints
+        let constraints: any[] = [];
+        if (context?.terrain_results?.exclusionZones) {
+          constraints = context.terrain_results.exclusionZones;
+          console.log(`✅ Found ${constraints.length} terrain features in context.terrain_results.exclusionZones`);
+        } else if (context?.terrain_results?.geojson?.features) {
+          constraints = context.terrain_results.geojson.features;
+          console.log(`✅ Found ${constraints.length} terrain features in context.terrain_results.geojson.features`);
+        } else if (context?.terrainFeatures) {
+          constraints = context.terrainFeatures;
+          console.log(`✅ Found ${constraints.length} terrain features in context.terrainFeatures`);
+        } else {
+          console.log(`⚠️  No terrain features found in context`);
+        }
+        
         payload = {
+          action: 'layout_optimization',  // CRITICAL: Tell Lambda which tool to use
           parameters: {
             project_id: intent.params.project_id,
             latitude: intent.params.latitude,
             longitude: intent.params.longitude,
             area_km2: intent.params.area_km2 || 5.0,
             turbine_spacing_m: intent.params.turbine_spacing_m || 500,
-            constraints: context?.terrainFeatures || []
+            constraints: constraints
           },
           // Pass project context to layout Lambda for parameter auto-fill
           // CRITICAL: This must include terrain_results with exclusionZones
@@ -1955,6 +2041,7 @@ async function callToolLambdas(
         }
         
         payload = {
+          action: 'wake_simulation',  // CRITICAL: Tell Lambda which tool to use
           parameters: {
             project_id: intent.params.project_id,
             layout: layoutData,
@@ -1980,9 +2067,60 @@ async function callToolLambdas(
         };
         break;
         
+      case 'compare_scenarios':
+        console.log('📊 Detected compare scenarios request - generating inline');
+        
+        // Generate scenario comparison artifact inline
+        const comparisonArtifact = await generateScenarioComparisonArtifact(
+          intent.params,
+          context,
+          requestId
+        );
+        
+        if (comparisonArtifact) {
+          results.push({
+            success: true,
+            type: 'scenario_comparison',
+            data: comparisonArtifact
+          });
+          
+          // Return early with comparison artifact
+          return results;
+        }
+        
+        // If comparison generation failed, throw error
+        throw new Error('Failed to generate scenario comparison');
+        
       case 'report_generation':
+        // Check if this is specifically a financial analysis request
+        const isFinancialAnalysis = /financial|roi|economic|cost|lcoe|investment|payback|npv|irr/i.test(query);
+        
+        if (isFinancialAnalysis) {
+          console.log('💰 Detected financial analysis request - generating inline');
+          
+          // Generate financial analysis artifact inline
+          const financialArtifact = await generateFinancialAnalysisArtifact(
+            intent.params.project_id,
+            context,
+            requestId
+          );
+          
+          if (financialArtifact) {
+            results.push({
+              success: true,
+              type: 'financial_analysis',
+              data: financialArtifact
+            });
+            
+            // Return early with financial analysis artifact
+            return results;
+          }
+        }
+        
+        // Otherwise, proceed with regular report generation
         functionName = process.env.RENEWABLE_REPORT_TOOL_FUNCTION_NAME || '';
         payload = {
+          action: 'report_generation',  // CRITICAL: Tell Lambda which tool to use
           query,
           parameters: {
             ...intent.params,
@@ -2443,7 +2581,9 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
             layoutType: result.data.layoutType,
             turbineCount: result.data.turbineCount,
             totalCapacity: result.data.totalCapacity,
+            turbines: result.data.turbines,  // CRITICAL: Include turbines array for wake simulation
             turbinePositions: result.data.turbinePositions,
+            coordinates: result.data.coordinates,  // CRITICAL: Include coordinates for wake simulation
             geojson: result.data.geojson,
             mapHtml: result.data.mapHtml,
             mapUrl: result.data.mapUrl,
@@ -2590,6 +2730,10 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
 
 /**
  * Generate response message with project status
+ * 
+ * CLEAN UI PATTERN: When artifacts are successfully generated, return empty string
+ * to let Cloudscape templates handle all UI (no duplicate status text).
+ * Only return fallback messages when artifact generation fails.
  */
 function generateResponseMessage(intent: RenewableIntent, results: ToolResult[], projectName?: string, projectData?: any): string {
   const successfulResults = results.filter(r => r.success);
@@ -2604,55 +2748,14 @@ function generateResponseMessage(intent: RenewableIntent, results: ToolResult[],
     return 'Tool execution failed. Please check the parameters and try again.';
   }
   
-  const result = successfulResults[0];
-  let baseMessage = '';
-  
-  switch (intent.type) {
-    case 'terrain_analysis':
-      baseMessage = result.data.message || 'Terrain analysis completed successfully.';
-      break;
-      
-    case 'layout_optimization':
-      baseMessage = result.data.message || `Layout optimization completed with ${result.data.turbineCount} turbines.`;
-      break;
-      
-    case 'wake_simulation':
-      baseMessage = result.data.message || 'Wake simulation completed successfully.';
-      break;
-      
-    case 'wind_rose':
-    case 'wind_rose_analysis':
-      baseMessage = result.data.message || 'Wind rose analysis completed successfully.';
-      break;
-      
-    case 'report_generation':
-      baseMessage = result.data.message || 'Report generated successfully.';
-      break;
-      
-    default:
-      baseMessage = 'Analysis completed successfully.';
-  }
-  
-  // Add project status if project name is provided
-  if (projectName && projectData) {
-    const projectStatus = {
-      terrain: !!projectData.terrain_results,
-      layout: !!projectData.layout_results,
-      simulation: !!projectData.simulation_results,
-      report: !!projectData.report_results
-    };
-    
-    const statusChecklist = formatProjectStatusChecklist(projectStatus);
-    const nextStep = generateNextStepSuggestion(projectStatus);
-    
-    baseMessage += `\n\n**Project: ${projectName}**\n\n${statusChecklist}`;
-    
-    if (nextStep) {
-      baseMessage += `\n\n**Next:** ${nextStep}`;
-    }
-  }
-  
-  return baseMessage;
+  // SUCCESS CASE: Return empty string to let Cloudscape artifact handle all UI
+  // The artifact components (TerrainMapArtifact, WindRoseArtifact, etc.) contain:
+  // - Container with Header (title, subtitle)
+  // - WorkflowCTAButtons (project status, next steps)
+  // - All data visualizations
+  // - Project metadata
+  // No need for duplicate text message above the artifact!
+  return '';
 }
 
 /**
@@ -3205,5 +3308,508 @@ async function writeResultsToChatMessage(
     
     // Don't throw - this is a best-effort operation
     // The orchestrator should still return successfully even if DynamoDB write fails
+  }
+}
+
+/**
+ * Generate financial analysis artifact with calculated metrics
+ * Requirements: 4.1, 4.2, 4.3, 4.4, 4.5
+ */
+async function generateFinancialAnalysisArtifact(
+  projectId: string,
+  context: any,
+  requestId: string
+): Promise<any | null> {
+  console.log('───────────────────────────────────────────────────────────');
+  console.log('💰 FINANCIAL ANALYSIS GENERATION');
+  console.log('───────────────────────────────────────────────────────────');
+  console.log(`📋 Request ID: ${requestId}`);
+  console.log(`🆔 Project ID: ${projectId}`);
+  
+  try {
+    // Extract project data from context
+    const layoutResults = context?.layout_results || context?.layoutResults;
+    const simulationResults = context?.simulation_results || context?.simulationResults;
+    
+    // Validate prerequisites
+    if (!layoutResults) {
+      console.error('❌ Missing layout results - financial analysis requires completed layout');
+      return null;
+    }
+    
+    if (!simulationResults) {
+      console.error('❌ Missing simulation results - financial analysis requires completed simulation');
+      return null;
+    }
+    
+    console.log('✅ Prerequisites validated - layout and simulation data available');
+    
+    // Extract turbine count and capacity from layout
+    const turbineCount = layoutResults.features?.length || layoutResults.turbine_count || 10;
+    const turbineCapacity = 3.0; // MW per turbine (industry standard)
+    const totalCapacity = turbineCount * turbineCapacity; // MW
+    
+    console.log(`🏗️  Turbine Configuration: ${turbineCount} turbines × ${turbineCapacity} MW = ${totalCapacity} MW`);
+    
+    // Extract energy production from simulation
+    const annualProduction = simulationResults.annual_energy_production || 
+                            simulationResults.total_energy_production ||
+                            (totalCapacity * 8760 * 0.35); // Fallback: capacity × hours × capacity factor
+    
+    console.log(`⚡ Annual Production: ${annualProduction.toFixed(0)} MWh/year`);
+    
+    // Financial assumptions (industry standards)
+    const assumptions = {
+      discountRate: 0.08, // 8% discount rate
+      projectLifetime: 25, // years
+      electricityPrice: 50, // $/MWh (PPA price)
+      capacityFactor: 0.35, // 35% capacity factor
+      degradationRate: 0.005 // 0.5% per year
+    };
+    
+    // Cost calculations (industry standards)
+    const turbineCostPerMW = 1_300_000; // $1.3M per MW
+    const installationCostPerMW = 200_000; // $200k per MW
+    const gridConnectionCost = 5_000_000; // $5M fixed cost
+    const landLeasePerMW = 10_000; // $10k per MW per year
+    const operatingCostPerMW = 40_000; // $40k per MW per year
+    
+    const turbineCost = totalCapacity * turbineCostPerMW;
+    const installationCost = totalCapacity * installationCostPerMW;
+    const totalCapitalCost = turbineCost + installationCost + gridConnectionCost;
+    const annualLandLease = totalCapacity * landLeasePerMW;
+    const annualOperatingCost = totalCapacity * operatingCostPerMW + annualLandLease;
+    
+    console.log(`💵 Capital Cost: $${(totalCapitalCost / 1_000_000).toFixed(1)}M`);
+    console.log(`💵 Annual Operating Cost: $${(annualOperatingCost / 1_000_000).toFixed(2)}M`);
+    
+    // Revenue calculations
+    const annualRevenue = annualProduction * assumptions.electricityPrice;
+    console.log(`💰 Annual Revenue: $${(annualRevenue / 1_000_000).toFixed(2)}M`);
+    
+    // Calculate LCOE (Levelized Cost of Energy)
+    const lcoe = calculateLCOE(
+      totalCapitalCost,
+      annualOperatingCost,
+      annualProduction,
+      assumptions.discountRate,
+      assumptions.projectLifetime
+    );
+    
+    console.log(`📊 LCOE: $${lcoe.toFixed(2)}/MWh`);
+    
+    // Calculate NPV (Net Present Value)
+    const npv = calculateNPV(
+      totalCapitalCost,
+      annualRevenue,
+      annualOperatingCost,
+      assumptions.discountRate,
+      assumptions.projectLifetime,
+      assumptions.degradationRate
+    );
+    
+    console.log(`📊 NPV: $${(npv / 1_000_000).toFixed(2)}M`);
+    
+    // Calculate IRR (Internal Rate of Return)
+    const irr = calculateIRR(
+      totalCapitalCost,
+      annualRevenue,
+      annualOperatingCost,
+      assumptions.projectLifetime,
+      assumptions.degradationRate
+    );
+    
+    console.log(`📊 IRR: ${(irr * 100).toFixed(2)}%`);
+    
+    // Calculate Payback Period
+    const paybackPeriod = calculatePaybackPeriod(
+      totalCapitalCost,
+      annualRevenue,
+      annualOperatingCost
+    );
+    
+    console.log(`📊 Payback Period: ${paybackPeriod.toFixed(1)} years`);
+    
+    // Generate revenue projection for 25 years
+    const revenueProjection = [];
+    for (let year = 1; year <= assumptions.projectLifetime; year++) {
+      const degradationFactor = Math.pow(1 - assumptions.degradationRate, year - 1);
+      const yearlyProduction = annualProduction * degradationFactor;
+      const yearlyRevenue = yearlyProduction * assumptions.electricityPrice;
+      const yearlyOperatingCost = annualOperatingCost;
+      const netIncome = yearlyRevenue - yearlyOperatingCost;
+      
+      revenueProjection.push({
+        year,
+        revenue: Math.round(yearlyRevenue),
+        costs: Math.round(yearlyOperatingCost),
+        netIncome: Math.round(netIncome)
+      });
+    }
+    
+    // Create financial analysis artifact
+    const financialArtifact = {
+      messageContentType: 'financial_analysis',
+      type: 'financial_analysis',
+      projectId,
+      metrics: {
+        totalCapitalCost: Math.round(totalCapitalCost),
+        operatingCostPerYear: Math.round(annualOperatingCost),
+        revenuePerYear: Math.round(annualRevenue),
+        lcoe: Math.round(lcoe * 100) / 100,
+        npv: Math.round(npv),
+        irr: Math.round(irr * 10000) / 100, // Convert to percentage with 2 decimals
+        paybackPeriod: Math.round(paybackPeriod * 10) / 10
+      },
+      costBreakdown: {
+        turbines: Math.round(turbineCost),
+        installation: Math.round(installationCost),
+        grid: gridConnectionCost,
+        land: Math.round(annualLandLease * assumptions.projectLifetime),
+        other: 0
+      },
+      revenueProjection,
+      assumptions: {
+        discountRate: assumptions.discountRate,
+        projectLifetime: assumptions.projectLifetime,
+        electricityPrice: assumptions.electricityPrice,
+        capacityFactor: assumptions.capacityFactor
+      },
+      turbineConfiguration: {
+        count: turbineCount,
+        capacityPerTurbine: turbineCapacity,
+        totalCapacity
+      },
+      energyProduction: {
+        annualProduction: Math.round(annualProduction),
+        lifetimeProduction: Math.round(annualProduction * assumptions.projectLifetime)
+      }
+    };
+    
+    console.log('✅ Financial analysis artifact generated successfully');
+    console.log('───────────────────────────────────────────────────────────');
+    
+    return financialArtifact;
+    
+  } catch (error) {
+    console.error('❌ Error generating financial analysis:', error);
+    console.error('   Error details:', {
+      name: error instanceof Error ? error.name : 'Unknown',
+      message: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return null;
+  }
+}
+
+/**
+ * Calculate LCOE (Levelized Cost of Energy)
+ * LCOE = (Total Capital Cost + Sum of Discounted Operating Costs) / Sum of Discounted Energy Production
+ */
+function calculateLCOE(
+  capitalCost: number,
+  annualOperatingCost: number,
+  annualProduction: number,
+  discountRate: number,
+  projectLifetime: number
+): number {
+  let totalDiscountedCost = capitalCost;
+  let totalDiscountedProduction = 0;
+  
+  for (let year = 1; year <= projectLifetime; year++) {
+    const discountFactor = Math.pow(1 + discountRate, -year);
+    totalDiscountedCost += annualOperatingCost * discountFactor;
+    totalDiscountedProduction += annualProduction * discountFactor;
+  }
+  
+  return totalDiscountedCost / totalDiscountedProduction;
+}
+
+/**
+ * Calculate NPV (Net Present Value)
+ * NPV = Sum of (Discounted Cash Flows) - Initial Investment
+ */
+function calculateNPV(
+  capitalCost: number,
+  annualRevenue: number,
+  annualOperatingCost: number,
+  discountRate: number,
+  projectLifetime: number,
+  degradationRate: number
+): number {
+  let npv = -capitalCost; // Initial investment is negative
+  
+  for (let year = 1; year <= projectLifetime; year++) {
+    const degradationFactor = Math.pow(1 - degradationRate, year - 1);
+    const yearlyRevenue = annualRevenue * degradationFactor;
+    const netCashFlow = yearlyRevenue - annualOperatingCost;
+    const discountFactor = Math.pow(1 + discountRate, -year);
+    npv += netCashFlow * discountFactor;
+  }
+  
+  return npv;
+}
+
+/**
+ * Calculate IRR (Internal Rate of Return)
+ * IRR is the discount rate that makes NPV = 0
+ * Uses Newton-Raphson method for approximation
+ */
+function calculateIRR(
+  capitalCost: number,
+  annualRevenue: number,
+  annualOperatingCost: number,
+  projectLifetime: number,
+  degradationRate: number
+): number {
+  // Initial guess: 10%
+  let irr = 0.10;
+  const tolerance = 0.0001;
+  const maxIterations = 100;
+  
+  for (let iteration = 0; iteration < maxIterations; iteration++) {
+    let npv = -capitalCost;
+    let npvDerivative = 0;
+    
+    for (let year = 1; year <= projectLifetime; year++) {
+      const degradationFactor = Math.pow(1 - degradationRate, year - 1);
+      const yearlyRevenue = annualRevenue * degradationFactor;
+      const netCashFlow = yearlyRevenue - annualOperatingCost;
+      const discountFactor = Math.pow(1 + irr, -year);
+      
+      npv += netCashFlow * discountFactor;
+      npvDerivative -= year * netCashFlow * discountFactor / (1 + irr);
+    }
+    
+    if (Math.abs(npv) < tolerance) {
+      return irr;
+    }
+    
+    // Newton-Raphson update
+    irr = irr - npv / npvDerivative;
+    
+    // Ensure IRR stays within reasonable bounds
+    if (irr < -0.5) irr = -0.5;
+    if (irr > 1.0) irr = 1.0;
+  }
+  
+  return irr;
+}
+
+/**
+ * Calculate Payback Period
+ * Payback Period = Initial Investment / Annual Net Cash Flow
+ */
+function calculatePaybackPeriod(
+  capitalCost: number,
+  annualRevenue: number,
+  annualOperatingCost: number
+): number {
+  const annualNetCashFlow = annualRevenue - annualOperatingCost;
+  
+  if (annualNetCashFlow <= 0) {
+    return Infinity; // Project never pays back
+  }
+  
+  return capitalCost / annualNetCashFlow;
+}
+
+/**
+ * Generate scenario comparison artifact
+ * Requirements: 5.1, 5.2, 5.3, 5.4, 5.5
+ */
+async function generateScenarioComparisonArtifact(
+  params: Record<string, any>,
+  context: any,
+  requestId: string
+): Promise<any | null> {
+  console.log('───────────────────────────────────────────────────────────');
+  console.log('📊 SCENARIO COMPARISON GENERATION');
+  console.log('───────────────────────────────────────────────────────────');
+  console.log(`📋 Request ID: ${requestId}`);
+  
+  try {
+    // Initialize project store to load multiple projects
+    const projectStore = new ProjectStore(process.env.RENEWABLE_S3_BUCKET);
+    
+    // Get list of all projects
+    const allProjects = await projectStore.list();
+    
+    if (!allProjects || allProjects.length < 2) {
+      console.error('❌ Insufficient projects for comparison - need at least 2 projects');
+      return {
+        messageContentType: 'scenario_comparison',
+        type: 'scenario_comparison',
+        error: 'Insufficient projects',
+        message: 'You need at least 2 projects to compare scenarios. Please create more projects first.',
+        scenarios: [],
+        comparison: {},
+        recommendations: [
+          'Create multiple wind farm projects with different configurations',
+          'Try different turbine layouts or locations',
+          'Run complete analysis (terrain, layout, simulation) for each project'
+        ]
+      };
+    }
+    
+    console.log(`✅ Found ${allProjects.length} projects for comparison`);
+    
+    // Load full data for each project (limit to 5 most recent for performance)
+    const projectsToCompare = allProjects.slice(0, 5);
+    const scenarios: any[] = [];
+    
+    for (const projectData of projectsToCompare) {
+      const projectName = projectData.project_name;
+      
+      try {
+        if (!projectData) continue;
+        
+        // Extract metrics from project data
+        const layoutResults = projectData.layout_results;
+        const simulationResults = projectData.simulation_results;
+        
+        // Skip projects without complete data
+        if (!layoutResults || !simulationResults) {
+          console.log(`⚠️  Skipping ${projectName} - incomplete data`);
+          continue;
+        }
+        
+        const turbineCount = layoutResults.features?.length || layoutResults.turbine_count || 0;
+        const turbineCapacity = 3.0; // MW per turbine
+        const totalCapacity = turbineCount * turbineCapacity;
+        
+        const annualProduction = simulationResults.annual_energy_production || 
+                                simulationResults.total_energy_production ||
+                                0;
+        
+        // Calculate financial metrics
+        const turbineCostPerMW = 1_300_000;
+        const installationCostPerMW = 200_000;
+        const gridConnectionCost = 5_000_000;
+        const totalCapitalCost = totalCapacity * (turbineCostPerMW + installationCostPerMW) + gridConnectionCost;
+        
+        const electricityPrice = 50; // $/MWh
+        const annualRevenue = annualProduction * electricityPrice;
+        const annualOperatingCost = totalCapacity * 40_000 + totalCapacity * 10_000;
+        
+        const lcoe = calculateLCOE(totalCapitalCost, annualOperatingCost, annualProduction, 0.08, 25);
+        const npv = calculateNPV(totalCapitalCost, annualRevenue, annualOperatingCost, 0.08, 25, 0.005);
+        const irr = calculateIRR(totalCapitalCost, annualRevenue, annualOperatingCost, 25, 0.005);
+        const paybackPeriod = calculatePaybackPeriod(totalCapitalCost, annualRevenue, annualOperatingCost);
+        
+        // Calculate land use (approximate)
+        const landUse = turbineCount * 0.5; // hectares (0.5 ha per turbine)
+        
+        // Environmental impact assessment (simplified)
+        const environmentalImpact = turbineCount < 20 ? 'Low' : turbineCount < 50 ? 'Medium' : 'High';
+        
+        scenarios.push({
+          name: projectName,
+          projectId: projectName,
+          turbineCount,
+          totalCapacity,
+          annualProduction: Math.round(annualProduction),
+          lcoe: Math.round(lcoe * 100) / 100,
+          npv: Math.round(npv),
+          irr: Math.round(irr * 10000) / 100,
+          paybackPeriod: Math.round(paybackPeriod * 10) / 10,
+          landUse: Math.round(landUse * 10) / 10,
+          environmentalImpact,
+          coordinates: projectData.coordinates
+        });
+        
+      } catch (error) {
+        console.error(`❌ Error processing project ${projectName}:`, error);
+        continue;
+      }
+    }
+    
+    if (scenarios.length < 2) {
+      console.error('❌ Insufficient complete projects for comparison');
+      return {
+        messageContentType: 'scenario_comparison',
+        type: 'scenario_comparison',
+        error: 'Insufficient complete projects',
+        message: 'You need at least 2 projects with complete analysis (terrain, layout, simulation) to compare scenarios.',
+        scenarios: [],
+        comparison: {},
+        recommendations: [
+          'Complete the full workflow for existing projects',
+          'Run terrain analysis, layout optimization, and wake simulation',
+          'Ensure all projects have simulation results'
+        ]
+      };
+    }
+    
+    console.log(`✅ Comparing ${scenarios.length} scenarios`);
+    
+    // Determine best scenarios by different criteria
+    const bestByProduction = scenarios.reduce((best, current) => 
+      current.annualProduction > best.annualProduction ? current : best
+    );
+    
+    const bestByLCOE = scenarios.reduce((best, current) => 
+      current.lcoe < best.lcoe ? current : best
+    );
+    
+    const bestByNPV = scenarios.reduce((best, current) => 
+      current.npv > best.npv ? current : best
+    );
+    
+    const bestByEnvironmental = scenarios.reduce((best, current) => {
+      const impactOrder = { 'Low': 1, 'Medium': 2, 'High': 3 };
+      return impactOrder[current.environmentalImpact] < impactOrder[best.environmentalImpact] ? current : best;
+    });
+    
+    // Generate recommendations
+    const recommendations: string[] = [];
+    
+    if (bestByProduction.name === bestByNPV.name) {
+      recommendations.push(`${bestByProduction.name} offers the best combination of energy production and financial returns`);
+    } else {
+      recommendations.push(`${bestByProduction.name} produces the most energy, while ${bestByNPV.name} has the best financial returns`);
+    }
+    
+    if (bestByLCOE.name !== bestByNPV.name) {
+      recommendations.push(`${bestByLCOE.name} has the lowest cost of energy (LCOE), making it most competitive`);
+    }
+    
+    if (bestByEnvironmental.name !== bestByProduction.name) {
+      recommendations.push(`${bestByEnvironmental.name} has the lowest environmental impact, suitable for sensitive areas`);
+    }
+    
+    recommendations.push('Consider project-specific constraints like land availability, grid connection, and permitting');
+    recommendations.push('Evaluate risk factors including wind resource variability and equipment reliability');
+    
+    // Create comparison artifact
+    const comparisonArtifact = {
+      messageContentType: 'scenario_comparison',
+      type: 'scenario_comparison',
+      scenarios,
+      comparison: {
+        bestByProduction: bestByProduction.name,
+        bestByLCOE: bestByLCOE.name,
+        bestByNPV: bestByNPV.name,
+        bestByEnvironmental: bestByEnvironmental.name
+      },
+      recommendations,
+      metadata: {
+        comparisonDate: new Date().toISOString(),
+        scenarioCount: scenarios.length,
+        criteria: ['production', 'lcoe', 'npv', 'environmental']
+      }
+    };
+    
+    console.log('✅ Scenario comparison generated successfully');
+    console.log(`   Best by production: ${bestByProduction.name}`);
+    console.log(`   Best by LCOE: ${bestByLCOE.name}`);
+    console.log(`   Best by NPV: ${bestByNPV.name}`);
+    console.log(`   Best by environmental: ${bestByEnvironmental.name}`);
+    console.log('───────────────────────────────────────────────────────────');
+    
+    return comparisonArtifact;
+    
+  } catch (error) {
+    console.error('❌ Error generating scenario comparison:', error);
+    return null;
   }
 }

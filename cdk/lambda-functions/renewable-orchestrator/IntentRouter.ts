@@ -258,7 +258,8 @@ export class IntentRouter {
       'wake_analysis': 'wake effect modeling and analysis',
       'layout_optimization': 'turbine layout optimization',
       'site_suitability': 'comprehensive site suitability assessment',
-      'comprehensive_assessment': 'comprehensive renewable energy assessment'
+      'comprehensive_assessment': 'comprehensive renewable energy assessment',
+      'report_generation': 'financial analysis and report generation'
     };
     
     return descriptions[intent] || 'renewable energy analysis';

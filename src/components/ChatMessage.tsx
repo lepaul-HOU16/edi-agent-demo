@@ -52,7 +52,8 @@ import {
   ReportArtifact,
   WindRoseArtifact,
   WakeAnalysisArtifact,
-  ProjectDashboardArtifact
+  ProjectDashboardArtifact,
+  FinancialAnalysisArtifact
 } from './renewable';
 // Maintenance artifact components
 import {
@@ -340,12 +341,26 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
         />;
     }
 
-    // CRITICAL: Log all artifacts before processing to detect duplicates
-    console.log('🔍 EnhancedArtifactProcessor: Processing artifacts array:', {
-        count: artifacts.length,
-        types: artifacts.map(a => a?.type || a?.messageContentType || 'unknown'),
+    // ========================================
+    // ENHANCED ARTIFACT LOGGING - START
+    // ========================================
+    console.log('🎯 EnhancedArtifactProcessor: Starting artifact processing', {
+        totalArtifacts: artifacts.length,
+        artifactTypes: artifacts.map(a => a?.type || a?.messageContentType || 'unknown'),
         messageId: (message as any).id,
         timestamp: new Date().toISOString()
+    });
+    
+    // Log each artifact's structure for debugging
+    artifacts.forEach((artifact, index) => {
+        console.log(`📦 Artifact ${index + 1}/${artifacts.length}:`, {
+            type: artifact?.type,
+            messageContentType: artifact?.messageContentType,
+            hasData: !!artifact?.data,
+            dataMessageContentType: artifact?.data?.messageContentType,
+            topLevelKeys: artifact ? Object.keys(artifact).slice(0, 10) : [],
+            dataKeys: artifact?.data ? Object.keys(artifact.data).slice(0, 10) : []
+        });
     });
     
     // Process retrieved artifacts
@@ -371,14 +386,32 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             console.log('🔍 EnhancedArtifactProcessor: Parsed artifact keys:', Object.keys(parsedArtifact || {}));
             console.log('🔍 EnhancedArtifactProcessor: Checking artifact type:', parsedArtifact.messageContentType || parsedArtifact.type);
             
+            // Helper function for consistent logging
+            const logArtifactCheck = (checkName: string, matched: boolean, details?: any) => {
+                const emoji = matched ? '✅' : '⏭️';
+                console.log(`${emoji} Artifact check: ${checkName}`, {
+                    matched,
+                    type: parsedArtifact?.type,
+                    messageContentType: parsedArtifact?.messageContentType,
+                    dataMessageContentType: parsedArtifact?.data?.messageContentType,
+                    ...details
+                });
+            };
+            
             // Check for error artifacts (deserialization errors, validation errors, etc.)
-            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+            const isErrorArtifact = parsedArtifact && typeof parsedArtifact === 'object' && 
                 (parsedArtifact.type === 'deserialization_error' || 
                  parsedArtifact.type === 'invalid_artifact' ||
                  parsedArtifact.type === 'validation_error' ||
                  parsedArtifact.type === 'error' ||
-                 parsedArtifact.messageContentType === 'error')) {
-                console.log('⚠️ EnhancedArtifactProcessor: Rendering error artifact');
+                 parsedArtifact.messageContentType === 'error');
+            logArtifactCheck('error_artifact', isErrorArtifact);
+            
+            if (isErrorArtifact) {
+                console.log('🎨 Rendering: ErrorArtifact', {
+                    title: parsedArtifact.title,
+                    hasMessage: !!parsedArtifact.data?.message
+                });
                 return (
                     <div 
                         data-content-hash={contentHash}
@@ -406,8 +439,14 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             }
             
             // Check for comprehensive shale analysis - CLOUDSCAPE VERSION
-            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_shale_analysis') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapeShaleVolumeDisplay from S3 artifact!');
+            const isShaleAnalysis = parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_shale_analysis';
+            logArtifactCheck('comprehensive_shale_analysis', isShaleAnalysis);
+            
+            if (isShaleAnalysis) {
+                console.log('🎨 Rendering: CloudscapeShaleVolumeDisplay', {
+                    hasData: !!parsedArtifact.data,
+                    wellName: parsedArtifact.wellName || parsedArtifact.data?.wellName
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -416,8 +455,14 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             }
             
             // Check for comprehensive porosity analysis - CLOUDSCAPE VERSION
-            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_porosity_analysis') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapePorosityDisplay from S3 artifact!');
+            const isPorosityAnalysis = parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'comprehensive_porosity_analysis';
+            logArtifactCheck('comprehensive_porosity_analysis', isPorosityAnalysis);
+            
+            if (isPorosityAnalysis) {
+                console.log('🎨 Rendering: CloudscapePorosityDisplay', {
+                    hasData: !!parsedArtifact.data,
+                    wellName: parsedArtifact.wellName || parsedArtifact.data?.wellName
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -426,8 +471,14 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             }
             
             // Check for data quality assessment - CLOUDSCAPE VERSION
-            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'data_quality_assessment') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapeDataQualityDisplay from S3 artifact!');
+            const isDataQuality = parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'data_quality_assessment';
+            logArtifactCheck('data_quality_assessment', isDataQuality);
+            
+            if (isDataQuality) {
+                console.log('🎨 Rendering: CloudscapeDataQualityDisplay', {
+                    hasArtifact: !!parsedArtifact,
+                    wellName: parsedArtifact.wellName
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -436,8 +487,14 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             }
             
             // Check for curve quality assessment - CLOUDSCAPE VERSION
-            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'curve_quality_assessment') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapeCurveQualityDisplay from S3 artifact!');
+            const isCurveQuality = parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'curve_quality_assessment';
+            logArtifactCheck('curve_quality_assessment', isCurveQuality);
+            
+            if (isCurveQuality) {
+                console.log('🎨 Rendering: CloudscapeCurveQualityDisplay', {
+                    hasArtifact: !!parsedArtifact,
+                    curveName: parsedArtifact.curveName
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -446,11 +503,19 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             }
             
             // Check for multi-well correlation - CLOUDSCAPE VERSION
-            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+            const isMultiWellCorrelation = parsedArtifact && typeof parsedArtifact === 'object' && 
                 (parsedArtifact.messageContentType === 'comprehensive_multi_well_correlation' || 
                  parsedArtifact.messageContentType === 'multi_well_correlation' ||
-                 parsedArtifact.messageContentType === 'multi_well_correlation_analysis')) {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering CloudscapeMultiWellCorrelationDisplay from S3 artifact!');
+                 parsedArtifact.messageContentType === 'multi_well_correlation_analysis');
+            logArtifactCheck('multi_well_correlation', isMultiWellCorrelation, {
+                matchedType: parsedArtifact?.messageContentType
+            });
+            
+            if (isMultiWellCorrelation) {
+                console.log('🎨 Rendering: CloudscapeMultiWellCorrelationDisplay', {
+                    hasData: !!parsedArtifact.data,
+                    wellCount: parsedArtifact.wells?.length || parsedArtifact.data?.wells?.length
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -566,13 +631,16 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             }
             
             // NEW: Check for renewable energy wind farm terrain analysis
-            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_terrain_analysis') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering TerrainMapArtifact!');
-                console.log('🔍 FRONTEND DEBUG - parsedArtifact keys:', Object.keys(parsedArtifact));
-                console.log('🔍 FRONTEND DEBUG - has geojson:', !!parsedArtifact.geojson);
-                console.log('🔍 FRONTEND DEBUG - has data.geojson:', !!parsedArtifact.data?.geojson);
-                console.log('🔍 FRONTEND DEBUG - has mapHtml:', !!parsedArtifact.mapHtml);
-                console.log('🔍 FRONTEND DEBUG - parsedArtifact:', parsedArtifact);
+            const isTerrainAnalysis = parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'wind_farm_terrain_analysis';
+            logArtifactCheck('wind_farm_terrain_analysis', isTerrainAnalysis);
+            
+            if (isTerrainAnalysis) {
+                console.log('🎨 Rendering: TerrainMapArtifact', {
+                    hasGeojson: !!parsedArtifact.geojson || !!parsedArtifact.data?.geojson,
+                    hasMapHtml: !!parsedArtifact.mapHtml,
+                    hasMetrics: !!parsedArtifact.metrics || !!parsedArtifact.data?.metrics,
+                    projectId: parsedArtifact.projectId || parsedArtifact.data?.projectId
+                });
                 
                 // CRITICAL FIX: Pass parsedArtifact.data, not parsedArtifact
                 // The component expects the data object directly with metrics, geojson, etc.
@@ -593,34 +661,46 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             // NEW: Check for renewable energy wind farm layout
             // Check both parsedArtifact.data.messageContentType (from orchestrator) and parsedArtifact.messageContentType (direct)
             // Also check parsedArtifact.type to catch orchestrator-wrapped responses
-            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+            const isLayoutArtifact = parsedArtifact && typeof parsedArtifact === 'object' && 
                 (parsedArtifact.data?.messageContentType === 'wind_farm_layout' || 
                  parsedArtifact.messageContentType === 'wind_farm_layout' ||
-                 parsedArtifact.type === 'wind_farm_layout')) {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering LayoutMapArtifact!');
+                 parsedArtifact.type === 'wind_farm_layout');
+            logArtifactCheck('wind_farm_layout', isLayoutArtifact);
+            
+            if (isLayoutArtifact) {
                 // CRITICAL FIX: Always use parsedArtifact.data if it exists
                 const layoutData = parsedArtifact.data || parsedArtifact;
-                console.log('🔍 FRONTEND DEBUG - parsedArtifact.type:', parsedArtifact.type);
-                console.log('🔍 FRONTEND DEBUG - layoutData keys:', Object.keys(layoutData));
-                console.log('🔍 FRONTEND DEBUG - turbineCount:', layoutData.turbineCount);
-                console.log('🔍 FRONTEND DEBUG - totalCapacity:', layoutData.totalCapacity);
-                console.log('🔍 FRONTEND DEBUG - has geojson:', !!layoutData.geojson);
-                console.log('🔍 FRONTEND DEBUG - full layoutData:', layoutData);
+                console.log('🎨 Rendering: LayoutMapArtifact', {
+                    turbineCount: layoutData.turbineCount,
+                    totalCapacity: layoutData.totalCapacity,
+                    hasGeojson: !!layoutData.geojson,
+                    projectId: layoutData.projectId
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
-                    enhancedComponent={<LayoutMapArtifact data={layoutData} />}
+                    enhancedComponent={<LayoutMapArtifact 
+                        data={layoutData} 
+                        onFollowUpAction={onSendMessage}
+                    />}
                 />;
             }
             
             // NEW: Check for renewable energy wind farm simulation
             // CRITICAL FIX: Check both top-level and nested messageContentType
-            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+            const isSimulation = parsedArtifact && typeof parsedArtifact === 'object' && 
                 (parsedArtifact.messageContentType === 'wind_farm_simulation' ||
                  parsedArtifact.data?.messageContentType === 'wind_farm_simulation' ||
-                 parsedArtifact.type === 'wind_farm_simulation')) {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering SimulationChartArtifact!');
+                 parsedArtifact.type === 'wind_farm_simulation');
+            logArtifactCheck('wind_farm_simulation', isSimulation);
+            
+            if (isSimulation) {
                 const artifactData = parsedArtifact.data || parsedArtifact;
+                console.log('🎨 Rendering: SimulationChartArtifact', {
+                    hasChartData: !!artifactData.chartData,
+                    hasMetrics: !!artifactData.metrics,
+                    projectId: artifactData.projectId
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -633,12 +713,19 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             
             // NEW: Check for wake simulation
             // CRITICAL FIX: Check both top-level and nested messageContentType
-            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+            const isWakeSimulation = parsedArtifact && typeof parsedArtifact === 'object' && 
                 (parsedArtifact.messageContentType === 'wake_simulation' ||
                  parsedArtifact.data?.messageContentType === 'wake_simulation' ||
-                 parsedArtifact.type === 'wake_simulation')) {
-                console.log('🌊 Rendering WakeAnalysisArtifact for wake simulation');
+                 parsedArtifact.type === 'wake_simulation');
+            logArtifactCheck('wake_simulation', isWakeSimulation);
+            
+            if (isWakeSimulation) {
                 const artifactData = parsedArtifact.data || parsedArtifact;
+                console.log('🎨 Rendering: WakeAnalysisArtifact', {
+                    hasWakeData: !!artifactData.wakeData,
+                    hasHeatmap: !!artifactData.heatmap,
+                    projectId: artifactData.projectId
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -651,12 +738,19 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             
             // NEW: Check for wake analysis
             // CRITICAL FIX: Check both top-level and nested messageContentType
-            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+            const isWakeAnalysis = parsedArtifact && typeof parsedArtifact === 'object' && 
                 (parsedArtifact.messageContentType === 'wake_analysis' ||
                  parsedArtifact.data?.messageContentType === 'wake_analysis' ||
-                 parsedArtifact.type === 'wake_analysis')) {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering SimulationChartArtifact for wake analysis!');
+                 parsedArtifact.type === 'wake_analysis');
+            logArtifactCheck('wake_analysis', isWakeAnalysis);
+            
+            if (isWakeAnalysis) {
                 const artifactData = parsedArtifact.data || parsedArtifact;
+                console.log('🎨 Rendering: SimulationChartArtifact (wake_analysis)', {
+                    hasChartData: !!artifactData.chartData,
+                    hasMetrics: !!artifactData.metrics,
+                    projectId: artifactData.projectId
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -669,16 +763,25 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
             
             // NEW: Check for wind rose analysis
             // CRITICAL FIX: Check both top-level and nested messageContentType
-            console.log('🔍 Checking wind rose:', parsedArtifact?.messageContentType, parsedArtifact?.data?.messageContentType, parsedArtifact?.type);
-            if (parsedArtifact && typeof parsedArtifact === 'object' && 
+            const isWindRose = parsedArtifact && typeof parsedArtifact === 'object' && 
                 (parsedArtifact.messageContentType === 'wind_rose' || 
                  parsedArtifact.messageContentType === 'wind_rose_analysis' ||
                  parsedArtifact.data?.messageContentType === 'wind_rose' ||
                  parsedArtifact.data?.messageContentType === 'wind_rose_analysis' ||
                  parsedArtifact.type === 'wind_rose' ||
-                 parsedArtifact.type === 'wind_rose_analysis')) {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering WindRoseArtifact!', parsedArtifact);
+                 parsedArtifact.type === 'wind_rose_analysis');
+            logArtifactCheck('wind_rose', isWindRose, {
+                matchedType: parsedArtifact?.messageContentType || parsedArtifact?.type
+            });
+            
+            if (isWindRose) {
                 const artifactData = parsedArtifact.data || parsedArtifact;
+                console.log('🎨 Rendering: WindRoseArtifact', {
+                    hasPlotlyData: !!artifactData.plotlyData,
+                    hasImageUrl: !!artifactData.imageUrl,
+                    hasWindData: !!artifactData.windData,
+                    projectId: artifactData.projectId
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -686,9 +789,69 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
                 />;
             }
             
+            // NEW: Check for wind farm report
+            // CRITICAL FIX: Check both top-level and nested messageContentType
+            const isReport = parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'wind_farm_report' ||
+                 parsedArtifact.data?.messageContentType === 'wind_farm_report' ||
+                 parsedArtifact.type === 'wind_farm_report');
+            logArtifactCheck('wind_farm_report', isReport);
+            
+            if (isReport) {
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                console.log('🎨 Rendering: ReportArtifact', {
+                    hasTitle: !!artifactData.title,
+                    hasExecutiveSummary: !!artifactData.executiveSummary,
+                    hasRecommendations: !!artifactData.recommendations,
+                    hasReportHtml: !!artifactData.reportHtml,
+                    hasReportUrl: !!artifactData.reportUrl,
+                    projectId: artifactData.projectId
+                });
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<ReportArtifact 
+                        data={artifactData} 
+                        onFollowUpAction={onSendMessage}
+                    />}
+                />;
+            }
+            
+            // NEW: Check for financial analysis
+            // CRITICAL FIX: Check both top-level and nested messageContentType
+            const isFinancialAnalysis = parsedArtifact && typeof parsedArtifact === 'object' && 
+                (parsedArtifact.messageContentType === 'financial_analysis' ||
+                 parsedArtifact.data?.messageContentType === 'financial_analysis' ||
+                 parsedArtifact.type === 'financial_analysis');
+            logArtifactCheck('financial_analysis', isFinancialAnalysis);
+            
+            if (isFinancialAnalysis) {
+                const artifactData = parsedArtifact.data || parsedArtifact;
+                console.log('🎨 Rendering: FinancialAnalysisArtifact', {
+                    hasMetrics: !!artifactData.metrics,
+                    hasCostBreakdown: !!artifactData.costBreakdown,
+                    hasRevenueProjection: !!artifactData.revenueProjection,
+                    hasAssumptions: !!artifactData.assumptions,
+                    projectId: artifactData.projectId
+                });
+                return <AiMessageComponent 
+                    message={message} 
+                    theme={theme} 
+                    enhancedComponent={<FinancialAnalysisArtifact 
+                        data={artifactData} 
+                        onFollowUpAction={onSendMessage}
+                    />}
+                />;
+            }
+            
             // NEW: Check for renewable energy guidance
-            if (parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'renewable_energy_guidance') {
-                console.log('🎉 EnhancedArtifactProcessor: Rendering RenewableEnergyGuidanceComponent!');
+            const isRenewableGuidance = parsedArtifact && typeof parsedArtifact === 'object' && parsedArtifact.messageContentType === 'renewable_energy_guidance';
+            logArtifactCheck('renewable_energy_guidance', isRenewableGuidance);
+            
+            if (isRenewableGuidance) {
+                console.log('🎨 Rendering: RenewableEnergyGuidanceComponent', {
+                    hasData: !!parsedArtifact.data
+                });
                 return <AiMessageComponent 
                     message={message} 
                     theme={theme} 
@@ -981,7 +1144,34 @@ const EnhancedArtifactProcessor = React.memo(({ rawArtifacts, message, theme, on
         }
     }
     
-    console.log('⚠️ EnhancedArtifactProcessor: Artifacts found but no matching component, using regular AI message');
+    // ========================================
+    // ENHANCED ARTIFACT LOGGING - FALLBACK
+    // ========================================
+    console.log('❌ EnhancedArtifactProcessor: No matching component found for artifacts', {
+        totalArtifacts: artifacts.length,
+        artifactTypes: artifacts.map(a => ({
+            type: a?.type,
+            messageContentType: a?.messageContentType,
+            dataMessageContentType: a?.data?.messageContentType,
+            availableKeys: a ? Object.keys(a).slice(0, 10) : []
+        })),
+        messageId: (message as any).id
+    });
+    
+    // Log missing expected fields for debugging
+    artifacts.forEach((artifact, index) => {
+        if (artifact && typeof artifact === 'object') {
+            const parsedArtifact = typeof artifact === 'string' ? JSON.parse(artifact) : artifact;
+            console.log(`❌ Artifact ${index + 1} - Missing expected fields:`, {
+                hasType: !!parsedArtifact.type,
+                hasMessageContentType: !!parsedArtifact.messageContentType,
+                hasData: !!parsedArtifact.data,
+                availableFields: Object.keys(parsedArtifact),
+                dataFields: parsedArtifact.data ? Object.keys(parsedArtifact.data) : []
+            });
+        }
+    });
+    
     return (
         <div data-content-hash={contentHash}>
             <AiMessageComponent message={message} theme={theme} />
@@ -1105,18 +1295,7 @@ const ChatMessage = (params: {
                             isVisible={true}
                         />
                     )}
-                    {thinkingBlocks.length > 0 && (
-                        <ExtendedThinkingDisplay
-                            thinking={thinkingBlocks}
-                            defaultExpanded={false}
-                        />
-                    )}
-                    {thoughtSteps.length > 0 && (
-                        <ExtendedThinkingDisplay
-                            thinking={thoughtSteps}
-                            defaultExpanded={true}
-                        />
-                    )}
+                    {/* Chain of thought shown in panel only, not in conversation */}
                 </>
             );
             

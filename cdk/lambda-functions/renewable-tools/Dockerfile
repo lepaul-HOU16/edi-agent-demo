@@ -1,14 +1,12 @@
 FROM public.ecr.aws/lambda/python:3.12
 
-# Copy requirements first for better caching
+# Copy requirements and install dependencies
 COPY requirements.txt ${LAMBDA_TASK_ROOT}/
-RUN pip install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
+RUN pip3 install --no-cache-dir -r ${LAMBDA_TASK_ROOT}/requirements.txt
 
-# Copy the complete original tools
+# Copy function code
+COPY handler.py ${LAMBDA_TASK_ROOT}/
 COPY agents/ ${LAMBDA_TASK_ROOT}/agents/
 
-# Copy handler
-COPY handler.py ${LAMBDA_TASK_ROOT}/
-
-# Set the handler
+# Set the CMD to your handler
 CMD [ "handler.handler" ]

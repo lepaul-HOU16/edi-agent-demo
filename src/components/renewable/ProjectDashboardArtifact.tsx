@@ -172,6 +172,26 @@ const ProjectDashboardArtifact: React.FC<ProjectDashboardArtifactProps> = ({
           }
           break;
           
+        case 'create':
+          // Show helpful message for creating new project
+          setFlashMessages([{
+            type: 'info',
+            content: 'To create a new project, start by asking me to analyze terrain at a location. For example: "Analyze terrain for wind farm in West Texas"',
+            dismissible: true,
+            id: `create-${Date.now()}`
+          }]);
+          break;
+          
+        case 'refresh':
+          // Refresh the dashboard by asking for it again
+          setFlashMessages([{
+            type: 'info',
+            content: 'Refreshing dashboard... Ask me "show my project dashboard" to see the latest projects.',
+            dismissible: true,
+            id: `refresh-${Date.now()}`
+          }]);
+          break;
+          
         case 'view':
           // For view, use onAction callback (will be implemented later)
           if (onAction) {
@@ -419,6 +439,10 @@ const ProjectDashboardArtifact: React.FC<ProjectDashboardArtifactProps> = ({
         }
       `}</style>
       <SpaceBetween size="l">
+        {/* Flash messages for user feedback */}
+        {flashMessages.length > 0 && (
+          <Flashbar items={flashMessages} />
+        )}
         {/* Summary Statistics */}
         <Container
         header={

@@ -98,20 +98,26 @@ ${JSON.stringify(step.details, null, 2)}
   return (
     <Box
       sx={{
-        backgroundColor: isDark ? '#2d3748' : '#f8f9fa', // Dark: medium dark gray, Light: light gray
+        backgroundColor: isDark ? '#2d3748' : '#f8f9fa',
         borderLeft: `4px solid ${getBorderColor()}`,
         borderRadius: '4px',
-        padding: '12px 16px',
-        marginBottom: '8px',
-        transition: 'all 0.2s ease',
-        '&:hover': {
-          backgroundColor: isDark ? '#374151' : '#e9ecef'
-        }
+        padding: '8px 12px',
+        marginBottom: '10px'
       }}
     >
       {/* Header Row */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, marginBottom: '4px' }}>
+        <Typography
+          variant="caption"
+          sx={{
+            color: isDark ? '#9ca3af' : '#6c757d',
+            fontFamily: 'monospace',
+            fontSize: '11px'
+          }}
+        >
+          {formatTime(step.timestamp)}
+        </Typography>
+        {step.duration && (
           <Typography
             variant="caption"
             sx={{
@@ -120,51 +126,20 @@ ${JSON.stringify(step.details, null, 2)}
               fontSize: '11px'
             }}
           >
-            {formatTime(step.timestamp)}
+            • {formatDuration(step.duration)}
           </Typography>
-          {step.duration && (
-            <Typography
-              variant="caption"
-              sx={{
-                color: isDark ? '#9ca3af' : '#6c757d',
-                fontFamily: 'monospace',
-                fontSize: '11px'
-              }}
-            >
-              • {formatDuration(step.duration)}
-            </Typography>
-          )}
-          <Typography
-            variant="caption"
-            sx={{
-              color: isDark ? '#9ca3af' : '#6c757d',
-              fontFamily: 'monospace',
-              fontSize: '11px',
-              textTransform: 'uppercase'
-            }}
-          >
-            • {step.type.replace(/_/g, ' ')}
-          </Typography>
-        </Box>
-        
-        {detailsContent && (
-          <Button
-            size="small"
-            onClick={onToggle}
-            sx={{
-              minWidth: 'auto',
-              padding: '2px 8px',
-              fontSize: '11px',
-              color: isDark ? '#9ca3af' : '#6c757d',
-              textTransform: 'none',
-              '&:hover': {
-                backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
-              }
-            }}
-          >
-            {isExpanded ? 'Collapse' : 'Expand'}
-          </Button>
         )}
+        <Typography
+          variant="caption"
+          sx={{
+            color: isDark ? '#9ca3af' : '#6c757d',
+            fontFamily: 'monospace',
+            fontSize: '11px',
+            textTransform: 'uppercase'
+          }}
+        >
+          • {step.type.replace(/_/g, ' ')}
+        </Typography>
       </Box>
 
       {/* Title */}
@@ -186,7 +161,7 @@ ${JSON.stringify(step.details, null, 2)}
         sx={{
           color: isDark ? '#d1d5db' : '#495057',
           fontSize: '13px',
-          lineHeight: 1.5
+          lineHeight: 1.4
         }}
       >
         {step.summary}
@@ -196,8 +171,8 @@ ${JSON.stringify(step.details, null, 2)}
       {step.error && (
         <Box
           sx={{
-            marginTop: '8px',
-            padding: '8px',
+            marginTop: '4px',
+            padding: '6px',
             backgroundColor: 'rgba(239, 68, 68, 0.1)',
             borderRadius: '4px',
             borderLeft: '3px solid #ef4444'
@@ -213,44 +188,6 @@ ${JSON.stringify(step.details, null, 2)}
           >
             {step.error.message}
           </Typography>
-        </Box>
-      )}
-
-      {/* Details (Expandable) */}
-      {detailsContent && isExpanded && (
-        <Box
-          sx={{
-            marginTop: '12px',
-            padding: '12px',
-            backgroundColor: isDark ? '#1f2937' : '#ffffff',
-            border: isDark ? 'none' : '1px solid #dee2e6',
-            borderRadius: '4px',
-            overflow: 'auto',
-            maxHeight: '400px',
-            '& pre': {
-              margin: 0,
-              padding: '8px',
-              backgroundColor: isDark ? '#111827' : '#f8f9fa',
-              borderRadius: '4px',
-              overflow: 'auto',
-              fontSize: '12px',
-              fontFamily: 'monospace'
-            },
-            '& code': {
-              color: isDark ? '#e5e7eb' : '#212529',
-              fontFamily: 'monospace',
-              fontSize: '12px'
-            },
-            '& p': {
-              margin: '4px 0',
-              color: isDark ? '#d1d5db' : '#495057',
-              fontSize: '13px'
-            }
-          }}
-        >
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {detailsContent}
-          </ReactMarkdown>
         </Box>
       )}
     </Box>
@@ -313,12 +250,11 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
     }
   }, [providedThoughtSteps, messages]);
 
-  // Initialize all steps as expanded if defaultExpanded is true
+  // Initialize all steps as collapsed by default
   useEffect(() => {
-    if (defaultExpanded && thoughtSteps.length > 0) {
-      setExpandedSteps(new Set(thoughtSteps.map(s => s.id)));
-    }
-  }, [defaultExpanded, thoughtSteps.length]);
+    // Start with all steps collapsed
+    setExpandedSteps(new Set());
+  }, [thoughtSteps.length]);
 
   // Auto-scroll when new steps are added
   useEffect(() => {
@@ -345,9 +281,14 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
   };
 
   const toggleAll = () => {
-    if (expandedSteps.size === thoughtSteps.length) {
+    // Check if all steps are expanded
+    const allExpanded = expandedSteps.size === thoughtSteps.length;
+    
+    if (allExpanded) {
+      // Collapse all
       setExpandedSteps(new Set());
     } else {
+      // Expand all
       setExpandedSteps(new Set(thoughtSteps.map(s => s.id)));
     }
   };
@@ -394,8 +335,8 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
         marginBottom: '12px'
       }}
     >
-      {/* Header with Expand/Collapse All */}
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+      {/* Header */}
+      <Box sx={{ marginBottom: '8px' }}>
         <Typography
           variant="caption"
           sx={{
@@ -408,22 +349,6 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
         >
           Chain of Thought ({thoughtSteps.length} steps)
         </Typography>
-        <Button
-          size="small"
-          onClick={toggleAll}
-          sx={{
-            minWidth: 'auto',
-            padding: '2px 8px',
-            fontSize: '11px',
-            color: isDark ? '#9ca3af' : '#6c757d',
-            textTransform: 'none',
-            '&:hover': {
-              backgroundColor: isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)'
-            }
-          }}
-        >
-          {expandedSteps.size === thoughtSteps.length ? 'Collapse All' : 'Expand All'}
-        </Button>
       </Box>
 
       {/* Thought Steps */}
@@ -431,8 +356,8 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
         <ThoughtStepCard
           key={step.id}
           step={step}
-          isExpanded={expandedSteps.has(step.id)}
-          onToggle={() => toggleStep(step.id)}
+          isExpanded={true}
+          onToggle={() => {}}
         />
       ))}
     </Box>

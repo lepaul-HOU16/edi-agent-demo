@@ -8,7 +8,7 @@
     "watch": "tsc -w",
     "test": "jest",
     "cdk": "cdk",
-    "deploy": "cdk deploy --all",
+    "deploy": "npm run build:all && cdk deploy --all",
     "diff": "cdk diff",
     "synth": "cdk synth",
     "build:lambdas": "node esbuild.config.js build",

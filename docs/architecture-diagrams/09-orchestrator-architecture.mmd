@@ -1,0 +1,126 @@
+```mermaid
+graph TB
+    subgraph "User Layer"
+        USER[User Query]
+    end
+
+    subgraph "Chat Lambda"
+        CHAT[Chat Handler]
+        ROUTER[Agent Router]
+    end
+
+    subgraph "Renewable Proxy Agent"
+        PROXY[Renewable Proxy Agent]
+        VALIDATOR[Input Validator]
+        FORMATTER[Response Formatter]
+    end
+
+    subgraph "Renewable Orchestrator Lambda"
+        ORCH_HANDLER[Orchestrator Handler]
+        INTENT[Intent Router]
+        CONTEXT[Context Manager]
+        PROGRESS[Progress Tracker]
+        STATE[State Machine]
+    end
+
+    subgraph "Tool Lambda Layer"
+        TERRAIN[Terrain Analysis Tool]
+        LAYOUT[Layout Optimization Tool]
+        SIMULATION[Wake Simulation Tool]
+        REPORT[Report Generation Tool]
+        WINDROSE[Wind Rose Tool]
+    end
+
+    subgraph "Data Layer"
+        DDB_MSG[ChatMessage Table]
+        DDB_CTX[SessionContext Table]
+        DDB_PROG[AgentProgress Table]
+        S3[S3 Artifact Storage]
+    end
+
+    USER --> CHAT
+    CHAT --> ROUTER
+    ROUTER -->|Intent: Renewable| PROXY
+    PROXY --> VALIDATOR
+    VALIDATOR --> ORCH_HANDLER
+    
+    ORCH_HANDLER --> INTENT
+    INTENT -->|Parse Query| CONTEXT
+    CONTEXT -->|Load Session| DDB_CTX
+    
+    INTENT -->|Route to Tool| TERRAIN
+    INTENT -->|Route to Tool| LAYOUT
+    INTENT -->|Route to Tool| SIMULATION
+    INTENT -->|Route to Tool| REPORT
+    INTENT -->|Route to Tool| WINDROSE
+    
+    TERRAIN --> S3
+    LAYOUT --> S3
+    SIMULATION --> S3
+    REPORT --> S3
+    WINDROSE --> S3
+    
+    ORCH_HANDLER --> PROGRESS
+    PROGRESS --> DDB_PROG
+    
+    ORCH_HANDLER --> STATE
+    STATE -->|Update State| DDB_CTX
+    
+    ORCH_HANDLER --> FORMATTER
+    FORMATTER --> DDB_MSG
+    FORMATTER --> PROXY
+    PROXY --> CHAT
+    CHAT --> USER
+
+    style ORCH_HANDLER fill:#ff9900
+    style INTENT fill:#ff9900
+    style ROUTER fill:#ff9900
+    style S3 fill:#569A31
+    style DDB_MSG fill:#3B48CC
+    style DDB_CTX fill:#3B48CC
+    style DDB_PROG fill:#3B48CC
+```
+
+## Architecture Components
+
+### 1. Renewable Proxy Agent
+- **Purpose**: Acts as gateway between Chat Lambda and Orchestrator
+- **Responsibilities**:
+  - Validate user input
+  - Invoke orchestrator asynchronously
+  - Format orchestrator responses for frontend
+  - Handle errors and timeouts
+
+### 2. Orchestrator Handler
+- **Purpose**: Coordinates multiple tool invocations
+- **Responsibilities**:
+  - Parse user intent
+  - Manage session context
+  - Route to appropriate tools
+  - Track progress
+  - Aggregate results
+
+### 3. Intent Router
+- **Purpose**: Determine which tool(s) to invoke
+- **Pattern Matching**:
+  - Terrain analysis keywords
+  - Layout optimization keywords
+  - Wake simulation keywords
+  - Report generation keywords
+  - Wind rose visualization keywords
+
+### 4. Context Manager
+- **Purpose**: Maintain project state across queries
+- **Capabilities**:
+  - Load previous project data
+  - Store new project data
+  - Track project lifecycle
+  - Manage session context
+
+### 5. Progress Tracker
+- **Purpose**: Provide real-time updates to user
+- **Capabilities**:
+  - Record thought steps
+  - Update progress status
+  - Store intermediate results
+  - Enable polling for updates

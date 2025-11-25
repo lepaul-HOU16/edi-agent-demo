@@ -17,8 +17,19 @@ export const handler = async (
     console.log('[Orchestrator Wrapper] Event body:', event.body);
     console.log('[Orchestrator Wrapper] Event type:', typeof event.body);
     
-    // Parse request body
-    const body = JSON.parse(event.body || '{}');
+    // Parse request body - handle both API Gateway (has body field) and direct invocation (event IS the body)
+    let body: any;
+    if (event.body) {
+      // API Gateway invocation - body is a JSON string
+      body = JSON.parse(event.body);
+    } else if (event.query) {
+      // Direct invocation - event is already the request object
+      body = event;
+    } else {
+      // Fallback - empty body
+      body = {};
+    }
+    
     console.log('[Orchestrator Wrapper] Parsed body:', JSON.stringify(body));
     console.log('[Orchestrator Wrapper] Body keys:', Object.keys(body));
     

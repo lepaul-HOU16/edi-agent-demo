@@ -90,9 +90,9 @@ export class ProjectNameGenerator {
       return match[1].trim();
     }
 
-    // Pattern 3: "for {location}" or "near {location}"
-    const forNearPattern = /(?:for|near)\s+([A-Z][a-zA-Z\s]+?)(?:\s+wind\s+farm|\s+area|\s*$|,|\s+project)/i;
-    match = query.match(forNearPattern);
+    // Pattern 3: "near {location}" (removed "for" to avoid matching "for wind farm")
+    const nearPattern = /near\s+([A-Z][a-zA-Z\s]+?)(?:\s+wind\s+farm|\s+area|\s*$|,|\s+project)/i;
+    match = query.match(nearPattern);
     if (match && match[1]) {
       return match[1].trim();
     }

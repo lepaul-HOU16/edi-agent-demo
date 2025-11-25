@@ -701,7 +701,7 @@ function Page() {
                     </div>
                 ) : (
                     // Chain of Thought here - using reusable ChainOfThoughtDisplay component
-                    <div className='panel'>
+                    <div className='panel' style={{ padding: '20px' }}>
                         <ChainOfThoughtDisplay messages={messages} />
                     </div>
                 )}

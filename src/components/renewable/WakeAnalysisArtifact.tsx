@@ -80,6 +80,34 @@ const WakeAnalysisArtifact: React.FC<WakeAnalysisArtifactProps> = ({ data, onFol
   const [mapLoaded, setMapLoaded] = useState(false);
   const [hasError, setHasError] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+  
+  // DEBUG: Log the data structure to see what visualizations are available
+  console.log('🔍 [WakeAnalysisArtifact] Received data:', {
+    hasVisualizations: !!data.visualizations,
+    visualizations: data.visualizations,
+    visualizationKeys: data.visualizations ? Object.keys(data.visualizations) : [],
+    visualizationValues: data.visualizations ? Object.entries(data.visualizations).map(([key, val]) => ({
+      key,
+      hasValue: !!val,
+      isArray: Array.isArray(val),
+      length: Array.isArray(val) ? val.length : undefined,
+      preview: typeof val === 'string' ? val.substring(0, 50) + '...' : val
+    })) : []
+  });
+  
+  // CRITICAL DEBUG: Log performance_charts specifically
+  if (data.visualizations?.performance_charts) {
+    console.log('📊 [WakeAnalysisArtifact] performance_charts:', {
+      isArray: Array.isArray(data.visualizations.performance_charts),
+      length: data.visualizations.performance_charts.length,
+      charts: data.visualizations.performance_charts
+    });
+  } else {
+    console.error('❌ [WakeAnalysisArtifact] NO performance_charts found!', {
+      visualizations: data.visualizations,
+      hasPerformanceCharts: !!data.visualizations?.performance_charts
+    });
+  }
 
   // Calculate key metrics with error handling
   const metrics = useMemo(() => {
@@ -344,127 +372,80 @@ const WakeAnalysisArtifact: React.FC<WakeAnalysisArtifactProps> = ({ data, onFol
               )
             },
             {
-              id: 'wake_map',
-              label: 'Wake Heat Map',
-              content: (
-                <Container header={<Header variant="h3">Wake Interaction Heat Map</Header>}>
-                  {data.visualizations?.wake_heat_map ? (
-                    <div style={{ position: 'relative', width: '100%', height: '600px' }}>
-                      <iframe
-                        src={data.visualizations.wake_heat_map}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          border: 'none',
-                          borderRadius: '8px'
-                        }}
-                        title="Wake Heat Map"
-                        onLoad={() => setMapLoaded(true)}
-                        onError={() => {
-                          console.error('[WakeAnalysisArtifact] Failed to load wake heat map iframe');
-                          setMapLoaded(false);
-                        }}
-                      />
-                      {!mapLoaded && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          transform: 'translate(-50%, -50%)'
-                        }}>
-                          Loading heat map...
-                        </div>
-                      )}
-                    </div>
-                  ) : (
-                    <Alert
-                      type="info"
-                      header="Wake Heat Map Not Available"
-                      action={
-                        data.visualizations?.wake_analysis ? (
-                          <Button
-                            onClick={() => setActiveTab('charts')}
-                            iconName="arrow-right"
-                          >
-                            View Analysis Charts
-                          </Button>
-                        ) : undefined
-                      }
-                    >
-                      The interactive wake heat map visualization is not available for this simulation.
-                      {data.visualizations?.wake_analysis && (
-                        <Box margin={{ top: 'xs' }}>
-                          You can view the wake analysis chart in the "Analysis Charts" tab instead.
-                        </Box>
-                      )}
-                    </Alert>
-                  )}
-                </Container>
-              )
-            },
-            {
               id: 'charts',
               label: 'Analysis Charts',
               content: (
                 <SpaceBetween size="m">
-                  {/* Wake Analysis Chart */}
-                  {data.visualizations?.wake_analysis && (
-                    <Container header={<Header variant="h3">Wake Deficit Analysis</Header>}>
-                      <img
-                        src={data.visualizations.wake_analysis}
-                        alt="Wake Analysis"
-                        style={{ width: '100%', maxWidth: '800px', height: 'auto' }}
-                      />
-                    </Container>
+                  {/* Show available charts or message if none */}
+                  {(!data.visualizations || 
+                    (!data.visualizations.performance_charts || data.visualizations.performance_charts.length === 0)) && (
+                    <Alert type="info">
+                      Analysis charts are being generated. They will appear here once processing is complete.
+                    </Alert>
                   )}
-
-                  {/* Performance Charts */}
+                  
+                  {/* ALL 8 Performance Charts - Display all charts from performance_charts array */}
                   {data.visualizations?.performance_charts && data.visualizations.performance_charts.length > 0 && (
-                    <Container header={<Header variant="h3">Performance Analysis</Header>}>
-                      <SpaceBetween size="m">
-                        {data.visualizations.performance_charts.map((chartUrl, index) => (
-                          <img
-                            key={index}
-                            src={chartUrl}
-                            alt={`Performance Chart ${index + 1}`}
-                            style={{ width: '100%', maxWidth: '800px', height: 'auto' }}
-                          />
-                        ))}
+                    <Container header={<Header variant="h3">Wind Farm Analysis Charts</Header>}>
+                      <SpaceBetween size="l">
+                        {data.visualizations.performance_charts.map((chartUrl, index) => {
+                          // Chart titles based on order from backend
+                          const chartTitles = [
+                            'AEP Distribution of Each Turbine',
+                            'Wake Map',
+                            'Wind Rose',
+                            'Annual Energy Production per Turbine',
+                            'Wake Losses per Turbine',
+                            'Wind Speed Distribution',
+                            'Turbine Power Curve',
+                            'AEP vs Wind Speed'
+                          ];
+                          
+                          return (
+                            <Box key={index}>
+                              <Box variant="h4" padding={{ bottom: 'xs' }}>
+                                {chartTitles[index] || `Chart ${index + 1}`}
+                              </Box>
+                              <img
+                                src={chartUrl}
+                                alt={chartTitles[index] || `Chart ${index + 1}`}
+                                style={{ 
+                                  width: '100%', 
+                                  maxWidth: '900px', 
+                                  height: 'auto',
+                                  backgroundColor: '#ffffff',
+                                  padding: '12px',
+                                  borderRadius: '8px',
+                                  boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                                }}
+                                onError={(e) => {
+                                  console.error(`Failed to load chart ${index}:`, chartUrl);
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            </Box>
+                          );
+                        })}
                       </SpaceBetween>
                     </Container>
                   )}
-
-                  {/* Seasonal Analysis */}
-                  {data.visualizations?.seasonal_analysis && (
-                    <Container header={<Header variant="h3">Seasonal Wind Analysis</Header>}>
-                      <img
-                        src={data.visualizations.seasonal_analysis}
-                        alt="Seasonal Analysis"
-                        style={{ width: '100%', maxWidth: '800px', height: 'auto' }}
-                      />
-                    </Container>
-                  )}
-
-                  {/* Wind Resource Variability */}
-                  {data.visualizations?.variability_analysis && (
-                    <Container header={<Header variant="h3">Wind Resource Variability</Header>}>
-                      <img
-                        src={data.visualizations.variability_analysis}
-                        alt="Variability Analysis"
-                        style={{ width: '100%', maxWidth: '800px', height: 'auto' }}
-                      />
-                    </Container>
-                  )}
-
-                  {/* Wind Rose */}
-                  {data.visualizations?.wind_rose && (
-                    <Container header={<Header variant="h3">Wind Rose</Header>}>
-                      <img
-                        src={data.visualizations.wind_rose}
-                        alt="Wind Rose"
-                        style={{ width: '100%', maxWidth: '600px', height: 'auto' }}
-                      />
-                    </Container>
+                  
+                  {/* Show message if no charts are visible */}
+                  {data.visualizations && 
+                   (!data.visualizations.performance_charts || data.visualizations.performance_charts.length === 0) && (
+                    <Alert type="info" header="Charts Not Available">
+                      <SpaceBetween size="s">
+                        <Box>
+                          The wake simulation completed successfully, but visualization charts were not generated.
+                        </Box>
+                        <Box variant="small" color="text-body-secondary">
+                          Available visualization fields: {Object.keys(data.visualizations).join(', ') || 'none'}
+                        </Box>
+                        <Box variant="small" color="text-body-secondary">
+                          Check the browser console for detailed visualization data.
+                        </Box>
+                      </SpaceBetween>
+                    </Alert>
                   )}
                 </SpaceBetween>
               )
@@ -480,25 +461,15 @@ const WakeAnalysisArtifact: React.FC<WakeAnalysisArtifactProps> = ({ data, onFol
             </Box>
             <SpaceBetween direction="horizontal" size="xs">
               <Button
-                variant="primary"
-                onClick={() => handleFollowUpAction('Generate comprehensive executive report with all analysis results')}
-              >
-                Generate Report
-              </Button>
-              <Button
-                onClick={() => handleFollowUpAction('Optimize turbine layout to reduce wake losses')}
-              >
-                Optimize Layout
-              </Button>
-              <Button
                 onClick={() => handleFollowUpAction('Perform financial analysis and ROI calculation')}
               >
                 Financial Analysis
               </Button>
               <Button
-                onClick={() => handleFollowUpAction('Compare this scenario with alternative layouts')}
+                variant="primary"
+                onClick={() => handleFollowUpAction('Generate comprehensive executive report with all analysis results')}
               >
-                Compare Scenarios
+                Generate Report
               </Button>
             </SpaceBetween>
           </SpaceBetween>

@@ -1,337 +1,631 @@
-# Multi-Well Correlation Workflow Design
+# Multi-Well Correlation Workflow - Technical Design
 
-## Overview
+## Architecture Overview
 
-This design implements an interactive multi-well correlation workflow that enables geoscientists to visualize data availability, assess quality, and perform correlation analysis with economic calculations. The workflow is conversational and maintains context across multiple steps.
-
-## Architecture
-
-### Component Overview
+The multi-well correlation workflow extends the existing petrophysics agent with three new interactive artifacts and enhanced calculation capabilities.
 
 ```
-User Query
-    ↓
-Agent Router → Petrophysics Agent
-    ↓
-Intent Detection (multi_well_correlation, data_matrix, data_quality)
-    ↓
-Petrophysics Calculator Lambda
-    ↓
-    ├─ Data Matrix Generator
-    ├─ Data Quality Assessor  
-    ├─ Correlation Analyzer
-    └─ NPV Calculator
-    ↓
-Artifacts (Interactive Visualizations)
-    ↓
-Frontend Components
+┌─────────────────────┐
+│   Chat Interface    │
+│  (User Queries)     │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────┐
+│   Agent Router      │
+│  (Intent Detection) │
+└──────────┬──────────┘
+           │
+           ▼
+┌─────────────────────────────────┐
+│  Petrophysics Agent             │
+│  - Data matrix request          │
+│  - Well detail request          │
+│  - Correlation request          │
+└──────────┬──────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────┐
+│  MCP Petrophysical Analysis     │
+│  - list_wells()                 │
+│  - get_well_info()              │
+│  - assess_well_data_quality()   │
+│  - calculate_porosity()         │
+│  - calculate_shale_volume()     │
+│  - calculate_saturation()       │
+└──────────┬──────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────┐
+│  New Calculation Functions      │
+│  - calculate_net_pay()          │
+│  - correlate_wells()            │
+│  - calculate_npv()              │
+└──────────┬──────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────┐
+│  Artifact Generation            │
+│  - DataMatrixArtifact           │
+│  - WellDataQualityArtifact      │
+│  - CorrelationAnalysisArtifact  │
+└─────────────────────────────────┘
 ```
 
-### Data Flow
+## Component Design
 
-1. **User initiates workflow** → Natural language query
-2. **Agent detects intent** → Routes to appropriate handler
-3. **Calculator performs analysis** → Accesses LAS files from S3
-4. **Generates artifacts** → Interactive visualizations
-5. **Frontend renders** → User can click and explore
-6. **Context maintained** → Next steps suggested
+### 1. Agent Intent Detection
 
-## Components and Interfaces
+**Location**: `cdk/lambda-functions/chat/agents/agentRouter.ts`
 
-### 1. Intent Detection Patterns
-
-Add new patterns to `enhancedStrandsAgent.ts`:
+Add new intent patterns for correlation workflow:
 
 ```typescript
-// Data matrix patterns
-/data.*matrix|matrix.*plot|show.*available.*data/i
-/what.*data.*available|data.*coverage/i
-
-// Data quality patterns  
-/data.*quality|quality.*assessment|check.*data/i
-/show.*well.*\w+-\d+|analyze.*well.*\w+-\d+/i
-
-// Correlation patterns
-/run.*correlation|correlate.*wells?/i
-/multi.*well.*correlation|cross.*well/i
+// New patterns to add
+{
+  pattern: /data\s+matrix|available\s+data|show.*wells.*curves/i,
+  intent: 'data_matrix_visualization',
+  agent: 'petrophysics'
+},
+{
+  pattern: /data\s+quality|check.*well|assess.*data/i,
+  intent: 'well_data_quality',
+  agent: 'petrophysics'
+},
+{
+  pattern: /correlat(e|ion)|net\s+pay|reservoir\s+zones/i,
+  intent: 'multi_well_correlation',
+  agent: 'petrophysics'
+}
 ```
 
-### 2. Petrophysics Calculator Lambda Extensions
+### 2. Petrophysics Agent Enhancement
 
-Add new tools to `handler.py`:
+**Location**: `cdk/lambda-functions/chat/agents/petrophysicsAgent.ts`
 
-#### Tool: `generate_data_matrix`
-
-```python
-def generate_data_matrix(well_names: List[str]) -> Dict:
-    """
-    Generate data availability matrix for all wells
+```typescript
+export class PetrophysicsAgent {
+  async processMessage(message: string, context: ChatContext): Promise<AgentResponse> {
+    const intent = this.detectIntent(message);
     
-    Returns:
-    {
-        'wells': ['WELL-001', 'WELL-002', ...],
-        'curves': ['GR', 'RHOB', 'NPHI', ...],
-        'matrix': [[completeness_percentages]],
-        'artifact': {
-            'messageContentType': 'data_matrix',
-            'data': {...}
-        }
+    switch (intent) {
+      case 'data_matrix_visualization':
+        return await this.generateDataMatrix();
+      
+      case 'well_data_quality':
+        const wellName = this.extractWellName(message, context);
+        return await this.generateWellDataQuality(wellName);
+      
+      case 'multi_well_correlation':
+        const wells = this.extractWellNames(message, context);
+        return await this.performCorrelation(wells);
+      
+      default:
+        return await this.handleGeneralQuery(message);
     }
-    """
-```
+  }
 
-#### Tool: `assess_well_data_quality`
-
-```python
-def assess_well_data_quality(well_name: str) -> Dict:
-    """
-    Detailed data quality assessment for a single well
+  private async generateDataMatrix(): Promise<AgentResponse> {
+    // Call MCP to get all wells
+    const wells = await this.mcpClient.call('list_wells', {});
     
-    Returns:
-    {
-        'well_name': 'WELL-001',
-        'curves': {
-            'GR': {
-                'completeness': 0.95,
-                'outliers': [...],
-                'gaps': [...]
-            }
-        },
-        'artifact': {
-            'messageContentType': 'data_quality_plot',
-            'logData': {...},
-            'annotations': [...]
+    // For each well, get available curves
+    const matrixData = await Promise.all(
+      wells.map(async (well) => {
+        const info = await this.mcpClient.call('get_well_info', { well_name: well });
+        return {
+          wellName: well,
+          curves: info.available_curves,
+          completeness: info.data_completeness
+        };
+      })
+    );
+    
+    // Generate artifact
+    return {
+      message: `Data matrix generated for ${wells.length} wells`,
+      artifacts: [{
+        type: 'data_matrix',
+        data: {
+          wells: matrixData,
+          curveTypes: this.getAllCurveTypes(matrixData)
         }
-    }
-    """
-```
+      }]
+    };
+  }
 
-#### Tool: `run_correlation_analysis`
-
-```python
-def run_correlation_analysis(
-    well_names: List[str],
-    cutoffs: Dict = None
-) -> Dict:
-    """
-    Multi-well correlation with net pay calculation
+  private async generateWellDataQuality(wellName: string): Promise<AgentResponse> {
+    // Get comprehensive data quality assessment
+    const quality = await this.mcpClient.call('assess_well_data_quality', {
+      well_name: wellName
+    });
     
-    Parameters:
-    - well_names: List of wells to correlate
-    - cutoffs: {
-        'porosity_min': 0.12,
-        'vsh_max': 0.35,
-        'sw_max': 0.50
+    // Get curve data for plotting
+    const curves = ['GR', 'RHOB', 'NPHI', 'RT'];
+    const curveData = await Promise.all(
+      curves.map(curve => 
+        this.mcpClient.call('get_curve_data', {
+          well_name: wellName,
+          curves: [curve]
+        })
+      )
+    );
+    
+    return {
+      message: `Data quality assessment complete for ${wellName}`,
+      artifacts: [{
+        type: 'well_data_quality',
+        data: {
+          wellName,
+          quality,
+          curves: curveData,
+          issues: this.formatQualityIssues(quality)
+        }
+      }]
+    };
+  }
+
+  private async performCorrelation(wells: string[]): Promise<AgentResponse> {
+    // Calculate petrophysical properties for each well
+    const wellData = await Promise.all(
+      wells.map(async (well) => {
+        const [porosity, vsh, sw] = await Promise.all([
+          this.mcpClient.call('calculate_porosity', {
+            well_name: well,
+            method: 'effective'
+          }),
+          this.mcpClient.call('calculate_shale_volume', {
+            well_name: well,
+            method: 'larionov_tertiary'
+          }),
+          this.mcpClient.call('calculate_saturation', {
+            well_name: well,
+            method: 'archie'
+          })
+        ]);
+        
+        return { well, porosity, vsh, sw };
+      })
+    );
+    
+    // Calculate net pay using cutoffs
+    const cutoffs = {
+      porosity: 0.12,
+      vsh: 0.35,
+      sw: 0.50
+    };
+    
+    const netPayResults = this.calculateNetPay(wellData, cutoffs);
+    const npvResults = this.calculateNPV(netPayResults);
+    
+    return {
+      message: this.formatCorrelationSummary(netPayResults, npvResults),
+      artifacts: [{
+        type: 'correlation_analysis',
+        data: {
+          wells: wellData,
+          cutoffs,
+          netPay: netPayResults,
+          npv: npvResults,
+          zones: this.identifyZones(wellData, cutoffs)
+        }
+      }]
+    };
+  }
+
+  private calculateNetPay(wellData: any[], cutoffs: any): any[] {
+    return wellData.map(({ well, porosity, vsh, sw }) => {
+      const zones = [];
+      let currentZone = null;
+      
+      for (let i = 0; i < porosity.depth.length; i++) {
+        const isReservoir = 
+          porosity.values[i] > cutoffs.porosity &&
+          vsh.values[i] < cutoffs.vsh &&
+          sw.values[i] < cutoffs.sw;
+        
+        if (isReservoir) {
+          if (!currentZone) {
+            currentZone = {
+              topDepth: porosity.depth[i],
+              bottomDepth: porosity.depth[i],
+              avgPorosity: porosity.values[i],
+              avgVsh: vsh.values[i],
+              avgSw: sw.values[i],
+              count: 1
+            };
+          } else {
+            currentZone.bottomDepth = porosity.depth[i];
+            currentZone.avgPorosity += porosity.values[i];
+            currentZone.avgVsh += vsh.values[i];
+            currentZone.avgSw += sw.values[i];
+            currentZone.count++;
+          }
+        } else if (currentZone) {
+          // End of zone
+          currentZone.avgPorosity /= currentZone.count;
+          currentZone.avgVsh /= currentZone.count;
+          currentZone.avgSw /= currentZone.count;
+          currentZone.netPay = currentZone.bottomDepth - currentZone.topDepth;
+          zones.push(currentZone);
+          currentZone = null;
+        }
       }
+      
+      return { well, zones, totalNetPay: zones.reduce((sum, z) => sum + z.netPay, 0) };
+    });
+  }
+
+  private calculateNPV(netPayResults: any[]): any[] {
+    // Simplified NPV calculation
+    const assumptions = {
+      oilPrice: 70, // $/bbl
+      recoveryFactor: 0.30,
+      discountRate: 0.10,
+      productionYears: 20
+    };
     
-    Returns:
-    {
-        'zones': [
-            {
-                'name': 'Zone A',
-                'wells': {
-                    'WELL-001': {
-                        'top': 2400,
-                        'bottom': 2425,
-                        'net_pay': 18,
-                        'avg_porosity': 0.15,
-                        'npv': 2300000
-                    }
-                }
-            }
-        ],
-        'cutoffs_used': {...},
-        'artifact': {
-            'messageContentType': 'correlation_report',
-            'data': {...}
-        }
-    }
-    """
+    return netPayResults.map(({ well, zones, totalNetPay }) => {
+      const npvByZone = zones.map(zone => {
+        // Simplified: NPV = Net Pay * Porosity * (1 - Sw) * Recovery * Oil Price
+        const oilInPlace = zone.netPay * zone.avgPorosity * (1 - zone.avgSw);
+        const recoverableOil = oilInPlace * assumptions.recoveryFactor;
+        const revenue = recoverableOil * assumptions.oilPrice;
+        
+        // Apply discount factor
+        const npv = revenue / Math.pow(1 + assumptions.discountRate, 5);
+        
+        return {
+          zone: `${zone.topDepth}-${zone.bottomDepth}m`,
+          npv: npv * 1000000 // Convert to millions
+        };
+      });
+      
+      return {
+        well,
+        totalNPV: npvByZone.reduce((sum, z) => sum + z.npv, 0),
+        zoneNPV: npvByZone
+      };
+    });
+  }
+}
 ```
 
-### 3. Frontend Artifact Components
+### 3. Frontend Artifacts
 
-#### DataMatrixComponent.tsx
+#### 3.1 Data Matrix Artifact
+
+**Location**: `src/components/petrophysics/DataMatrixArtifact.tsx`
 
 ```typescript
-interface DataMatrixProps {
-  wells: string[];
-  curves: string[];
-  matrix: number[][];
+import React from 'react';
+import { Container, Table, Box, Badge } from '@cloudscape-design/components';
+
+interface DataMatrixArtifactProps {
+  data: {
+    wells: Array<{
+      wellName: string;
+      curves: string[];
+      completeness: Record<string, number>;
+    }>;
+    curveTypes: string[];
+  };
   onWellClick: (wellName: string) => void;
 }
 
-// Renders interactive heatmap
-// Click on well → triggers data quality request
-```
-
-#### DataQualityPlotComponent.tsx
-
-```typescript
-interface DataQualityPlotProps {
-  wellName: string;
-  logData: {
-    depth: number[];
-    curves: Record<string, number[]>;
+export const DataMatrixArtifact: React.FC<DataMatrixArtifactProps> = ({ data, onWellClick }) => {
+  const getCompletenessColor = (completeness: number) => {
+    if (completeness >= 90) return 'green';
+    if (completeness >= 70) return 'blue';
+    if (completeness >= 50) return 'grey';
+    return 'red';
   };
-  annotations: Array<{
-    depth_range: [number, number];
-    issue: string;
-    severity: 'low' | 'medium' | 'high';
-  }>;
-}
 
-// Renders log plot with Plotly
-// Highlights quality issues with colored zones
-// Shows annotations on hover
+  return (
+    <Container header={<h3>Data Availability Matrix</h3>}>
+      <Table
+        columnDefinitions={[
+          {
+            id: 'well',
+            header: 'Well Name',
+            cell: (item) => (
+              <Box
+                color="text-link"
+                cursor="pointer"
+                onClick={() => onWellClick(item.wellName)}
+              >
+                {item.wellName}
+              </Box>
+            )
+          },
+          ...data.curveTypes.map(curve => ({
+            id: curve,
+            header: curve,
+            cell: (item) => {
+              const completeness = item.completeness[curve] || 0;
+              return completeness > 0 ? (
+                <Badge color={getCompletenessColor(completeness)}>
+                  {completeness.toFixed(0)}%
+                </Badge>
+              ) : (
+                <Badge color="red">N/A</Badge>
+              );
+            }
+          }))
+        ]}
+        items={data.wells}
+        variant="embedded"
+      />
+    </Container>
+  );
+};
 ```
 
-#### CorrelationReportComponent.tsx
+#### 3.2 Well Data Quality Artifact
+
+**Location**: `src/components/petrophysics/WellDataQualityArtifact.tsx`
 
 ```typescript
-interface CorrelationReportProps {
-  zones: Array<{
-    name: string;
-    wells: Record<string, ZoneData>;
-  }>;
-  cutoffs: Record<string, number>;
-  totalNPV: number;
+import React from 'react';
+import { Container, ColumnLayout, Box } from '@cloudscape-design/components';
+import Plot from 'react-plotly.js';
+
+interface WellDataQualityArtifactProps {
+  data: {
+    wellName: string;
+    quality: any;
+    curves: any[];
+    issues: Array<{
+      curve: string;
+      depth: number;
+      issue: string;
+    }>;
+  };
 }
 
-// Renders professional report
-// Tables showing zone-by-zone results
-// Summary statistics and NPV
+export const WellDataQualityArtifact: React.FC<WellDataQualityArtifactProps> = ({ data }) => {
+  // Create log plot with quality annotations
+  const traces = data.curves.map((curve, idx) => ({
+    x: curve.values,
+    y: curve.depth,
+    type: 'scatter',
+    mode: 'lines',
+    name: curve.name,
+    xaxis: `x${idx + 1}`,
+    line: { width: 1 }
+  }));
+
+  // Add annotations for quality issues
+  const annotations = data.issues.map(issue => ({
+    x: 0.5,
+    y: issue.depth,
+    xref: 'paper',
+    yref: 'y',
+    text: `⚠️ ${issue.issue}`,
+    showarrow: true,
+    arrowhead: 2,
+    ax: 40,
+    ay: 0
+  }));
+
+  const layout = {
+    title: `Data Quality: ${data.wellName}`,
+    yaxis: { title: 'Depth (m)', autorange: 'reversed' },
+    annotations,
+    grid: { rows: 1, columns: data.curves.length, pattern: 'independent' },
+    height: 800
+  };
+
+  return (
+    <Container>
+      <ColumnLayout columns={2}>
+        <Box>
+          <h3>Quality Summary</h3>
+          <ul>
+            <li>Completeness: {data.quality.overall_completeness}%</li>
+            <li>Issues Found: {data.issues.length}</li>
+            <li>Curves Available: {data.curves.length}</li>
+          </ul>
+        </Box>
+        <Box>
+          <h3>Issues</h3>
+          <ul>
+            {data.issues.map((issue, idx) => (
+              <li key={idx}>
+                {issue.curve} @ {issue.depth}m: {issue.issue}
+              </li>
+            ))}
+          </ul>
+        </Box>
+      </ColumnLayout>
+      <Plot data={traces} layout={layout} />
+    </Container>
+  );
+};
 ```
 
-## Data Models
+#### 3.3 Correlation Analysis Artifact
 
-### Data Matrix Artifact
+**Location**: `src/components/petrophysics/CorrelationAnalysisArtifact.tsx`
 
 ```typescript
-{
-  messageContentType: 'data_matrix',
-  wells: string[],
-  curves: string[],
-  matrix: number[][],  // completeness percentages
-  metadata: {
-    total_wells: number,
-    total_curves: number,
-    overall_completeness: number
-  }
+import React from 'react';
+import { Container, Table, ColumnLayout, Box, Header } from '@cloudscape-design/components';
+
+interface CorrelationAnalysisArtifactProps {
+  data: {
+    wells: any[];
+    cutoffs: any;
+    netPay: any[];
+    npv: any[];
+    zones: any[];
+  };
 }
+
+export const CorrelationAnalysisArtifact: React.FC<CorrelationAnalysisArtifactProps> = ({ data }) => {
+  return (
+    <Container header={<Header variant="h2">Correlation Analysis Results</Header>}>
+      <ColumnLayout columns={2}>
+        <Box>
+          <h3>Cutoff Values</h3>
+          <ul>
+            <li>Porosity: &gt; {(data.cutoffs.porosity * 100).toFixed(0)}%</li>
+            <li>Shale Volume: &lt; {(data.cutoffs.vsh * 100).toFixed(0)}%</li>
+            <li>Water Saturation: &lt; {(data.cutoffs.sw * 100).toFixed(0)}%</li>
+          </ul>
+        </Box>
+        <Box>
+          <h3>Summary</h3>
+          <ul>
+            <li>Wells Analyzed: {data.wells.length}</li>
+            <li>Zones Identified: {data.zones.length}</li>
+            <li>Total NPV: ${data.npv.reduce((sum, w) => sum + w.totalNPV, 0).toFixed(1)}M</li>
+          </ul>
+        </Box>
+      </ColumnLayout>
+
+      <Box margin={{ top: 'l' }}>
+        <h3>Net Pay by Well</h3>
+        <Table
+          columnDefinitions={[
+            { id: 'well', header: 'Well', cell: (item) => item.well },
+            { id: 'zones', header: 'Zones', cell: (item) => item.zones.length },
+            { id: 'netPay', header: 'Total Net Pay (m)', cell: (item) => item.totalNetPay.toFixed(1) },
+            { id: 'npv', header: 'NPV ($M)', cell: (item) => {
+              const wellNPV = data.npv.find(n => n.well === item.well);
+              return wellNPV ? wellNPV.totalNPV.toFixed(2) : 'N/A';
+            }}
+          ]}
+          items={data.netPay}
+          variant="embedded"
+        />
+      </Box>
+
+      <Box margin={{ top: 'l' }}>
+        <h3>Zone Details</h3>
+        {data.netPay.map((wellData) => (
+          <Box key={wellData.well} margin={{ bottom: 'm' }}>
+            <h4>{wellData.well}</h4>
+            <Table
+              columnDefinitions={[
+                { id: 'zone', header: 'Depth Range', cell: (item) => `${item.topDepth}-${item.bottomDepth}m` },
+                { id: 'netPay', header: 'Net Pay (m)', cell: (item) => item.netPay.toFixed(1) },
+                { id: 'porosity', header: 'Avg Porosity', cell: (item) => (item.avgPorosity * 100).toFixed(1) + '%' },
+                { id: 'sw', header: 'Avg Sw', cell: (item) => (item.avgSw * 100).toFixed(1) + '%' }
+              ]}
+              items={wellData.zones}
+              variant="embedded"
+            />
+          </Box>
+        ))}
+      </Box>
+    </Container>
+  );
+};
 ```
 
-### Data Quality Artifact
+### 4. Artifact Registration
+
+**Location**: `src/components/ChatMessage.tsx`
 
 ```typescript
-{
-  messageContentType: 'data_quality_plot',
-  wellName: string,
-  logData: {
-    depth: number[],
-    GR: number[],
-    RHOB: number[],
-    NPHI: number[],
-    // ... other curves
-  },
-  annotations: Array<{
-    depth_range: [number, number],
-    curve: string,
-    issue: string,
-    severity: 'low' | 'medium' | 'high',
-    description: string
-  }>,
-  summary: {
-    overall_quality: 'excellent' | 'good' | 'fair' | 'poor',
-    completeness: number,
-    outlier_count: number,
-    gap_count: number
-  }
-}
+// Add to artifact type mapping
+const artifactComponents = {
+  // ... existing artifacts
+  'data_matrix': DataMatrixArtifact,
+  'well_data_quality': WellDataQualityArtifact,
+  'correlation_analysis': CorrelationAnalysisArtifact,
+};
 ```
 
-### Correlation Report Artifact
+## Data Flow
 
-```typescript
-{
-  messageContentType: 'correlation_report',
-  wells: string[],
-  zones: Array<{
-    name: string,
-    wells: Record<string, {
-      top_depth: number,
-      bottom_depth: number,
-      gross_thickness: number,
-      net_pay: number,
-      avg_porosity: number,
-      avg_saturation: number,
-      npv: number
-    }>
-  }>,
-  cutoffs: {
-    porosity_min: number,
-    vsh_max: number,
-    sw_max: number
-  },
-  summary: {
-    total_net_pay: number,
-    total_npv: number,
-    zone_count: number
-  }
-}
+### Workflow 1: Data Matrix Generation
+
+```
+User: "Show me the data matrix"
+  ↓
+Agent Router → Petrophysics Agent
+  ↓
+MCP: list_wells() → [WELL-001, WELL-002, ...]
+  ↓
+For each well: MCP: get_well_info(well)
+  ↓
+Aggregate data → Generate artifact
+  ↓
+Frontend: Render DataMatrixArtifact
+  ↓
+User clicks well → Trigger Workflow 2
+```
+
+### Workflow 2: Well Data Quality
+
+```
+User clicks WELL-001 in matrix
+  ↓
+Agent: generateWellDataQuality("WELL-001")
+  ↓
+MCP: assess_well_data_quality(WELL-001)
+MCP: get_curve_data(WELL-001, curves)
+  ↓
+Format quality issues → Generate artifact
+  ↓
+Frontend: Render WellDataQualityArtifact with log plot
+```
+
+### Workflow 3: Correlation Analysis
+
+```
+User: "Run correlation on WELL-001, WELL-002, WELL-003"
+  ↓
+Agent: performCorrelation([WELL-001, WELL-002, WELL-003])
+  ↓
+For each well:
+  MCP: calculate_porosity(well)
+  MCP: calculate_shale_volume(well)
+  MCP: calculate_saturation(well)
+  ↓
+Calculate net pay using cutoffs
+  ↓
+Calculate NPV for each zone
+  ↓
+Generate artifact with results
+  ↓
+Frontend: Render CorrelationAnalysisArtifact
 ```
 
 ## Error Handling
 
-- **Missing data**: Gracefully handle wells with incomplete data
-- **Invalid cutoffs**: Use industry-standard defaults if not specified
-- **Calculation failures**: Provide clear error messages
-- **No zones identified**: Inform user and suggest adjusting cutoffs
-
-## Testing Strategy
-
-1. **Unit tests**: Test each calculation function independently
-2. **Integration tests**: Test full workflow end-to-end
-3. **Data validation**: Test with all 24 wells
-4. **Edge cases**: Test with missing curves, bad data
-5. **Performance**: Ensure matrix generation completes in < 5 seconds
-
-## Implementation Phases
-
-### Phase 1: Data Matrix (MVP)
-- Implement `generate_data_matrix` tool
-- Create DataMatrixComponent
-- Add intent detection patterns
-- Test with all 24 wells
-
-### Phase 2: Data Quality
-- Implement `assess_well_data_quality` tool
-- Create DataQualityPlotComponent
-- Add click handling in matrix
-- Test quality assessment
-
-### Phase 3: Correlation Analysis
-- Implement `run_correlation_analysis` tool
-- Add zone identification logic
-- Add net pay calculation
-- Create CorrelationReportComponent
-
-### Phase 4: NPV Calculation
-- Add economic parameters
-- Implement NPV calculation
-- Add configurable assumptions
-- Test with realistic scenarios
+- **Missing Wells**: If well doesn't exist, return friendly error message
+- **Insufficient Data**: If well lacks required curves, show data gaps in matrix
+- **Calculation Failures**: Catch MCP errors and provide fallback responses
+- **Invalid Parameters**: Validate cutoff values before running correlation
 
 ## Performance Considerations
 
-- **Matrix generation**: Cache results for 5 minutes
-- **LAS file reading**: Read once, analyze multiple times
-- **Calculation optimization**: Vectorize operations with numpy
-- **Artifact size**: Limit data points in visualizations to prevent DynamoDB issues
+- **Parallel Processing**: Use Promise.all for multi-well data fetching
+- **Caching**: Cache well info and curve data for repeated queries
+- **Progressive Loading**: Load matrix first, then fetch detailed data on demand
+- **Lazy Rendering**: Only render visible portions of large log plots
 
-## Security Considerations
+## Testing Strategy
 
-- Validate well names to prevent injection
-- Sanitize user-provided cutoff values
-- Limit number of wells in correlation (max 10)
-- Rate limit expensive operations
+1. **Unit Tests**: Test net pay and NPV calculation functions
+2. **Integration Tests**: Test MCP tool calls and data aggregation
+3. **E2E Tests**: Test complete workflow from chat to artifact rendering
+4. **Visual Tests**: Verify artifact rendering with sample data
+
+## Deployment Considerations
+
+- No new Lambda functions required (uses existing petrophysics agent)
+- New artifact components need to be bundled in frontend build
+- MCP server already has required tools (no changes needed)
+- Agent router needs updated intent patterns (minor change)
+
+## Future Enhancements
+
+- Cross-plot visualization showing porosity vs. saturation
+- Automated zone correlation across wells
+- Customizable cutoff values via UI
+- Export correlation results to PDF/Excel
+- Integration with economic models for detailed NPV analysis

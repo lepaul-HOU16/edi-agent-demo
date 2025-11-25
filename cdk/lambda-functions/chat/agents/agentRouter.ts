@@ -415,7 +415,12 @@ IMPORTANT: Execute ALL steps in sequence. Do not stop after step 1.`;
 
     // Priority 2: Renewable energy patterns (before catalog/petrophysics to avoid conflicts)
     const renewablePatterns = [
-      // Environmental and impact assessment (HIGHEST PRIORITY)
+      // Project dashboard and management (HIGHEST PRIORITY)
+      /dashboard|show.*projects?|list.*projects?|my.*projects?|project.*list/i,
+      /show.*my.*projects?|project.*dashboard|view.*projects?/i,
+      /all.*projects?|projects?.*overview/i,
+      
+      // Environmental and impact assessment
       /environmental/i,
       /impact.*assessment/i,
       /perform.*environmental/i,

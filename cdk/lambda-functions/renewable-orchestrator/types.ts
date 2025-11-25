@@ -151,7 +151,7 @@ export interface ThoughtStep {
 }
 
 export interface RenewableIntent {
-  type: 'terrain_analysis' | 'layout_optimization' | 'wake_simulation' | 'wind_rose' | 'wind_rose_analysis' | 'report_generation' | 'delete_project' | 'rename_project' | 'merge_projects' | 'archive_project' | 'export_project' | 'search_projects' | 'project_dashboard' | 'unknown';
+  type: 'terrain_analysis' | 'layout_optimization' | 'wake_simulation' | 'wind_rose' | 'wind_rose_analysis' | 'report_generation' | 'compare_scenarios' | 'delete_project' | 'rename_project' | 'merge_projects' | 'archive_project' | 'export_project' | 'search_projects' | 'project_dashboard' | 'unknown';
   params: Record<string, any>;
   confidence: number;
 }

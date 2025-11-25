@@ -114,40 +114,45 @@ export class RenewableProxyAgent extends BaseEnhancedAgent {
       console.log('🟠 BACKEND (Proxy Agent): Preparing Lambda invocation');
       console.log('📦 API Gateway Event:', JSON.stringify(apiGatewayEvent, null, 2));
       
-      // ASYNC INVOCATION: Fire and forget to avoid API Gateway timeout
-      // Orchestrator will write results to DynamoDB when complete
+      // CRITICAL FIX: Use SYNCHRONOUS invocation like pre-migration version
+      // Async invocation with polling was causing issues - results never appeared
+      // Synchronous invocation waits for actual results and returns them immediately
       const command = new InvokeCommand({
         FunctionName: this.orchestratorFunctionName,
-        InvocationType: 'Event', // Asynchronous invocation - don't wait for results
+        InvocationType: 'RequestResponse', // Synchronous invocation - wait for results
         Payload: JSON.stringify(apiGatewayEvent)
       });
       
-      console.log('🟠 BACKEND (Proxy Agent): Invoking orchestrator Lambda ASYNCHRONOUSLY...');
+      console.log('🟠 BACKEND (Proxy Agent): Invoking orchestrator Lambda SYNCHRONOUSLY...');
       console.log('   Function:', this.orchestratorFunctionName);
-      console.log('   Type: Event (asynchronous - fire and forget)');
+      console.log('   Type: RequestResponse (synchronous - wait for results)');
       console.log('   Session ID:', sessionContext?.chatSessionId);
       
       const invokeResponse = await this.lambdaClient.send(command);
       
       console.log('═══════════════════════════════════════════════════════════');
-      console.log('🟠 BACKEND (Proxy Agent): Async invocation submitted');
+      console.log('🟠 BACKEND (Proxy Agent): Orchestrator completed');
       console.log('═══════════════════════════════════════════════════════════');
       console.log('📊 Status Code:', invokeResponse.StatusCode);
-      console.log('✅ Request accepted - processing in background');
-      console.log('🆔 Session ID for results:', sessionContext?.chatSessionId);
-      console.log('═══════════════════════════════════════════════════════════');
+      
+      // Parse the response - orchestrator returns API Gateway format with body
+      const apiGatewayResponse = JSON.parse(new TextDecoder().decode(invokeResponse.Payload));
+      const responsePayload = JSON.parse(apiGatewayResponse.body);
+      console.log('🟠 BACKEND (Proxy Agent): Orchestrator response:', {
+        success: responsePayload.success,
+        artifactCount: responsePayload.artifacts?.length || 0,
+        thoughtStepCount: responsePayload.thoughtSteps?.length || 0
+      });
 
       // Complete routing step
-      completeThoughtStep(routingStep, 'Analysis started - processing in background');
+      completeThoughtStep(routingStep, 'Analysis complete');
 
-      // CRITICAL FIX: Don't return a message here - the handler already returns "Analysis in Progress"
-      // Returning a message here causes duplicate "Analysis in Progress" messages
-      // Just return success with empty response - handler will provide the user-facing message
+      // Return the actual results
       const response: RouterResponse = {
-        success: true,
-        message: '', // Empty - handler provides the "Analysis in Progress" message
-        artifacts: [],
-        thoughtSteps: [routingStep],
+        success: responsePayload.success,
+        message: responsePayload.message,
+        artifacts: this.transformArtifacts(responsePayload.artifacts || []),
+        thoughtSteps: [routingStep, ...this.transformThoughtSteps(responsePayload.thoughtSteps || [], routingStep)],
         agentUsed: 'renewable_energy',
       };
 

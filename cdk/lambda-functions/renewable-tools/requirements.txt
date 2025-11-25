@@ -1,9 +1,5 @@
 boto3
-pillow
-folium
-shapely
-geopandas
 requests
-numpy
-pandas
-matplotlib
+matplotlib==3.7.1
+numpy==1.24.3
+scipy==1.10.1

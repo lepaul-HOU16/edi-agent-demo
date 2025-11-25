@@ -73,12 +73,18 @@ export const sendMessage = async (props: {
     console.log('📦 Has Response:', !!response.response);
     console.log('📊 Artifact Count:', response.response?.artifacts?.length || 0);
     console.log('💬 Message Length:', response.response?.text?.length || 0);
+    console.log('🧠 Thought Steps:', response.data?.thoughtSteps?.length || 0);
     console.log('═══════════════════════════════════════════════════════════');
     
+    // CRITICAL FIX: Return response even on error so thought steps are displayed
     if (!response.success) {
-      console.error('❌ FRONTEND (chatUtils): API returned error');
-      console.error('Error:', response.error);
-      throw new Error(response.error || 'Failed to send message');
+      console.warn('⚠️ FRONTEND (chatUtils): API returned error, but returning response with thought steps');
+      return {
+        success: false,
+        response: response.response || { text: response.message, artifacts: [] },
+        data: response.data, // Include thought steps even on error
+        error: response.error || response.message
+      };
     }
     
     console.log('✅ FRONTEND (chatUtils): Message sent successfully');
@@ -86,6 +92,7 @@ export const sendMessage = async (props: {
     return {
       success: true,
       response: response.response,
+      data: response.data,
       error: null
     };
   } catch (error) {

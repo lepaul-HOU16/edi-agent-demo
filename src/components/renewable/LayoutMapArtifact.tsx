@@ -11,6 +11,57 @@ import 'leaflet/dist/leaflet.css';
 import { ActionButtons } from './ActionButtons';
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';
 
+// CSS to force map controls visible WITHOUT bleeding the map
+const mapControlStyles = `
+  .layout-map-container .leaflet-control-container,
+  .layout-map-container .leaflet-top,
+  .layout-map-container .leaflet-bottom,
+  .layout-map-container .leaflet-left,
+  .layout-map-container .leaflet-right {
+    overflow: visible !important;
+    z-index: 1000 !important;
+  }
+  
+  .layout-map-container .leaflet-control {
+    display: block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    z-index: 9999 !important;
+    overflow: visible !important;
+  }
+  
+  /* FORCE controls to be visible with absolute positioning */
+  .layout-map-container .leaflet-top.leaflet-right {
+    position: absolute !important;
+    top: 10px !important;
+    right: 10px !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+    z-index: 1000 !important;
+  }
+  
+  .layout-map-container .leaflet-control {
+    position: relative !important;
+    float: none !important;
+    clear: both !important;
+    margin-bottom: 10px !important;
+    display: block !important;
+    width: auto !important;
+    height: auto !important;
+  }
+  
+  .layout-map-container .leaflet-control-layers {
+    display: block !important;
+    width: 200px !important;
+    max-width: 200px !important;
+  }
+  
+  .layout-map-container .leaflet-bar {
+    display: block !important;
+  }
+`;
+
 interface ActionButton {
   label: string;
   query: string;
@@ -80,9 +131,29 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
   };
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<any>(null);
+  const tileLayerRef = useRef<any>(null); // Track current tile layer
   const initializingRef = useRef<boolean>(false); // Prevent multiple initializations
   const [renderError, setRenderError] = useState<string | null>(null);
   const [hasError, setHasError] = useState<boolean>(false);
+  const [isDarkMode, setIsDarkMode] = useState(document.body.getAttribute('data-awsui-mode') === 'dark');
+
+  // Inject map control styles
+  useEffect(() => {
+    const styleId = 'layout-map-control-styles';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = mapControlStyles;
+      document.head.appendChild(style);
+    }
+    
+    return () => {
+      const existingStyle = document.getElementById(styleId);
+      if (existingStyle) {
+        existingStyle.remove();
+      }
+    };
+  }, []);
 
   // Debug logging to track renders
   console.log('🗺️ LayoutMapArtifact RENDER:', {
@@ -90,12 +161,29 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
     turbineCount: data.turbineCount,
     hasMapHtml: !!data.mapHtml,
     hasGeojson: !!data.geojson,
+    geojsonFeatureCount: data.geojson?.features?.length,
     hasMetadata: !!data.metadata,
     algorithm: data.metadata?.algorithm,
     algorithmProof: data.metadata?.algorithm_proof,
     constraintsApplied: data.metadata?.constraints_applied,
     timestamp: new Date().toISOString()
   });
+  
+  // CRITICAL DEBUG: Log all features to see what we're getting
+  if (data.geojson?.features) {
+    console.log('[LayoutMap] ===== GEOJSON FEATURES DEBUG =====');
+    console.log('[LayoutMap] Total features:', data.geojson.features.length);
+    
+    const featureTypes: Record<string, number> = {};
+    data.geojson.features.forEach((f: any) => {
+      const type = f.properties?.type || f.properties?.feature_type || 'unknown';
+      featureTypes[type] = (featureTypes[type] || 0) + 1;
+    });
+    
+    console.log('[LayoutMap] Feature types:', featureTypes);
+    console.log('[LayoutMap] First 3 features:', data.geojson.features.slice(0, 3));
+    console.log('[LayoutMap] =====================================');
+  }
 
   // Initialize Leaflet map with turbine layout
   useEffect(() => {
@@ -249,14 +337,20 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
           dragging: true,
           touchZoom: true,
           scrollWheelZoom: true,
+          smoothWheelZoom: true,  // Enable smooth scroll zoom
+          smoothSensitivity: 2,   // Higher = more responsive
           doubleClickZoom: true,
           boxZoom: true,
           keyboard: true,
           zoomControl: true,
           attributionControl: true,
-          zoomAnimation: false, // Disable zoom animation to prevent _leaflet_pos errors
-          fadeAnimation: false, // Disable fade animation
-          markerZoomAnimation: false, // Disable marker zoom animation
+          zoomDelta: 0.75,        // Larger increments for faster zoom
+          zoomSnap: 0.25,         // Balanced fractional zoom levels
+          wheelPxPerZoomLevel: 30, // Even less pixels = faster zoom
+          zoomAnimation: true,    // Enable smooth zoom animation (prevents flashing)
+          zoomAnimationThreshold: 4, // Always animate zoom
+          fadeAnimation: true,    // Enable fade animation for smoother transitions
+          markerZoomAnimation: true, // Enable marker zoom animation
         });
 
         mapInstanceRef.current = map;
@@ -284,198 +378,495 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
         }
       );
 
-      // Add OpenStreetMap tiles
-      const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
+      // Add OpenStreetMap tiles - use medium-dark gray tiles for dark mode
+      const isDarkMode = document.body.getAttribute('data-awsui-mode') === 'dark';
+      const tileUrl = isDarkMode 
+        ? 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
+        : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+      const attribution = isDarkMode
+        ? '© Stadia Maps © OpenMapTiles © OpenStreetMap contributors'
+        : '© OpenStreetMap contributors';
+      
+      const osmLayer = L.tileLayer(tileUrl, {
+        attribution,
         maxZoom: 19,
+        subdomains: 'abcd',
       });
 
       // Add OSM as default (user preference)
       osmLayer.addTo(map);
+      tileLayerRef.current = osmLayer; // Store reference to current tile layer
+      console.log('[LayoutMap] OSM layer added');
+      console.log('[LayoutMap] Tile URL:', tileUrl);
+      console.log('[LayoutMap] Dark mode:', isDarkMode);
 
-      // Add layer control to switch between OSM and satellite
-      L.control.layers(
-        {
-          'Street Map': osmLayer,
-          'Satellite': satelliteLayer,
+      // Create custom satellite toggle control - ICON ONLY, SAME WIDTH AS ZOOM
+      const SatelliteControl = L.Control.extend({
+        options: {
+          position: 'topleft'  // BELOW zoom controls
         },
-        {},
-        { position: 'topright' }
-      ).addTo(map);
+        
+        onAdd: function() {
+          const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control');
+          const button = L.DomUtil.create('a', '', container);
+          
+          // Match zoom button styling EXACTLY - same width, icon only
+          button.href = '#';
+          button.title = 'Toggle satellite view';
+          button.innerHTML = '🛰️';
+          button.style.width = '30px';
+          button.style.height = '30px';
+          button.style.lineHeight = '30px';
+          button.style.display = 'block';
+          button.style.textAlign = 'center';
+          button.style.textDecoration = 'none';
+          button.style.fontSize = '18px';
+          
+          // Prevent map interactions when clicking the control
+          L.DomEvent.disableClickPropagation(button);
+          L.DomEvent.disableScrollPropagation(button);
+          
+          let isSatellite = false;
+          
+          button.onclick = function(e) {
+            e.preventDefault();
+            if (isSatellite) {
+              // Switch to street map
+              map.removeLayer(satelliteLayer);
+              map.addLayer(osmLayer);
+              button.innerHTML = '🛰️';
+              isSatellite = false;
+              console.log('[LayoutMap] Switched to street map');
+            } else {
+              // Switch to satellite
+              map.removeLayer(osmLayer);
+              map.addLayer(satelliteLayer);
+              button.innerHTML = '🗺️';
+              isSatellite = true;
+              console.log('[LayoutMap] Switched to satellite');
+            }
+            return false;
+          };
+          
+          return container;
+        }
+      });
+      
+      const satelliteControl = new SatelliteControl();
+      map.addControl(satelliteControl);
+      console.log('[LayoutMap] Satellite toggle control added');
+
+      // Style function matching TerrainMapArtifact exactly
+      const getFeatureStyle = (featureType: string, geometry: any, tags: any = {}) => {
+        const isLine = geometry?.type === 'LineString' || geometry?.type === 'MultiLineString';
+        
+        // CRITICAL FIX: Backend returns ALL features as 'way' without proper typing
+        // We MUST determine actual type from OSM tags
+        let actualFeatureType = featureType;
+        
+        // ALWAYS check OSM tags to determine actual feature type (backend doesn't do this)
+        if (tags.building) {
+          actualFeatureType = 'building';
+        } else if (tags.natural === 'water' || tags.water) {
+          actualFeatureType = 'water';
+        } else if (tags.waterway) {
+          actualFeatureType = 'water';
+        } else if (tags.highway) {
+          actualFeatureType = 'highway';
+        } else if (tags.railway) {
+          actualFeatureType = 'railway';
+        } else if (tags.landuse === 'industrial' || tags.landuse === 'commercial') {
+          actualFeatureType = 'landuse';
+        } else if (tags.amenity) {
+          actualFeatureType = 'amenity';
+        } else if (tags.leisure) {
+          actualFeatureType = 'leisure';
+        } else if (tags.man_made) {
+          actualFeatureType = 'man_made';
+        } else {
+          // Keep as 'way' or 'other' if we can't determine type
+          actualFeatureType = featureType === 'way' ? 'other' : featureType;
+        }
+        
+        switch (actualFeatureType) {
+          case 'water':
+            // Waterways (rivers, streams) should be lines, not filled polygons
+            if (tags.waterway) {
+              return {
+                fillColor: 'none',
+                color: '#1E90FF',  // Dodger blue for waterways
+                weight: 3,
+                fillOpacity: 0,
+                opacity: 0.8,
+                fill: false,
+              };
+            }
+            // Water bodies (lakes, ponds) get filled
+            return {
+              fillColor: '#4169E1',  // Royal blue
+              color: '#00008B',  // Dark blue border
+              weight: 2,
+              fillOpacity: 0.5,
+              opacity: 0.9,
+              fill: true,
+            };
+          case 'building':
+            return {
+              fillColor: '#DC143C',  // Crimson red
+              color: '#8B0000',  // Dark red border
+              weight: 1,
+              fillOpacity: 0.6,
+              opacity: 0.9,
+              fill: true,
+            };
+          case 'highway':
+            const highwayType = tags.highway;
+            // Major roads
+            if (highwayType === 'motorway' || highwayType === 'trunk' || highwayType === 'primary') {
+              return {
+                color: '#FF4500',  // Orange-red for major roads
+                weight: 4,
+                opacity: 0.9,
+                fill: false,
+              };
+            }
+            // Secondary roads
+            if (highwayType === 'secondary' || highwayType === 'tertiary') {
+              return {
+                color: '#FFA500',  // Orange for secondary roads
+                weight: 3,
+                opacity: 0.8,
+                fill: false,
+              };
+            }
+            // Paths and trails
+            if (highwayType === 'path' || highwayType === 'track' || 
+                highwayType === 'footway' || highwayType === 'bridleway' ||
+                highwayType === 'cycleway' || highwayType === 'steps') {
+              return {
+                color: '#8B4513',  // Brown for paths
+                weight: 2,
+                opacity: 0.7,
+                fill: false,
+                dashArray: '5, 5',
+              };
+            }
+            // Default roads
+            return {
+              color: '#FFD700',  // Gold for other roads
+              weight: 2,
+              opacity: 0.8,
+              fill: false,
+            };
+          case 'railway':
+            return {
+              color: '#696969',  // Dim gray
+              weight: 2,
+              opacity: 0.8,
+              fill: false,
+              dashArray: '8, 4',
+            };
+          case 'landuse':
+            return {
+              fillColor: '#DDA0DD',  // Plum for landuse
+              color: '#9370DB',  // Medium purple border
+              weight: 1,
+              fillOpacity: 0.3,
+              opacity: 0.7,
+              fill: true,
+            };
+          case 'amenity':
+            return {
+              fillColor: '#FFB6C1',  // Light pink for amenities
+              color: '#FF69B4',  // Hot pink border
+              weight: 2,
+              fillOpacity: 0.4,
+              opacity: 0.8,
+              fill: true,
+            };
+          case 'leisure':
+            return {
+              fillColor: '#90EE90',  // Light green for leisure
+              color: '#228B22',  // Forest green border
+              weight: 2,
+              fillOpacity: 0.4,
+              opacity: 0.8,
+              fill: true,
+            };
+          case 'man_made':
+            return {
+              fillColor: '#A9A9A9',  // Dark gray for man-made
+              color: '#2F4F4F',  // Dark slate gray border
+              weight: 2,
+              fillOpacity: 0.5,
+              opacity: 0.8,
+              fill: true,
+            };
+          case 'other':
+          default:
+            // Minimal styling for unclassified features
+            return {
+              fillColor: '#D3D3D3',  // Light gray
+              color: '#808080',  // Gray border
+              weight: 1,
+              fillOpacity: 0.2,
+              opacity: 0.5,
+              fill: true,
+            };
+        }
+      };
+
+      // Pre-process GeoJSON to convert highway and waterway polygons to linestrings
+      const processedGeojson = {
+        ...data.geojson,
+        features: data.geojson.features.map(feature => {
+          const featureType = feature.properties?.feature_type || feature.properties?.type;
+          const tags = feature.properties?.tags || {};
+          const isPolygon = feature.geometry?.type === 'Polygon';
+          
+          // Convert highway polygons to linestrings
+          if (featureType === 'highway' && isPolygon) {
+            let coords = feature.geometry.coordinates[0];
+            
+            // Remove duplicate last coordinate if it matches the first (closes the polygon)
+            if (coords.length > 1) {
+              const first = coords[0];
+              const last = coords[coords.length - 1];
+              if (first[0] === last[0] && first[1] === last[1]) {
+                coords = coords.slice(0, -1);
+              }
+            }
+            
+            console.log('[LayoutMap] Converting highway polygon to linestring');
+            return {
+              ...feature,
+              geometry: {
+                type: 'LineString',
+                coordinates: coords
+              }
+            };
+          }
+          
+          // Convert waterway (river, stream, etc.) polygons to linestrings
+          if (tags.waterway && isPolygon) {
+            let coords = feature.geometry.coordinates[0];
+            
+            // Remove duplicate last coordinate if it matches the first (closes the polygon)
+            if (coords.length > 1) {
+              const first = coords[0];
+              const last = coords[coords.length - 1];
+              if (first[0] === last[0] && first[1] === last[1]) {
+                coords = coords.slice(0, -1);
+              }
+            }
+            
+            console.log('[LayoutMap] Converting waterway polygon to linestring', { waterway: tags.waterway });
+            return {
+              ...feature,
+              geometry: {
+                type: 'LineString',
+                coordinates: coords
+              }
+            };
+          }
+          
+          // Convert generic "way" features that are likely paths/tracks to linestrings
+          if (featureType === 'way' && isPolygon) {
+            const isLinearFeature = tags.highway || tags.railway || tags.waterway || 
+                                   tags.barrier || tags.man_made === 'pipeline' ||
+                                   tags.natural === 'tree_row';
+            
+            if (isLinearFeature) {
+              let coords = feature.geometry.coordinates[0];
+              
+              // Remove duplicate last coordinate if it matches the first (closes the polygon)
+              if (coords.length > 1) {
+                const first = coords[0];
+                const last = coords[coords.length - 1];
+                if (first[0] === last[0] && first[1] === last[1]) {
+                  coords = coords.slice(0, -1);
+                }
+              }
+              
+              console.log('[LayoutMap] Converting generic "way" polygon to linestring', { 
+                tags,
+                reason: tags.highway ? 'highway' : tags.railway ? 'railway' : 'other linear feature'
+              });
+              return {
+                ...feature,
+                geometry: {
+                  type: 'LineString',
+                  coordinates: coords
+                }
+              };
+            }
+          }
+          
+          return feature;
+        })
+      };
 
       // Separate terrain features from turbine features
-      // CRITICAL: Turbines might not have type='turbine', they might just have turbine_id
-      const turbineFeatures = data.geojson.features.filter((f: any) => 
+      const turbineFeatures = processedGeojson.features.filter((f: any) => 
         f.properties?.type === 'turbine' || 
         f.properties?.turbine_id !== undefined ||
-        f.geometry?.type === 'Point'  // Turbines are always points
+        (f.geometry?.type === 'Point' && !f.properties?.feature_type)  // Points without feature_type are turbines
       );
-      const terrainFeatures = data.geojson.features.filter((f: any) => 
+      const terrainFeatures = processedGeojson.features.filter((f: any) => 
         !turbineFeatures.includes(f)
       );
 
       console.log('[LayoutMap] Feature breakdown:', {
-        total: data.geojson.features.length,
+        total: processedGeojson.features.length,
         terrain: terrainFeatures.length,
         turbines: turbineFeatures.length,
         firstTurbine: turbineFeatures[0]?.properties,
         firstTerrain: terrainFeatures[0]?.properties
       });
 
-      // STEP 1: Render terrain features first (perimeter, roads, buildings, water)
+      // STEP 1: Render terrain features with exact same styling as TerrainMapArtifact
       const terrainLayers: any[] = [];
+      const bufferLayers: any[] = [];
       
-      terrainFeatures.forEach((feature: any) => {
-        const featureType = feature.properties?.type || 'unknown';
-        const geometry = feature.geometry;
+      // Add GeoJSON terrain features with proper styling
+      if (terrainFeatures.length > 0) {
+        const terrainGeoJSON = {
+          type: 'FeatureCollection',
+          features: terrainFeatures
+        };
         
-        try {
-          if (geometry.type === 'Polygon' || geometry.type === 'MultiPolygon') {
-            // STEP 1: Render buffer zone (safety threshold) around buildings/water
-            // Safety margin: 0.001 degrees (~100m) per intelligent_placement.py
-            if (featureType === 'building' || featureType === 'water') {
-              const bufferStyle = {
-                fillColor: featureType === 'building' ? '#ff0000' : '#0000ff',
-                color: featureType === 'building' ? '#ff6666' : '#6666ff',
-                fillOpacity: 0.15,  // Light tint for buffer zone
-                weight: 2,
-                dashArray: '5, 5',  // Dashed to show it's a threshold
-                interactive: false
-              };
-              
-              // Create buffer by scaling coordinates outward by ~100m (0.001 deg)
-              const bufferedFeature = JSON.parse(JSON.stringify(feature));
-              if (bufferedFeature.geometry.coordinates && bufferedFeature.geometry.coordinates[0]) {
-                const coords = bufferedFeature.geometry.coordinates[0];
-                const centerLat = coords.reduce((sum: number, c: number[]) => sum + c[1], 0) / coords.length;
-                const centerLon = coords.reduce((sum: number, c: number[]) => sum + c[0], 0) / coords.length;
-                
-                // Scale each point outward from center by buffer distance
-                bufferedFeature.geometry.coordinates[0] = coords.map((c: number[]) => {
-                  const latDiff = c[1] - centerLat;
-                  const lonDiff = c[0] - centerLon;
-                  const distance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
-                  const scale = distance > 0 ? (distance + 0.001) / distance : 1.001;
-                  return [
-                    centerLon + lonDiff * scale,
-                    centerLat + latDiff * scale
-                  ];
-                });
+        const geoJsonLayer = L.geoJSON(terrainGeoJSON, {
+          style: (feature) => {
+            const featureType = feature?.properties?.feature_type || feature?.properties?.type || 'other';
+            const geometry = feature?.geometry;
+            const tags = feature?.properties?.tags || {};
+            return getFeatureStyle(featureType, geometry, tags);
+          },
+          onEachFeature: (feature, layer) => {
+            const props = feature.properties || {};
+            let featureType = props.feature_type || props.type || 'Unknown';
+            const osmId = props.osm_id || 'N/A';
+            const tags = props.tags || {};
+            
+            // FIX: Correct feature type from OSM tags if it's 'way'
+            if (featureType === 'way' || featureType === 'Unknown') {
+              if (tags.highway) {
+                featureType = 'highway';
+              } else if (tags.railway) {
+                featureType = 'railway';
+              } else if (tags.waterway) {
+                featureType = 'water';
+              } else if (tags.natural === 'water') {
+                featureType = 'water';
+              } else if (tags.building) {
+                featureType = 'building';
               }
-              
-              const bufferLayer = L.geoJSON(bufferedFeature, {
-                style: bufferStyle
-              }).addTo(map);
-              
-              terrainLayers.push(bufferLayer);
             }
             
-            // STEP 2: Render actual polygon feature on top
-            let style: any = {
-              fillOpacity: 0.3,
-              weight: 2
-            };
-            
-            // Apply feature-specific styling
-            if (featureType === 'building') {
-              style.fillColor = '#ff0000';
-              style.color = '#cc0000';
-              style.fillOpacity = 0.4;
-              style.weight = 2;
-            } else if (featureType === 'water') {
-              style.fillColor = '#0000ff';
-              style.color = '#0000cc';
-              style.fillOpacity = 0.5;
-              style.weight = 2;
-            } else if (featureType === 'perimeter') {
-              style.fillColor = 'transparent';
-              style.color = '#00ff00';  // Green color
-              style.weight = 3;
-              style.dashArray = '10, 5';
-              style.fillOpacity = 0;
-              style.interactive = false;  // CRITICAL: Don't capture clicks
-            } else {
-              // Default polygon style
-              style.fillColor = '#cccccc';
-              style.color = '#999999';
-              style.fillOpacity = 0.2;
-              style.weight = 2;
+            // Better display name based on actual feature details
+            let displayName = featureType;
+            if (featureType === 'highway' && tags.highway) {
+              const highwayType = tags.highway;
+              if (highwayType === 'path') {
+                displayName = 'Path';
+              } else if (highwayType === 'track') {
+                displayName = 'Track';
+              } else if (highwayType === 'footway') {
+                displayName = 'Footway';
+              } else if (highwayType === 'cycleway') {
+                displayName = 'Cycleway';
+              } else if (highwayType === 'bridleway') {
+                displayName = 'Bridleway';
+              } else if (highwayType === 'steps') {
+                displayName = 'Steps';
+              } else {
+                displayName = highwayType.charAt(0).toUpperCase() + highwayType.slice(1) + ' Road';
+              }
+            } else if (featureType === 'water' && tags.name) {
+              displayName = tags.name;
+            } else if (featureType === 'water' && tags.waterway) {
+              displayName = tags.waterway.charAt(0).toUpperCase() + tags.waterway.slice(1);
+            } else if (tags.name) {
+              displayName = tags.name;
             }
             
-            const layer = L.geoJSON(feature, {
-              style: style
-            }).addTo(map);
-            
-            // Add popup with feature info (but NOT for perimeter - it blocks interaction)
-            if (featureType !== 'perimeter') {
-              layer.bindPopup(`
-                <div style="padding: 8px; font-family: 'Amazon Ember', Arial, sans-serif;">
-                  <div style="font-size: 14px; font-weight: bold; color: #0972d3; margin-bottom: 4px;">
-                    ${featureType.charAt(0).toUpperCase() + featureType.slice(1)}
-                  </div>
-                  <div style="font-size: 12px; color: #545b64;">
-                    ${feature.properties?.name || 'Terrain feature'}
-                  </div>
+            let popupContent = `
+              <div style="
+                min-width: 300px;
+                padding: 12px;
+                background: rgba(255, 255, 255, 0.95);
+                border: 2px solid #0972d3;
+                border-radius: 8px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+                font-family: 'Amazon Ember', 'Helvetica Neue', Arial, sans-serif;
+                line-height: 1.6;
+              ">
+                <div style="font-size: 16px; font-weight: bold; color: #0972d3; margin-bottom: 8px;">
+                  ${displayName}
                 </div>
-              `);
+                <div style="font-size: 13px; color: #545b64;">
+                  <strong>Type:</strong> ${featureType}<br/>
+                  <strong>OSM ID:</strong> ${osmId}
+            `;
+            
+            if (tags.name && displayName !== tags.name) {
+              popupContent += `<br/><strong>Name:</strong> ${tags.name}`;
+            }
+            if (tags.building) {
+              popupContent += `<br/><strong>Building Type:</strong> ${tags.building}`;
+            }
+            if (tags.natural) {
+              popupContent += `<br/><strong>Natural:</strong> ${tags.natural}`;
+            }
+            if (tags.waterway) {
+              popupContent += `<br/><strong>Waterway:</strong> ${tags.waterway}`;
             }
             
-            terrainLayers.push(layer);
-            
-          } else if (geometry.type === 'LineString' || geometry.type === 'MultiLineString') {
-            // Render lines (roads) with background stroke for visibility
-            let style: any = {
-              weight: 2,
-              opacity: 0.7
-            };
-            
-            if (featureType === 'road') {
-              style.color = '#666666';
-              style.weight = 6;  // Thicker for visibility
-              style.opacity = 0.8;
-            } else {
-              style.color = '#999999';
-              style.weight = 4;
-            }
-            
-            // Create background stroke layer (wider, lighter)
-            const backgroundStyle = {
-              color: featureType === 'road' ? '#999999' : '#cccccc',
-              weight: (style.weight || 4) + 4,  // 4px wider than main line
-              opacity: 0.4,
-              interactive: false
-            };
-            
-            // Add background stroke first
-            const backgroundLayer = L.geoJSON(feature, {
-              style: backgroundStyle
-            }).addTo(map);
-            
-            terrainLayers.push(backgroundLayer);
-            
-            // Add main line on top
-            const layer = L.geoJSON(feature, {
-              style: style
-            }).addTo(map);
-            
-            // Add popup with feature info
-            layer.bindPopup(`
-              <div style="padding: 8px; font-family: 'Amazon Ember', Arial, sans-serif;">
-                <div style="font-size: 14px; font-weight: bold; color: #0972d3; margin-bottom: 4px;">
-                  ${featureType.charAt(0).toUpperCase() + featureType.slice(1)}
-                </div>
-                <div style="font-size: 12px; color: #545b64;">
-                  ${feature.properties?.name || 'Terrain feature'}
+            popupContent += `
                 </div>
               </div>
-            `);
+            `;
             
-            terrainLayers.push(layer);
+            layer.bindPopup(popupContent, {
+              maxWidth: 400,
+              className: 'custom-popup'
+            });
+            
+            // Add visual buffer zones using Turf.js (matching TerrainMapArtifact)
+            const bufferMeters = feature.properties?.bufferMeters || 0;
+            if (bufferMeters > 0) {
+              import('@turf/turf').then((turf) => {
+                try {
+                  // Create buffer polygon around the feature
+                  const buffered = turf.buffer(feature as any, bufferMeters / 1000, { units: 'kilometers' });
+                  
+                  if (buffered) {
+                    // Render buffer with tinted color - NON-INTERACTIVE so clicks pass through
+                    const bufferLayer = L.geoJSON(buffered, {
+                      style: {
+                        color: feature.properties?.color || '#FF0000',
+                        fillColor: feature.properties?.fillColor || '#FF000020',
+                        fillOpacity: 0.15,
+                        weight: 1,
+                        dashArray: '5, 5'
+                      },
+                      interactive: false,  // CRITICAL: Make buffers non-interactive so feature clicks work
+                      pane: 'tilePane'     // CRITICAL: Put on tile pane (below overlays) so features are clickable
+                    }).addTo(map);
+                    
+                    // Store buffer layer for toggle control
+                    bufferLayers.push(bufferLayer);
+                  }
+                } catch (e) {
+                  console.warn('[LayoutMap] Could not create buffer for feature:', e);
+                }
+              });
+            }
           }
-        } catch (error) {
-          console.error('[LayoutMap] Error rendering terrain feature:', error, feature);
-        }
-      });
+        }).addTo(map);
+        
+        terrainLayers.push(geoJsonLayer);
+      }
 
       console.log('[LayoutMap] Rendered terrain layers:', terrainLayers.length);
 
@@ -602,6 +993,55 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
     };
   }, [data.projectId]); // Only depend on projectId to prevent re-renders
 
+  // Handle theme changes for tile layer
+  useEffect(() => {
+    const handleThemeChange = (event: Event) => {
+      const customEvent = event as CustomEvent;
+      const newIsDark = customEvent.detail?.isDark ?? (document.body.getAttribute('data-awsui-mode') === 'dark');
+      console.log('[LayoutMap] Theme change event received, newIsDark:', newIsDark);
+      
+      if (!mapInstanceRef.current) {
+        console.log('[LayoutMap] Map not ready yet, skipping tile update');
+        return;
+      }
+      
+      import('leaflet').then((L) => {
+        if (!mapInstanceRef.current) return;
+        
+        const newTileUrl = newIsDark 
+          ? 'https://tiles.stadiamaps.com/tiles/alidade_smooth_dark/{z}/{x}/{y}{r}.png'
+          : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png';
+        const newAttribution = newIsDark
+          ? '© Stadia Maps © OpenMapTiles © OpenStreetMap contributors'
+          : '© OpenStreetMap contributors';
+        
+        // Remove current tile layer if it exists
+        if (tileLayerRef.current) {
+          mapInstanceRef.current.removeLayer(tileLayerRef.current);
+          console.log('[LayoutMap] Removed old tile layer');
+        }
+        
+        // Add new tile layer
+        const newTileLayer = L.tileLayer(newTileUrl, {
+          attribution: newAttribution,
+          maxZoom: 19,
+          subdomains: 'abcd',
+        });
+        newTileLayer.addTo(mapInstanceRef.current);
+        tileLayerRef.current = newTileLayer; // Store reference
+        console.log('[LayoutMap] Theme changed, tile layer updated to:', newIsDark ? 'dark' : 'light');
+      });
+    };
+    
+    window.addEventListener('themechange', handleThemeChange);
+    console.log('[LayoutMap] Theme change listener registered');
+    
+    return () => {
+      window.removeEventListener('themechange', handleThemeChange);
+      console.log('[LayoutMap] Theme change listener removed');
+    };
+  }, []);
+
   // Comprehensive error boundary - catch any rendering errors
   try {
     return (
@@ -623,11 +1063,17 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
       >
         <SpaceBetween size="l">
         {/* Workflow CTA Buttons - Guide user through workflow */}
-        <WorkflowCTAButtons
-          completedSteps={data.completedSteps || ['terrain', 'layout']}
-          projectId={data.projectId}
-          onAction={handleActionClick}
-        />
+        {(() => {
+          const steps = data.completedSteps || ['terrain', 'layout'];
+          console.log('[LayoutMap] Workflow CTA - completedSteps:', steps);
+          return (
+            <WorkflowCTAButtons
+              completedSteps={steps}
+              projectId={data.projectId}
+              onAction={handleActionClick}
+            />
+          );
+        })()}
         
         {/* Algorithm Metadata Display */}
         {data.metadata && (
@@ -811,14 +1257,18 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
           {!renderError && data.geojson && data.geojson.features && data.geojson.features.length > 0 && (
             <div
               ref={mapRef}
+              className="layout-map-container"
               style={{
                 width: '100%',
                 height: '500px',
-                border: '1px solid #e9ebed',
+                border: isDarkMode 
+                  ? '1px solid #414d5c' 
+                  : '1px solid #e9ebed',
                 borderRadius: '4px',
                 position: 'relative',
                 zIndex: 0,
                 cursor: 'grab',
+                overflow: 'hidden', // Keep map contained
               }}
             />
           )}

@@ -502,6 +502,7 @@ export class ProjectListHandler {
       // Create artifact structure
       const artifact = {
         type: 'project_dashboard',
+        messageContentType: 'project_dashboard',  // CRITICAL: Frontend checks this field
         title: 'Renewable Energy Projects Dashboard',
         data: dashboardData
       };

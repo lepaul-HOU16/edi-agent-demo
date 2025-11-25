@@ -479,6 +479,17 @@ export class MainStack extends cdk.Stack {
       authorizer: this.authorizer,
     });
 
+    // Add route: DELETE /api/projects/{projectId}
+    this.httpApi.addRoutes({
+      path: '/api/projects/{projectId}',
+      methods: [apigatewayv2.HttpMethod.DELETE],
+      integration: new apigatewayv2_integrations.HttpLambdaIntegration(
+        'DeleteProjectByIdIntegration',
+        projectsFunction.function
+      ),
+      authorizer: this.authorizer,
+    });
+
     // Output projects Lambda ARN
     new cdk.CfnOutput(this, 'ProjectsFunctionArn', {
       value: projectsFunction.functionArn,
@@ -751,20 +762,21 @@ export class MainStack extends cdk.Stack {
     // Renewable Tools Lambda - COMPLETE ORIGINAL CODE (Must be before orchestrator)
     // ============================================================================
     
-    // Create renewable tools Lambda with COMPLETE original code from renewables repo
-    // This replaces the simplified "renewable-terrain-simple" stub
-    const renewableToolsFunction = new lambda.DockerImageFunction(this, 'RenewableToolsFunction', {
-      functionName: 'renewable-tools-complete',
-      description: 'Complete renewable tools with ALL original functionality including water features',
-      code: lambda.DockerImageCode.fromImageAsset(path.join(__dirname, '../lambda-functions/renewable-tools'), {
-        cmd: ['handler.handler'],  // Explicitly set the handler
-      }),
+    // Create renewable tools Lambda - use existing layer with matplotlib
+    // Note: matplotlib charts generation temporarily disabled due to Lambda layer size limits
+    // Renewable tools Lambda (charts disabled - matplotlib not available in basic Lambda)
+    const renewableToolsFunction = new lambda.Function(this, 'RenewableToolsFunction', {
+      description: 'Renewable tools Lambda (charts disabled - no matplotlib)',
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-functions/renewable-tools')),
       timeout: cdk.Duration.minutes(5),
-      memorySize: 2048,
+      memorySize: 512,
       environment: {
         NREL_API_KEY: process.env.NREL_API_KEY || 'demo-key',
         S3_BUCKET: storageBucket.bucketName,
         REGION: this.region,
+        DISABLE_CHARTS: 'true',  // Charts disabled - matplotlib not available
       },
     });
     
@@ -785,12 +797,15 @@ export class MainStack extends cdk.Stack {
       environment: {
         STORAGE_BUCKET: storageBucket.bucketName,
         CHAT_MESSAGE_TABLE_NAME: chatMessageTable.tableName,
+        AMPLIFY_DATA_CHATMESSAGE_TABLE_NAME: chatMessageTable.tableName,
         SESSION_CONTEXT_TABLE: sessionContextTable.tableName,
         RENEWABLE_S3_BUCKET: storageBucket.bucketName,
-        // Tool Lambda function names - will be updated after tools Lambda is created
-        RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME: 'renewable-tools-complete',
-        RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME: 'renewable-tools-complete',
-        RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME: 'renewable-tools-complete',
+        // Tool Lambda function names - ALL tools use the same Lambda
+        RENEWABLE_TERRAIN_TOOL_FUNCTION_NAME: renewableToolsFunction.functionName,
+        RENEWABLE_LAYOUT_TOOL_FUNCTION_NAME: renewableToolsFunction.functionName,
+        RENEWABLE_SIMULATION_TOOL_FUNCTION_NAME: renewableToolsFunction.functionName,
+        RENEWABLE_REPORT_TOOL_FUNCTION_NAME: renewableToolsFunction.functionName,
+        RENEWABLE_WINDROSE_TOOL_FUNCTION_NAME: renewableToolsFunction.functionName,
         FORCE_REFRESH: Date.now().toString(), // Force Lambda update
       },
     });
@@ -802,19 +817,8 @@ export class MainStack extends cdk.Stack {
     // Grant S3 permissions
     renewableOrchestratorFunction.grantS3ReadWrite(storageBucket.bucketArn);
 
-    // Grant Lambda invoke permissions for standalone tool Lambdas
-    // These are the specific tool Lambdas that the orchestrator will call
-    renewableOrchestratorFunction.function.addToRolePolicy(
-      new iam.PolicyStatement({
-        effect: iam.Effect.ALLOW,
-        actions: ['lambda:InvokeFunction'],
-        resources: [
-          'arn:aws:lambda:us-east-1:484907533441:function:renewable-terrain-simple',
-          'arn:aws:lambda:us-east-1:484907533441:function:renewable-layout-simple',
-          'arn:aws:lambda:us-east-1:484907533441:function:renewable-simulation-simple',
-        ],
-      })
-    );
+    // Grant Lambda invoke permissions for the tools Lambda
+    renewableToolsFunction.grantInvoke(renewableOrchestratorFunction.function);
 
     // Add route: POST /api/renewable/analyze
     this.httpApi.addRoutes({

@@ -16,6 +16,7 @@ import CanvasesPage from './pages/CanvasesPage';
 import ProjectsPage from './pages/ProjectsPage';
 import SignInPage from './pages/SignInPage';
 import ReinventDemoPage from './pages/ReinventDemoPage';
+import WakeHeatMapMockup from './pages/WakeHeatMapMockup';
 
 function App() {
   return (
@@ -38,6 +39,9 @@ function App() {
         
         {/* Hidden route for re:Invent demo materials */}
         <Route path="/reinvent-demo" element={<ProtectedRoute><ReinventDemoPage /></ProtectedRoute>} />
+        
+        {/* Development/mockup routes */}
+        <Route path="/mockup/wake-heatmap" element={<ProtectedRoute><WakeHeatMapMockup /></ProtectedRoute>} />
         
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />

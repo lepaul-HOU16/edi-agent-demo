@@ -2520,6 +2520,8 @@ function formatArtifacts(results: ToolResult[], intentType?: string, projectName
 
 /**
  * Generate response message with project status
+ * Returns empty string when artifacts are successfully generated (clean UI)
+ * Returns error fallback message when artifact generation fails
  */
 function generateResponseMessage(intent: RenewableIntent, results: ToolResult[], projectName?: string, projectData?: any): string {
   const successfulResults = results.filter(r => r.success);
@@ -2534,55 +2536,8 @@ function generateResponseMessage(intent: RenewableIntent, results: ToolResult[],
     return 'Tool execution failed. Please check the parameters and try again.';
   }
   
-  const result = successfulResults[0];
-  let baseMessage = '';
-  
-  switch (intent.type) {
-    case 'terrain_analysis':
-      baseMessage = result.data.message || 'Terrain analysis completed successfully.';
-      break;
-      
-    case 'layout_optimization':
-      baseMessage = result.data.message || `Layout optimization completed with ${result.data.turbineCount} turbines.`;
-      break;
-      
-    case 'wake_simulation':
-      baseMessage = result.data.message || 'Wake simulation completed successfully.';
-      break;
-      
-    case 'wind_rose':
-    case 'wind_rose_analysis':
-      baseMessage = result.data.message || 'Wind rose analysis completed successfully.';
-      break;
-      
-    case 'report_generation':
-      baseMessage = result.data.message || 'Report generated successfully.';
-      break;
-      
-    default:
-      baseMessage = 'Analysis completed successfully.';
-  }
-  
-  // Add project status if project name is provided
-  if (projectName && projectData) {
-    const projectStatus = {
-      terrain: !!projectData.terrain_results,
-      layout: !!projectData.layout_results,
-      simulation: !!projectData.simulation_results,
-      report: !!projectData.report_results
-    };
-    
-    const statusChecklist = formatProjectStatusChecklist(projectStatus);
-    const nextStep = generateNextStepSuggestion(projectStatus);
-    
-    baseMessage += `\n\n**Project: ${projectName}**\n\n${statusChecklist}`;
-    
-    if (nextStep) {
-      baseMessage += `\n\n**Next:** ${nextStep}`;
-    }
-  }
-  
-  return baseMessage;
+  // SUCCESS: Always return empty string - let Cloudscape artifact handle ALL UI
+  return '';
 }
 
 /**

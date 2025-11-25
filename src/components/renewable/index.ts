@@ -11,6 +11,7 @@ export { default as SimulationChartArtifact } from './SimulationChartArtifact';
 export { default as ReportArtifact } from './ReportArtifact';
 export { default as WindRoseArtifact } from './WindRoseArtifact';
 export { default as WakeAnalysisArtifact } from './WakeAnalysisArtifact';
+export { default as FinancialAnalysisArtifact } from './FinancialAnalysisArtifact';
 
 // Workflow Components
 export { default as WorkflowOrchestrator } from './WorkflowOrchestrator';

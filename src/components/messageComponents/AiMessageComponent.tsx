@@ -107,9 +107,12 @@ const AiMessageComponent: React.FC<AiMessageComponentProps> = ({ message, theme,
               </div>
             ) : (
               <>
-                <ReactMarkdown remarkPlugins={[remarkGfm]}>
-                  {(message as any).content?.text}
-                </ReactMarkdown>
+                {/* Only render message text if it's not empty - prevents "no response generated" for clean UI */}
+                {(message as any).content?.text && (message as any).content.text.trim().length > 0 && (
+                  <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                    {(message as any).content.text}
+                  </ReactMarkdown>
+                )}
                 
                 {/* Render artifacts if present */}
                 {(message as any).artifacts && (

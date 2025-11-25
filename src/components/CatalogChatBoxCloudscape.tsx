@@ -426,7 +426,7 @@ const CatalogChatBoxCloudscape = (params: {
                 color: 'white', 
                 fontSize: '11px', 
                 lineHeight: '14px', 
-                marginRight: '-8px',
+                marginRight: '-2px',
                 width: '50px', 
               }}>
                 Data Sources

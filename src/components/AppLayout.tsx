@@ -61,7 +61,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
     setDarkMode(newMode);
     if (typeof window !== 'undefined') {
       localStorage.setItem('darkMode', String(newMode));
-      window.dispatchEvent(new Event('themechange'));
+      window.dispatchEvent(new CustomEvent('themechange', { detail: { isDark: newMode } }));
     }
   };
 

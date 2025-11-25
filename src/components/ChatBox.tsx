@@ -49,13 +49,13 @@ const ChatBox = (params: {
     });
   }, [setMessages]);
   
-  // POLLING: Enabled for async processing results
-  useChatMessagePolling({
-    chatSessionId,
-    enabled: true,
-    interval: 5000, // Poll every 5 seconds
-    onMessagesUpdated: handleMessagesUpdated,
-  });
+  // POLLING: DISABLED - causing duplicate renders
+  // useChatMessagePolling({
+  //   chatSessionId,
+  //   enabled: false,
+  //   interval: 5000, // Poll every 5 seconds
+  //   onMessagesUpdated: handleMessagesUpdated,
+  // });
 
 
 
@@ -420,8 +420,19 @@ const ChatBox = (params: {
     }
   }, [messages, params.chatSessionId, params.onInputChange, setStreamChunkMessage, setResponseStreamChunks, setMessages, setIsLoading]);
 
+  // CRITICAL FIX: Add ref to prevent duplicate submissions
+  const isSubmittingRef = useRef(false);
+
   const handleSend = useCallback(async (userMessage: string) => {
     if (userMessage.trim()) {
+      // CRITICAL FIX: Prevent duplicate submissions
+      if (isSubmittingRef.current) {
+        console.log('⚠️ FRONTEND: Duplicate submission prevented');
+        return;
+      }
+      
+      isSubmittingRef.current = true;
+      
       console.log('═══════════════════════════════════════════════════════════');
       console.log('🔵 FRONTEND (ChatBox): Sending message');
       console.log('═══════════════════════════════════════════════════════════');
@@ -498,6 +509,8 @@ const ChatBox = (params: {
         
         setIsLoading(false);
         console.log('🔵 FRONTEND: Message handling complete');
+        // CRITICAL FIX: Reset submission flag
+        isSubmittingRef.current = false;
       } catch (error) {
         console.error('═══════════════════════════════════════════════════════════');
         console.error('❌ FRONTEND (ChatBox): CRITICAL ERROR');
@@ -509,6 +522,8 @@ const ChatBox = (params: {
         setIsLoading(false);
         // VALIDATION ERROR HANDLING: Restore input on error
         params.onInputChange(userMessage);
+        // CRITICAL FIX: Reset submission flag on error
+        isSubmittingRef.current = false;
       }
     }
   }, [messages, params.chatSessionId]);
@@ -633,7 +648,7 @@ const ChatBox = (params: {
                       color: 'white',
                       lineHeight: '14px', 
                       width: '50px', 
-                      marginRight: '-8px', 
+                      marginRight: '-2px', 
                     }}
                     fontSize={11}
                   >

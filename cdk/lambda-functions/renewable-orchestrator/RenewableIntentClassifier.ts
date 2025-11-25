@@ -16,6 +16,7 @@ export interface RenewableAnalysisType {
   SITE_SUITABILITY: 'site_suitability';
   COMPREHENSIVE_ASSESSMENT: 'comprehensive_assessment';
   REPORT_GENERATION: 'report_generation';
+  COMPARE_SCENARIOS: 'compare_scenarios';
   // Project lifecycle management intents
   DELETE_PROJECT: 'delete_project';
   RENAME_PROJECT: 'rename_project';
@@ -34,6 +35,7 @@ export const RenewableAnalysisType: RenewableAnalysisType = {
   SITE_SUITABILITY: 'site_suitability',
   COMPREHENSIVE_ASSESSMENT: 'comprehensive_assessment',
   REPORT_GENERATION: 'report_generation',
+  COMPARE_SCENARIOS: 'compare_scenarios',
   // Project lifecycle management intents
   DELETE_PROJECT: 'delete_project',
   RENAME_PROJECT: 'rename_project',
@@ -64,6 +66,39 @@ export interface PatternDefinition {
 
 export class RenewableIntentClassifier {
   private readonly intentPatterns: Record<string, PatternDefinition> = {
+    // CRITICAL: Compare scenarios patterns MUST come BEFORE other patterns
+    // to prevent "compare scenarios" queries from being misclassified
+    compare_scenarios: {
+      patterns: [
+        /compare\s+scenarios/i,
+        /scenario\s+comparison/i,
+        /compare\s+layouts/i,
+        /compare\s+configurations/i,
+        /compare\s+projects/i,
+        /scenario\s+analysis/i,
+        /compare\s+options/i,
+        /compare\s+alternatives/i,
+        /side.*by.*side.*comparison/i,
+        /compare\s+different/i,
+        /which\s+scenario/i,
+        /which\s+layout/i,
+        /which\s+configuration/i,
+        /best\s+scenario/i,
+        /optimal\s+scenario/i,
+        /evaluate\s+scenarios/i,
+        /assess\s+scenarios/i
+      ],
+      exclusions: [
+        /terrain(?!.*compare)/i,
+        /wind.*rose(?!.*compare)/i,
+        /wake(?!.*compare)/i,
+        /financial(?!.*compare)/i,
+        /report(?!.*compare)/i
+      ],
+      weight: 1.7,  // Very high weight to prioritize scenario comparison
+      keywords: ['compare', 'scenarios', 'comparison', 'layouts', 'configurations', 'options', 'alternatives', 'side by side', 'which', 'best', 'optimal', 'evaluate', 'assess']
+    },
+
     // CRITICAL: Financial analysis patterns MUST come BEFORE terrain patterns
     // to prevent "financial analysis" queries from being misclassified as terrain_analysis
     report_generation: {
@@ -95,6 +130,8 @@ export class RenewableIntentClassifier {
         /internal.*rate.*return/i
       ],
       exclusions: [
+        /compare/i,  // Exclude compare keywords
+        /scenario/i,
         /terrain(?!.*financial)/i,  // Allow "terrain" only if not followed by "financial"
         /wind.*rose(?!.*financial)/i,
         /wake(?!.*financial)/i,
@@ -193,6 +230,9 @@ export class RenewableIntentClassifier {
         /terrain.*analysis/i,
         /wind.*rose/i,
         /layout.*optimization/i,
+        /optimize.*layout/i,  // CRITICAL: Exclude "optimize layout" queries
+        /optimize.*turbine/i,  // CRITICAL: Exclude "optimize turbine" queries
+        /turbine.*placement/i,  // CRITICAL: Exclude layout-related queries
         /site.*suitability/i,
         /overall.*assessment/i,
         /create.*layout/i,
@@ -466,6 +506,17 @@ export class RenewableIntentClassifier {
   classifyIntent(query: string): IntentClassificationResult {
     console.log('🔍 RenewableIntentClassifier: Analyzing query:', query);
     
+    // Safety check for undefined/null query
+    if (!query || typeof query !== 'string') {
+      console.error('❌ Invalid query provided to classifyIntent:', query);
+      return {
+        intent: 'unknown',
+        confidence: 0,
+        parameters: {},
+        alternatives: []
+      };
+    }
+    
     const lowerQuery = query.toLowerCase();
     const scores: Record<string, number> = {};
     
@@ -505,6 +556,7 @@ export class RenewableIntentClassifier {
   getConfidenceScore(query: string, intent: string): number {
     const definition = this.intentPatterns[intent];
     if (!definition) return 0;
+    if (!query || typeof query !== 'string') return 0;
     
     return Math.round(this.calculateIntentScore(query.toLowerCase(), definition) * 100);
   }
