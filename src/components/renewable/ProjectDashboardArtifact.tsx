@@ -31,6 +31,7 @@ import {
   Flashbar
 } from '@cloudscape-design/components';
 import { deleteProject as deleteProjectAPI, renameProject as renameProjectAPI } from '@/lib/api/projects';
+import { useProjectContext, extractProjectFromArtifact, ProjectInfo } from '@/contexts/ProjectContext';
 
 // ============================================================================
 // Type Definitions
@@ -76,6 +77,7 @@ const ProjectDashboardArtifact: React.FC<ProjectDashboardArtifactProps> = ({
   darkMode = true,
   onAction
 }) => {
+  const { setActiveProject } = useProjectContext();
   const [selectedItems, setSelectedItems] = useState<any[]>([]);
   const [sortingColumn, setSortingColumn] = useState<any>({ sortingField: 'lastUpdated' });
   const [sortingDescending, setSortingDescending] = useState(true);
@@ -140,22 +142,63 @@ const ProjectDashboardArtifact: React.FC<ProjectDashboardArtifactProps> = ({
   /**
    * Handle action button click with direct GraphQL mutations (Task 4.3)
    * Requirement: 7.5 - Provide quick actions
+   * Requirements: 1.2, 2.3, 2.4 - Set active project on continue/view
    */
   const handleAction = async (action: string, projectName: string) => {
-    console.log(`[ProjectDashboardArtifact] Action: ${action} on project: ${projectName}`);
+    console.log(`🎬 [ProjectDashboardArtifact] Action initiated: ${action} on project: ${projectName}`);
+    console.log(`🎬 [ProjectDashboardArtifact] Available projects:`, data.projects.map(p => p.name));
     
+    // Extract project info and set as active project for 'continue' or 'view' actions
+    // Requirements: 1.2, 2.3, 2.4
+    if ((action === 'continue' || action === 'view') && projectName) {
+      console.log(`🔍 [ProjectDashboardArtifact] Looking for project: ${projectName}`);
+      const project = data.projects.find(p => p.name === projectName);
+      
+      if (project) {
+        console.log(`✅ [ProjectDashboardArtifact] Found project:`, project);
+        
+        // Use the helper function for consistent validation
+        const projectData = {
+          projectId: project.name,
+          projectName: project.name,
+          title: project.name,
+          location: project.location
+        };
+        
+        console.log(`🔍 [ProjectDashboardArtifact] Extracting project info from:`, projectData);
+        const projectInfo = extractProjectFromArtifact(projectData, 'ProjectDashboardArtifact');
+        
+        if (projectInfo) {
+          console.log('🎯 [ProjectDashboardArtifact] Setting active project for action:', action);
+          console.log('🎯 [ProjectDashboardArtifact] Project info:', projectInfo);
+          setActiveProject(projectInfo);
+          console.log('✅ [ProjectDashboardArtifact] Active project set successfully');
+        } else {
+          console.error('❌ [ProjectDashboardArtifact] Failed to extract valid project info from:', projectData);
+        }
+      } else {
+        console.warn('⚠️ [ProjectDashboardArtifact] Project not found in data:', projectName);
+        console.warn('⚠️ [ProjectDashboardArtifact] Available projects:', data.projects.map(p => p.name));
+      }
+    } else {
+      console.log(`ℹ️ [ProjectDashboardArtifact] Action '${action}' does not require setting active project`);
+    }
+    
+    console.log(`⏳ [ProjectDashboardArtifact] Setting loading state...`);
     setIsLoading(true);
     
     try {
       switch (action) {
         case 'delete':
           // Use REST API for delete
-          console.log(`[ProjectDashboardArtifact] Calling REST API to delete: ${projectName}`);
+          console.log(`🗑️ [ProjectDashboardArtifact] Initiating delete operation for: ${projectName}`);
+          console.log(`🗑️ [ProjectDashboardArtifact] Calling REST API...`);
           const deleteResult = await deleteProjectAPI(projectName);
           
-          console.log(`[ProjectDashboardArtifact] Delete result:`, deleteResult);
+          console.log(`🗑️ [ProjectDashboardArtifact] Delete API response:`, deleteResult);
           
           if (deleteResult.success) {
+            console.log(`✅ [ProjectDashboardArtifact] Delete successful for: ${projectName}`);
             setFlashMessages([{
               type: 'success',
               content: `Project ${projectName} deleted successfully`,
@@ -165,9 +208,11 @@ const ProjectDashboardArtifact: React.FC<ProjectDashboardArtifactProps> = ({
             
             // Trigger dashboard refresh
             if (onAction) {
+              console.log(`🔄 [ProjectDashboardArtifact] Triggering dashboard refresh`);
               onAction('refresh', projectName);
             }
           } else {
+            console.error(`❌ [ProjectDashboardArtifact] Delete failed:`, deleteResult.message);
             throw new Error(deleteResult.message || 'Delete failed');
           }
           break;
@@ -333,13 +378,13 @@ const ProjectDashboardArtifact: React.FC<ProjectDashboardArtifactProps> = ({
             iconName="view-full"
             onClick={() => handleAction('view', item.name)}
             variant="inline-icon"
-            ariaLabel={`View ${item.name}`}
+            ariaLabel={`View ${item.name} and set as active project`}
           />
           <Button
             iconName="arrow-right"
             onClick={() => handleAction('continue', item.name)}
             variant="inline-icon"
-            ariaLabel={`Continue ${item.name}`}
+            ariaLabel={`Continue working on ${item.name} (sets as active project)`}
           />
           <Button
             iconName="remove"

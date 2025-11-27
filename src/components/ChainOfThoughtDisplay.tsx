@@ -12,6 +12,22 @@ import { Box, Button, Typography, useTheme } from '@mui/material';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
+// Backend format from renewable orchestrator
+export interface BackendThoughtStep {
+  step: number;
+  action: string;
+  reasoning: string;
+  result?: string;
+  status: 'in_progress' | 'complete' | 'error';
+  timestamp: string;
+  duration?: number;  // milliseconds
+  error?: {
+    message: string;
+    suggestion?: string;
+  };
+}
+
+// Legacy format (kept for backward compatibility)
 export interface VerboseThoughtStep {
   id: string;
   type: 'intent_detection' | 'parameter_extraction' | 'tool_selection' | 'data_retrieval' | 'calculation' | 'validation' | 'completion' | 'error' | 'execution';
@@ -32,11 +48,37 @@ export interface VerboseThoughtStep {
   };
 }
 
+// Unified type that handles both formats
+export type ThoughtStep = BackendThoughtStep | VerboseThoughtStep;
+
 interface ChainOfThoughtDisplayProps {
-  thoughtSteps?: VerboseThoughtStep[];
+  thoughtSteps?: ThoughtStep[];
   messages?: any[]; // Accept messages array and extract thought steps
   autoScroll?: boolean;
   defaultExpanded?: boolean;
+}
+
+// Type guard to check if step is backend format
+function isBackendThoughtStep(step: ThoughtStep): step is BackendThoughtStep {
+  return 'action' in step && 'reasoning' in step;
+}
+
+// Convert backend format to display format
+function normalizeThoughtStep(step: ThoughtStep): VerboseThoughtStep {
+  if (isBackendThoughtStep(step)) {
+    return {
+      id: `step-${step.step}`,
+      type: 'execution',
+      timestamp: new Date(step.timestamp).getTime(),
+      title: step.action,
+      summary: step.reasoning,
+      details: step.result,
+      status: step.status,
+      duration: step.duration,
+      error: step.error
+    };
+  }
+  return step as VerboseThoughtStep;
 }
 
 /**
@@ -138,7 +180,7 @@ ${JSON.stringify(step.details, null, 2)}
             textTransform: 'uppercase'
           }}
         >
-          • {step.type.replace(/_/g, ' ')}
+          • {step.type?.replace(/_/g, ' ') || 'unknown'}
         </Typography>
       </Box>
 
@@ -211,43 +253,46 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
 
   // Extract thought steps from messages if provided
   const thoughtSteps = React.useMemo(() => {
+    let rawSteps: ThoughtStep[] = [];
+    
     if (providedThoughtSteps) {
-      return providedThoughtSteps;
+      rawSteps = providedThoughtSteps;
+    } else if (messages) {
+      try {
+        rawSteps = messages
+          .filter(message => message.role === 'ai' && (message as any).thoughtSteps)
+          .flatMap(message => {
+            const steps = (message as any).thoughtSteps || [];
+            
+            // Parse JSON strings if needed
+            const parsedSteps = Array.isArray(steps) ? steps.map(step => {
+              if (typeof step === 'string') {
+                try {
+                  return JSON.parse(step);
+                } catch (e) {
+                  console.error('Failed to parse step JSON:', step);
+                  return null;
+                }
+              }
+              return step;
+            }) : [];
+            
+            return parsedSteps.filter(Boolean);
+          })
+          .filter(step => step && typeof step === 'object')
+          .sort((a, b) => {
+            const aTime = isBackendThoughtStep(a) ? new Date(a.timestamp).getTime() : a.timestamp;
+            const bTime = isBackendThoughtStep(b) ? new Date(b.timestamp).getTime() : b.timestamp;
+            return aTime - bTime;
+          });
+      } catch (error) {
+        console.error('Error extracting thought steps:', error);
+        rawSteps = [];
+      }
     }
     
-    if (!messages) {
-      return [];
-    }
-
-    try {
-      const extractedSteps = messages
-        .filter(message => message.role === 'ai' && (message as any).thoughtSteps)
-        .flatMap(message => {
-          const steps = (message as any).thoughtSteps || [];
-          
-          // Parse JSON strings if needed
-          const parsedSteps = Array.isArray(steps) ? steps.map(step => {
-            if (typeof step === 'string') {
-              try {
-                return JSON.parse(step);
-              } catch (e) {
-                console.error('Failed to parse step JSON:', step);
-                return null;
-              }
-            }
-            return step;
-          }) : [];
-          
-          return parsedSteps.filter(Boolean);
-        })
-        .filter(step => step && typeof step === 'object')
-        .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-        
-      return extractedSteps;
-    } catch (error) {
-      console.error('Error extracting thought steps:', error);
-      return [];
-    }
+    // Normalize all steps to VerboseThoughtStep format
+    return rawSteps.map(normalizeThoughtStep);
   }, [providedThoughtSteps, messages]);
 
   // Initialize all steps as collapsed by default

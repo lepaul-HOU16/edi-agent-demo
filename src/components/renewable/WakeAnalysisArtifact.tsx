@@ -5,7 +5,7 @@
  * Renders wake deficit analysis, turbine interactions, and energy production impacts.
  */
 
-import React, { useState, useMemo, Suspense } from 'react';
+import React, { useState, useMemo, Suspense, useEffect } from 'react';
 import {
   Container,
   Header,
@@ -20,6 +20,7 @@ import {
   Spinner
 } from '@cloudscape-design/components';
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';
+import { useProjectContext, extractProjectFromArtifact } from '../../contexts/ProjectContext';
 
 // Dynamic import for Plotly (client-side only)
 const PlotComponent = React.lazy(() => import('react-plotly.js')) as any;
@@ -80,6 +81,19 @@ const WakeAnalysisArtifact: React.FC<WakeAnalysisArtifactProps> = ({ data, onFol
   const [mapLoaded, setMapLoaded] = useState(false);
   const [hasError, setHasError] = useState<boolean>(false);
   const [renderError, setRenderError] = useState<string | null>(null);
+  
+  // Get project context
+  const { setActiveProject } = useProjectContext();
+
+  // Extract and set project context when data changes
+  useEffect(() => {
+    const projectInfo = extractProjectFromArtifact(data, 'WakeAnalysisArtifact');
+    if (projectInfo) {
+      setActiveProject(projectInfo);
+    } else {
+      console.warn('⚠️ [WakeAnalysisArtifact] Failed to extract project information from artifact data');
+    }
+  }, [data, setActiveProject]);
   
   // DEBUG: Log the data structure to see what visualizations are available
   console.log('🔍 [WakeAnalysisArtifact] Received data:', {

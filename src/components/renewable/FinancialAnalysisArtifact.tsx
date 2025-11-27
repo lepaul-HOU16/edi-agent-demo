@@ -5,7 +5,7 @@
  * Displays financial metrics, cost breakdown, revenue projections, and ROI analysis.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Container,
   Header,
@@ -18,6 +18,7 @@ import {
   KeyValuePairs,
 } from '@cloudscape-design/components';
 import Plot from 'react-plotly.js';
+import { useProjectContext, extractProjectFromArtifact } from '../../contexts/ProjectContext';
 
 interface FinancialAnalysisArtifactProps {
   data: {
@@ -66,6 +67,19 @@ const FinancialAnalysisArtifact: React.FC<FinancialAnalysisArtifactProps> = ({ d
   });
 
   const [assumptionsExpanded, setAssumptionsExpanded] = useState(false);
+
+  // Get project context
+  const { setActiveProject } = useProjectContext();
+
+  // Extract and set project context when data changes
+  useEffect(() => {
+    const projectInfo = extractProjectFromArtifact(data, 'FinancialAnalysisArtifact');
+    if (projectInfo) {
+      setActiveProject(projectInfo);
+    } else {
+      console.warn('⚠️ [FinancialAnalysisArtifact] Failed to extract project information from artifact data');
+    }
+  }, [data, setActiveProject]);
 
   // Error handling for missing financial data
   if (!data.metrics || !data.costBreakdown || !data.revenueProjection || !data.assumptions) {

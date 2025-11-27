@@ -36,7 +36,16 @@ export const sendMessage = async (props: {
     };
     role: 'user' | 'ai';
   },
-  agentType?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft'
+  agentType?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft',
+  projectContext?: {
+    projectId?: string;
+    projectName?: string;
+    location?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  }
 }) => {
   console.log('═══════════════════════════════════════════════════════════');
   console.log('🔵 FRONTEND (chatUtils): sendMessage called');
@@ -44,6 +53,7 @@ export const sendMessage = async (props: {
   console.log('🆔 Session ID:', props.chatSessionId);
   console.log('📝 Message:', props.newMessage.content.text);
   console.log('🤖 Agent Type:', props.agentType || 'auto');
+  console.log('🎯 Project Context:', props.projectContext);
   console.log('⏰ Timestamp:', new Date().toISOString());
   console.log('═══════════════════════════════════════════════════════════');
   
@@ -63,7 +73,8 @@ export const sendMessage = async (props: {
     const response = await sendMessageAPI(
       messageText,
       props.chatSessionId,
-      [] // conversation history - will be handled by backend
+      [], // conversation history - will be handled by backend
+      props.projectContext // Pass project context to backend
     );
     
     console.log('═══════════════════════════════════════════════════════════');

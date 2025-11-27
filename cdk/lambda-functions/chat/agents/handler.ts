@@ -271,8 +271,15 @@ export const handler = async (event: AppSyncResolverEvent<any>, context: any): P
       chatSessionId: event.arguments.chatSessionId,
       userId: userId,
       selectedAgent: event.arguments.agentType as 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft' | undefined,
-      collectionContext: collectionContext // Pass collection context to router
+      collectionContext: collectionContext, // Pass collection context to router
+      projectContext: event.arguments.projectContext // Pass project context from frontend
     };
+    
+    // Log project context if present
+    if (event.arguments.projectContext) {
+      console.log('🎯 AGENT HANDLER: Project context received:', JSON.stringify(event.arguments.projectContext));
+    }
+    
     const response = await router.routeQuery(event.arguments.message, conversationHistory, sessionContext);
     console.log('🔍 HANDLER: Agent response received:', {
       success: response.success,

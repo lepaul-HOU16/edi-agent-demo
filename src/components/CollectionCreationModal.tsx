@@ -72,44 +72,6 @@ export default function CollectionCreationModal({
   
   return (
     <>
-      <style jsx global>{`
-        /* Responsive modal styling */
-        .collection-modal-container .awsui-modal-container {
-          width: 60% !important;
-          max-width: 60% !important;
-          max-height: calc(100vh - 300px) !important;
-          margin-top: 150px !important;
-          margin-bottom: 150px !important;
-        }
-        
-        .collection-modal-container .awsui-modal-content {
-          max-height: calc(100vh - 400px) !important;
-          overflow-y: auto !important;
-        }
-        
-        /* Mobile responsive - 90% width on small screens */
-        @media (max-width: 768px) {
-          .collection-modal-container .awsui-modal-container {
-            width: 90% !important;
-            max-width: 90% !important;
-          }
-        }
-        
-        /* Tablet responsive - 75% width on medium screens */
-        @media (min-width: 769px) and (max-width: 1024px) {
-          .collection-modal-container .awsui-modal-container {
-            width: 75% !important;
-            max-width: 75% !important;
-          }
-        }
-        
-        /* Ensure modal is centered */
-        .collection-modal-container {
-          display: flex !important;
-          align-items: flex-start !important;
-          justify-content: center !important;
-        }
-      `}</style>
       
       <div className="collection-modal-container">
         <Modal

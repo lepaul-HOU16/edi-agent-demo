@@ -10,6 +10,7 @@ import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Alert, Butto
 import 'leaflet/dist/leaflet.css';
 import { ActionButtons } from './ActionButtons';
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';
+import { useProjectContext, extractProjectFromArtifact } from '../../contexts/ProjectContext';
 
 // CSS to force map controls visible WITHOUT bleeding the map
 const mapControlStyles = `
@@ -137,6 +138,9 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
   const [hasError, setHasError] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState(document.body.getAttribute('data-awsui-mode') === 'dark');
 
+  // Get project context
+  const { setActiveProject } = useProjectContext();
+
   // Inject map control styles
   useEffect(() => {
     const styleId = 'layout-map-control-styles';
@@ -154,6 +158,29 @@ const LayoutMapArtifact: React.FC<LayoutArtifactProps> = ({ data, actions, onFol
       }
     };
   }, []);
+
+  // Extract and set project context when data changes
+  useEffect(() => {
+    // Enhance data with turbine position coordinates if available
+    const enhancedData = { ...data };
+    if (data.turbinePositions && data.turbinePositions.length > 0) {
+      const firstTurbine = data.turbinePositions[0];
+      enhancedData.coordinates = {
+        latitude: firstTurbine.lat,
+        longitude: firstTurbine.lng
+      };
+      if (!enhancedData.location) {
+        enhancedData.location = `${firstTurbine.lat.toFixed(4)}, ${firstTurbine.lng.toFixed(4)}`;
+      }
+    }
+    
+    const projectInfo = extractProjectFromArtifact(enhancedData, 'LayoutMapArtifact');
+    if (projectInfo) {
+      setActiveProject(projectInfo);
+    } else {
+      console.warn('⚠️ [LayoutMapArtifact] Failed to extract project information from artifact data');
+    }
+  }, [data, setActiveProject]);
 
   // Debug logging to track renders
   console.log('🗺️ LayoutMapArtifact RENDER:', {

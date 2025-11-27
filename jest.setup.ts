@@ -31,39 +31,20 @@ declare global {
   }
 }
 
-// Mock Next.js router
-jest.mock('next/router', () => ({
-  useRouter() {
-    return {
-      route: '/',
-      pathname: '/',
-      query: {},
-      asPath: '/',
-      push: jest.fn(),
-      pop: jest.fn(),
-      reload: jest.fn(),
-      back: jest.fn(),
-      prefetch: jest.fn().mockResolvedValue(undefined),
-      beforePopState: jest.fn(),
-      events: {
-        on: jest.fn(),
-        off: jest.fn(),
-        emit: jest.fn(),
-      },
-    }
-  },
+// Mock react-router-dom (this project uses react-router, not Next.js)
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => jest.fn(),
+  useLocation: () => ({
+    pathname: '/',
+    search: '',
+    hash: '',
+    state: null,
+  }),
+  useParams: () => ({}),
 }))
 
-// Mock AWS Amplify
-jest.mock('aws-amplify/storage', () => ({
-  getUrl: jest.fn().mockResolvedValue({ url: 'mock-url' }),
-}))
-
-jest.mock('aws-amplify', () => ({
-  Amplify: {
-    configure: jest.fn(),
-  },
-}))
+// AWS Amplify mocks removed - not used in this project
 
 // Global test setup
 global.console = {

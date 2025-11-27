@@ -497,6 +497,14 @@ const ChatBox = (params: {
             console.warn('⚠️ FRONTEND: No artifacts in response');
           }
           
+          // CRITICAL: Add thought steps if present
+          if (result.data?.thoughtSteps && result.data.thoughtSteps.length > 0) {
+            (aiMessage as any).thoughtSteps = result.data.thoughtSteps;
+            console.log('🧠 FRONTEND: Added', result.data.thoughtSteps.length, 'thought steps to AI message');
+          } else {
+            console.warn('⚠️ FRONTEND: No thought steps in response');
+          }
+          
           // Update messages
           console.log('🔵 FRONTEND: Adding AI message to chat');
           setMessages((prevMessages) => [...prevMessages, aiMessage]);

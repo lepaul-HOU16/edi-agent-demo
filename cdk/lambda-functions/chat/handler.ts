@@ -43,6 +43,7 @@ function convertToAppSyncEvent(event: APIGatewayProxyEventV2, body: any): any {
       foundationModelId: body.foundationModelId,
       userId: body.userId || user?.sub,
       agentType: body.agentType,
+      projectContext: body.projectContext, // Pass through project context from frontend
     },
     identity: {
       sub: user?.sub,
@@ -91,6 +92,7 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     console.log('📝 Message:', body.message);
     console.log('🤖 Agent Type:', body.agentType || 'auto');
     console.log('🔄 Async Processing:', body._asyncProcessing || false);
+    console.log('🎯 Project Context:', body.projectContext ? JSON.stringify(body.projectContext) : 'none');
 
     // Validate required fields
     if (!body.chatSessionId || !body.message) {

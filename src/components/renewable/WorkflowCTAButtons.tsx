@@ -6,8 +6,9 @@
  */
 
 import React, { useMemo } from 'react';
-import { Button, SpaceBetween, Box } from '@cloudscape-design/components';
+import { Button, SpaceBetween, Box, Alert, Popover, StatusIndicator } from '@cloudscape-design/components';
 import { Message } from '@/utils/types';
+import { useProjectContext } from '@/contexts/ProjectContext';
 
 export interface WorkflowCTAButton {
   step: string; // The step that must be completed to enable this button
@@ -20,7 +21,7 @@ export interface WorkflowCTAButton {
 interface WorkflowCTAButtonsProps {
   messages?: Message[]; // Full message history to check for artifacts (preferred)
   completedSteps?: string[]; // Legacy: Array of completed step names (deprecated)
-  projectId: string;
+  projectId?: string; // Legacy: Direct project ID (deprecated, use ProjectContext instead)
   onAction: (query: string) => void;
 }
 
@@ -101,6 +102,72 @@ const ARTIFACT_TYPE_TO_STEP: Record<string, string> = {
 };
 
 /**
+ * Check if prerequisites are met for a given workflow step
+ * Returns an object with validation results and helpful messages
+ */
+const checkPrerequisites = (
+  step: string,
+  completedSteps: string[]
+): {
+  met: boolean;
+  missing: string[];
+  message: string;
+  suggestion: string;
+} => {
+  const requiredSteps = WORKFLOW_PREREQUISITES[step] || [];
+  const missingSteps = requiredSteps.filter(s => !completedSteps.includes(s));
+  
+  console.log(`🔍 [WorkflowCTA] Prerequisite check for step '${step}':`, {
+    requiredSteps,
+    completedSteps,
+    missingSteps,
+    met: missingSteps.length === 0
+  });
+  
+  if (missingSteps.length === 0) {
+    return {
+      met: true,
+      missing: [],
+      message: 'All prerequisites met',
+      suggestion: ''
+    };
+  }
+  
+  // Generate human-readable messages for missing prerequisites
+  const stepNames: Record<string, string> = {
+    'terrain': 'terrain analysis',
+    'layout': 'turbine layout',
+    'simulation': 'wake simulation',
+    'windrose': 'wind rose analysis',
+    'financial': 'financial analysis'
+  };
+  
+  const missingNames = missingSteps.map(s => stepNames[s] || s);
+  const message = missingSteps.length === 1
+    ? `Missing prerequisite: ${missingNames[0]}`
+    : `Missing prerequisites: ${missingNames.join(', ')}`;
+  
+  // Generate suggestion for the first missing step
+  const firstMissing = missingSteps[0];
+  const suggestions: Record<string, string> = {
+    'terrain': 'Start by analyzing terrain at a location',
+    'layout': 'Generate a turbine layout first',
+    'simulation': 'Run a wake simulation first',
+    'windrose': 'Generate a wind rose analysis first',
+    'financial': 'Complete financial analysis first'
+  };
+  
+  const suggestion = suggestions[firstMissing] || `Complete ${stepNames[firstMissing] || firstMissing} first`;
+  
+  return {
+    met: false,
+    missing: missingSteps,
+    message,
+    suggestion
+  };
+};
+
+/**
  * Detect completed workflow steps from message artifacts
  * Checks actual artifact types in message history, not just step names
  */
@@ -160,9 +227,20 @@ const detectCompletedSteps = (messages: Message[]): string[] => {
 export const WorkflowCTAButtons: React.FC<WorkflowCTAButtonsProps> = ({
   messages,
   completedSteps: legacyCompletedSteps,
-  projectId,
+  projectId: legacyProjectId,
   onAction
 }) => {
+  // Get active project from context
+  const { activeProject } = useProjectContext();
+  
+  // Use activeProject from context, fall back to legacy projectId prop
+  const projectId = activeProject?.projectId || legacyProjectId;
+  const projectName = activeProject?.projectName;
+  
+  console.log('🎯 [WorkflowCTA] Active project from context:', activeProject);
+  console.log('🎯 [WorkflowCTA] Using project ID:', projectId);
+  console.log('🎯 [WorkflowCTA] Using project name:', projectName);
+  
   // Detect completed steps from message artifacts (preferred method)
   // Fall back to legacy completedSteps prop if messages not provided
   const completedSteps = useMemo(() => {
@@ -242,23 +320,56 @@ export const WorkflowCTAButtons: React.FC<WorkflowCTAButtonsProps> = ({
   const hasCompletedSteps = completedSteps.length > 0;
   const headerText = hasCompletedSteps ? 'Next Steps' : 'Suggested Next Step';
 
+  // If no active project is set, show a warning
+  if (!activeProject && !legacyProjectId) {
+    console.log('⚠️ [WorkflowCTA] No active project set');
+    return (
+      <Alert type="warning" header="No Active Project">
+        Please start by analyzing terrain at a location to create a project, or continue an existing project from the dashboard.
+      </Alert>
+    );
+  }
+
+  // Check if any buttons have missing prerequisites
+  const buttonsWithMissingPrereqs = allButtons.filter(button => {
+    const check = checkPrerequisites(button.step, completedSteps);
+    return !check.met;
+  });
+  
+  const hasAnyMissingPrereqs = buttonsWithMissingPrereqs.length > 0;
+  const firstButtonWithMissingPrereqs = buttonsWithMissingPrereqs[0];
+  const firstPrereqCheck = firstButtonWithMissingPrereqs 
+    ? checkPrerequisites(firstButtonWithMissingPrereqs.step, completedSteps)
+    : null;
+
   return (
     <>
+      {/* Display active project name */}
+      {activeProject && (
+        <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
+          Active Project: <strong>{activeProject.projectName}</strong>
+          {activeProject.location && ` (${activeProject.location})`}
+        </Box>
+      )}
+      
       <Box variant="awsui-key-label" margin={{ bottom: 'xs' }}>
         {headerText}
       </Box>
+      
+      {/* Show alert if prerequisites are missing */}
+      {hasAnyMissingPrereqs && firstPrereqCheck && (
+        <Alert
+          type="info"
+          header="Prerequisites Required"
+        >
+          {firstPrereqCheck.suggestion}
+        </Alert>
+      )}
+      
       <SpaceBetween direction="horizontal" size="xs">
         {allButtons.map((button, index) => {
-          // Check if this button has missing prerequisites
-          const requiredSteps = WORKFLOW_PREREQUISITES[button.step] || [];
-          const missingSteps = requiredSteps.filter(step => !completedSteps.includes(step));
-          
-          console.log(`🔍 [WorkflowCTA] Button '${button.label}' prerequisite check:`, {
-            requiredSteps,
-            completedSteps,
-            missingSteps,
-            hasPrerequisites: missingSteps.length === 0
-          });
+          // Check prerequisites for this button
+          const prerequisiteCheck = checkPrerequisites(button.step, completedSteps);
           
           // Determine button variant
           // Primary buttons use 'primary' variant if they're the next action
@@ -266,57 +377,80 @@ export const WorkflowCTAButtons: React.FC<WorkflowCTAButtonsProps> = ({
           const isPrimaryButton = primaryButtons.includes(button);
           const variant = (isPrimaryButton && button === nextAction && button.primary) ? 'primary' : 'normal';
           
-          // Determine if button should be disabled
-          // For now, we don't disable buttons - we auto-run prerequisites instead
-          // But we could add a disabled state if needed
-          const isEnabled = true; // Always enabled, we handle prerequisites in onClick
+          // Disable buttons when no active project is set OR prerequisites are not met
+          const isEnabled = !!projectId && prerequisiteCheck.met;
           
-          return (
+          // Generate the full action query with project context
+          const fullAction = button.action
+            .replace('{project_id}', projectId || 'unknown')
+            .replace('{project_name}', projectName || 'unknown');
+          
+          // Create tooltip showing full action with project name or prerequisite message
+          const tooltipContent = !projectId 
+            ? 'No active project selected'
+            : !prerequisiteCheck.met
+            ? (
+                <Box>
+                  <Box variant="p" margin={{ bottom: 'xs' }}>
+                    <StatusIndicator type="warning">
+                      {prerequisiteCheck.message}
+                    </StatusIndicator>
+                  </Box>
+                  <Box variant="small">
+                    {prerequisiteCheck.suggestion}
+                  </Box>
+                </Box>
+              )
+            : `${button.label} for ${activeProject?.projectName || projectId}`;
+          
+          const buttonElement = (
             <Button
               key={index}
               variant={variant}
               iconName={button.icon as any}
               disabled={!isEnabled}
+              ariaLabel={typeof tooltipContent === 'string' ? tooltipContent : button.label}
               onClick={() => {
-                console.log(`🎯 [WorkflowCTA] Button clicked: ${button.label}`);
-                console.log(`🔍 [WorkflowCTA] Button step: ${button.step}`);
-                console.log(`🔍 [WorkflowCTA] Required steps:`, requiredSteps);
-                console.log(`🔍 [WorkflowCTA] Completed steps:`, completedSteps);
-                console.log(`🔍 [WorkflowCTA] Missing steps:`, missingSteps);
-                
-                // SMART WORKFLOW: Auto-run missing prerequisites first
-                if (missingSteps.length > 0) {
-                  console.log(`⚠️ [WorkflowCTA] Missing prerequisites for ${button.step}:`, missingSteps);
-                  
-                  // Find the first missing prerequisite button
-                  const firstMissingStep = missingSteps[0];
-                  const missingButton = WORKFLOW_BUTTONS.find(b => b.step === firstMissingStep);
-                  
-                  if (missingButton) {
-                    console.log(`🚀 [WorkflowCTA] Auto-running prerequisite: ${missingButton.label} (step: ${firstMissingStep})`);
-                    const prerequisiteQuery = missingButton.action.replace('{project_id}', projectId);
-                    console.log(`🚀 [WorkflowCTA] Prerequisite query: ${prerequisiteQuery}`);
-                    onAction(prerequisiteQuery);
-                    
-                    // After prerequisite completes, the user can click the button again
-                    // Or we could queue the original action, but that's more complex
-                    return;
-                  } else {
-                    console.error(`❌ [WorkflowCTA] Could not find button for missing step: ${firstMissingStep}`);
-                    // Fall through to run the requested action anyway
-                  }
+                if (!projectId) {
+                  console.error('❌ [WorkflowCTA] No project ID available');
+                  return;
                 }
                 
-                // No missing prerequisites, run the requested action
-                console.log(`✅ [WorkflowCTA] All prerequisites met, running action: ${button.label}`);
-                const query = button.action.replace('{project_id}', projectId);
-                console.log(`🚀 [WorkflowCTA] Query: ${query}`);
-                onAction(query);
+                if (!prerequisiteCheck.met) {
+                  console.error('❌ [WorkflowCTA] Prerequisites not met for', button.label);
+                  console.error('❌ [WorkflowCTA] Missing:', prerequisiteCheck.missing);
+                  return;
+                }
+                
+                console.log(`🎯 [WorkflowCTA] Button clicked: ${button.label}`);
+                console.log(`🎯 [WorkflowCTA] Project context:`, activeProject);
+                console.log(`✅ [WorkflowCTA] All prerequisites met`);
+                console.log(`🚀 [WorkflowCTA] Full action query: ${fullAction}`);
+                
+                onAction(fullAction);
               }}
             >
               {button.label}
             </Button>
           );
+          
+          // Wrap button in Popover if prerequisites are not met or no project
+          if (!isEnabled) {
+            return (
+              <Popover
+                key={index}
+                dismissButton={false}
+                position="top"
+                size="small"
+                triggerType="custom"
+                content={tooltipContent}
+              >
+                {buttonElement}
+              </Popover>
+            );
+          }
+          
+          return buttonElement;
         })}
       </SpaceBetween>
     </>

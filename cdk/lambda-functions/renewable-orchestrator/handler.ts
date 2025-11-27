@@ -33,6 +33,11 @@ import { ProjectResolver } from '../shared/projectResolver';
 import { ErrorMessageTemplates, RENEWABLE_ERROR_MESSAGES, RenewableErrorFormatter } from '../shared/errorMessageTemplates';
 import { generateActionButtons, generateNextStepSuggestion, formatProjectStatusChecklist } from '../shared/actionButtonTypes';
 import { ProjectListHandler } from '../shared/projectListHandler';
+import { 
+  addStreamingThoughtStep, 
+  updateStreamingThoughtStep,
+  clearStreamingMessage 
+} from '../shared/thoughtStepStreaming';
 
 // STRANDS AGENT INTEGRATION
 import { handleWithStrandsAgents, isStrandsAgentAvailable } from './strandsAgentHandler';
@@ -125,6 +130,9 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
           }
         })
       };
+      
+      // STREAMING: Write thought step to DynamoDB
+      await streamThoughtStepToDynamoDB(event.sessionId, event.userId, thoughtSteps[0]);
       
       return {
         success: dashboardResponse.success,
@@ -456,24 +464,23 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     
     // Step 1: Quick validation check
     const validationStartTime = Date.now();
-    thoughtSteps.push({
+    await addStreamingThoughtStep(thoughtSteps, {
       step: 1,
       action: 'Validating deployment',
       reasoning: 'Checking if renewable energy tools are available',
       status: 'in_progress',
       timestamp: new Date(validationStartTime).toISOString()
-    });
+    }, event.sessionId, event.userId);
     
     const validation = await quickValidationCheck();
     timings.validation = Date.now() - validationStartTime;
     
     // Update thought step with completion
-    thoughtSteps[thoughtSteps.length - 1] = {
-      ...thoughtSteps[thoughtSteps.length - 1],
+    await updateStreamingThoughtStep(thoughtSteps, thoughtSteps.length - 1, {
       status: 'complete',
       duration: timings.validation,
       result: validation.canProceed ? 'All tools available' : 'Deployment issues detected'
-    };
+    }, event.sessionId, event.userId);
     
     console.log(`⏱️  Validation Duration: ${timings.validation}ms`);
     
@@ -493,24 +500,23 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     
     // Step 2: Parse intent from query
     const intentStartTime = Date.now();
-    thoughtSteps.push({
+    await addStreamingThoughtStep(thoughtSteps, {
       step: 2,
       action: 'Analyzing query',
       reasoning: 'Determining which renewable energy tool to use',
       status: 'in_progress',
       timestamp: new Date(intentStartTime).toISOString()
-    });
+    }, event.sessionId, event.userId);
     
     const intent = await parseIntent(event.query, event.context);
     timings.intentDetection = Date.now() - intentStartTime;
     
     // Update thought step with completion
-    thoughtSteps[thoughtSteps.length - 1] = {
-      ...thoughtSteps[thoughtSteps.length - 1],
+    await updateStreamingThoughtStep(thoughtSteps, thoughtSteps.length - 1, {
       status: 'complete',
       duration: timings.intentDetection,
       result: `Detected: ${intent.type}`
-    };
+    }, event.sessionId, event.userId);
     
     // Enhanced intent detection logging
     console.log('───────────────────────────────────────────────────────────');

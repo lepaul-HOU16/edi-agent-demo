@@ -1,102 +1,95 @@
+/**
+ * ErrorBoundary Component
+ * 
+ * Catches React errors in child components and displays a fallback UI.
+ * Used to wrap ProjectContext consumers to prevent crashes from context-related errors.
+ */
 
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { Alert, Box, Button, Container } from '@cloudscape-design/components';
+import React, { Component, ReactNode } from 'react';
+import { Alert, Box, Button, SpaceBetween } from '@cloudscape-design/components';
 
-interface Props {
+interface ErrorBoundaryProps {
   children: ReactNode;
   fallback?: ReactNode;
+  onReset?: () => void;
 }
 
-interface State {
+interface ErrorBoundaryState {
   hasError: boolean;
-  error?: Error;
-  errorInfo?: ErrorInfo;
+  error: Error | null;
+  errorInfo: React.ErrorInfo | null;
 }
 
-class ErrorBoundary extends Component<Props, State> {
-  constructor(props: Props) {
+export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
     super(props);
-    this.state = { hasError: false };
+    this.state = {
+      hasError: false,
+      error: null,
+      errorInfo: null
+    };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<ErrorBoundaryState> {
     // Update state so the next render will show the fallback UI
-    return { hasError: true, error };
+    return {
+      hasError: true,
+      error
+    };
   }
 
-  componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    // Log the error to console and any error reporting service
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo): void {
+    // Log error details for debugging
+    console.error('❌ [ErrorBoundary] Caught error:', error);
+    console.error('❌ [ErrorBoundary] Error info:', errorInfo);
     
     this.setState({
       error,
       errorInfo
     });
-
-    // You can also log the error to an error reporting service here
-    // Example: logErrorToService(error, errorInfo);
   }
 
-  handleReset = () => {
-    this.setState({ hasError: false, error: undefined, errorInfo: undefined });
+  handleReset = (): void => {
+    this.setState({
+      hasError: false,
+      error: null,
+      errorInfo: null
+    });
+    
+    if (this.props.onReset) {
+      this.props.onReset();
+    }
   };
 
-  render() {
+  render(): ReactNode {
     if (this.state.hasError) {
-      // Custom fallback UI
+      // If a custom fallback is provided, use it
       if (this.props.fallback) {
         return this.props.fallback;
       }
 
-      // Default error UI
+      // Default fallback UI
       return (
-        <Container>
-          <Box padding="l">
-            <Alert
-              statusIconAriaLabel="Error"
-              type="error"
-              header="Something went wrong"
-              action={
-                <Button onClick={this.handleReset} variant="primary">
-                  Try again
-                </Button>
-              }
-            >
-              <Box>
-                <p>An unexpected error occurred. Please try refreshing the page or contact support if the problem persists.</p>
-                
-                {process.env.NODE_ENV === 'development' && this.state.error && (
-                  <Box margin={{ top: 'm' }}>
-                    <details style={{ marginTop: '1rem' }}>
-                      <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>
-                        Error Details (Development Only)
-                      </summary>
-                      <Box margin={{ top: 's' }}>
-                        <pre style={{ 
-                          background: '#f5f5f5', 
-                          padding: '1rem', 
-                          borderRadius: '4px',
-                          overflow: 'auto',
-                          fontSize: '0.875rem'
-                        }}>
-                          <strong>Error:</strong> {this.state.error.message}
-                          {'\n\n'}
-                          <strong>Stack:</strong> {this.state.error.stack}
-                          {this.state.errorInfo && (
-                            <>
-                              {'\n\n'}
-                              <strong>Component Stack:</strong> {this.state.errorInfo.componentStack}
-                            </>
-                          )}
-                        </pre>
-                      </Box>
-                    </details>
-                  </Box>
-                )}
+        <Alert
+          type="error"
+          header="Something went wrong"
+          action={
+            <Button onClick={this.handleReset}>
+              Try Again
+            </Button>
+          }
+        >
+          <SpaceBetween size="s">
+            <Box>
+              An error occurred while rendering this component. Please try again or refresh the page.
+            </Box>
+            {this.state.error && (
+              <Box variant="code">
+                {this.state.error.message}
               </Box>
-            </Alert>
-          </Box>
-        </Container>
+            )}
+          </SpaceBetween>
+        </Alert>
       );
     }
 

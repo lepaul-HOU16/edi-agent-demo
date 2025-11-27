@@ -3,11 +3,12 @@
  * Displays wind rose analysis with client-side Plotly rendering
  */
 
-import React, { useState, Component, ErrorInfo, ReactNode } from 'react';
+import React, { useState, Component, ErrorInfo, ReactNode, useEffect } from 'react';
 import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Table, Pagination, Button, Alert } from '@cloudscape-design/components';
 import PlotlyWindRose from './PlotlyWindRose';
 import { ActionButtons } from './ActionButtons';
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';
+import { useProjectContext, extractProjectFromArtifact } from '../../contexts/ProjectContext';
 
 // Error Boundary for Plotly visualization
 class WindRoseErrorBoundary extends Component<
@@ -130,6 +131,31 @@ interface WindRoseArtifactProps {
 const WindRoseArtifact: React.FC<WindRoseArtifactProps> = ({ data, actions, onFollowUpAction }) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
   const pageSize = 8;
+  
+  // Get project context
+  const { setActiveProject } = useProjectContext();
+
+  // Extract and set project context when data changes
+  useEffect(() => {
+    // Enhance data with normalized coordinates if available
+    const enhancedData: any = { ...data };
+    if (data.coordinates) {
+      enhancedData.coordinates = {
+        latitude: data.coordinates.lat,
+        longitude: data.coordinates.lng
+      };
+      if (!enhancedData.location) {
+        enhancedData.location = `${data.coordinates.lat.toFixed(4)}, ${data.coordinates.lng.toFixed(4)}`;
+      }
+    }
+    
+    const projectInfo = extractProjectFromArtifact(enhancedData, 'WindRoseArtifact');
+    if (projectInfo) {
+      setActiveProject(projectInfo);
+    } else {
+      console.warn('⚠️ [WindRoseArtifact] Failed to extract project information from artifact data');
+    }
+  }, [data, setActiveProject]);
   
   const handleActionClick = (query: string) => {
     if (onFollowUpAction) {

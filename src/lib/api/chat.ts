@@ -18,6 +18,15 @@ export interface SendMessageRequest {
   message: string;
   chatSessionId: string;
   conversationHistory?: ChatMessage[];
+  projectContext?: {
+    projectId?: string;
+    projectName?: string;
+    location?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  };
 }
 
 export interface SendMessageResponse {
@@ -28,6 +37,7 @@ export interface SendMessageResponse {
     artifacts?: any[];
   };
   error?: string;
+  data?: any; // For thought steps and other metadata
 }
 
 /**
@@ -36,7 +46,16 @@ export interface SendMessageResponse {
 export async function sendMessage(
   message: string,
   chatSessionId: string,
-  conversationHistory?: ChatMessage[]
+  conversationHistory?: ChatMessage[],
+  projectContext?: {
+    projectId?: string;
+    projectName?: string;
+    location?: string;
+    coordinates?: {
+      latitude: number;
+      longitude: number;
+    };
+  }
 ): Promise<SendMessageResponse> {
   try {
     console.log('═══════════════════════════════════════════════════════════');
@@ -45,6 +64,7 @@ export async function sendMessage(
     console.log('🆔 Session ID:', chatSessionId);
     console.log('📝 Message:', message);
     console.log('📚 History Length:', conversationHistory?.length || 0);
+    console.log('🎯 Project Context:', projectContext);
     console.log('🌐 Endpoint: /api/chat/message');
     console.log('⏰ Timestamp:', new Date().toISOString());
     console.log('═══════════════════════════════════════════════════════════');
@@ -53,6 +73,7 @@ export async function sendMessage(
       message,
       chatSessionId,
       conversationHistory,
+      projectContext,
     });
     
     console.log('═══════════════════════════════════════════════════════════');

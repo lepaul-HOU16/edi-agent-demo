@@ -54,7 +54,7 @@ const LandingPage = () => {
         disableOverlap
         headerBackgroundStyle="transparent"
         header={
-          <Box padding={{ vertical: "xxxl" }}>
+          <Box>
             <Grid
               gridDefinition={[
                 { colspan: { default: 12, s: 8 } }

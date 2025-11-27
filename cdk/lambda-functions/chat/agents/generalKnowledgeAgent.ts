@@ -12,6 +12,10 @@ import {
   createThoughtStep, 
   completeThoughtStep 
 } from '../utils/thoughtTypes';
+import { 
+  addStreamingThoughtStep, 
+  updateStreamingThoughtStep 
+} from '../shared/thoughtStepStreaming';
 
 interface SourceAttribution {
   url: string;
@@ -106,7 +110,10 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
   /**
    * Main entry point for processing general knowledge queries
    */
-  async processQuery(query: string): Promise<AgentResponse> {
+  async processQuery(
+    query: string, 
+    sessionContext?: { chatSessionId?: string; userId?: string }
+  ): Promise<AgentResponse> {
     console.log('🔍 General Knowledge Agent processing query:', query);
     
     const thoughtSteps: EnhancedThoughtStep[] = [];
@@ -119,7 +126,12 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
         'Processing natural language query to determine information type and required sources',
         { analysisType: 'general_knowledge' }
       ) as EnhancedThoughtStep;
-      thoughtSteps.push(intentStep);
+      await addStreamingThoughtStep(
+        thoughtSteps, 
+        intentStep, 
+        sessionContext?.chatSessionId, 
+        sessionContext?.userId
+      );
 
       const queryIntent = this.analyzeQueryIntent(query);
       
@@ -144,7 +156,12 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
           }
         }
       ) as EnhancedThoughtStep;
-      thoughtSteps.push(sourceStep);
+      await addStreamingThoughtStep(
+        thoughtSteps, 
+        sourceStep, 
+        sessionContext?.chatSessionId, 
+        sessionContext?.userId
+      );
 
       const trustedDomains = this.getTrustedDomains(queryIntent.sourceCategories);
       
@@ -171,7 +188,12 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
           parameters: { sources: trustedDomains.slice(0, 5) }
         }
       ) as EnhancedThoughtStep;
-      thoughtSteps.push(searchStep);
+      await addStreamingThoughtStep(
+        thoughtSteps, 
+        searchStep, 
+        sessionContext?.chatSessionId, 
+        sessionContext?.userId
+      );
 
       const searchResults = await this.searchTrustedSources(query, queryIntent.sourceCategories, trustedDomains);
       
@@ -192,7 +214,12 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
           parameters: { sourceCount: searchResults.sources.length }
         }
       ) as EnhancedThoughtStep;
-      thoughtSteps.push(synthesisStep);
+      await addStreamingThoughtStep(
+        thoughtSteps, 
+        synthesisStep, 
+        sessionContext?.chatSessionId, 
+        sessionContext?.userId
+      );
 
       const synthesizedResponse = await this.synthesizeInformation(searchResults, queryIntent);
       
@@ -232,7 +259,12 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
         }
       ) as EnhancedThoughtStep;
       errorStep.status = 'error';
-      thoughtSteps.push(errorStep);
+      await addStreamingThoughtStep(
+        thoughtSteps, 
+        errorStep, 
+        sessionContext?.chatSessionId, 
+        sessionContext?.userId
+      );
 
       // Merge with BaseEnhancedAgent thought steps
       const allThoughtSteps = [...this.thoughtSteps, ...thoughtSteps] as any;

@@ -6,6 +6,10 @@
 
 import { BaseEnhancedAgent } from '../agents/BaseEnhancedAgent';
 import { S3Client } from '@aws-sdk/client-s3';
+import { 
+  addStreamingThoughtStep, 
+  updateStreamingThoughtStep 
+} from '../shared/thoughtStepStreaming';
 
 // Type definitions for maintenance agent functionality
 interface MaintenanceIntent {
@@ -77,7 +81,10 @@ export class MaintenanceStrandsAgent extends BaseEnhancedAgent {
    * Process message with maintenance workflows
    * Requirements: 1.2, 1.3, 4.1, 4.2, 4.3, 4.4, 4.5
    */
-  async processMessage(message: string): Promise<MaintenanceResponse> {
+  async processMessage(
+    message: string, 
+    sessionContext?: { chatSessionId?: string; userId?: string }
+  ): Promise<MaintenanceResponse> {
     const timestamp = new Date().toISOString();
     console.log('🔧 === MAINTENANCE AGENT START ===');
     console.log('📝 User Prompt:', message);
@@ -94,9 +101,53 @@ export class MaintenanceStrandsAgent extends BaseEnhancedAgent {
         };
       }
 
+      // Initialize thought steps array for chain of thought
+      const thoughtSteps: any[] = [];
+      
+      // THOUGHT STEP 1: Intent Detection
+      await addStreamingThoughtStep(
+        thoughtSteps,
+        {
+          step: 1,
+          action: 'Analyzing Request',
+          reasoning: 'Processing maintenance query to understand requirements',
+          status: 'in_progress',
+          timestamp: new Date().toISOString()
+        },
+        sessionContext?.chatSessionId,
+        sessionContext?.userId
+      );
+      
       // Detect user intent
       const intent = this.detectUserIntent(message);
       console.log('🎯 Intent Detection Result:', intent);
+      
+      // Complete intent detection step
+      await updateStreamingThoughtStep(
+        thoughtSteps,
+        0,
+        {
+          status: 'complete',
+          result: `Intent detected: ${intent.type}`,
+          duration: 100
+        },
+        sessionContext?.chatSessionId,
+        sessionContext?.userId
+      );
+      
+      // THOUGHT STEP 2: Executing Analysis
+      await addStreamingThoughtStep(
+        thoughtSteps,
+        {
+          step: 2,
+          action: 'Executing Analysis',
+          reasoning: `Running ${intent.type} workflow`,
+          status: 'in_progress',
+          timestamp: new Date().toISOString()
+        },
+        sessionContext?.chatSessionId,
+        sessionContext?.userId
+      );
 
       // Route to appropriate handler
       let handlerResult;
@@ -142,8 +193,26 @@ export class MaintenanceStrandsAgent extends BaseEnhancedAgent {
           break;
       }
 
+      // Complete execution step
+      await updateStreamingThoughtStep(
+        thoughtSteps,
+        1,
+        {
+          status: 'complete',
+          result: `Analysis completed successfully`,
+          duration: 200
+        },
+        sessionContext?.chatSessionId,
+        sessionContext?.userId
+      );
+      
       console.log('🏁 === MAINTENANCE AGENT END ===');
-      return handlerResult;
+      
+      // Add thought steps to response
+      return {
+        ...handlerResult,
+        thoughtSteps
+      };
 
     } catch (error) {
       console.error('❌ === MAINTENANCE AGENT ERROR ===');

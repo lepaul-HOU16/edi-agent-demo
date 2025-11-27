@@ -136,7 +136,14 @@ export class RenewableProxyAgent extends BaseEnhancedAgent {
       console.log('📊 Status Code:', invokeResponse.StatusCode);
       
       // Parse the response - orchestrator returns API Gateway format with body
-      const apiGatewayResponse = JSON.parse(new TextDecoder().decode(invokeResponse.Payload));
+      const payloadText = new TextDecoder().decode(invokeResponse.Payload);
+      console.log('🔍 BACKEND (Proxy Agent): Raw payload:', payloadText.substring(0, 500));
+      
+      const apiGatewayResponse = JSON.parse(payloadText);
+      console.log('🔍 BACKEND (Proxy Agent): API Gateway response keys:', Object.keys(apiGatewayResponse));
+      console.log('🔍 BACKEND (Proxy Agent): Body type:', typeof apiGatewayResponse.body);
+      console.log('🔍 BACKEND (Proxy Agent): Body preview:', apiGatewayResponse.body?.substring(0, 300));
+      
       const responsePayload = JSON.parse(apiGatewayResponse.body);
       console.log('🟠 BACKEND (Proxy Agent): Orchestrator response:', {
         success: responsePayload.success,

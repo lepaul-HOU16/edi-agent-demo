@@ -117,7 +117,7 @@ export class AgentRouter {
       switch (agentType) {
         case 'general':
           console.log('🌐 Routing to General Knowledge Agent');
-          result = await this.generalAgent.processQuery(message);
+          result = await this.generalAgent.processQuery(message, sessionContext);
           
           // Handle catalog integration if triggered
           if (result.triggerActions?.catalogZoom) {
@@ -136,7 +136,7 @@ export class AgentRouter {
         case 'maintenance':
           console.log('🔧 Routing to Maintenance Agent');
           try {
-            result = await this.maintenanceAgent.processMessage(message);
+            result = await this.maintenanceAgent.processMessage(message, sessionContext);
             return {
               ...result,
               agentUsed: 'maintenance'
@@ -263,7 +263,7 @@ IMPORTANT: Execute ALL steps in sequence. Do not stop after step 1.`;
           console.log('🗺️ Routing to Catalog Search Agent');
           // For now, use existing catalog search handler
           // This could be enhanced to call catalogSearch function directly
-          result = await this.petrophysicsAgent.processMessage(message);
+          result = await this.petrophysicsAgent.processMessage(message, sessionContext);
           return {
             ...result,
             agentUsed: 'catalog_search'
@@ -272,7 +272,7 @@ IMPORTANT: Execute ALL steps in sequence. Do not stop after step 1.`;
         case 'petrophysics':
         default:
           console.log('🔬 Routing to Petrophysics Agent');
-          result = await this.petrophysicsAgent.processMessage(message);
+          result = await this.petrophysicsAgent.processMessage(message, sessionContext);
           return {
             ...result,
             agentUsed: 'petrophysics'

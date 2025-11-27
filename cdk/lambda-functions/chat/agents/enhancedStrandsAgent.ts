@@ -14,6 +14,10 @@ import {
   getThinkingContextFromStep 
 } from '../utils/thoughtTypes';
 import { BaseEnhancedAgent, VerboseThoughtStep } from './BaseEnhancedAgent';
+import { 
+  addStreamingThoughtStep, 
+  updateStreamingThoughtStep 
+} from '../shared/thoughtStepStreaming';
 
 // Type definitions for agent functionality
 interface WellLogData {
@@ -133,7 +137,10 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
    * Now integrates with cloud-native MCP server for calculations
    * Enhanced with Chain of Thought capabilities for transparency
    */
-  async processMessage(message: string): Promise<any> {
+  async processMessage(
+    message: string, 
+    sessionContext?: { chatSessionId?: string; userId?: string }
+  ): Promise<any> {
     const timestamp = new Date().toISOString();
     console.log('🚀 === ENHANCED STRANDS AGENT ROUND TRIP START ===');
     console.log('📝 User Prompt:', message);
@@ -142,8 +149,13 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
 
     // Initialize thought steps array for chain of thought
     const thoughtSteps: ThoughtStep[] = [];
-    const addThoughtStep = (step: ThoughtStep) => {
-      thoughtSteps.push(step);
+    const addThoughtStep = async (step: ThoughtStep) => {
+      await addStreamingThoughtStep(
+        thoughtSteps, 
+        step, 
+        sessionContext?.chatSessionId, 
+        sessionContext?.userId
+      );
       console.log('🧠 THOUGHT STEP ADDED:', {
         type: step.type,
         title: step.title,
@@ -184,7 +196,7 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
         'Processing natural language input to understand analysis requirements',
         { analysisType: 'intent_detection' }
       );
-      addThoughtStep(intentStep);
+      await addThoughtStep(intentStep);
 
       let intent;
       try {
@@ -235,7 +247,7 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
           method: intent.method
         }
       );
-      addThoughtStep(paramStep);
+      await addThoughtStep(paramStep);
       
       // Complete parameter extraction
       const completedParamStep = completeThoughtStep(
@@ -257,7 +269,7 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
           method: intent.method
         }
       );
-      addThoughtStep(toolStep);
+      await addThoughtStep(toolStep);
       
       // Complete tool selection step
       const completedToolStep = completeThoughtStep(
@@ -277,7 +289,7 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
           method: intent.method
         }
       );
-      addThoughtStep(executionStep);
+      await addThoughtStep(executionStep);
 
       let handlerResult;
       try {
@@ -423,7 +435,7 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
             method: intent.method
           }
         );
-        addThoughtStep(completionStep);
+        await addThoughtStep(completionStep);
         
         // Complete the completion step
         const completedCompletionStep = completeThoughtStep(

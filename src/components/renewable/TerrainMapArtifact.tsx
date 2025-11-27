@@ -10,6 +10,7 @@ import { Container, Header, Box, SpaceBetween, Badge, ColumnLayout, Table, Pagin
 import 'leaflet/dist/leaflet.css';
 import { ActionButtons } from './ActionButtons';
 import { WorkflowCTAButtons } from './WorkflowCTAButtons';
+import { useProjectContext, extractProjectFromArtifact } from '../../contexts/ProjectContext';
 
 // Custom CSS to hide popup tip and style popups + fix table header padding + FORCE CONTROLS VISIBLE
 const popupStyles = `
@@ -350,6 +351,9 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
   const [isDarkMode, setIsDarkMode] = useState(document.body.getAttribute('data-awsui-mode') === 'dark');
   const pageSize = 5;
 
+  // Get project context
+  const { setActiveProject } = useProjectContext();
+
   // Log every render to diagnose the flashing
   renderCountRef.current += 1;
   console.log(`[TerrainMap] RENDER #${renderCountRef.current}`, {
@@ -357,6 +361,28 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
     hasMapInstance: !!mapInstanceRef.current,
     isInitializing: initializingRef.current
   });
+
+  // Extract and set project context when data changes
+  useEffect(() => {
+    // Enhance data with normalized coordinates if available
+    const enhancedData = { ...data };
+    if (data.coordinates) {
+      enhancedData.coordinates = {
+        latitude: data.coordinates.lat,
+        longitude: data.coordinates.lng
+      };
+      if (!enhancedData.location) {
+        enhancedData.location = `${data.coordinates.lat.toFixed(4)}, ${data.coordinates.lng.toFixed(4)}`;
+      }
+    }
+    
+    const projectInfo = extractProjectFromArtifact(enhancedData, 'TerrainMapArtifact');
+    if (projectInfo) {
+      setActiveProject(projectInfo);
+    } else {
+      console.warn('⚠️ [TerrainMapArtifact] Failed to extract project information from artifact data');
+    }
+  }, [data, setActiveProject]);
 
   // Inject popup styles
   useEffect(() => {
