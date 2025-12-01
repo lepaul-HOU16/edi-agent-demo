@@ -338,50 +338,21 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
     }
   };
 
-  if (!thoughtSteps || thoughtSteps.length === 0) {
-    return (
-      <Box
-        sx={{
-          padding: '40px 20px',
-          textAlign: 'center',
-          backgroundColor: isDark ? '#1f2937' : '#f8f9fa',
-          borderRadius: '8px',
-          marginTop: '12px'
-        }}
-      >
-        <Typography
-          variant="h6"
-          sx={{
-            color: isDark ? '#9ca3af' : '#6c757d',
-            marginBottom: '8px',
-            fontSize: '16px'
-          }}
-        >
-          No AI reasoning process active
-        </Typography>
-        <Typography
-          variant="body2"
-          sx={{
-            color: isDark ? '#6b7280' : '#868e96',
-            fontSize: '13px'
-          }}
-        >
-          Submit a query to see the AI's step-by-step decision-making process
-        </Typography>
-      </Box>
-    );
-  }
-
   return (
     <Box
       ref={containerRef}
       sx={{
-        marginTop: '12px',
-        marginBottom: '12px'
+        height: '100%',
+        width: '100%',
+        padding: '20px',
+        backgroundColor: isDark ? 'var(--awsui-color-background-container-content)' : '#ffffff',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'auto'
       }}
     >
       {/* Header */}
-      <Box sx={{ marginBottom: '8px' }}>
+      <Box sx={{ marginBottom: '16px' }}>
         <Typography
           variant="caption"
           sx={{
@@ -392,12 +363,37 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
             letterSpacing: '0.5px'
           }}
         >
-          Chain of Thought ({thoughtSteps.length} steps)
+          Chain of Thought {thoughtSteps.length > 0 && `(${thoughtSteps.length} steps)`}
         </Typography>
       </Box>
 
+      {/* Initial State Message */}
+      {(!thoughtSteps || thoughtSteps.length === 0) && (
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '40px 20px',
+            textAlign: 'center'
+          }}
+        >
+          <Typography
+            variant="body2"
+            sx={{
+              color: isDark ? '#9ca3af' : '#6c757d',
+              fontSize: '14px',
+              fontStyle: 'italic'
+            }}
+          >
+            Thought steps will appear here as the AI processes your query
+          </Typography>
+        </Box>
+      )}
+
       {/* Thought Steps */}
-      {thoughtSteps.map(step => (
+      {thoughtSteps.length > 0 && thoughtSteps.map(step => (
         <ThoughtStepCard
           key={step.id}
           step={step}

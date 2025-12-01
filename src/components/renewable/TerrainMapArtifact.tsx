@@ -364,6 +364,11 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
 
   // Extract and set project context when data changes
   useEffect(() => {
+    console.log('🎯 [TerrainMapArtifact] Setting project context from artifact');
+    console.log('🎯 [TerrainMapArtifact] data.projectId:', data.projectId);
+    console.log('🎯 [TerrainMapArtifact] data.title:', data.title);
+    console.log('🎯 [TerrainMapArtifact] data.coordinates:', data.coordinates);
+    
     // Enhance data with normalized coordinates if available
     const enhancedData = { ...data };
     if (data.coordinates) {
@@ -378,9 +383,11 @@ const TerrainMapArtifact: React.FC<TerrainArtifactProps> = ({ data: rawData, act
     
     const projectInfo = extractProjectFromArtifact(enhancedData, 'TerrainMapArtifact');
     if (projectInfo) {
+      console.log('✅ [TerrainMapArtifact] Successfully set active project:', projectInfo);
       setActiveProject(projectInfo);
     } else {
-      console.warn('⚠️ [TerrainMapArtifact] Failed to extract project information from artifact data');
+      console.error('❌ [TerrainMapArtifact] Failed to extract project information from artifact data');
+      console.error('❌ [TerrainMapArtifact] Artifact data:', data);
     }
   }, [data, setActiveProject]);
 

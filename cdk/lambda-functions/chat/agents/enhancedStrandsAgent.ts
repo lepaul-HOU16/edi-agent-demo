@@ -9,15 +9,9 @@ import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/clien
 import { 
   ThoughtStep, 
   ThinkingState, 
-  createThoughtStep, 
-  completeThoughtStep, 
   getThinkingContextFromStep 
 } from '../utils/thoughtTypes';
 import { BaseEnhancedAgent, VerboseThoughtStep } from './BaseEnhancedAgent';
-import { 
-  addStreamingThoughtStep, 
-  updateStreamingThoughtStep 
-} from '../shared/thoughtStepStreaming';
 
 // Type definitions for agent functionality
 interface WellLogData {
@@ -147,22 +141,8 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
     console.log('⏰ Timestamp:', timestamp);
     console.log('🔧 Agent Version: Enhanced Petrophysical Analysis Agent v2.0 with Chain of Thought');
 
-    // Initialize thought steps array for chain of thought
-    const thoughtSteps: ThoughtStep[] = [];
-    const addThoughtStep = async (step: ThoughtStep) => {
-      await addStreamingThoughtStep(
-        thoughtSteps, 
-        step, 
-        sessionContext?.chatSessionId, 
-        sessionContext?.userId
-      );
-      console.log('🧠 THOUGHT STEP ADDED:', {
-        type: step.type,
-        title: step.title,
-        summary: step.summary,
-        context: step.context
-      });
-    };
+    // Enable streaming for this session
+    this.setSessionContext(sessionContext?.chatSessionId, sessionContext?.userId);
 
     // Always ensure we return a valid response format, even on errors
     const createValidResponse = (success: boolean, message: string, artifacts: any[] = [], includeThoughtSteps = true): any => {
@@ -173,6 +153,7 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
       };
       
       // Add thought steps for transparency (if any were generated)
+      const thoughtSteps = this.getThoughtSteps();
       if (includeThoughtSteps && thoughtSteps.length > 0) {
         (response as any).thoughtSteps = thoughtSteps;
         console.log('🧠 FINAL RESPONSE WITH THOUGHT STEPS:', thoughtSteps.length);
@@ -190,34 +171,32 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
 
       // THOUGHT STEP 1: Intent Detection
       console.log('🧠 Starting intent detection...');
-      const intentStep = createThoughtStep(
+      const intentStep = this.addThoughtStep(
         'intent_detection',
         'Analyzing User Request',
         'Processing natural language input to understand analysis requirements',
         { analysisType: 'intent_detection' }
       );
-      await addThoughtStep(intentStep);
 
       let intent;
       try {
         intent = this.detectUserIntent(message);
         
         // Complete intent detection step
-        const completedIntentStep = completeThoughtStep(
-          intentStep,
-          `Intent detected: ${intent.type} with ${intent.score}/10 confidence. ` +
-          `${intent.wellName ? `Well: ${intent.wellName}. ` : ''}` +
-          `${intent.method ? `Method: ${intent.method}` : ''}`
+        this.completeThoughtStep(
+          intentStep.id,
+          {
+            details: `Intent detected: ${intent.type} with ${intent.score}/10 confidence. ` +
+              `${intent.wellName ? `Well: ${intent.wellName}. ` : ''}` +
+              `${intent.method ? `Method: ${intent.method}` : ''}`,
+            confidence: intent.score / 10,
+            context: {
+              analysisType: intent.type,
+              wellName: intent.wellName,
+              method: intent.method
+            }
+          }
         );
-        completedIntentStep.confidence = intent.score / 10;
-        completedIntentStep.context = {
-          analysisType: intent.type,
-          wellName: intent.wellName,
-          method: intent.method
-        };
-        
-        // Update the step in array
-        thoughtSteps[thoughtSteps.length - 1] = completedIntentStep;
         
         console.log('🎯 Intent Detection Result:', {
           type: intent.type,
@@ -229,15 +208,16 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
         console.error('❌ Error in intent detection:', intentError);
         
         // Mark intent step as error
-        intentStep.status = 'error';
-        intentStep.details = `Error: ${intentError instanceof Error ? intentError.message : 'Unknown error'}`;
-        thoughtSteps[thoughtSteps.length - 1] = intentStep;
+        this.errorThoughtStep(
+          intentStep.id,
+          intentError instanceof Error ? intentError : new Error('Unknown error')
+        );
         
         return createValidResponse(false, 'Error processing your request. Please try a simpler query like "list wells".');
       }
 
       // THOUGHT STEP 2: Parameter Extraction
-      const paramStep = createThoughtStep(
+      const paramStep = this.addThoughtStep(
         'parameter_extraction',
         'Extracting Parameters',
         `Identifying analysis parameters for ${intent.type}`,
@@ -247,19 +227,19 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
           method: intent.method
         }
       );
-      await addThoughtStep(paramStep);
       
       // Complete parameter extraction
-      const completedParamStep = completeThoughtStep(
-        paramStep,
-        `Parameters extracted: Analysis type=${intent.type}, Well=${intent.wellName || 'auto-detect'}, Method=${intent.method || 'default'}`
+      this.completeThoughtStep(
+        paramStep.id,
+        {
+          details: `Parameters extracted: Analysis type=${intent.type}, Well=${intent.wellName || 'auto-detect'}, Method=${intent.method || 'default'}`
+        }
       );
-      thoughtSteps[thoughtSteps.length - 1] = completedParamStep;
 
       console.log('🔀 Routing to handler for intent type:', intent.type);
       
       // THOUGHT STEP 3: Tool Selection
-      const toolStep = createThoughtStep(
+      const toolStep = this.addThoughtStep(
         'tool_selection',
         'Selecting Analysis Tools',
         `Preparing ${intent.type} analysis workflow`,
@@ -269,17 +249,17 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
           method: intent.method
         }
       );
-      await addThoughtStep(toolStep);
       
       // Complete tool selection step
-      const completedToolStep = completeThoughtStep(
-        toolStep,
-        `Selected handler: ${intent.type} for ${intent.wellName || 'general analysis'}`
+      this.completeThoughtStep(
+        toolStep.id,
+        {
+          details: `Selected handler: ${intent.type} for ${intent.wellName || 'general analysis'}`
+        }
       );
-      thoughtSteps[thoughtSteps.length - 1] = completedToolStep;
 
       // THOUGHT STEP 4: Execution
-      const executionStep = createThoughtStep(
+      const executionStep = this.addThoughtStep(
         'execution',
         'Executing Analysis',
         `Running ${intent.type} workflow with MCP tools`,
@@ -289,7 +269,6 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
           method: intent.method
         }
       );
-      await addThoughtStep(executionStep);
 
       let handlerResult;
       try {
@@ -416,16 +395,17 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
           ? handlerResult.message.substring(0, 100) 
           : (handlerResult.message ? JSON.stringify(handlerResult.message).substring(0, 100) : 'No message');
         
-        const completedExecutionStep = completeThoughtStep(
-          executionStep,
-          `Handler execution completed: ${handlerResult.success ? 'Success' : 'Failed'}. ` +
-          `${handlerResult.artifacts?.length ? `Generated ${handlerResult.artifacts.length} artifacts. ` : ''}` +
-          `Message: ${messagePreview}...`
+        this.completeThoughtStep(
+          executionStep.id,
+          {
+            details: `Handler execution completed: ${handlerResult.success ? 'Success' : 'Failed'}. ` +
+              `${handlerResult.artifacts?.length ? `Generated ${handlerResult.artifacts.length} artifacts. ` : ''}` +
+              `Message: ${messagePreview}...`
+          }
         );
-        thoughtSteps[thoughtSteps.length - 1] = completedExecutionStep;
 
         // THOUGHT STEP 5: Completion
-        const completionStep = createThoughtStep(
+        const completionStep = this.addThoughtStep(
           'completion',
           'Analysis Complete',
           `${intent.type} analysis finished successfully`,
@@ -435,20 +415,20 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
             method: intent.method
           }
         );
-        await addThoughtStep(completionStep);
         
         // Complete the completion step
-        const completedCompletionStep = completeThoughtStep(
-          completionStep,
-          `Analysis completed with ${handlerResult.success ? 'success' : 'errors'}. ` +
-          `Response ready for user with ${handlerResult.artifacts?.length || 0} visualizations.`
+        this.completeThoughtStep(
+          completionStep.id,
+          {
+            details: `Analysis completed with ${handlerResult.success ? 'success' : 'errors'}. ` +
+              `Response ready for user with ${handlerResult.artifacts?.length || 0} visualizations.`
+          }
         );
-        thoughtSteps[thoughtSteps.length - 1] = completedCompletionStep;
 
         // Return final result with thought steps
         const finalResult = {
           ...handlerResult,
-          thoughtSteps: thoughtSteps
+          thoughtSteps: this.getThoughtSteps()
         };
         
         return this.logFinalResponse(finalResult, intent.type);
@@ -457,9 +437,10 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
         console.error('❌ Handler execution error:', handlerError);
         
         // Mark execution step as error
-        executionStep.status = 'error';
-        executionStep.details = `Handler error: ${handlerError instanceof Error ? handlerError.message : 'Unknown error'}`;
-        thoughtSteps[thoughtSteps.length - 1] = executionStep;
+        this.errorThoughtStep(
+          executionStep.id,
+          handlerError instanceof Error ? handlerError : new Error('Unknown error')
+        );
         
         return createValidResponse(false, `Error executing handler: ${handlerError instanceof Error ? handlerError.message : 'Unknown handler error'}`);
       }

@@ -502,9 +502,13 @@ export class RenewableIntentClassifier {
 
   /**
    * Classify the intent of a renewable energy query
+   * CRITICAL: Now accepts context parameter to pass to extractParameters
    */
-  classifyIntent(query: string): IntentClassificationResult {
+  classifyIntent(query: string, context?: any): IntentClassificationResult {
     console.log('🔍 RenewableIntentClassifier: Analyzing query:', query);
+    if (context?.projectContext) {
+      console.log('🔍 RenewableIntentClassifier: Has projectContext with coordinates:', context.projectContext.coordinates);
+    }
     
     // Safety check for undefined/null query
     if (!query || typeof query !== 'string') {
@@ -542,7 +546,7 @@ export class RenewableIntentClassifier {
       intent: topIntent.intent,
       confidence: topIntent.confidence,
       alternatives,
-      params: this.extractParameters(query, topIntent.intent),
+      params: this.extractParameters(query, topIntent.intent, context),
       requiresConfirmation
     };
     
@@ -628,15 +632,27 @@ export class RenewableIntentClassifier {
 
   /**
    * Extract parameters from query based on intent type
+   * CRITICAL: Now accepts context parameter to prioritize projectContext coordinates
    */
-  private extractParameters(query: string, intent: string): Record<string, any> {
+  private extractParameters(query: string, intent: string, context?: any): Record<string, any> {
     const params: Record<string, any> = {};
     
-    // Extract coordinates if present - look for decimal coordinates
-    const coordMatch = query.match(/(-?\d+\.\d+),?\s*(-?\d+\.\d+)/);
-    if (coordMatch) {
-      params.latitude = parseFloat(coordMatch[1]);
-      params.longitude = parseFloat(coordMatch[2]);
+    // CRITICAL FIX: Check projectContext FIRST before parsing query
+    // This ensures workflow buttons use the active project's coordinates
+    if (context?.projectContext?.coordinates) {
+      params.latitude = context.projectContext.coordinates.lat;
+      params.longitude = context.projectContext.coordinates.lon;
+      console.log(`✅ [IntentClassifier] Using coordinates from projectContext: (${params.latitude}, ${params.longitude})`);
+    } else {
+      // Fallback: Extract coordinates from query text if no projectContext
+      const coordMatch = query.match(/(-?\d+\.\d+),?\s*(-?\d+\.\d+)/);
+      if (coordMatch) {
+        params.latitude = parseFloat(coordMatch[1]);
+        params.longitude = parseFloat(coordMatch[2]);
+        console.log(`✅ [IntentClassifier] Extracted coordinates from query: (${params.latitude}, ${params.longitude})`);
+      } else {
+        console.warn(`⚠️ [IntentClassifier] No coordinates found in projectContext or query`);
+      }
     }
     
     // Extract capacity if present

@@ -3,20 +3,36 @@ inclusion: always
 priority: critical
 ---
 
-# MANDATORY FRONTEND DEPLOYMENT POLICY
+# ⚠️ DEPRECATED - THIS FILE IS OBSOLETE ⚠️
+
+**DO NOT USE THIS STEERING DOCUMENT**
+
+This policy has been superseded by:
+- `.kiro/steering/NEVER-DEPLOY-TO-PRODUCTION.md`
+- `.kiro/steering/LOCALHOST-ONLY-NO-PROD-DEPLOYMENTS.md`
+
+## Current Policy Summary
+- ❌ NEVER deploy to production manually
+- ✅ Test on localhost only (`npm run dev`)
+- ✅ CI/CD handles all production deployments via git push
+
+---
+
+# ARCHIVED CONTENT BELOW (DO NOT FOLLOW)
 
 ## Core Principle: Frontend First, Always Deploy
 
-**The frontend is the ONLY interface users interact with. Backend changes are WORTHLESS if users cannot see or use them.**
+**DEPRECATED**: This policy is no longer valid.
 
 ## ABSOLUTE RULES - NO EXCEPTIONS
 
 ### Rule 1: ALWAYS Deploy Frontend After ANY Change
 
-**MANDATORY**: After making ANY code change to this repository, you MUST run the frontend deployment script:
+**DEPRECATED**: Do NOT run the frontend deployment script:
 
 ```bash
-./deploy-frontend.sh
+# DO NOT RUN THIS
+# ./deploy-frontend.sh
 ```
 
 This applies to:

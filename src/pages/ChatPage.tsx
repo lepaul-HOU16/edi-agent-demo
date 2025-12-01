@@ -40,6 +40,7 @@ import { getSession } from '@/lib/api/sessions';
 import zIndex from '@mui/material/styles/zIndex';
 import { getCanvasCollectionContext, type CollectionData, getCollectionSummary } from '@/utils/collectionInheritance';
 import '@/utils/projectContextDebug'; // Initialize debug utilities
+import { useRenewableJobPolling } from '@/hooks/useRenewableJobPolling';
 
 // Inner component that uses ProjectContext
 function ChatPageContent() {
@@ -54,7 +55,37 @@ function ChatPageContent() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [messages, setMessages] = useState<Message[]>([]);
+    const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
     // Removed amplifyClient - using REST API instead
+    
+    // STREAMING: Poll for thought steps in realtime (fast polling for immediate updates)
+    const { latestMessage: streamingMessage, hasNewResults } = useRenewableJobPolling({
+        chatSessionId: chatSessionId || '',
+        enabled: isWaitingForResponse && !!chatSessionId,
+        pollingInterval: 500, // Poll every 500ms for fast streaming updates
+        onNewMessage: (streamingMsg) => {
+            console.log('[ChatPage] Received streaming thought steps:', streamingMsg.thoughtSteps?.length);
+            
+            // Update the last AI message with streaming thought steps
+            if (streamingMsg.thoughtSteps && streamingMsg.thoughtSteps.length > 0) {
+                setMessages(prev => {
+                    const updated = [...prev];
+                    // Find the last AI message
+                    for (let i = updated.length - 1; i >= 0; i--) {
+                        if (updated[i].role === 'ai') {
+                            // Update with streaming thought steps
+                            updated[i] = {
+                                ...updated[i],
+                                thoughtSteps: streamingMsg.thoughtSteps
+                            } as any;
+                            break;
+                        }
+                    }
+                    return updated;
+                });
+            }
+        }
+    });
     
     // Collection context state
     const [collectionContext, setCollectionContext] = useState<CollectionData | null>(null);
@@ -95,6 +126,9 @@ function ChatPageContent() {
             // Add user message to UI immediately
             setMessages((prevMessages) => [...prevMessages, newMessage as any as Message]);
             
+            // Start polling for streaming thought steps
+            setIsWaitingForResponse(true);
+            
             // Prepare project context for backend
             const projectContext = activeProject ? {
                 projectId: activeProject.projectId,
@@ -112,6 +146,9 @@ function ChatPageContent() {
                 agentType: selectedAgent,
                 projectContext, // Pass project context to backend
             });
+            
+            // Stop polling when response is complete
+            setIsWaitingForResponse(false);
             
             // Clear input
             setUserInput('');
@@ -312,7 +349,39 @@ function ChatPageContent() {
                     const messagesResponse = await getSessionMessages(chatSessionId);
                     if (messagesResponse.data && isMounted) {
                         console.log('✅ Loaded messages:', messagesResponse.data.length);
-                        setMessages(messagesResponse.data as any);
+                        
+                        // STALE MESSAGE CLEANUP: Filter out stale streaming messages (older than 5 minutes)
+                        // This prevents persistent "Thinking" indicators from appearing after page reload
+                        // when streaming messages weren't properly cleaned up by the backend.
+                        // Requirements: 2.3, 2.4
+                        const now = Date.now();
+                        const FIVE_MINUTES_MS = 5 * 60 * 1000;
+                        
+                        const filteredMessages = messagesResponse.data.filter((msg: any) => {
+                            // Only filter streaming messages (role: 'ai-stream')
+                            if (msg.role === 'ai-stream') {
+                                const messageTime = msg.createdAt ? new Date(msg.createdAt).getTime() : 0;
+                                const age = now - messageTime;
+                                
+                                if (age > FIVE_MINUTES_MS) {
+                                    console.warn('⚠️ [STALE MESSAGE CLEANUP] Ignoring stale streaming message:', {
+                                        messageId: msg.id,
+                                        age: Math.round(age / 1000) + 's',
+                                        createdAt: msg.createdAt,
+                                        sessionId: chatSessionId
+                                    });
+                                    return false; // Filter out stale streaming message
+                                }
+                            }
+                            return true; // Keep all other messages
+                        });
+                        
+                        if (filteredMessages.length < messagesResponse.data.length) {
+                            const staleCount = messagesResponse.data.length - filteredMessages.length;
+                            console.warn(`⚠️ [STALE MESSAGE CLEANUP] Filtered out ${staleCount} stale streaming message(s) from session ${chatSessionId}`);
+                        }
+                        
+                        setMessages(filteredMessages as any);
                     }
                 } catch (error) {
                     console.error('❌ Error loading messages:', error);
@@ -687,11 +756,17 @@ function ChatPageContent() {
                                             }
                                         };
 
+                                        // Start polling for streaming thought steps
+                                        setIsWaitingForResponse(true);
+
                                         await sendMessage({
                                             chatSessionId: selectedChatSessionId!,
                                             newMessage: newMessage,
                                             agentType: selectedAgent
                                         });
+                                        
+                                        // Stop polling when response is complete
+                                        setIsWaitingForResponse(false);
                                         setUserInput('');
                                     } catch (error) {
                                         console.error("Failed to send message:", error);
@@ -719,7 +794,7 @@ function ChatPageContent() {
                     </div>
                 ) : (
                     // Chain of Thought here - using reusable ChainOfThoughtDisplay component
-                    <div className='panel' style={{ padding: '20px' }}>
+                    <div className='panel' style={{height: 'calc(100% - 12px)'}}>
                         <ChainOfThoughtDisplay messages={messages} />
                     </div>
                 )}

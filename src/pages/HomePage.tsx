@@ -24,14 +24,9 @@ const LandingPage = () => {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        width: ' calc(100% + 80px)',
-        height: ' calc(100% + 80px)',
-        marginLeft: '-40px',
-        marginTop: '-40px',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'space-between'
+        width: 'calc(100% + 80px)',
+        height: 'calc(100% + 80px)',
+        margin: '-40px',
       }}
     >
       {errorMessage && (
@@ -60,8 +55,9 @@ const LandingPage = () => {
                 { colspan: { default: 12, s: 8 } }
               ]}
             >
-              <Container>
-                <Box padding="s">
+              <Box margin={{ top: 'xxxl' }}>
+                <Container>
+                  <Box padding="s">
                   <Box
                     fontSize="display-l"
                     fontWeight="bold"
@@ -122,7 +118,8 @@ const LandingPage = () => {
                     </Button>
                   </SpaceBetween>
                 </Box>
-              </Container>
+                </Container>
+              </Box>
             </Grid>
           </Box>
         }

@@ -17,6 +17,30 @@ import { randomUUID } from 'crypto';
 // Import the existing agent handler from agents directory
 import { handler as agentHandler } from './agents/handler';
 
+// Import cleanup function for streaming messages
+import { cleanupStreamingMessages } from '../shared/thoughtStepStreaming';
+
+/**
+ * Validate project context structure
+ */
+function validateProjectContext(context: any): boolean {
+  if (!context || typeof context !== 'object') {
+    return false;
+  }
+
+  if (!context.projectId || typeof context.projectId !== 'string') {
+    console.error('❌ [Lambda Handler] Invalid projectId:', context.projectId);
+    return false;
+  }
+
+  if (!context.projectName || typeof context.projectName !== 'string') {
+    console.error('❌ [Lambda Handler] Invalid projectName:', context.projectName);
+    return false;
+  }
+
+  return true;
+}
+
 // Initialize Lambda client for async invocation
 const lambdaClient = new LambdaClient({});
 
@@ -92,7 +116,33 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
     console.log('📝 Message:', body.message);
     console.log('🤖 Agent Type:', body.agentType || 'auto');
     console.log('🔄 Async Processing:', body._asyncProcessing || false);
-    console.log('🎯 Project Context:', body.projectContext ? JSON.stringify(body.projectContext) : 'none');
+    
+    // Enhanced project context logging
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🎯 PROJECT CONTEXT EXTRACTION (Chat Handler)');
+    console.log('═══════════════════════════════════════════════════════════');
+    if (body.projectContext) {
+      console.log('✅ Project Context PRESENT in request body');
+      console.log('📋 Project Context Keys:', Object.keys(body.projectContext));
+      console.log('🆔 Project ID:', body.projectContext.projectId || 'MISSING');
+      console.log('📍 Project Name:', body.projectContext.projectName || 'MISSING');
+      console.log('🌍 Location:', body.projectContext.location || 'MISSING');
+      console.log('📊 Coordinates:', body.projectContext.coordinates ? JSON.stringify(body.projectContext.coordinates) : 'MISSING');
+      console.log('📦 Full Project Context:', JSON.stringify(body.projectContext, null, 2));
+      
+      // Validate project context structure
+      if (!validateProjectContext(body.projectContext)) {
+        console.error('❌ Project Context structure is INVALID');
+        console.error('❌ Context will not be passed to agents');
+        body.projectContext = undefined; // Clear invalid context
+      } else {
+        console.log('✅ Project Context structure validated successfully');
+      }
+    } else {
+      console.log('❌ Project Context MISSING from request body');
+      console.log('⚠️  This may cause workflow actions to fail');
+    }
+    console.log('═══════════════════════════════════════════════════════════');
 
     // Validate required fields
     if (!body.chatSessionId || !body.message) {
@@ -270,6 +320,21 @@ export const handler = async (event: APIGatewayProxyEventV2): Promise<APIGateway
       })
     );
     console.log('✅ BACKEND (Chat Lambda): AI message saved successfully');
+
+    // Cleanup streaming messages after final response is stored
+    // This runs asynchronously and doesn't block response delivery
+    console.log('🧹 BACKEND (Chat Lambda): Starting cleanup of streaming messages');
+    cleanupStreamingMessages(body.chatSessionId, user.sub)
+      .then((result) => {
+        console.log(`✅ BACKEND (Chat Lambda): Cleanup complete - deleted ${result.deleted} streaming message(s)`);
+        if (result.errors.length > 0) {
+          console.warn(`⚠️ BACKEND (Chat Lambda): Cleanup had ${result.errors.length} error(s):`, result.errors);
+        }
+      })
+      .catch((error) => {
+        console.error('❌ BACKEND (Chat Lambda): Cleanup failed:', error);
+        // Don't throw - cleanup failure shouldn't block response
+      });
 
     // If this was async processing, don't return a response (already returned "processing" message)
     if (isAsyncProcessing) {

@@ -80,7 +80,21 @@ export const ProjectContextProvider: React.FC<{ children: React.ReactNode }> = (
    * Set the active project and update history
    */
   const setActiveProject = useCallback((project: ProjectInfo | null) => {
-    console.log('🎯 [ProjectContext] Setting active project:', project);
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🎯 PROJECT CONTEXT: setActiveProject called');
+    console.log('═══════════════════════════════════════════════════════════');
+    
+    if (project) {
+      console.log('✅ Setting active project');
+      console.log('🆔 Project ID:', project.projectId);
+      console.log('📍 Project Name:', project.projectName);
+      console.log('🌍 Location:', project.location || 'N/A');
+      console.log('📊 Coordinates:', project.coordinates ? JSON.stringify(project.coordinates) : 'N/A');
+      console.log('📦 Full Project:', JSON.stringify(project, null, 2));
+    } else {
+      console.log('🗑️ Clearing active project (set to null)');
+    }
+    console.log('═══════════════════════════════════════════════════════════');
     
     // Validate project data
     if (!validateProjectData(project)) {

@@ -2,9 +2,15 @@
  * General Knowledge Agent with Trusted Web Search
  * Handles weather queries, regulatory information, general knowledge, and web research
  * Integrates with catalog system for geographic queries
+ * 
+ * IMPORTANT: This agent uses DIRECT streaming functions (addStreamingThoughtStep, updateStreamingThoughtStep)
+ * instead of BaseEnhancedAgent because BaseEnhancedAgent's streamThoughtStep() method uses fire-and-forget
+ * pattern (doesn't await DynamoDB writes), which causes thought steps to batch instead of streaming in real-time.
+ * 
+ * Direct streaming ensures each thought step is written to DynamoDB immediately and awaited before continuing,
+ * providing true incremental display to users.
  */
 
-import { BaseEnhancedAgent } from './BaseEnhancedAgent';
 // TEMPORARY: Using stub webBrowserTool due to ES module compatibility issues
 import { webBrowserTool } from '../tools/webBrowserTool-stub';
 import { 
@@ -44,7 +50,7 @@ interface AgentResponse {
   };
 }
 
-export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
+export class GeneralKnowledgeAgent {
   private trustedSources = {
     weather: {
       domains: ['weather.gov', 'weather.com', 'openweathermap.org', 'worldweather.org', 'metoffice.gov.uk'],
@@ -103,8 +109,8 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
   };
 
   constructor() {
-    super(); // Initialize BaseEnhancedAgent
     console.log('General Knowledge Agent initialized with trusted source validation');
+    console.log('🌊 Using direct streaming functions for real-time thought step display');
   }
 
   /**
@@ -127,8 +133,8 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
         { analysisType: 'general_knowledge' }
       ) as EnhancedThoughtStep;
       await addStreamingThoughtStep(
-        thoughtSteps, 
-        intentStep, 
+        thoughtSteps as any, 
+        intentStep as any, 
         sessionContext?.chatSessionId, 
         sessionContext?.userId
       );
@@ -142,6 +148,13 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
       ) as EnhancedThoughtStep;
       completedIntentStep.confidence = queryIntent.confidence;
       thoughtSteps[thoughtSteps.length - 1] = completedIntentStep;
+      await updateStreamingThoughtStep(
+        thoughtSteps as any,
+        thoughtSteps.length - 1,
+        completedIntentStep as any,
+        sessionContext?.chatSessionId,
+        sessionContext?.userId
+      );
 
       // Step 2: Source Selection and Validation
       const sourceStep = createThoughtStep(
@@ -157,8 +170,8 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
         }
       ) as EnhancedThoughtStep;
       await addStreamingThoughtStep(
-        thoughtSteps, 
-        sourceStep, 
+        thoughtSteps as any, 
+        sourceStep as any, 
         sessionContext?.chatSessionId, 
         sessionContext?.userId
       );
@@ -177,6 +190,13 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
         }
       };
       thoughtSteps[thoughtSteps.length - 1] = completedSourceStep;
+      await updateStreamingThoughtStep(
+        thoughtSteps as any,
+        thoughtSteps.length - 1,
+        completedSourceStep as any,
+        sessionContext?.chatSessionId,
+        sessionContext?.userId
+      );
 
       // Step 3: Information Retrieval
       const searchStep = createThoughtStep(
@@ -189,8 +209,8 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
         }
       ) as EnhancedThoughtStep;
       await addStreamingThoughtStep(
-        thoughtSteps, 
-        searchStep, 
+        thoughtSteps as any, 
+        searchStep as any, 
         sessionContext?.chatSessionId, 
         sessionContext?.userId
       );
@@ -203,6 +223,13 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
       ) as EnhancedThoughtStep;
       completedSearchStep.sources = searchResults.sources;
       thoughtSteps[thoughtSteps.length - 1] = completedSearchStep;
+      await updateStreamingThoughtStep(
+        thoughtSteps as any,
+        thoughtSteps.length - 1,
+        completedSearchStep as any,
+        sessionContext?.chatSessionId,
+        sessionContext?.userId
+      );
 
       // Step 4: Information Synthesis
       const synthesisStep = createThoughtStep(
@@ -215,8 +242,8 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
         }
       ) as EnhancedThoughtStep;
       await addStreamingThoughtStep(
-        thoughtSteps, 
-        synthesisStep, 
+        thoughtSteps as any, 
+        synthesisStep as any, 
         sessionContext?.chatSessionId, 
         sessionContext?.userId
       );
@@ -232,14 +259,11 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
 
       // Check for geographic integration triggers
       const triggerActions = this.checkForTriggerActions(queryIntent, searchResults);
-
-      // Merge with BaseEnhancedAgent thought steps
-      const allThoughtSteps = [...this.thoughtSteps, ...thoughtSteps] as any;
       
       return {
         success: true,
         message: synthesizedResponse.content,
-        thoughtSteps: allThoughtSteps,
+        thoughtSteps: thoughtSteps,
         artifacts: synthesizedResponse.artifacts || [],
         sourceAttribution: searchResults.sources,
         triggerActions: triggerActions
@@ -260,19 +284,16 @@ export class GeneralKnowledgeAgent extends BaseEnhancedAgent {
       ) as EnhancedThoughtStep;
       errorStep.status = 'error';
       await addStreamingThoughtStep(
-        thoughtSteps, 
-        errorStep, 
+        thoughtSteps as any, 
+        errorStep as any, 
         sessionContext?.chatSessionId, 
         sessionContext?.userId
       );
-
-      // Merge with BaseEnhancedAgent thought steps
-      const allThoughtSteps = [...this.thoughtSteps, ...thoughtSteps] as any;
       
       return {
         success: false,
         message: `I encountered an error while processing your request: ${error instanceof Error ? error.message : 'Unknown error'}. Please try rephrasing your question.`,
-        thoughtSteps: allThoughtSteps,
+        thoughtSteps: thoughtSteps,
         artifacts: []
       };
     }

@@ -352,6 +352,8 @@
 .panel [class*="awsui-container"] {
   max-width: 100% !important;
   overflow: hidden !important;
+  border-radius: 0 !important;
+  border: none !important;
 }
 
 .panel [class*="awsui-container"] * {

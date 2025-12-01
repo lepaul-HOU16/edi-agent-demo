@@ -17,7 +17,22 @@ import { getThinkingContextFromStep } from '@/utils/thoughtTypes';
 import { useRenewableJobPolling, useChatMessagePolling } from '@/hooks';
 import { combineAndSortMessages, sendMessage } from '@/utils/chatUtils';
 import { Grid, Button } from '@cloudscape-design/components';
+import { useProjectContext } from '@/contexts/ProjectContext';
+import { logContextMismatchError } from '@/utils/projectContextDebug';
+import { validateProjectContext, logProjectContext } from '@/utils/projectContextValidation';
 
+// Development-only logging utility
+const devLog = (...args: any[]) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.log(...args);
+  }
+};
+
+const devWarn = (...args: any[]) => {
+  if (process.env.NODE_ENV === 'development') {
+    console.warn(...args);
+  }
+};
 
 const ChatBox = (params: {
   chatSessionId: string,
@@ -33,32 +48,12 @@ const ChatBox = (params: {
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [isInputVisible, setIsInputVisible] = useState<boolean>(true);
   
+  // CRITICAL FIX: Get active project context
+  const { activeProject } = useProjectContext();
+  
   // Use provided messages and setMessages if available, otherwise use local state
   const messages = params.messages || localMessages;
   const setMessages = params.setMessages || setLocalMessages;
-  
-  // Create stable callback using useCallback with proper dependencies
-  const handleMessagesUpdated = useCallback((updatedMessages: any[]) => {
-    console.log('🔄 ChatBox: Messages updated from polling');
-    console.log('🔄 ChatBox: Received', updatedMessages.length, 'messages');
-    console.log('🔄 ChatBox: Messages:', updatedMessages.map(m => ({ role: m.role, artifacts: m.artifacts?.length || 0 })));
-    setMessages((prevMessages) => {
-      const combined = combineAndSortMessages(prevMessages, updatedMessages as Message[]);
-      console.log('🔄 ChatBox: Combined messages:', combined.length);
-      return combined;
-    });
-  }, [setMessages]);
-  
-  // POLLING: DISABLED - causing duplicate renders
-  // useChatMessagePolling({
-  //   chatSessionId,
-  //   enabled: false,
-  //   interval: 5000, // Poll every 5 seconds
-  //   onMessagesUpdated: handleMessagesUpdated,
-  // });
-
-
-
 
   const [, setResponseStreamChunks] = useState<any[]>([]);
   const [streamChunkMessage, setStreamChunkMessage] = useState<Message>();
@@ -103,7 +98,7 @@ const ChatBox = (params: {
     enabled: true, // Always poll when chat is open
     pollingInterval: 3000, // Poll every 3 seconds
     onNewMessage: (message) => {
-      console.log('🌱 ChatBox: New renewable job results received', {
+      devLog('� ChatBox: New  renewable job results received', {
         messageId: message?.id,
         role: message?.role,
         hasArtifacts: !!(message as any)?.artifacts?.length
@@ -113,17 +108,17 @@ const ChatBox = (params: {
         setMessages((prevMessages) => {
           // Check if message already exists
           const exists = prevMessages.some(m => m.id === message.id);
-          console.log('🌱 ChatBox: Checking if message exists', {
+          devLog('🌱 ChatBox: Checking if message exists', {
             messageId: message.id,
             exists,
             currentMessageCount: prevMessages.length,
             currentMessageIds: prevMessages.map(m => m.id)
           });
           if (!exists) {
-            console.log('🌱 ChatBox: Adding new renewable message to UI');
+            devLog('🌱 ChatBox: Adding new renewable message to UI');
             return [...prevMessages, message as Message];
           } else {
-            console.log('🌱 ChatBox: Message already exists, skipping add');
+            devLog('🌱 ChatBox: Message already exists, skipping add');
           }
           return prevMessages;
         });
@@ -150,7 +145,7 @@ const ChatBox = (params: {
   const performAutoScroll = useCallback(() => {
     if (!autoScroll || !messagesContainerRef.current) return;
     
-    console.log('🚀 ChatBox: Performing fine-tuned autoscroll');
+    devLog('🚀 ChatBox: Performing fine-tuned autoscroll');
     
     const container = messagesContainerRef.current;
     
@@ -179,9 +174,9 @@ const ChatBox = (params: {
           }
         }, 800);
         
-        console.log('✅ ChatBox: Slow smooth scrollIntoView completed');
+        devLog('✅ ChatBox: Slow smooth scrollIntoView completed');
       } catch (error) {
-        console.warn('❌ ChatBox: scrollIntoView failed:', error);
+        devWarn('❌ ChatBox: scrollIntoView failed:', error);
       }
     }
     
@@ -193,24 +188,24 @@ const ChatBox = (params: {
             top: targetScrollTop,
             behavior: 'smooth'
           });
-          console.log('✅ ChatBox: Delayed smooth scrollTo completed with extended buffer');
+          devLog('✅ ChatBox: Delayed smooth scrollTo completed with extended buffer');
         }
       } catch (error) {
-        console.warn('❌ ChatBox: Delayed scrollTo failed:', error);
+        devWarn('❌ ChatBox: Delayed scrollTo failed:', error);
       }
     }, 100); // Small delay to ensure DOM is fully updated
     
     // Log final position after animation completes
     setTimeout(() => {
       if (messagesContainerRef.current) {
-        console.log('📏 ChatBox: Final scroll position:', messagesContainerRef.current.scrollTop, '/', messagesContainerRef.current.scrollHeight);
+        devLog('📏 ChatBox: Final scroll position:', messagesContainerRef.current.scrollTop, '/', messagesContainerRef.current.scrollHeight);
       }
     }, 800); // Increased delay for slower animation
   }, [autoScroll]);
 
   // Memoized displayed messages with deduplication
   const displayedMessages = React.useMemo(() => {
-    console.log('ChatBox: Calculating displayed messages', {
+    devLog('ChatBox: Calculating displayed messages', {
       messagesLength: messages?.length || 0,
       hasStreamChunk: !!streamChunkMessage
     });
@@ -222,7 +217,7 @@ const ChatBox = (params: {
     
     // Check if deduplication removed any messages
     if (messages && deduplicatedMessages.length < messages.length) {
-      console.warn('⚠️ DUPLICATE MESSAGES REMOVED!', {
+      devWarn('⚠️ DUPLICATE MESSAGES REMOVED!', {
         originalCount: messages.length,
         deduplicatedCount: deduplicatedMessages.length,
         removedCount: messages.length - deduplicatedMessages.length
@@ -235,7 +230,7 @@ const ChatBox = (params: {
         return acc;
       }, {} as Record<string, number>);
       const duplicates = Object.entries(idCounts).filter(([_, count]) => (count as number) > 1);
-      console.warn('Removed duplicate message IDs:', duplicates);
+      devWarn('Removed duplicate message IDs:', duplicates);
     }
     
     const allMessages = [
@@ -252,7 +247,7 @@ const ChatBox = (params: {
     
     // Re-enable auto-scroll for new messages
     if (newMessageCount > messageCount && !autoScroll) {
-      console.log('🔄 ChatBox: Re-enabling auto-scroll for new messages');
+      devLog('🔄 ChatBox: Re-enabling auto-scroll for new messages');
       setAutoScroll(true);
     }
     
@@ -263,7 +258,7 @@ const ChatBox = (params: {
     
     // Perform autoscroll for any content change
     if (autoScroll && (newMessageCount > 0 || streamChunkMessage || thinkingState.isActive)) {
-      console.log('🔄 ChatBox: Triggering consolidated autoscroll');
+      devLog('🔄 ChatBox: Triggering consolidated autoscroll');
       
       // Use requestAnimationFrame to ensure DOM is updated
       requestAnimationFrame(() => {
@@ -304,18 +299,18 @@ const ChatBox = (params: {
     
     // Detect user interrupt
     if (!isAtBottom && autoScroll) {
-      console.log('ChatBox: User scrolled up, disabling auto-scroll');
+      devLog('ChatBox: User scrolled up, disabling auto-scroll');
       setAutoScroll(false);
     }
   }, [hasMoreMessages, isLoadingMore, loadMoreMessages, autoScroll]);
 
   const scrollToBottom = useCallback(() => {
     if (messagesContainerRef.current) {
-      console.log('🔄 ChatBox: Manual scroll to bottom triggered');
+      devLog('🔄 ChatBox: Manual scroll to bottom triggered');
       
       // Re-enable auto-scroll when user manually scrolls to bottom
       if (!autoScroll) {
-        console.log('🔄 ChatBox: Re-enabling auto-scroll via manual button');
+        devLog('🔄 ChatBox: Re-enabling auto-scroll via manual button');
         setAutoScroll(true);
       }
       
@@ -329,17 +324,17 @@ const ChatBox = (params: {
     }
   }, [performAutoScroll, autoScroll]);
 
-  // Handle typing state changes from input - COMPLETELY DISABLED FOR TESTING
+  // Handle typing state changes from input - disabled to prevent interference
   const handleTypingStateChange = useCallback((typing: boolean) => {
-    console.log(`ChatBox: IGNORING typing state change to prevent interference: ${typing}`);
+    devLog(`ChatBox: Ignoring typing state change: ${typing}`);
   }, []);
 
-  // Enhanced thinking state management with artificial delays and proper reset
+  // Enhanced thinking state management with proper reset
   React.useEffect(() => {
-    console.log('🧠 ChatBox: isLoading state changed:', isLoading, 'thinkingState.isActive:', thinkingState.isActive);
+    devLog('🧠 ChatBox: isLoading state changed:', isLoading, 'thinkingState.isActive:', thinkingState.isActive);
     
     if (isLoading && !thinkingState.isActive) {
-      console.log('🧠 ChatBox: Activating thinking indicator for new message');
+      devLog('� ChatBox: Activacting thinking indicator for new message');
       if (thinkingTimeoutRef.current) {
         clearTimeout(thinkingTimeoutRef.current);
       }
@@ -352,17 +347,17 @@ const ChatBox = (params: {
         estimatedTime: 'any second now'
       });
     } else if (!isLoading && thinkingState.isActive) {
-      console.log('🧠 ChatBox: Scheduling thinking indicator deactivation with artificial delay...');
+      devLog('🧠 ChatBox: Scheduling thinking indicator deactivation...');
       
       thinkingTimeoutRef.current = setTimeout(() => {
-        console.log('🧠 ChatBox: Deactivating thinking indicator after artificial delay');
+        devLog('🧠 ChatBox: Deactivating thinking indicator');
         setThinkingState({
           isActive: false,
           context: '',
           step: '',
           progress: 0
         });
-      }, 2000);
+      }, 500); // Brief delay to ensure smooth transition
     }
   }, [isLoading, thinkingState.isActive]);
 
@@ -427,26 +422,54 @@ const ChatBox = (params: {
     if (userMessage.trim()) {
       // CRITICAL FIX: Prevent duplicate submissions
       if (isSubmittingRef.current) {
-        console.log('⚠️ FRONTEND: Duplicate submission prevented');
+        devLog('⚠️ FRONTEND: Duplicate submission prevented');
         return;
       }
       
       isSubmittingRef.current = true;
       
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('🔵 FRONTEND (ChatBox): Sending message');
-      console.log('═══════════════════════════════════════════════════════════');
-      console.log('📝 Message:', userMessage);
-      console.log('🆔 Session ID:', params.chatSessionId);
-      console.log('🤖 Selected Agent:', params.selectedAgent || 'auto');
-      console.log('⏰ Timestamp:', new Date().toISOString());
-      console.log('═══════════════════════════════════════════════════════════');
+      // CRITICAL FIX: Get active project context from ProjectContext
+      let projectContext = activeProject ? {
+        projectId: activeProject.projectId,
+        projectName: activeProject.projectName,
+        location: activeProject.location,
+        coordinates: activeProject.coordinates
+      } : undefined;
+      
+      devLog('═══════════════════════════════════════════════════════════');
+      devLog('🔵 FRONTEND (ChatBox): Sending message');
+      devLog('═══════════════════════════════════════════════════════════');
+      devLog('📝 Message:', userMessage);
+      devLog('🆔 Session ID:', params.chatSessionId);
+      devLog('🤖 Selected Agent:', params.selectedAgent || 'auto');
+      devLog('⏰ Timestamp:', new Date().toISOString());
+      
+      // Validate and log project context
+      if (projectContext) {
+        logProjectContext(projectContext, 'ChatBox sendMessage');
+        
+        // Validate project context structure
+        if (!validateProjectContext(projectContext)) {
+          console.error('❌ [ChatBox] Invalid project context structure, will not send to backend');
+          console.error('❌ [ChatBox] Context:', projectContext);
+          // Don't send invalid context - set to undefined
+          projectContext = undefined;
+        }
+      } else {
+        devLog('═══════════════════════════════════════════════════════════');
+        devLog('🎯 PROJECT CONTEXT IN CHATBOX');
+        devLog('═══════════════════════════════════════════════════════════');
+        devLog('❌ NO Project Context - activeProject is null');
+        devLog('⚠️  Backend will not receive project information');
+        devLog('⚠️  Workflow actions may fail or execute on wrong project');
+        devLog('═══════════════════════════════════════════════════════════');
+      }
       
       // INSTANT INPUT CLEARING: Clear input IMMEDIATELY before any async operations
       const clearStartTime = performance.now();
       params.onInputChange('');
       const clearDuration = performance.now() - clearStartTime;
-      console.log(`⚡ FRONTEND: Input cleared in ${clearDuration.toFixed(2)}ms`);
+      devLog(`⚡ FRONTEND: Input cleared in ${clearDuration.toFixed(2)}ms`);
       
       setIsLoading(true);
 
@@ -459,24 +482,25 @@ const ChatBox = (params: {
       }
 
       try {
-        console.log('🔵 FRONTEND: Calling sendMessage API...');
+        devLog('🔵 FRONTEND: Calling sendMessage API...');
         const result = await sendMessage({
           chatSessionId: params.chatSessionId,
           newMessage: newMessage,
-          agentType: params.selectedAgent || 'auto'
+          agentType: params.selectedAgent || 'auto',
+          projectContext: projectContext // CRITICAL FIX: Pass project context
         });
         
-        console.log('═══════════════════════════════════════════════════════════');
-        console.log('🔵 FRONTEND (ChatBox): API Response Received');
-        console.log('═══════════════════════════════════════════════════════════');
-        console.log('✅ Success:', result.success);
-        console.log('📦 Has Response:', !!result.response);
-        console.log('📊 Artifact Count:', result.response?.artifacts?.length || 0);
-        console.log('💬 Response Text:', result.response?.text?.substring(0, 100) + '...');
-        console.log('═══════════════════════════════════════════════════════════');
+        devLog('═══════════════════════════════════════════════════════════');
+        devLog('🔵 FRONTEND (ChatBox): API Response Received');
+        devLog('═══════════════════════════════════════════════════════════');
+        devLog('✅ Success:', result.success);
+        devLog('📦 Has Response:', !!result.response);
+        devLog('📊 Artifact Count:', result.response?.artifacts?.length || 0);
+        devLog('💬 Response Text:', result.response?.text?.substring(0, 100) + '...');
+        devLog('═══════════════════════════════════════════════════════════');
         
         if (result.success && result.response) {
-          console.log('🔵 FRONTEND: Processing successful response');
+          devLog('� FRONTERND: Processing successful response');
           
           // Add AI response to messages
           const aiMessage: Message = {
@@ -492,31 +516,75 @@ const ChatBox = (params: {
           // Add artifacts if present
           if (result.response.artifacts && result.response.artifacts.length > 0) {
             (aiMessage as any).artifacts = result.response.artifacts;
-            console.log('🔵 FRONTEND: Added', result.response.artifacts.length, 'artifacts to AI message');
+            devLog('🔵 FRONTEND: Added', result.response.artifacts.length, 'artifacts to AI message');
           } else {
-            console.warn('⚠️ FRONTEND: No artifacts in response');
+            devWarn('⚠️ FRONTEND: No artifacts in response');
           }
           
           // CRITICAL: Add thought steps if present
           if (result.data?.thoughtSteps && result.data.thoughtSteps.length > 0) {
             (aiMessage as any).thoughtSteps = result.data.thoughtSteps;
-            console.log('🧠 FRONTEND: Added', result.data.thoughtSteps.length, 'thought steps to AI message');
+            devLog('� FRONTERND: Added', result.data.thoughtSteps.length, 'thought steps to AI message');
           } else {
-            console.warn('⚠️ FRONTEND: No thought steps in response');
+            devWarn('⚠️ FRONTEND: No thought steps in response');
           }
           
           // Update messages
-          console.log('🔵 FRONTEND: Adding AI message to chat');
+          devLog('� FRONTENDN: Adding AI message to chat');
           setMessages((prevMessages) => [...prevMessages, aiMessage]);
         }
         
         if (!result.success) {
           console.error('❌ FRONTEND: API returned error');
           console.error('Error:', result.error);
+          
+          // CONTEXT MISMATCH ERROR HANDLING
+          const errorMessage = result.error || result.response?.text || 'An error occurred';
+          const isContextMismatch = errorMessage.toLowerCase().includes('project context mismatch') ||
+                                   errorMessage.toLowerCase().includes('context mismatch');
+          
+          if (isContextMismatch) {
+            // Log detailed error information for debugging
+            logContextMismatchError({
+              errorMessage,
+              activeProject,
+              query: userMessage
+            });
+            
+            // Create error message with clear suggestions
+            const errorAiMessage: Message = {
+              id: `error-${Date.now()}`,
+              role: 'ai',
+              content: { 
+                text: `⚠️ **Project Context Mismatch**\n\n${errorMessage}\n\n**What you can do:**\n\n1. **Refresh the page** to ensure you have the latest project context\n2. **Start a new project** for this location by asking for terrain analysis\n3. **Switch to the correct project** using the project dashboard\n4. **Check your active project** in the project badge at the top of the page\n\nWould you like me to help you start a new project for this location?`
+              },
+              chatSessionId: params.chatSessionId,
+              responseComplete: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            } as any;
+            
+            setMessages((prevMessages) => [...prevMessages, errorAiMessage]);
+          } else {
+            // Generic error handling for other errors
+            const errorAiMessage: Message = {
+              id: `error-${Date.now()}`,
+              role: 'ai',
+              content: { 
+                text: `❌ **Error**\n\n${errorMessage}\n\nPlease try again or rephrase your request.`
+              },
+              chatSessionId: params.chatSessionId,
+              responseComplete: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            } as any;
+            
+            setMessages((prevMessages) => [...prevMessages, errorAiMessage]);
+          }
         }
         
         setIsLoading(false);
-        console.log('🔵 FRONTEND: Message handling complete');
+        devLog('� FRONTFEND: Message handling complete');
         // CRITICAL FIX: Reset submission flag
         isSubmittingRef.current = false;
       } catch (error) {
@@ -534,7 +602,15 @@ const ChatBox = (params: {
         isSubmittingRef.current = false;
       }
     }
-  }, [messages, params.chatSessionId]);
+  }, [
+    activeProject,
+    params.chatSessionId,
+    params.selectedAgent,
+    params.onInputChange,
+    params.userInput,
+    setMessages,
+    setIsLoading
+  ]);
 
   return (
     <div style={{
@@ -565,16 +641,21 @@ const ChatBox = (params: {
         )}
 
         <List>
-          {displayedMessages.map((message, index) => {
+          {displayedMessages
+            .filter((message) => {
+              // Filter out ai-stream messages - they should NOT appear in conversation
+              if ((message as any).role === 'ai-stream') {
+                devLog('⏭️ Filtering out ai-stream message (should not be in conversation)');
+                return false;
+              }
+              return true;
+            })
+            .map((message, index) => {
             const stableKey = `message-${index}-${(message as any).role}-${((message as any).content?.text || '').substring(0, 20).replace(/\W/g, '')}`;
-            console.log(`🔑 Rendering message with stable key: ${stableKey}`);
+            devLog(`🔑 Rendering message with stable key: ${stableKey}`);
             
             return (
-              <ListItem key={stableKey} style={{ 
-                visibility: (message as any).role === 'ai' && !(message as any).artifacts && (message as any).content?.text ? 'visible' : undefined,
-                display: (message as any).role === 'ai' && !(message as any).artifacts && (message as any).content?.text ? 'flex' : undefined,
-                opacity: (message as any).role === 'ai' && !(message as any).artifacts && (message as any).content?.text ? 1 : undefined
-              }}>
+              <ListItem key={stableKey}>
                 <ChatMessage
                   message={message}
                   onRegenerateMessage={(message as any).role === 'human' ? handleRegenerateMessage : undefined}
@@ -584,30 +665,16 @@ const ChatBox = (params: {
             );
           })}
           
-          {/* Show thinking indicator when AI is processing */}
-          {thinkingState.isActive && (
+          {/* Show thinking indicator when AI is processing - SINGLE INDICATOR ONLY */}
+          {(isLoading || thinkingState.isActive) && (
             <ListItem>
               <div style={{ width: '100%' }}>
                 <ThinkingIndicator
-                  context={thinkingState.context}
-                  step={thinkingState.step}
-                  progress={thinkingState.progress}
+                  context={thinkingState.context || "🧠 Analyzing your request..."}
+                  step={thinkingState.step || "Preparing analysis workflow"}
+                  progress={thinkingState.progress || 0}
                   estimatedTime={thinkingState.estimatedTime}
                   currentThoughtStep={thinkingState.currentThoughtStep}
-                  isVisible={thinkingState.isActive}
-                />
-              </div>
-            </ListItem>
-          )}
-          
-          {/* Alternative: Show basic loading indicator when isLoading but no thought steps */}
-          {isLoading && !thinkingState.isActive && (
-            <ListItem>
-              <div style={{ width: '100%' }}>
-                <ThinkingIndicator
-                  context="🧠 Analyzing your request..."
-                  step="Preparing analysis workflow"
-                  progress={0}
                   isVisible={true}
                 />
               </div>

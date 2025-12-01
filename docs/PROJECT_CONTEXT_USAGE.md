@@ -597,3 +597,13 @@ For issues or questions:
 2. Use `debugProjectContext` to inspect state
 3. Verify component is wrapped in `ProjectContextProvider`
 4. Check that artifact data contains required fields
+
+
+## Related Documentation
+
+- **Complete Fixes**: `docs/THINKING_INDICATOR_FIXES.md` - Comprehensive documentation of all thinking indicator and streaming fixes
+- **BaseEnhancedAgent Issues**: `docs/BASE_ENHANCED_AGENT_STREAMING_ISSUES.md` - Technical deep dive into streaming problems
+- **Troubleshooting Runbook**: `docs/STREAMING_TROUBLESHOOTING_RUNBOOK.md` - Step-by-step troubleshooting procedures
+- **Spec Requirements**: `.kiro/specs/fix-critical-thinking-indicator-regressions/requirements.md`
+- **Spec Design**: `.kiro/specs/fix-critical-thinking-indicator-regressions/design.md`
+- **Spec Tasks**: `.kiro/specs/fix-critical-thinking-indicator-regressions/tasks.md`

@@ -49,7 +49,19 @@ interface MaintenanceScheduleArtifactProps {
 export const MaintenanceScheduleArtifact: React.FC<MaintenanceScheduleArtifactProps> = ({ data }) => {
   const [selectedTask, setSelectedTask] = useState<MaintenanceTask | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
-  const schedule = data.schedule;
+  const schedule = data?.schedule;
+
+  // Early return if schedule data is missing
+  if (!schedule) {
+    return (
+      <Container>
+        <Box textAlign="center" padding="l">
+          <Box variant="h2" color="text-status-error">Unable to display maintenance schedule</Box>
+          <Box variant="p" color="text-body-secondary">Schedule data is missing or invalid.</Box>
+        </Box>
+      </Container>
+    );
+  }
 
   // Priority and type styling
   const getPriorityBadge = (priority: string) => {
@@ -74,7 +86,7 @@ export const MaintenanceScheduleArtifact: React.FC<MaintenanceScheduleArtifactPr
 
   // Render Gantt chart
   const renderGanttChart = () => {
-    if (schedule.tasks.length === 0) return null;
+    if (!schedule?.tasks || schedule.tasks.length === 0) return null;
 
     const startDate = new Date(schedule.startDate);
     const endDate = new Date(schedule.endDate);
@@ -177,11 +189,11 @@ export const MaintenanceScheduleArtifact: React.FC<MaintenanceScheduleArtifactPr
         header={
           <Header
             variant="h2"
-            description={data.subtitle || `Optimized maintenance schedule (${schedule.optimizationCriteria})`}
+            description={data.subtitle || `Optimized maintenance schedule${schedule.optimizationCriteria ? ` (${schedule.optimizationCriteria})` : ''}`}
             actions={
               <SpaceBetween direction="horizontal" size="xs">
-                <Badge color="blue">{schedule.tasks.length} tasks</Badge>
-                <Badge color="grey">${schedule.totalCost.toLocaleString()}</Badge>
+                <Badge color="blue">{schedule.tasks?.length || 0} tasks</Badge>
+                <Badge color="grey">${(schedule.totalCost || 0).toLocaleString()}</Badge>
               </SpaceBetween>
             }
           >
@@ -195,25 +207,27 @@ export const MaintenanceScheduleArtifact: React.FC<MaintenanceScheduleArtifactPr
             <div>
               <Box variant="awsui-key-label">Total Tasks</Box>
               <div style={{ fontSize: '20px', fontWeight: 'bold', marginTop: '4px' }}>
-                {schedule.tasks.length}
+                {schedule.tasks?.length || 0}
               </div>
             </div>
             <div>
               <Box variant="awsui-key-label">Total Duration</Box>
               <div style={{ fontSize: '20px', fontWeight: 'bold', marginTop: '4px' }}>
-                {schedule.totalDuration} hours
+                {schedule.totalDuration || 0} hours
               </div>
             </div>
             <div>
               <Box variant="awsui-key-label">Total Cost</Box>
               <div style={{ fontSize: '20px', fontWeight: 'bold', marginTop: '4px' }}>
-                ${schedule.totalCost.toLocaleString()}
+                ${(schedule.totalCost || 0).toLocaleString()}
               </div>
             </div>
             <div>
               <Box variant="awsui-key-label">Schedule Period</Box>
               <div style={{ fontSize: '14px', fontWeight: 'bold', marginTop: '4px' }}>
-                {new Date(schedule.startDate).toLocaleDateString()} - {new Date(schedule.endDate).toLocaleDateString()}
+                {schedule.startDate && schedule.endDate 
+                  ? `${new Date(schedule.startDate).toLocaleDateString()} - ${new Date(schedule.endDate).toLocaleDateString()}`
+                  : 'Not specified'}
               </div>
             </div>
           </ColumnLayout>
@@ -298,7 +312,7 @@ export const MaintenanceScheduleArtifact: React.FC<MaintenanceScheduleArtifactPr
                   minWidth: 100
                 }
               ]}
-              items={schedule.tasks}
+              items={schedule.tasks || []}
               loadingText="Loading tasks"
               empty={<Box textAlign="center" color="inherit"><b>No tasks scheduled</b></Box>}
               contentDensity="comfortable"
@@ -306,7 +320,9 @@ export const MaintenanceScheduleArtifact: React.FC<MaintenanceScheduleArtifactPr
           </Box>
 
           <Box variant="small" color="text-body-secondary">
-            Schedule ID: {schedule.id} • Optimized for: {schedule.optimizationCriteria}
+            {schedule.id && `Schedule ID: ${schedule.id}`}
+            {schedule.id && schedule.optimizationCriteria && ' • '}
+            {schedule.optimizationCriteria && `Optimized for: ${schedule.optimizationCriteria}`}
           </Box>
         </SpaceBetween>
       </Container>

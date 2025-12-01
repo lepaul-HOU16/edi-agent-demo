@@ -70,7 +70,7 @@ export class RenewableProxyAgent extends BaseEnhancedAgent {
   async processQuery(
     message: string, 
     conversationHistory?: any[],
-    sessionContext?: { chatSessionId?: string; userId?: string }
+    sessionContext?: { chatSessionId?: string; userId?: string; projectContext?: any }
   ): Promise<RouterResponse> {
     console.log('═══════════════════════════════════════════════════════════');
     console.log('🟠 BACKEND (Renewable Proxy Agent): Processing query');
@@ -80,6 +80,37 @@ export class RenewableProxyAgent extends BaseEnhancedAgent {
     console.log('👤 User ID:', sessionContext?.userId);
     console.log('🎯 Orchestrator Function:', this.orchestratorFunctionName);
     console.log('⏰ Timestamp:', new Date().toISOString());
+    
+    // Enhanced project context logging and validation
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🎯 PROJECT CONTEXT IN RENEWABLE PROXY AGENT');
+    console.log('═══════════════════════════════════════════════════════════');
+    if (sessionContext?.projectContext) {
+      console.log('✅ Project Context RECEIVED in Renewable Proxy Agent');
+      console.log('📋 Project Context Keys:', Object.keys(sessionContext.projectContext));
+      console.log('🆔 Project ID:', sessionContext.projectContext.projectId || 'MISSING');
+      console.log('📍 Project Name:', sessionContext.projectContext.projectName || 'MISSING');
+      console.log('🌍 Location:', sessionContext.projectContext.location || 'MISSING');
+      console.log('📊 Coordinates:', sessionContext.projectContext.coordinates ? JSON.stringify(sessionContext.projectContext.coordinates) : 'MISSING');
+      console.log('📦 Full Project Context:', JSON.stringify(sessionContext.projectContext, null, 2));
+      
+      // Validate project context structure
+      const hasProjectId = sessionContext.projectContext.projectId && typeof sessionContext.projectContext.projectId === 'string';
+      const hasProjectName = sessionContext.projectContext.projectName && typeof sessionContext.projectContext.projectName === 'string';
+      
+      if (!hasProjectId || !hasProjectName) {
+        console.error('❌ Project Context structure is INVALID');
+        console.error('❌ Missing required fields: projectId or projectName');
+        console.error('❌ Orchestrator will receive empty context object');
+      } else {
+        console.log('✅ Project Context structure validated successfully');
+        console.log('✅ This context will be forwarded to orchestrator');
+      }
+    } else {
+      console.log('❌ Project Context MISSING in Renewable Proxy Agent');
+      console.log('⚠️  Orchestrator will receive empty context object');
+      console.log('⚠️  This may cause workflow actions to execute on wrong project');
+    }
     console.log('═══════════════════════════════════════════════════════════');
 
     // Create initial thought step
@@ -92,10 +123,11 @@ export class RenewableProxyAgent extends BaseEnhancedAgent {
     try {
       // CRITICAL FIX: Orchestrator expects API Gateway event format
       // Create a minimal API Gateway event structure
+      // CRITICAL FIX: Forward projectContext from sessionContext
       const apiGatewayEvent = {
         body: JSON.stringify({
           query: message,
-          context: {},
+          context: sessionContext?.projectContext || {},
           sessionId: sessionContext?.chatSessionId,
           userId: sessionContext?.userId
         }),

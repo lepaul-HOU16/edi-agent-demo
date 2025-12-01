@@ -80,10 +80,29 @@ export class AgentRouter {
       userId?: string;
       selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft';
       collectionContext?: any; // Collection data context for scoped queries
+      projectContext?: any; // Project context for renewable workflow
     }
   ): Promise<RouterResponse> {
     console.log('🔀 AgentRouter: Routing query:', message.substring(0, 100) + '...');
     console.log('🔀 AgentRouter: Conversation history provided:', !!conversationHistory, 'messages:', conversationHistory?.length || 0);
+    
+    // Enhanced project context logging
+    console.log('═══════════════════════════════════════════════════════════');
+    console.log('🎯 PROJECT CONTEXT IN AGENT ROUTER');
+    console.log('═══════════════════════════════════════════════════════════');
+    if (sessionContext?.projectContext) {
+      console.log('✅ Project Context PRESENT in sessionContext');
+      console.log('📋 Project Context Keys:', Object.keys(sessionContext.projectContext));
+      console.log('🆔 Project ID:', sessionContext.projectContext.projectId || 'MISSING');
+      console.log('📍 Project Name:', sessionContext.projectContext.projectName || 'MISSING');
+      console.log('🌍 Location:', sessionContext.projectContext.location || 'MISSING');
+      console.log('📦 Full Project Context:', JSON.stringify(sessionContext.projectContext, null, 2));
+    } else {
+      console.log('❌ Project Context MISSING from sessionContext');
+      console.log('⚠️  Renewable workflow actions may fail without project context');
+    }
+    console.log('═══════════════════════════════════════════════════════════');
+    
     console.log('🔀 AgentRouter: Session context:', JSON.stringify(sessionContext, null, 2));
     
     // Log collection context if present
@@ -218,6 +237,21 @@ IMPORTANT: Execute ALL steps in sequence. Do not stop after step 1.`;
           console.log('👤 User ID:', sessionContext?.userId);
           console.log('✅ Renewable Enabled:', this.renewableEnabled);
           console.log('🤖 Renewable Agent Exists:', !!this.renewableAgent);
+          
+          // Log project context being passed to renewable agent
+          console.log('═══════════════════════════════════════════════════════════');
+          console.log('🎯 PROJECT CONTEXT BEING PASSED TO RENEWABLE AGENT');
+          console.log('═══════════════════════════════════════════════════════════');
+          if (sessionContext?.projectContext) {
+            console.log('✅ Passing Project Context to Renewable Agent');
+            console.log('🆔 Project ID:', sessionContext.projectContext.projectId || 'MISSING');
+            console.log('📍 Project Name:', sessionContext.projectContext.projectName || 'MISSING');
+            console.log('🌍 Location:', sessionContext.projectContext.location || 'MISSING');
+            console.log('📦 Full Context:', JSON.stringify(sessionContext.projectContext, null, 2));
+          } else {
+            console.log('❌ NO Project Context to pass to Renewable Agent');
+            console.log('⚠️  Agent will not have project information');
+          }
           console.log('═══════════════════════════════════════════════════════════');
           
           // Check if renewable integration is enabled

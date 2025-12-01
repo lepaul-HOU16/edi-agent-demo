@@ -36,7 +36,8 @@ import { ProjectListHandler } from '../shared/projectListHandler';
 import { 
   addStreamingThoughtStep, 
   updateStreamingThoughtStep,
-  clearStreamingMessage 
+  clearStreamingMessage,
+  streamThoughtStepToDynamoDB
 } from '../shared/thoughtStepStreaming';
 
 // STRANDS AGENT INTEGRATION
@@ -56,7 +57,115 @@ interface PrerequisiteValidationResult {
   suggestions?: string[];
 }
 
+interface ContextValidationResult {
+  isValid: boolean;
+  mismatch?: {
+    projectLocation: string;
+    queryLocation: string;
+    projectCoordinates?: { lat: number; lon: number };
+    queryCoordinates?: { lat: number; lon: number };
+  };
+  errorMessage?: string;
+  suggestion?: string;
+}
+
 const lambdaClient = new LambdaClient({});
+
+/**
+ * Validate that project context matches query location
+ * Prevents operations from executing on wrong locations
+ */
+function validateProjectContext(
+  projectContext: any,
+  intent: RenewableIntent,
+  query: string
+): ContextValidationResult {
+  // Skip validation if no project context provided
+  if (!projectContext || !projectContext.coordinates) {
+    console.log('✅ Context validation skipped: No project context provided');
+    return { isValid: true };
+  }
+
+  // Skip validation for queries that don't involve location
+  const locationBasedIntents = ['terrain_analysis', 'layout_optimization', 'wake_simulation', 'wind_rose', 'wind_rose_analysis'];
+  if (!locationBasedIntents.includes(intent.type)) {
+    console.log(`✅ Context validation skipped: Intent type ${intent.type} doesn't require location validation`);
+    return { isValid: true };
+  }
+
+  // Skip validation if intent doesn't have coordinates yet
+  if (!intent.params.latitude || !intent.params.longitude) {
+    console.log('✅ Context validation skipped: Intent has no coordinates to validate against');
+    return { isValid: true };
+  }
+
+  const projectLat = projectContext.coordinates.lat;
+  const projectLon = projectContext.coordinates.lon;
+  const queryLat = intent.params.latitude;
+  const queryLon = intent.params.longitude;
+
+  // Calculate distance between project and query coordinates
+  const distance = calculateDistance(projectLat, projectLon, queryLat, queryLon);
+  
+  // Allow up to 1km tolerance for coordinate variations
+  const TOLERANCE_KM = 1.0;
+  
+  console.log('───────────────────────────────────────────────────────────');
+  console.log('🔍 PROJECT CONTEXT VALIDATION');
+  console.log('───────────────────────────────────────────────────────────');
+  console.log(`📍 Project Location: ${projectContext.location || 'Unknown'}`);
+  console.log(`🌐 Project Coordinates: (${projectLat}, ${projectLon})`);
+  console.log(`🎯 Query Coordinates: (${queryLat}, ${queryLon})`);
+  console.log(`📏 Distance: ${distance.toFixed(2)} km`);
+  console.log(`✓ Tolerance: ${TOLERANCE_KM} km`);
+  console.log(`${distance <= TOLERANCE_KM ? '✅' : '❌'} Validation: ${distance <= TOLERANCE_KM ? 'PASS' : 'FAIL'}`);
+  console.log('───────────────────────────────────────────────────────────');
+
+  if (distance > TOLERANCE_KM) {
+    const projectLocation = projectContext.location || `(${projectLat}, ${projectLon})`;
+    const queryLocation = `(${queryLat}, ${queryLon})`;
+    
+    const errorMessage = `Project context mismatch: The active project is for ${projectLocation}, but you're trying to analyze ${queryLocation} (${distance.toFixed(1)}km away). Please ensure you're working on the correct project or start a new project for this location.`;
+    
+    return {
+      isValid: false,
+      mismatch: {
+        projectLocation,
+        queryLocation,
+        projectCoordinates: { lat: projectLat, lon: projectLon },
+        queryCoordinates: { lat: queryLat, lon: queryLon }
+      },
+      errorMessage,
+      suggestion: 'Start a new project for this location or switch to the correct project'
+    };
+  }
+
+  return { isValid: true };
+}
+
+/**
+ * Calculate distance between two coordinates using Haversine formula
+ * Returns distance in kilometers
+ */
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Earth's radius in kilometers
+  const dLat = toRadians(lat2 - lat1);
+  const dLon = toRadians(lon2 - lon1);
+  
+  const a = 
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRadians(lat1)) * Math.cos(toRadians(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c;
+  
+  return distance;
+}
+
+function toRadians(degrees: number): number {
+  return degrees * (Math.PI / 180);
+}
 
 /**
  * Execution time tracker for detailed performance monitoring
@@ -90,6 +199,19 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     console.log(`🔍 Query: ${event.query}`);
     console.log(`📝 Context: ${JSON.stringify(event.context || {}, null, 2)}`);
     console.log(`🔄 Async Mode: ${event.sessionId ? 'YES (will write to DynamoDB)' : 'NO (sync response)'}`);
+    
+    // Log received projectContext for debugging
+    if (event.context?.projectContext) {
+      console.log('───────────────────────────────────────────────────────────');
+      console.log('📍 PROJECT CONTEXT RECEIVED FROM FRONTEND');
+      console.log('───────────────────────────────────────────────────────────');
+      console.log(`🆔 Project ID: ${event.context.projectContext.projectId || 'none'}`);
+      console.log(`📝 Project Name: ${event.context.projectContext.projectName || 'none'}`);
+      console.log(`📍 Location: ${event.context.projectContext.location || 'none'}`);
+      console.log(`🌐 Coordinates: ${JSON.stringify(event.context.projectContext.coordinates || {})}`);
+      console.log('───────────────────────────────────────────────────────────');
+    }
+    
     console.log('═══════════════════════════════════════════════════════════');
     
     // ============================================
@@ -134,6 +256,10 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       // STREAMING: Write thought step to DynamoDB
       await streamThoughtStepToDynamoDB(event.sessionId, event.userId, thoughtSteps[0]);
       
+      // CLEANUP: Clear streaming message to prevent stale thought steps
+      console.log('🧹 Clearing streaming message for session (dashboard):', event.sessionId);
+      await clearStreamingMessage(event.sessionId);
+      
       return {
         success: dashboardResponse.success,
         message: dashboardResponse.message,
@@ -170,6 +296,10 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         duration: listDuration,
         result: `Found ${listResponse.projects?.length || 0} project(s)`
       };
+      
+      // CLEANUP: Clear streaming message to prevent stale thought steps
+      console.log('🧹 Clearing streaming message for session (project list):', event.sessionId);
+      await clearStreamingMessage(event.sessionId);
       
       return {
         success: listResponse.success,
@@ -354,6 +484,9 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       
       if (choiceResult.action === 'continue' && choiceResult.projectName) {
         // User chose to continue with existing project
+        // CLEANUP: Clear streaming message
+        await clearStreamingMessage(event.sessionId);
+        
         return {
           success: true,
           message: `${choiceResult.message}. You can now continue with terrain analysis, layout optimization, or other operations.`,
@@ -375,6 +508,9 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         };
       } else if (choiceResult.action === 'create_new') {
         // User chose to create new project - return message and wait for next query
+        // CLEANUP: Clear streaming message
+        await clearStreamingMessage(event.sessionId);
+        
         return {
           success: true,
           message: `${choiceResult.message}. Please repeat your terrain analysis query to create a new project.`,
@@ -396,6 +532,9 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         };
       } else if (choiceResult.action === 'view_details') {
         // User chose to view details - show details and ask again
+        // CLEANUP: Clear streaming message
+        await clearStreamingMessage(event.sessionId);
+        
         return {
           success: true,
           message: choiceResult.message,
@@ -447,6 +586,10 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
           }
         })
       };
+      
+      // CLEANUP: Clear streaming message to prevent stale thought steps
+      console.log('🧹 Clearing streaming message for session (project details):', event.sessionId);
+      await clearStreamingMessage(event.sessionId);
       
       return {
         success: detailsResponse.success,
@@ -542,6 +685,62 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
       };
     }
     
+    // Step 2.5: Validate project context matches query location
+    const contextValidationStartTime = Date.now();
+    await addStreamingThoughtStep(thoughtSteps, {
+      step: thoughtSteps.length + 1,
+      action: 'Validating project context',
+      reasoning: 'Ensuring query matches active project location',
+      status: 'in_progress',
+      timestamp: new Date(contextValidationStartTime).toISOString()
+    }, event.sessionId, event.userId);
+    
+    const contextValidation = validateProjectContext(
+      event.context?.projectContext,
+      intent,
+      event.query
+    );
+    const contextValidationDuration = Date.now() - contextValidationStartTime;
+    
+    // Update thought step with completion
+    await updateStreamingThoughtStep(thoughtSteps, thoughtSteps.length - 1, {
+      status: contextValidation.isValid ? 'complete' : 'error',
+      duration: contextValidationDuration,
+      result: contextValidation.isValid 
+        ? 'Project context validated' 
+        : 'Context mismatch detected',
+      ...(contextValidation.isValid ? {} : {
+        error: {
+          message: contextValidation.errorMessage || 'Project context mismatch',
+          suggestion: contextValidation.suggestion || 'Check project location'
+        }
+      })
+    }, event.sessionId, event.userId);
+    
+    if (!contextValidation.isValid) {
+      console.log('❌ PROJECT CONTEXT VALIDATION FAILED');
+      console.log(`   Error: ${contextValidation.errorMessage}`);
+      console.log(`   Suggestion: ${contextValidation.suggestion}`);
+      
+      return {
+        success: false,
+        message: contextValidation.errorMessage || 'Project context mismatch detected',
+        artifacts: [],
+        thoughtSteps,
+        metadata: {
+          executionTime: Date.now() - startTime,
+          toolsUsed: [],
+          errorCategory: 'PARAMETER_ERROR',
+          contextValidation: {
+            mismatch: contextValidation.mismatch,
+            suggestion: contextValidation.suggestion
+          }
+        }
+      };
+    }
+    
+    console.log('✅ Project context validation passed');
+    
     // Handle project lifecycle management intents
     const lifecycleIntents = ['delete_project', 'rename_project', 'merge_projects', 'archive_project', 'export_project', 'search_projects'];
     if (lifecycleIntents.includes(intent.type)) {
@@ -592,6 +791,10 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
           })
         };
         
+        // CLEANUP: Clear streaming message to prevent stale thought steps
+        console.log('🧹 Clearing streaming message for session (lifecycle):', event.sessionId);
+        await clearStreamingMessage(event.sessionId);
+        
         return {
           success: lifecycleResult.success,
           message: lifecycleResult.message,
@@ -618,6 +821,10 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
             suggestion: 'Check CloudWatch logs for details'
           }
         };
+        
+        // CLEANUP: Clear streaming message even on error
+        console.log('🧹 Clearing streaming message for session (lifecycle error):', event.sessionId);
+        await clearStreamingMessage(event.sessionId);
         
         return {
           success: false,
@@ -1331,6 +1538,11 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
     console.log(`📤 Full Response: ${JSON.stringify(response, null, 2)}`);
     console.log('═══════════════════════════════════════════════════════════');
     
+    // CLEANUP: Clear streaming message to prevent stale thought steps on next query
+    console.log('🧹 Clearing streaming message for session:', event.sessionId);
+    await clearStreamingMessage(event.sessionId);
+    console.log('✅ Streaming message cleared successfully');
+    
     // DO NOT write to DynamoDB here - the chat Lambda handles that
     // The orchestrator just returns the response
     console.log('✅ Orchestrator returning response with artifacts:', response.artifacts?.length || 0);
@@ -1402,6 +1614,11 @@ export async function handler(event: OrchestratorRequest): Promise<OrchestratorR
         }
       }
     };
+
+    // CLEANUP: Clear streaming message even on error to prevent stale thought steps
+    console.log('🧹 Clearing streaming message for session (error case):', event.sessionId);
+    await clearStreamingMessage(event.sessionId);
+    console.log('✅ Streaming message cleared successfully');
 
     // DO NOT write to DynamoDB - the chat Lambda handles that
     console.log('✅ Orchestrator returning error response (chat Lambda will handle DynamoDB)');

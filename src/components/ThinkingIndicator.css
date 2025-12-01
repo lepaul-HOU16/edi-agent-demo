@@ -1,0 +1,105 @@
+/* Unified Thinking Indicator - Style 1 (Purple Gradient) */
+.thinking-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 8px;
+  margin: 20px 0;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  animation: thinking-pulse 2s ease-in-out infinite;
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+}
+
+.thinking-text {
+  font-size: 16px;
+  font-weight: 500;
+  color: white;
+  letter-spacing: 0.5px;
+  margin-right: 12px;
+  user-select: none;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  background: white;
+  border-radius: 50%;
+  animation: thinking-bounce 1.4s ease-in-out infinite;
+}
+
+.dot:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.dot:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dot:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+/* Animations */
+@keyframes thinking-pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 0.95;
+  }
+}
+
+@keyframes thinking-bounce {
+  0%, 80%, 100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateY(-8px);
+    opacity: 0.7;
+  }
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .thinking-indicator {
+    padding: 16px 20px;
+    margin: 16px 0;
+  }
+  
+  .thinking-text {
+    font-size: 15px;
+    margin-right: 10px;
+  }
+  
+  .dot {
+    width: 7px;
+    height: 7px;
+  }
+}
+
+/* Accessibility */
+@media (prefers-reduced-motion: reduce) {
+  .thinking-indicator {
+    animation: none;
+  }
+  
+  .dot {
+    animation: none;
+  }
+}
+
+/* Focus states for accessibility */
+.thinking-indicator:focus {
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}

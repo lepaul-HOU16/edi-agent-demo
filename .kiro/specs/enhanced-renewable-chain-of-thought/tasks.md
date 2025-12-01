@@ -161,5 +161,5 @@
     - General knowledge queries
   - _Requirements: All_
 
-- [ ] 16. Final checkpoint - Ensure all tests pass
+- [x] 16. Final checkpoint - Ensure all tests pass
   - Ensure all tests pass, ask the user if questions arise.

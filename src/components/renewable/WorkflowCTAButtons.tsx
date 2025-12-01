@@ -9,6 +9,7 @@ import React, { useMemo } from 'react';
 import { Button, SpaceBetween, Box, Alert, Popover, StatusIndicator } from '@cloudscape-design/components';
 import { Message } from '@/utils/types';
 import { useProjectContext } from '@/contexts/ProjectContext';
+import { validateProjectContext, logProjectContext } from '@/utils/projectContextValidation';
 
 export interface WorkflowCTAButton {
   step: string; // The step that must be completed to enable this button
@@ -322,7 +323,14 @@ export const WorkflowCTAButtons: React.FC<WorkflowCTAButtonsProps> = ({
 
   // If no active project is set, show a warning
   if (!activeProject && !legacyProjectId) {
-    console.log('⚠️ [WorkflowCTA] No active project set');
+    console.warn('⚠️ [WorkflowCTA] No active project set');
+    console.warn('⚠️ [WorkflowCTA] Current context state:', {
+      activeProject,
+      legacyProjectId,
+      hasMessages: !!messages,
+      messageCount: messages?.length || 0,
+      completedSteps
+    });
     return (
       <Alert type="warning" header="No Active Project">
         Please start by analyzing terrain at a location to create a project, or continue an existing project from the dashboard.
@@ -387,7 +395,18 @@ export const WorkflowCTAButtons: React.FC<WorkflowCTAButtonsProps> = ({
           
           // Create tooltip showing full action with project name or prerequisite message
           const tooltipContent = !projectId 
-            ? 'No active project selected'
+            ? (
+                <Box>
+                  <Box variant="p" margin={{ bottom: 'xs' }}>
+                    <StatusIndicator type="warning">
+                      No active project selected
+                    </StatusIndicator>
+                  </Box>
+                  <Box variant="small">
+                    Please select a project first by analyzing terrain at a location or continuing an existing project.
+                  </Box>
+                </Box>
+              )
             : !prerequisiteCheck.met
             ? (
                 <Box>
@@ -411,19 +430,66 @@ export const WorkflowCTAButtons: React.FC<WorkflowCTAButtonsProps> = ({
               disabled={!isEnabled}
               ariaLabel={typeof tooltipContent === 'string' ? tooltipContent : button.label}
               onClick={() => {
+                // Validate project context before sending action
+                if (!activeProject) {
+                  console.warn('⚠️ [WorkflowCTA] No active project set - button should be disabled');
+                  console.warn('⚠️ [WorkflowCTA] Current context state:', {
+                    activeProject,
+                    legacyProjectId,
+                    projectId,
+                    hasMessages: !!messages,
+                    messageCount: messages?.length || 0,
+                    completedSteps
+                  });
+                  return;
+                }
+                
+                // Log and validate project context
+                logProjectContext(activeProject, 'WorkflowCTAButtons onClick');
+                
+                if (!validateProjectContext(activeProject)) {
+                  console.error('❌ [WorkflowCTA] Invalid project context structure');
+                  console.error('❌ [WorkflowCTA] Context:', activeProject);
+                  console.warn('⚠️ [WorkflowCTA] Full context state:', {
+                    activeProject,
+                    legacyProjectId,
+                    projectId,
+                    projectName,
+                    hasMessages: !!messages,
+                    messageCount: messages?.length || 0,
+                    completedSteps
+                  });
+                  return;
+                }
+                
                 if (!projectId) {
-                  console.error('❌ [WorkflowCTA] No project ID available');
+                  console.warn('⚠️ [WorkflowCTA] No project ID available');
+                  console.warn('⚠️ [WorkflowCTA] Current context state:', {
+                    activeProject,
+                    legacyProjectId,
+                    projectId,
+                    projectName,
+                    hasMessages: !!messages,
+                    messageCount: messages?.length || 0,
+                    completedSteps
+                  });
                   return;
                 }
                 
                 if (!prerequisiteCheck.met) {
-                  console.error('❌ [WorkflowCTA] Prerequisites not met for', button.label);
-                  console.error('❌ [WorkflowCTA] Missing:', prerequisiteCheck.missing);
+                  console.warn('⚠️ [WorkflowCTA] Prerequisites not met for', button.label);
+                  console.warn('⚠️ [WorkflowCTA] Missing:', prerequisiteCheck.missing);
+                  console.warn('⚠️ [WorkflowCTA] Current context state:', {
+                    activeProject,
+                    projectId,
+                    completedSteps,
+                    requiredSteps: WORKFLOW_PREREQUISITES[button.step] || []
+                  });
                   return;
                 }
                 
                 console.log(`🎯 [WorkflowCTA] Button clicked: ${button.label}`);
-                console.log(`🎯 [WorkflowCTA] Project context:`, activeProject);
+                console.log(`🎯 [WorkflowCTA] Project context validated and ready`);
                 console.log(`✅ [WorkflowCTA] All prerequisites met`);
                 console.log(`🚀 [WorkflowCTA] Full action query: ${fullAction}`);
                 

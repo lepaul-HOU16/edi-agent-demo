@@ -10,6 +10,16 @@ export interface OrchestratorRequest {
     previousResults?: any;
     projectId?: string;
     project_name?: string;  // Explicit project name to use (takes precedence over resolution)
+    projectContext?: {
+      projectId?: string;
+      projectName?: string;
+      location?: string;
+      coordinates?: {
+        lat: number;
+        lon: number;
+      };
+      metadata?: Record<string, any>;
+    };
     duplicateCheckResult?: {
       hasDuplicates: boolean;
       duplicates: Array<{
@@ -119,6 +129,16 @@ export interface OrchestratorResponse {
       enabled: boolean;
       interval: number;  // milliseconds between polls
       maxAttempts: number;  // maximum number of polling attempts
+    };
+    // Context validation metadata
+    contextValidation?: {
+      mismatch?: {
+        projectLocation: string;
+        queryLocation: string;
+        projectCoordinates?: { lat: number; lon: number };
+        queryCoordinates?: { lat: number; lon: number };
+      };
+      suggestion?: string;
     };
   };
 }

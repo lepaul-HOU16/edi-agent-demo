@@ -167,12 +167,56 @@ export const testProjectContext = (): void => {
   console.groupEnd();
 };
 
+/**
+ * Log context mismatch error for debugging
+ */
+export const logContextMismatchError = (details: {
+  errorMessage: string;
+  activeProject?: any;
+  query: string;
+  expectedLocation?: string;
+  actualLocation?: string;
+}): void => {
+  console.group('🚨 [ERROR] Context Mismatch Detected');
+  console.log('⏰ Timestamp:', new Date().toLocaleString());
+  console.log('📝 Query:', details.query);
+  console.log('❌ Error Message:', details.errorMessage);
+  
+  if (details.activeProject) {
+    console.group('🎯 Active Project');
+    console.log('Project ID:', details.activeProject.projectId);
+    console.log('Project Name:', details.activeProject.projectName);
+    console.log('Location:', details.activeProject.location || 'N/A');
+    console.log('Coordinates:', details.activeProject.coordinates || 'N/A');
+    console.groupEnd();
+  } else {
+    console.log('⚠️ No active project found');
+  }
+  
+  if (details.expectedLocation && details.actualLocation) {
+    console.group('📍 Location Mismatch');
+    console.log('Expected:', details.expectedLocation);
+    console.log('Actual:', details.actualLocation);
+    console.groupEnd();
+  }
+  
+  console.group('💡 Suggested Actions');
+  console.log('1. Refresh the page to reload project context');
+  console.log('2. Start a new project for the desired location');
+  console.log('3. Switch to the correct project using the dashboard');
+  console.log('4. Check the project badge at the top of the page');
+  console.groupEnd();
+  
+  console.groupEnd();
+};
+
 // Make functions available globally for browser console access
 if (typeof window !== 'undefined') {
   (window as any).debugProjectContext = dumpProjectContextState;
   (window as any).testProjectContext = testProjectContext;
   (window as any).validateProjectInfo = validateProjectInfo;
   (window as any).enableProjectContextLogging = enableProjectContextLogging;
+  (window as any).logContextMismatchError = logContextMismatchError;
   
   console.log('🐛 [DEBUG] Project context debug utilities loaded');
   console.log('🐛 [DEBUG] Available functions:');
@@ -180,4 +224,5 @@ if (typeof window !== 'undefined') {
   console.log('  - window.testProjectContext() - Run diagnostic tests');
   console.log('  - window.validateProjectInfo(project) - Validate project data');
   console.log('  - window.enableProjectContextLogging() - Show logging guide');
+  console.log('  - window.logContextMismatchError(details) - Log context mismatch');
 }

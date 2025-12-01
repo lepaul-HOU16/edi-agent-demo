@@ -12,6 +12,7 @@
  */
 
 import { ThoughtStep } from '../utils/thoughtTypes';
+import { streamThoughtStepToDynamoDB } from '../shared/thoughtStepStreaming';
 
 /**
  * Extended ThoughtStep interface with additional verbose fields
@@ -114,13 +115,32 @@ export abstract class BaseEnhancedAgent {
   /** Enable/disable verbose logging to console */
   protected verboseLogging: boolean = true;
   
+  /** Session ID for streaming thought steps to DynamoDB */
+  protected sessionId?: string;
+  
+  /** User ID for streaming thought steps to DynamoDB */
+  protected userId?: string;
+  
   constructor(verboseLogging: boolean = true) {
     this.verboseLogging = verboseLogging;
     this.log('BaseEnhancedAgent initialized');
   }
   
   /**
+   * Set session context for streaming thought steps
+   * Call this at the start of processMessage to enable realtime streaming
+   */
+  protected setSessionContext(sessionId?: string, userId?: string): void {
+    this.sessionId = sessionId;
+    this.userId = userId;
+    if (sessionId && userId) {
+      this.log('🌊 Streaming enabled for session:', sessionId);
+    }
+  }
+  
+  /**
    * Add a new thought step to the agent's execution trace
+   * Automatically streams to DynamoDB if session context is set
    * 
    * @param type - Type of operation being performed
    * @param title - Short, descriptive title
@@ -162,11 +182,15 @@ export abstract class BaseEnhancedAgent {
       stepId: id
     });
     
+    // Stream to DynamoDB for realtime updates
+    this.streamThoughtStep(step);
+    
     return step;
   }
   
   /**
    * Mark a thought step as complete
+   * Automatically streams update to DynamoDB if session context is set
    * 
    * @param stepId - ID of the step to complete
    * @param updates - Optional updates to apply to the step
@@ -202,6 +226,47 @@ export abstract class BaseEnhancedAgent {
       duration: `${duration}ms`,
       stepId
     });
+    
+    // Stream update to DynamoDB for realtime updates
+    this.streamThoughtStep(step);
+  }
+  
+  /**
+   * Stream a thought step to DynamoDB for realtime frontend updates
+   * Converts VerboseThoughtStep to ThoughtStep format for compatibility
+   */
+  private streamThoughtStep(step: VerboseThoughtStep): void {
+    if (!this.sessionId || !this.userId) {
+      return; // Streaming not enabled
+    }
+    
+    // Convert all VerboseThoughtSteps to ThoughtStep format
+    const allThoughtSteps: ThoughtStep[] = this.thoughtSteps.map(s => ({
+      step: s.id,
+      action: s.title,
+      reasoning: s.summary,
+      result: s.details,
+      status: s.status,
+      timestamp: new Date(s.timestamp).toISOString(),
+      duration: s.duration
+    }));
+    
+    // Convert current step to ThoughtStep format
+    const thoughtStep: ThoughtStep = {
+      step: step.id,
+      action: step.title,
+      reasoning: step.summary,
+      result: step.details,
+      status: step.status,
+      timestamp: new Date(step.timestamp).toISOString(),
+      duration: step.duration
+    };
+    
+    // Stream asynchronously (don't await to avoid blocking)
+    streamThoughtStepToDynamoDB(this.sessionId, this.userId, thoughtStep, allThoughtSteps)
+      .catch(error => {
+        this.log('⚠️ Failed to stream thought step:', error, 'warn');
+      });
   }
   
   /**

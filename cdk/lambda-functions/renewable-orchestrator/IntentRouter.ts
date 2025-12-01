@@ -43,9 +43,12 @@ export class IntentRouter {
    */
   async routeQuery(query: string, context?: any): Promise<RoutingResult> {
     console.log('🚦 IntentRouter: Routing query:', query);
+    if (context?.projectContext) {
+      console.log('🚦 IntentRouter: Has projectContext:', context.projectContext);
+    }
     
-    // Step 1: Classify intent
-    const classification = this.classifier.classifyIntent(query);
+    // Step 1: Classify intent (pass context to enable projectContext coordinate extraction)
+    const classification = this.classifier.classifyIntent(query, context);
     
     // Step 2: Validate service availability
     const serviceAvailable = this.validateServiceAvailability(classification.intent);

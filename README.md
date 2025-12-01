@@ -484,6 +484,13 @@ cdk deploy
 - **[.kiro/steering/](./kiro/steering/)** - Development guidelines and best practices
 - **[docs/](./docs/)** - Additional documentation and guides
 
+### Chain of Thought Streaming Documentation
+- **[Regression Fixes Summary](./docs/REGRESSION_FIXES_SUMMARY.md)** - Quick reference for all fixes
+- **[Complete Fix Documentation](./docs/THINKING_INDICATOR_FIXES.md)** - Comprehensive documentation of all fixes
+- **[BaseEnhancedAgent Issues](./docs/BASE_ENHANCED_AGENT_STREAMING_ISSUES.md)** - Technical deep dive into streaming problems
+- **[Troubleshooting Runbook](./docs/STREAMING_TROUBLESHOOTING_RUNBOOK.md)** - Step-by-step troubleshooting procedures
+- **[Project Context Usage](./docs/PROJECT_CONTEXT_USAGE.md)** - Guide to using ProjectContext API
+
 ---
 
 ## 🤝 Contributing

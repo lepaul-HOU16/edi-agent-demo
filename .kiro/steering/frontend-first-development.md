@@ -14,6 +14,16 @@ Users interact with the frontend. They never see the backend. Therefore:
 - Frontend user experience is the primary concern
 - Backend exists only to serve frontend needs
 
+## CRITICAL: DEPLOYMENT POLICY
+
+**NEVER DEPLOY TO PRODUCTION MANUALLY**
+
+See `.kiro/steering/NEVER-DEPLOY-TO-PRODUCTION.md` for deployment rules.
+
+- ❌ Do NOT run `./deploy-frontend.sh`
+- ✅ Test on localhost only (`npm run dev`)
+- ✅ CI/CD handles production deployment
+
 ## Development Order
 
 ### ✅ CORRECT Order

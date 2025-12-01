@@ -454,17 +454,17 @@ body[data-awsui-mode="light"] .reset-chat {
 }
 
 
-/* CRITICAL: Force panel background to be dark in dark mode */
+/* CRITICAL: Force panel background to match theme */
 body[data-awsui-mode="dark"] .panel,
 body[data-awsui-mode="dark"] div.panel {
-  background-color: var(--awsui-color-background-layout-main) !important;
-  background: var(--awsui-color-background-layout-main) !important;
+  background-color: #0f1b2a !important;
+  background: #0f1b2a !important;
 }
 
 body[data-awsui-mode="light"] .panel,
 body[data-awsui-mode="light"] div.panel {
-  background-color: var(--awsui-color-background-layout-main) !important;
-  background: var(--awsui-color-background-layout-main) !important;
+  background-color: #ffffff !important;
+  background: #ffffff !important;
 }
 
 
@@ -485,4 +485,11 @@ body[data-awsui-mode="light"] div.panel {
 [data-awsui-mode="dark"] div[class*="awsui"][class*="root"],
 [data-awsui-mode="dark"] div[class*="awsui_root"] {
   border-color: #2a3642 !important;
+}
+
+/* Remove border radius ONLY from the direct Cloudscape Container root inside .panel to fill corners */
+/* This targets the outer Container component, not nested components like ExpandableSection */
+.panel > [class*="awsui_root"]:first-child,
+.panel > div:first-child > [class*="awsui_root"]:first-child {
+  border-radius: 0 !important;
 }
