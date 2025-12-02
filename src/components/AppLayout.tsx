@@ -168,23 +168,23 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
               },
             ],
           },
-          {
-            type: 'menu-dropdown',
-            iconName: 'grid-view',
-            text: 'Tools',
-            ariaLabel: 'Tools',
-            title: 'Tools',
-            items: [
-              {
-                id: 'team',
-                text: 'Team Administration',
-              },
-              {
-                id: 'status',
-                text: 'Platform Configurations',
-              },
-            ],
-          },
+          // {
+          //   type: 'menu-dropdown',
+          //   iconName: 'grid-view',
+          //   text: 'Tools',
+          //   ariaLabel: 'Tools',
+          //   title: 'Tools',
+          //   items: [
+          //     {
+          //       id: 'team',
+          //       text: 'Team Administration',
+          //     },
+          //     {
+          //       id: 'status',
+          //       text: 'Platform Configurations',
+          //     },
+          //   ],
+          // },
           {
             type: 'button',
             iconSvg: darkMode ? 
