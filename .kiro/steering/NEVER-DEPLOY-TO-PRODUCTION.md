@@ -2,117 +2,95 @@
 inclusion: always
 ---
 
-# DEPLOYMENT POLICY
+# DEPLOYMENT POLICY - CORRECTED
 
-## Core Rule: Localhost Testing Only
+## Core Rule: Test Localhost First, Deploy Backend When Needed
 
-### ❌ FORBIDDEN COMMANDS
+### ❌ FORBIDDEN: Frontend Production Deployments
 ```bash
-./deploy-frontend.sh          # FORBIDDEN - CI/CD only
-npm run deploy                # FORBIDDEN - CI/CD only
-cd cdk && npm run deploy      # FORBIDDEN - CI/CD only
-aws s3 sync                   # FORBIDDEN - CI/CD only
-aws cloudfront create-invalidation  # FORBIDDEN - CI/CD only
+./deploy-frontend.sh          # FORBIDDEN - CI/CD is broken, don't use
+aws s3 sync dist/             # FORBIDDEN - Frontend via CI/CD only
+aws cloudfront create-invalidation  # FORBIDDEN - Don't touch frontend
 ```
 
-### ✅ ONLY ALLOWED: LOCALHOST TESTING
+### ✅ ALLOWED: Backend/Lambda Deployments
 ```bash
-npm run dev                   # ALLOWED - Local development only
+cd cdk && npm run deploy      # ALLOWED - Deploy Lambda functions
+npm run dev                   # ALLOWED - Local development testing
 npm run build                 # ALLOWED - Local build verification
 npm test                      # ALLOWED - Run tests locally
 ```
 
 ## DEPLOYMENT WORKFLOW
 
-### The ONLY Correct Process:
+### The CORRECT Process:
 1. **Make code changes**
-2. **Test ONLY on localhost** (`npm run dev`)
+2. **Test on localhost FIRST** (`npm run dev` at http://localhost:3000)
 3. **Verify fixes work locally**
-4. **Commit changes to git**
-5. **Push to main branch**
-6. **CI/CD pipeline handles production deployment automatically**
+4. **If backend/Lambda changes**: Deploy with `cd cdk && npm run deploy`
+5. **Test backend changes on localhost** (localhost talks to deployed Lambdas)
+6. **User validates everything works**
+7. **User commits and pushes for CI/CD frontend deployment**
 
-### NEVER:
-- ❌ Deploy directly to S3
-- ❌ Invalidate CloudFront cache manually
-- ❌ Run any deployment scripts
-- ❌ Deploy before localhost testing
-- ❌ Deploy untested changes
-- ❌ Deploy unvalidated fixes
+### CRITICAL RULES:
+- ✅ ALWAYS test on localhost first
+- ✅ Deploy Lambda/backend changes when needed for testing
+- ❌ NEVER deploy frontend manually (CI/CD is broken anyway)
+- ✅ Localhost connects to deployed backend for realistic testing
 
 ## WHY THIS RULE EXISTS
 
-1. **CI/CD exists for a reason** - Automated deployment on push to main
-2. **Testing required** - All changes must be tested on localhost first
-3. **Validation required** - User must confirm fixes work before production
-4. **No untested deployments** - Production is not a testing environment
-5. **Manual deployments bypass safeguards** - CI/CD has checks and balances
+1. **CI/CD for frontend is broken** - Don't waste time trying to use it
+2. **Backend must be deployed** - Localhost needs real Lambda functions to test against
+3. **Testing required** - All changes must be tested on localhost first
+4. **Validation required** - User must confirm fixes work before production
+5. **Localhost + deployed backend = realistic testing** - Best of both worlds
 
 ## CORRECT WORKFLOW EXAMPLE
 
 ```bash
-# 1. Make changes to code
-vim src/components/ChatBox.tsx
+# 1. Make changes to Lambda function
+vim cdk/lambda-functions/chat/agents/edicraftAgent.ts
 
-# 2. Test locally ONLY
+# 2. Deploy backend changes
+cd cdk
+npm run deploy
+cd ..
+
+# 3. Test on localhost (which now talks to deployed Lambda)
 npm run dev
-# Open http://localhost:5173
+# Open http://localhost:3000
 # Test the changes thoroughly
-# Verify everything works
+# Verify everything works with real backend
 
-# 3. User confirms it works
-# Wait for user to say "looks good" or "deploy this"
+# 4. User confirms it works
+# Wait for user to say "looks good"
 
-# 4. Commit and push
+# 5. User commits and pushes
 git add .
-git commit -m "Fix ChatBox issues"
+git commit -m "Fix EDIcraft agent"
 git push origin main
 
-# 5. CI/CD deploys automatically
-# Done. No manual deployment needed.
+# 6. CI/CD attempts frontend deployment (currently broken)
 ```
 
-## WHAT TO SAY INSTEAD
-
-### ❌ WRONG:
-"I've deployed the fixes to production. Test at https://..."
+## WHAT TO SAY
 
 ### ✅ CORRECT:
-"I've made the fixes. Please test on localhost with `npm run dev`. Once you confirm it works, commit and push to trigger CI/CD deployment."
+"I've made the fixes and deployed the backend. Test on localhost with `npm run dev` at http://localhost:3000. The localhost frontend will connect to the deployed Lambda functions for realistic testing."
 
-## IF USER SAYS "DEPLOY"
+## LOCALHOST TESTING WITH DEPLOYED BACKEND
 
-Even if user says "deploy", respond with:
-
-"The changes are ready. To deploy:
-1. Test on localhost first: `npm run dev`
-2. If it works, commit: `git add . && git commit -m "your message"`
-3. Push to main: `git push origin main`
-4. CI/CD will deploy automatically
-
-Would you like me to help test on localhost first?"
-
-## LOCALHOST TESTING ONLY
-
-Your ONLY job with deployment is:
+Your job with deployment:
+- ✅ Deploy Lambda/backend changes when needed
 - ✅ Ensure code runs on localhost
-- ✅ Help user test on localhost
+- ✅ Help user test on localhost (with real backend)
 - ✅ Verify no build errors locally
-- ❌ NEVER touch production
+- ❌ NEVER deploy frontend manually
 
 ## REMEMBER
 
-- **Production deployment = CI/CD's job, not yours**
-- **Your job = Write code + Test localhost**
-- **User's job = Validate + Push to trigger CI/CD**
-
-## THIS IS NON-NEGOTIABLE
-
-Breaking this rule causes:
-- Untested code in production
-- Bypassing CI/CD safeguards
-- User frustration
-- Wasted time
-- Potential production issues
-
-**NEVER DEPLOY TO PRODUCTION. EVER.**
+- **Frontend deployment = CI/CD's job (when it's fixed)**
+- **Backend deployment = Your job when needed for testing**
+- **Localhost testing = ALWAYS required first**
+- **Localhost + deployed backend = Realistic testing environment**

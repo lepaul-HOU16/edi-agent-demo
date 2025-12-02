@@ -27,7 +27,7 @@ async function buildFunction(functionName, entryPoint = null) {
     } else if (fs.existsSync(handlerPath)) {
       entryPoint = 'handler.ts';
     } else {
-      console.warn(`⚠️  Skipping ${functionName}: No index.ts or handler.ts found`);
+      // Silently skip - warning is handled in buildAll()
       return;
     }
   }
@@ -83,11 +83,16 @@ async function buildAll() {
     return;
   }
 
-  // Get all function directories
+  // Get all function directories (exclude shared and Python-only Lambdas)
+  // Python Lambdas are deployed directly from their directories by CDK
+  // and don't need esbuild compilation
+  const pythonOnlyLambdas = ['petrophysics-calculator', 'renewable-tools', 'renewable-tools-docker'];
   const functionDirs = fs.readdirSync(lambdaFunctionsDir)
     .filter(name => {
       const fullPath = path.join(lambdaFunctionsDir, name);
-      return fs.statSync(fullPath).isDirectory() && name !== 'shared';
+      return fs.statSync(fullPath).isDirectory() && 
+             name !== 'shared' && 
+             !pythonOnlyLambdas.includes(name);
     });
 
   if (functionDirs.length === 0) {
@@ -98,11 +103,24 @@ async function buildAll() {
   console.log(`📦 Building ${functionDirs.length} Lambda function(s)...\n`);
 
   // Build all functions
+  let builtCount = 0;
+  let skippedCount = 0;
+  
   for (const functionName of functionDirs) {
-    await buildFunction(functionName);
+    const indexPath = path.join(lambdaFunctionsDir, functionName, 'index.ts');
+    const handlerPath = path.join(lambdaFunctionsDir, functionName, 'handler.ts');
+    
+    if (fs.existsSync(indexPath) || fs.existsSync(handlerPath)) {
+      await buildFunction(functionName);
+      builtCount++;
+    } else {
+      console.log(`⚠️  Skipping ${functionName}: No index.ts or handler.ts found`);
+      skippedCount++;
+    }
   }
 
-  console.log('\n✅ All Lambda functions built successfully!');
+  console.log(`\n✅ All Lambda functions built successfully!`);
+  console.log(`   Built: ${builtCount}, Skipped: ${skippedCount} (Python/Docker functions)`);
 }
 
 /**

@@ -36,6 +36,14 @@ export default defineConfig({
     hmr: {
       overlay: true,
     },
+    proxy: {
+      '/api': {
+        target: process.env.VITE_API_URL || 'https://t4begsixg2.execute-api.us-east-1.amazonaws.com',
+        changeOrigin: true,
+        secure: false,
+        rewrite: (path) => path, // Keep /api prefix
+      },
+    },
   },
   define: {
     'process.env': {},

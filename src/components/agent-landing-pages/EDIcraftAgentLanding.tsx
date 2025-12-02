@@ -17,42 +17,19 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
   const [clearResult, setClearResult] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const handleClearEnvironment = async () => {
-    console.log('[CLEAR BUTTON] Button clicked - executing clear operation');
+    console.log('[CLEAR BUTTON] Button clicked - executing clear via chat');
     setIsClearing(true);
     setClearResult(null);
 
     try {
-      // Call EDIcraft agent directly via REST API (silent operation, no chat message)
-      console.log('[CLEAR BUTTON] Calling EDIcraft agent directly for silent clear');
-      
-      const response = await fetch('/api/chat/message', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: 'Clear the Minecraft environment and fill any terrain holes',
-          chatSessionId: 'silent-clear-' + Date.now(),
-          agent: 'edicraft', // Explicitly specify EDIcraft agent
-        }),
-      });
+      // Use the onSendMessage callback if provided (sends through chat)
+      if (onSendMessage) {
+        console.log('[CLEAR BUTTON] Sending clear message through chat');
+        await onSendMessage('Clear the Minecraft environment and fill any terrain holes');
 
-      if (!response.ok) {
-        throw new Error(`API call failed: ${response.statusText}`);
-      }
-
-      const result = await response.json();
-      console.log('[CLEAR BUTTON] Clear result:', result);
-
-      if (result.success) {
         setClearResult({
           type: 'success',
-          message: result.response?.text || 'Environment cleared successfully!'
-        });
-      } else {
-        setClearResult({
-          type: 'error',
-          message: result.error || 'Clear operation failed'
+          message: 'Clear command sent! Check the chat for results.'
         });
       }
 
