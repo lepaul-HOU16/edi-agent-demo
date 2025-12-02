@@ -15,6 +15,8 @@ import { OSDUSearchResponse, OSDUErrorResponse } from './OSDUSearchResponse';
 import { OSDUQueryBuilder } from './OSDUQueryBuilder';
 import type { QueryCriterion } from './OSDUQueryBuilder';
 import { ExpandableSection, Grid } from '@cloudscape-design/components';
+import { PushToTalkButton } from './PushToTalkButton';
+import { VoiceTranscriptionDisplay } from './VoiceTranscriptionDisplay';
 
 // Enhanced component to render professional geoscientist content instead of boring tables
 // Memoized to prevent unnecessary re-renders
@@ -234,6 +236,10 @@ const CatalogChatBoxCloudscape = (params: {
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const [isInputVisible, setIsInputVisible] = useState<boolean>(true);
+  
+  // Voice recording state
+  const [isVoiceRecording, setIsVoiceRecording] = useState<boolean>(false);
+  const [voiceTranscription, setVoiceTranscription] = useState<string>('');
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
@@ -324,6 +330,32 @@ const CatalogChatBoxCloudscape = (params: {
     }
   }, [onInputChange, setMessages, onSendMessage]);
 
+  // Handler for PTT transcription updates
+  const handleVoiceTranscriptionChange = useCallback((text: string) => {
+    setVoiceTranscription(text);
+  }, []);
+
+  // Handler for PTT recording state changes
+  const handleVoiceRecordingStateChange = useCallback((isRecording: boolean) => {
+    setIsVoiceRecording(isRecording);
+    
+    // Hide input when voice recording starts
+    if (isRecording && isInputVisible) {
+      console.log('🎤 Catalog: Voice recording started, hiding input');
+      setIsInputVisible(false);
+    }
+  }, [isInputVisible]);
+
+  // Handler for PTT transcription completion
+  const handleVoiceTranscriptionComplete = useCallback((text: string) => {
+    console.log('🎤 Catalog: Voice transcription complete:', text);
+    if (text.trim()) {
+      handleSend(text);
+    }
+    setVoiceTranscription('');
+    setIsVoiceRecording(false);
+  }, [handleSend]);
+
   return (
     <div style={{
       width: '100%',
@@ -394,6 +426,18 @@ const CatalogChatBoxCloudscape = (params: {
               )}
             </div>
           ))}
+          
+          {/* Voice Transcription Display - shown in conversation area when recording */}
+          {(isVoiceRecording || voiceTranscription.length > 0) && (
+            <div style={{ marginBottom: '16px' }}>
+              <VoiceTranscriptionDisplay
+                transcription={voiceTranscription}
+                isRecording={isVoiceRecording}
+                isVisible={true}
+              />
+            </div>
+          )}
+          
           <div ref={messagesEndRef} />
         </div>
       </div>
@@ -485,6 +529,23 @@ const CatalogChatBoxCloudscape = (params: {
           </div>
         </Grid>
 
+      </div>
+      
+      {/* Push-to-Talk Button - ALWAYS VISIBLE, positioned above input toggle */}
+      <div
+        style={{
+          position: 'fixed',
+          right: '22px',
+          bottom: '98px',
+          zIndex: 1002,
+        }}
+      >
+        <PushToTalkButton
+          onTranscriptionComplete={handleVoiceTranscriptionComplete}
+          onTranscriptionChange={handleVoiceTranscriptionChange}
+          onRecordingStateChange={handleVoiceRecordingStateChange}
+          disabled={isLoading}
+        />
       </div>
       
       {/* Toggle button fixed on right edge - never moves */}

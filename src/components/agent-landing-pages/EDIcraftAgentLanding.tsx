@@ -1,44 +1,71 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Container, Header, Box, SpaceBetween, ColumnLayout, ExpandableSection, Cards, StatusIndicator, Button, Alert } from '@cloudscape-design/components';
 import AgentVisualization from './AgentVisualization';
 
 interface EDIcraftAgentLandingProps {
   onWorkflowSelect?: (prompt: string) => void;
+  onSendMessage?: (message: string) => Promise<void>;
 }
 
-const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ onWorkflowSelect }) => {
+const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ onWorkflowSelect, onSendMessage }) => {
   // In a real implementation, this would check actual server status
   const serverStatus = 'success'; // 'success' | 'warning' | 'error' | 'info'
   const serverUrl = 'edicraft.nigelgardiner.com:49000';
 
   // State for clear environment operation
-  const [isClearing, setIsClearing] = useState(false);
-  const [clearResult, setClearResult] = useState<{ type: 'success' | 'error', message: string } | null>(null);
+  const [isClearing, setIsClearing] = React.useState(false);
+  const [clearResult, setClearResult] = React.useState<{ type: 'success' | 'error', message: string } | null>(null);
 
   const handleClearEnvironment = async () => {
-    console.log('[CLEAR BUTTON] Button clicked - executing chunk-based area wipe');
+    console.log('[CLEAR BUTTON] Button clicked - executing clear operation');
     setIsClearing(true);
     setClearResult(null);
 
     try {
-      // EDIcraft agent is currently disabled in this build
-      console.log('[CLEAR BUTTON] EDIcraft agent is not available');
-
-      // Show informational message
-      setClearResult({
-        type: 'error',
-        message: 'EDIcraft agent is currently unavailable. This feature requires the Minecraft server integration to be enabled.'
+      // Call EDIcraft agent directly via REST API (silent operation, no chat message)
+      console.log('[CLEAR BUTTON] Calling EDIcraft agent directly for silent clear');
+      
+      const response = await fetch('/api/chat/message', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: 'Clear the Minecraft environment and fill any terrain holes',
+          chatSessionId: 'silent-clear-' + Date.now(),
+          agent: 'edicraft', // Explicitly specify EDIcraft agent
+        }),
       });
+
+      if (!response.ok) {
+        throw new Error(`API call failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      console.log('[CLEAR BUTTON] Clear result:', result);
+
+      if (result.success) {
+        setClearResult({
+          type: 'success',
+          message: result.response?.text || 'Environment cleared successfully!'
+        });
+      } else {
+        setClearResult({
+          type: 'error',
+          message: result.error || 'Clear operation failed'
+        });
+      }
+
+      // Hide the message after 5 seconds
+      setTimeout(() => {
+        setClearResult(null);
+      }, 5000);
 
     } catch (error) {
       console.error('[CLEAR BUTTON] Error clearing environment:', error);
-      
-      // Error messages stay visible until user dismisses
       setClearResult({
         type: 'error',
-        message: error instanceof Error 
-          ? `Failed to clear environment: ${error.message}` 
-          : 'Failed to clear environment. Please try again.'
+        message: 'Failed to clear environment. Please try again.'
       });
     } finally {
       setIsClearing(false);
@@ -241,14 +268,14 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
                 onClick={handleClearEnvironment}
                 fullWidth
               >
-                Clear Environment (Chunk-Based Wipe)
+                Clear Minecraft Environment
               </Button>
             </Box>
             <Box color="text-body-secondary" fontSize="body-s">
-              Performs aggressive chunk-based area wipe to remove ALL structures from the Minecraft world.
-              Processes the environment in 32×32 chunk sections, clearing all blocks from ground level to
-              build height, then restores terrain with grass blocks. Ideal for demo preparation or complete
-              environment reset.
+              Clears the Minecraft environment by removing all structures (wellbores, rigs, markers) 
+              and entities. Uses chunk-based clearing to remove blocks while preserving terrain. 
+              The agent will show progress and results in the chat. 
+              Ideal for demo preparation or complete environment reset.
             </Box>
           </SpaceBetween>
         </Box>

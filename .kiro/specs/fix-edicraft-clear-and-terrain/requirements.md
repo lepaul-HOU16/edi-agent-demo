@@ -2,63 +2,50 @@
 
 ## Introduction
 
-Implement a simple, aggressive clear operation for EDIcraft that wipes entire 32x32 chunk areas clean, removing ALL blocks down to ground level and optionally restoring terrain. This replaces the complex selective block-type clearing that was timing out and failing.
+The EDIcraft agent's "Clear Minecraft Environment" button has regressed. It currently sends a chat message "Clear the Minecraft environment" instead of directly triggering the clear action with a loading spinner. This creates a poor user experience where the button behaves like a chat prompt instead of an action button.
 
 ## Glossary
 
-- **EDIcraft Agent**: AI agent that builds wellbore visualizations in Minecraft
-- **Clear Environment Tool**: Python tool that removes structures from Minecraft
-- **RCON**: Remote Console protocol for sending commands to Minecraft server
-- **Chunk**: 32x32 block horizontal area in Minecraft
-- **Ground Level**: Y-coordinate 60-64, the standard terrain surface level
-- **Area Wipe**: Complete removal of all blocks in a region, regardless of type
+- **EDIcraft Agent**: The Minecraft-based subsurface visualization agent
+- **Clear Button**: The "Clear Minecraft Environment" button on the EDIcraft landing page
+- **Loading Spinner**: Visual feedback showing an action is in progress
+- **Chat Interface**: The message input/output system for conversing with agents
+- **Direct Action**: An operation that executes immediately without going through chat
 
 ## Requirements
 
-### Requirement 1: Chunk-Based Area Clearing
+### Requirement 1
 
-**User Story:** As a demo operator, I want to clear entire 32x32 chunk areas at a time, so that all structures are completely removed without selective filtering.
-
-#### Acceptance Criteria
-
-1. WHEN the clear environment tool is executed, THE System SHALL divide the clear region into 32x32 horizontal chunks
-2. WHEN processing each chunk, THE System SHALL replace ALL blocks from ground level to build height with air
-3. WHEN clearing a chunk, THE System SHALL NOT filter by block type
-4. WHEN a chunk clear operation completes, THE System SHALL log the chunk coordinates and blocks cleared
-5. WHEN a chunk clear operation fails, THE System SHALL log the error and continue with remaining chunks
-
-### Requirement 2: Ground Level Restoration
-
-**User Story:** As a demo operator, I want the ground to be restored to a flat surface after clearing, so that the world is ready for new visualizations.
+**User Story:** As a user, I want the Clear button to directly execute the clear action without sending a chat message, so that I get immediate visual feedback and don't see unnecessary chat prompts.
 
 #### Acceptance Criteria
 
-1. WHEN preserve_terrain is True, THE System SHALL fill ground level (y=60 to y=64) with grass_block or sand
-2. WHEN restoring ground, THE System SHALL process each 32x32 chunk independently
-3. WHEN ground restoration completes, THE System SHALL log the number of blocks placed
-4. WHEN ground restoration fails for a chunk, THE System SHALL log the error and continue with remaining chunks
-5. WHEN preserve_terrain is False, THE System SHALL leave the area completely clear with no ground restoration
+1. WHEN a user clicks the "Clear Minecraft Environment" button THEN the system SHALL execute the clear action directly without sending a chat message
+2. WHEN the clear action is triggered THEN the system SHALL display a loading spinner on the button
+3. WHEN the clear action is in progress THEN the system SHALL disable the button to prevent multiple clicks
+4. WHEN the clear action completes THEN the system SHALL remove the loading spinner and re-enable the button
+5. WHEN the clear action completes THEN the system SHALL display the result in the chat (success or error message from the agent)
 
-### Requirement 3: Horizon Visualization Fix
+### Requirement 2
 
-**User Story:** As a demo operator, I want horizon surfaces to build correctly in Minecraft, so that I can visualize geological horizons alongside wellbores.
-
-#### Acceptance Criteria
-
-1. WHEN building a horizon surface, THE System SHALL fetch horizon data from OSDU successfully
-2. WHEN parsing horizon data, THE System SHALL extract X, Y, Z coordinates correctly
-3. WHEN converting to Minecraft coordinates, THE System SHALL use appropriate scaling for surface visualization
-4. WHEN building the surface, THE System SHALL place blocks at correct Minecraft coordinates
-5. WHEN horizon build completes, THE System SHALL return success message with block count and coordinates
-
-### Requirement 4: RCON Timeout Handling
-
-**User Story:** As a demo operator, I want the clear operation to complete reliably without timing out, so that I can reset the environment for demos.
+**User Story:** As a user, I want clear visual feedback during the clear operation, so that I know the system is working and when it's complete.
 
 #### Acceptance Criteria
 
-1. WHEN executing RCON commands, THE System SHALL use a timeout of 30 seconds per chunk
-2. WHEN a chunk clear times out, THE System SHALL log the timeout and continue with remaining chunks
-3. WHEN all chunks are processed, THE System SHALL return a summary of successful and failed chunks
-4. WHEN the entire operation exceeds 5 minutes, THE System SHALL abort and return partial results
-5. WHEN RCON connection fails, THE System SHALL retry up to 3 times before failing
+1. WHEN the clear button is clicked THEN the button SHALL show a spinning icon immediately
+2. WHILE the clear operation is in progress THEN the button text SHALL indicate the operation is ongoing
+3. WHEN the operation completes successfully THEN the system SHALL show a success message in the chat
+4. WHEN the operation fails THEN the system SHALL show an error message in the chat
+5. WHEN the operation completes (success or failure) THEN the button SHALL return to its normal state
+
+### Requirement 3
+
+**User Story:** As a user, I want the clear functionality to work the same way it did before the regression, so that I have a consistent and predictable experience.
+
+#### Acceptance Criteria
+
+1. WHEN the clear button is clicked THEN the system SHALL NOT inject a chat message into the input field
+2. WHEN the clear button is clicked THEN the system SHALL NOT display "Clear the Minecraft environment" as a user message in the chat
+3. WHEN the clear action executes THEN the system SHALL call the backend API directly
+4. WHEN the backend responds THEN the system SHALL display only the agent's response in the chat
+5. WHEN the user sees the chat after clearing THEN they SHALL only see the agent's response, not a user prompt

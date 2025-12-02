@@ -108,6 +108,10 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
         marginBottom: '8px',
         marginRight: '2px',
       },
+      '& .awsui-prompt-input__action-button button': {
+        border: 'none !important',
+        boxShadow: 'none !important',
+      },
       '& .awsui-prompt-input__container': {
         width: '100%',
         padding: '4px',

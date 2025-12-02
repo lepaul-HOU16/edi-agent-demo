@@ -249,6 +249,7 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
   const isDark = theme.palette.mode === 'dark';
   const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const containerRef = useRef<HTMLDivElement>(null);
+  const endRef = useRef<HTMLDivElement>(null);
   const prevStepCountRef = useRef(0);
 
   // Extract thought steps from messages if provided
@@ -304,11 +305,22 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
   // Auto-scroll when new steps are added
   useEffect(() => {
     if (autoScroll && thoughtSteps.length > prevStepCountRef.current) {
-      if (containerRef.current) {
-        setTimeout(() => {
-          containerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-        }, 100);
-      }
+      // Use requestAnimationFrame for smooth, immediate scrolling
+      requestAnimationFrame(() => {
+        // Try scrolling the end element into view first (smoother)
+        if (endRef.current) {
+          endRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+          console.log('[ChainOfThought] Scrolled end element into view, stepCount:', thoughtSteps.length);
+        } else if (containerRef.current) {
+          // Fallback: scroll container to bottom
+          containerRef.current.scrollTop = containerRef.current.scrollHeight;
+          console.log('[ChainOfThought] Scrolled container to bottom:', {
+            scrollTop: containerRef.current.scrollTop,
+            scrollHeight: containerRef.current.scrollHeight,
+            stepCount: thoughtSteps.length
+          });
+        }
+      });
     }
     prevStepCountRef.current = thoughtSteps.length;
   }, [thoughtSteps.length, autoScroll]);
@@ -401,6 +413,9 @@ export const ChainOfThoughtDisplay: React.FC<ChainOfThoughtDisplayProps> = ({
           onToggle={() => {}}
         />
       ))}
+      
+      {/* Invisible element at the end for scrolling */}
+      <div ref={endRef} style={{ height: '1px' }} />
     </Box>
   );
 };

@@ -1,0 +1,113 @@
+/**
+ * PushToTalkButton Styles
+ * 
+ * Styling for the push-to-talk voice input button and related UI elements
+ */
+
+.push-to-talk-container {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+/* PTT Button Container - NEVER MOVES */
+.ptt-button-container-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+/* Transparent overlay for capturing events */
+.ptt-button-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  cursor: pointer;
+  z-index: 1;
+}
+
+/* Active/Pressed state - turn blue like hide input toggle when active, NO MOVEMENT */
+.ptt-button-container-wrapper.pressed button {
+  /* Force primary blue styling when pressed - matches toggle's active state */
+  background: #0972d3 !important;
+  color: white !important;
+  border-color: #0972d3 !important;
+  transition: background 0.05s ease, color 0.05s ease, border-color 0.05s ease;
+}
+
+/* Apply pressed class to container when overlay is pressed */
+.ptt-button-overlay.pressed {
+  /* This class triggers the container's pressed state */
+}
+
+/* Button pulsing animation when recording - button itself pulsates */
+.ptt-button-container-wrapper button[data-variant="primary"] {
+  animation: buttonPulse 1.5s ease-in-out infinite;
+}
+
+/* Pulsing animation for the button when recording */
+@keyframes buttonPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(9, 114, 211, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 8px rgba(9, 114, 211, 0);
+  }
+}
+
+/* Focus Indicator */
+.ptt-button:focus-visible {
+  outline: 3px solid #007bff;
+  outline-offset: 3px;
+}
+
+.ptt-button.focused {
+  box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.3) !important;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .ptt-button:focus-visible,
+  .ptt-button.focused {
+    outline: 4px solid currentColor;
+    outline-offset: 4px;
+  }
+}
+
+/* Disabled State */
+.ptt-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .recording-indicator {
+    background-color: rgba(209, 50, 18, 0.2);
+  }
+  
+  .permission-indicator {
+    background-color: rgba(0, 123, 255, 0.2);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .push-to-talk-container {
+    gap: 6px;
+  }
+  
+  .recording-indicator,
+  .permission-indicator {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .pulse-dot {
+    width: 6px;
+    height: 6px;
+  }
+}

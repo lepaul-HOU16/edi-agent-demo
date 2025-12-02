@@ -143,6 +143,51 @@ const ReinventDemoPage: React.FC = () => {
               )
             },
             {
+              id: 'architecture-diagrams',
+              label: 'Architecture Diagrams',
+              content: (
+                <SpaceBetween size="l">
+                  <Box variant="h2">Complete Architecture with OSDU & Data Catalog</Box>
+                  <Box variant="p">
+                    High-level architecture showing all AWS services, OSDU data integration (highlighted in red),
+                    and Petrophysics agent flow via MCP (highlighted in blue).
+                  </Box>
+                  <img 
+                    src="/demo/diagrams/01-high-level-architecture.png" 
+                    alt="High-Level Architecture"
+                    style={{ width: '100%', maxWidth: '1920px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                  
+                  <Box variant="h2">Enhanced Data Flow with OSDU Integration</Box>
+                  <Box variant="p">
+                    Detailed data flow showing numbered sequences, OSDU ingestion (red), Data Catalog integration (purple),
+                    and complete request/response paths.
+                  </Box>
+                  <img 
+                    src="/demo/diagrams/06-data-flow-architecture.png" 
+                    alt="Data Flow Architecture"
+                    style={{ width: '100%', maxWidth: '1920px', border: '1px solid #ddd', borderRadius: '4px' }}
+                  />
+                  
+                  <Box variant="h2">Key Highlights</Box>
+                  <SpaceBetween size="s">
+                    <Box variant="p">
+                      <strong>🔴 OSDU Data Flow:</strong> External well data ingestion → S3 storage → Glue Crawler → Data Catalog
+                    </Box>
+                    <Box variant="p">
+                      <strong>🔵 Petrophysics Agent (Strands via MCP):</strong> Agent → MCP Server → Python Lambda → LAS file processing
+                    </Box>
+                    <Box variant="p">
+                      <strong>🟢 Renewable Agent (Direct Lambda):</strong> Agent → Orchestrator Lambda → Python tools
+                    </Box>
+                    <Box variant="p">
+                      <strong>🟣 Data Catalog:</strong> Metadata repository for well data, projects, and artifacts
+                    </Box>
+                  </SpaceBetween>
+                </SpaceBetween>
+              )
+            },
+            {
               id: 'troubleshooting',
               label: 'Troubleshooting',
               content: (

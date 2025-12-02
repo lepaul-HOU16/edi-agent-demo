@@ -228,7 +228,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
       <div style={{
         flexGrow: 1,
         overflow: 'auto',
-        padding: '40px',
+        padding: '5px 40px 40px 40px',
       }}>
         {children}
       </div>

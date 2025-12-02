@@ -521,6 +521,7 @@ export class MainStack extends cdk.Stack {
         AMPLIFY_DATA_PROJECT_TABLE_NAME: projectTable.tableName,
         AMPLIFY_DATA_AGENTPROGRESS_TABLE_NAME: agentProgressTable.tableName,
         AMPLIFY_DATA_SESSIONCONTEXT_TABLE_NAME: sessionContextTable.tableName,
+        SESSION_CONTEXT_TABLE: sessionContextTable.tableName, // Add missing env var
         S3_BUCKET: storageBucket.bucketName,
         CHAT_MESSAGE_TABLE: chatMessageTable.tableName, // For message persistence
         FORCE_REFRESH: Date.now().toString(), // Force Lambda update

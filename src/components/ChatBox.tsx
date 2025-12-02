@@ -12,6 +12,8 @@ import { defaultPrompts } from '@/constants/defaultPrompts';
 import ButtonDropdown from '@cloudscape-design/components/button-dropdown';
 import ExpandablePromptInput from './ExpandablePromptInput';
 import AgentSwitcher from './AgentSwitcher';
+import { PushToTalkButton } from './PushToTalkButton';
+import { VoiceTranscriptionDisplay } from './VoiceTranscriptionDisplay';
 
 import { getThinkingContextFromStep } from '@/utils/thoughtTypes';
 import { useRenewableJobPolling, useChatMessagePolling } from '@/hooks';
@@ -47,6 +49,10 @@ const ChatBox = (params: {
   const { chatSessionId, showChainOfThought } = params
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
   const [isInputVisible, setIsInputVisible] = useState<boolean>(true);
+  
+  // Voice recording state
+  const [isVoiceRecording, setIsVoiceRecording] = useState<boolean>(false);
+  const [voiceTranscription, setVoiceTranscription] = useState<string>('');
   
   // CRITICAL FIX: Get active project context
   const { activeProject } = useProjectContext();
@@ -612,6 +618,32 @@ const ChatBox = (params: {
     setIsLoading
   ]);
 
+  // Handler for PTT transcription updates
+  const handleVoiceTranscriptionChange = useCallback((text: string) => {
+    setVoiceTranscription(text);
+  }, []);
+
+  // Handler for PTT recording state changes
+  const handleVoiceRecordingStateChange = useCallback((isRecording: boolean) => {
+    setIsVoiceRecording(isRecording);
+    
+    // Hide input when voice recording starts
+    if (isRecording && isInputVisible) {
+      devLog('🎤 ChatBox: Voice recording started, hiding input');
+      setIsInputVisible(false);
+    }
+  }, [isInputVisible]);
+
+  // Handler for PTT transcription completion
+  const handleVoiceTranscriptionComplete = useCallback((text: string) => {
+    devLog('🎤 ChatBox: Voice transcription complete:', text);
+    if (text.trim()) {
+      handleSend(text);
+    }
+    setVoiceTranscription('');
+    setIsVoiceRecording(false);
+  }, [handleSend]);
+
   return (
     <div style={{
       width: '100%',
@@ -681,6 +713,19 @@ const ChatBox = (params: {
             </ListItem>
           )}
           
+          {/* Voice Transcription Display - shown in conversation area when recording */}
+          {(isVoiceRecording || voiceTranscription.length > 0) && (
+            <ListItem>
+              <div style={{ width: '100%' }}>
+                <VoiceTranscriptionDisplay
+                  transcription={voiceTranscription}
+                  isRecording={isVoiceRecording}
+                  isVisible={true}
+                />
+              </div>
+            </ListItem>
+          )}
+          
           <div ref={messagesEndRef} />
         </List>
 
@@ -703,7 +748,8 @@ const ChatBox = (params: {
             <div 
               className='input-bkgd'
               style={{
-                backdropFilter: 'blur(8px)'
+                backdropFilter: 'blur(8px)',
+                position: 'relative'
               }}
             >
               <ExpandablePromptInput
@@ -740,6 +786,23 @@ const ChatBox = (params: {
           </div>
         </Grid>
 
+      </div>
+      
+      {/* Push-to-Talk Button - ALWAYS VISIBLE, positioned above input toggle */}
+      <div
+        style={{
+          position: 'fixed',
+          right: '22px',
+          bottom: '98px',
+          zIndex: 1002,
+        }}
+      >
+        <PushToTalkButton
+          onTranscriptionComplete={handleVoiceTranscriptionComplete}
+          onTranscriptionChange={handleVoiceTranscriptionChange}
+          onRecordingStateChange={handleVoiceRecordingStateChange}
+          disabled={isLoading}
+        />
       </div>
       
       {/* Toggle button fixed on right edge - never moves */}

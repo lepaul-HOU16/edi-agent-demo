@@ -15,3 +15,6 @@ export * from './wakeData';
 
 // Petrophysics Types
 export * from './petrophysics';
+
+// Speech Recognition Types
+export * from './speechRecognition';

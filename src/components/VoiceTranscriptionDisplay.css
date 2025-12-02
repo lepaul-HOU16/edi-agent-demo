@@ -1,0 +1,129 @@
+/**
+ * VoiceTranscriptionDisplay Styles
+ * 
+ * Styling for the voice transcription display component.
+ * Matches ExpandablePromptInput visual design for consistency.
+ */
+
+/* Slide In Animation */
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Fade In Animation */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Pulse Animation for Recording Indicator */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+/* Voice Transcription Display Container */
+.voice-transcription-display {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Recording State - keep same blue color, no red tint */
+.voice-transcription-display.recording {
+  /* No color change - stays blue like user messages */
+}
+
+/* Recording Indicator */
+.recording-indicator-inline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Recording Microphone Icon */
+.recording-mic-icon {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+/* Listening Text */
+.listening-text {
+  font-size: 14px;
+  color: #d13212;
+  font-weight: 500;
+  user-select: none;
+}
+
+/* Transcription Text */
+.transcription-text {
+  font-size: 14px;
+  line-height: 24px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .voice-transcription-display.recording {
+    /* No color change in dark mode either */
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .voice-transcription-display {
+    padding: 10px 14px;
+    min-height: 36px;
+  }
+  
+  .recording-indicator-inline {
+    gap: 6px;
+  }
+  
+  .recording-mic-icon {
+    font-size: 16px !important;
+  }
+  
+  .listening-text {
+    font-size: 13px;
+  }
+  
+  .transcription-text {
+    font-size: 13px;
+    line-height: 22px;
+  }
+}
+
+/* Accessibility: Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .voice-transcription-display {
+    animation: none;
+    transition: none;
+  }
+  
+  .recording-mic-icon {
+    animation: none;
+  }
+  
+  .recording-indicator-inline {
+    animation: none;
+  }
+}

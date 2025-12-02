@@ -1,104 +1,142 @@
 graph TB
+    subgraph "External Data Sources"
+        OSDU[OSDU Platform<br/>Well Data API]
+    end
+
     subgraph "Frontend Layer"
         UI[React/Next.js SPA]
-        CF[CloudFront Distribution]
+        CF[CloudFront CDN]
         S3F[S3 Frontend Bucket]
     end
 
-    subgraph "API Layer"
+    subgraph "API & Auth Layer"
         APIGW[API Gateway HTTP API]
-        AUTH[Lambda Authorizer]
+        AUTH[Lambda Authorizer<br/>JWT Validation]
         COGNITO[Cognito User Pool]
     end
 
-    subgraph "Agent Layer"
-        CHAT[Chat Lambda]
-        ROUTER[Agent Router]
-        PETRO[Petrophysics Agent]
-        RENEW[Renewable Proxy Agent]
-        MAINT[Maintenance Agent]
-        EDI[EDIcraft Agent]
-        GENERAL[General Knowledge Agent]
+    subgraph "Chat & Routing Layer"
+        CHAT[Chat Lambda<br/>1024MB, 300s]
+        ROUTER[Agent Router<br/>Intent Detection]
     end
 
-    subgraph "Orchestration Layer"
-        ORCH[Renewable Orchestrator]
-        INTENT[Intent Router]
-        PROJ[Project Store]
-        SESS[Session Context Manager]
+    subgraph "Agent Architecture - Petrophysics Example"
+        PETRO[Petrophysics Agent<br/>Strands Agent via MCP]
+        MCP[MCP Server<br/>Petrophysics Tools]
+        PETRO_CALC[Python Lambda<br/>LAS File Processing<br/>512MB, 60s]
     end
 
-    subgraph "Tool Layer"
-        TERRAIN[Terrain Analysis Tool]
-        LAYOUT[Layout Optimization Tool]
-        SIMULATION[Wake Simulation Tool]
-        REPORT[Report Generation Tool]
-        PETRO_CALC[Petrophysics Calculator]
+    subgraph "Agent Architecture - Other Agents"
+        RENEW[Renewable Agent<br/>Direct Lambda Invoke]
+        ORCH[Renewable Orchestrator<br/>Python Lambda<br/>1024MB, 300s]
+        EDI[EDIcraft Agent<br/>Strands Agent via MCP]
+        GENERAL[General Agent<br/>Direct Bedrock]
     end
 
-    subgraph "Data Layer"
-        DDB_MSG[ChatMessage Table]
-        DDB_SESS[ChatSession Table]
-        DDB_CTX[SessionContext Table]
-        DDB_PROG[AgentProgress Table]
-        S3_STORAGE[S3 Storage Bucket]
+    subgraph "Data Catalog & Discovery"
+        GLUE_CATALOG[AWS Glue Data Catalog<br/>Metadata Repository]
+        GLUE_CRAWLER[Glue Crawler<br/>Daily 2AM UTC]
     end
 
-    subgraph "AI Layer"
+    subgraph "Data Storage"
+        DDB[DynamoDB Tables<br/>ChatMessage, ChatSession<br/>SessionContext, AgentProgress]
+        S3_STORAGE[S3 Storage Bucket<br/>well-data/, renewable-projects/, artifacts/]
+    end
+
+    subgraph "AI Services"
         BEDROCK[AWS Bedrock<br/>Claude 3.5 Sonnet]
     end
 
-    %% Frontend connections
-    UI --> CF
+    subgraph "Security & Monitoring"
+        SECRETS[AWS Secrets Manager]
+        CLOUDWATCH[CloudWatch Logs]
+        IAM[IAM Roles & Policies]
+    end
+
+    %% OSDU Data Ingestion Flow (HIGHLIGHTED IN RED)
+    OSDU -.->|A. Fetch Well Data<br/>HTTPS API| S3_STORAGE
+    S3_STORAGE -.->|B. Trigger Crawler| GLUE_CRAWLER
+    GLUE_CRAWLER -.->|C. Update Metadata| GLUE_CATALOG
+    OSDU -.->|Credentials| SECRETS
+
+    %% Frontend Flow
+    UI -->|1. HTTPS| CF
     CF --> S3F
-    UI -->|HTTPS| APIGW
+    UI -->|2. User Query| APIGW
 
-    %% API Gateway connections
-    APIGW -->|Authorize| AUTH
-    AUTH -->|Validate JWT| COGNITO
-    APIGW -->|POST /api/chat/message| CHAT
+    %% Authentication
+    APIGW -->|3. Validate| AUTH
+    AUTH -->|JWT Check| COGNITO
+    AUTH -->|4. Authorized| CHAT
 
-    %% Agent routing
-    CHAT --> ROUTER
-    ROUTER -->|Intent: Petrophysics| PETRO
-    ROUTER -->|Intent: Renewable| RENEW
-    ROUTER -->|Intent: Maintenance| MAINT
-    ROUTER -->|Intent: EDIcraft| EDI
-    ROUTER -->|Intent: General| GENERAL
+    %% Agent Routing
+    CHAT -->|5. Route Query| ROUTER
+    
+    %% PETROPHYSICS AGENT FLOW (HIGHLIGHTED IN BLUE)
+    ROUTER -->|6. Intent: Petro| PETRO
+    PETRO -->|7a. Query Metadata| GLUE_CATALOG
+    GLUE_CATALOG -->|7b. Return S3 Paths| PETRO
+    PETRO <-->|8. MCP Protocol| MCP
+    MCP -->|9. Invoke Tool| PETRO_CALC
+    PETRO_CALC -->|10. Read LAS Files| S3_STORAGE
+    PETRO_CALC -->|11. Return Results| MCP
+    MCP -->|12. Tool Response| PETRO
+    PETRO -->|13. Generate Response| BEDROCK
+    PETRO -->|14. Save Response| DDB
 
-    %% Renewable orchestration
-    RENEW -->|Async Invoke| ORCH
-    ORCH --> INTENT
-    INTENT -->|Route to Tool| TERRAIN
-    INTENT -->|Route to Tool| LAYOUT
-    INTENT -->|Route to Tool| SIMULATION
-    INTENT -->|Route to Tool| REPORT
-    ORCH --> PROJ
-    ORCH --> SESS
+    %% Other Agent Patterns (Simplified)
+    ROUTER -.->|Intent: Renewable| RENEW
+    RENEW -.->|Direct Lambda Invoke| ORCH
+    ORCH -.->|Python Tools| BEDROCK
+    
+    ROUTER -.->|Intent: EDIcraft| EDI
+    EDI -.->|MCP Protocol| BEDROCK
+    
+    ROUTER -.->|Intent: General| GENERAL
+    GENERAL -.->|Direct Invoke| BEDROCK
 
-    %% Petrophysics flow
-    PETRO -->|Invoke| PETRO_CALC
-    PETRO_CALC -->|Read LAS Files| S3_STORAGE
+    %% Data Persistence
+    CHAT -->|Save Messages| DDB
+    ORCH -.->|Save Context| DDB
+    ORCH -.->|Store Artifacts| S3_STORAGE
 
-    %% AI integration
-    PETRO -->|Generate Response| BEDROCK
-    GENERAL -->|Generate Response| BEDROCK
-    MAINT -->|Generate Response| BEDROCK
+    %% Polling
+    UI -->|15. Poll Updates| DDB
+    UI -->|16. Fetch Artifacts| S3_STORAGE
 
-    %% Data persistence
-    CHAT -->|Save Messages| DDB_MSG
-    CHAT -->|Update Session| DDB_SESS
-    ORCH -->|Save Context| DDB_CTX
-    ORCH -->|Track Progress| DDB_PROG
-    TERRAIN -->|Store Artifacts| S3_STORAGE
-    LAYOUT -->|Store Artifacts| S3_STORAGE
-    SIMULATION -->|Store Artifacts| S3_STORAGE
-    REPORT -->|Store Artifacts| S3_STORAGE
+    %% Monitoring
+    CHAT -->|Logs| CLOUDWATCH
+    PETRO_CALC -->|Logs| CLOUDWATCH
+    ORCH -.->|Logs| CLOUDWATCH
+    IAM -->|Permissions| CHAT
+    IAM -->|Permissions| PETRO_CALC
+    IAM -->|Permissions| ORCH
 
-    %% Polling for results
-    UI -->|Poll for Updates| DDB_MSG
-
-    style ROUTER fill:#ff9900
-    style ORCH fill:#ff9900
-    style BEDROCK fill:#00a1c9
+    %% STYLING
+    %% OSDU flow - RED
+    style OSDU fill:#ff6b6b,stroke:#cc0000,stroke-width:4px
+    style GLUE_CATALOG fill:#9b59b6,stroke:#8e44ad,stroke-width:3px
+    style GLUE_CRAWLER fill:#9b59b6,stroke:#8e44ad,stroke-width:2px
+    
+    %% Petrophysics Agent Flow - BLUE (Strands Agent via MCP)
+    style PETRO fill:#3498db,stroke:#2980b9,stroke-width:4px
+    style MCP fill:#3498db,stroke:#2980b9,stroke-width:3px
+    style PETRO_CALC fill:#5dade2,stroke:#2980b9,stroke-width:2px
+    
+    %% Agent Architecture Patterns
+    style EDI fill:#3498db,stroke:#2980b9,stroke-width:2px
+    style RENEW fill:#2ecc71,stroke:#27ae60,stroke-width:2px
+    style ORCH fill:#2ecc71,stroke:#27ae60,stroke-width:2px
+    style GENERAL fill:#95a5a6,stroke:#7f8c8d,stroke-width:2px
+    
+    %% Core Services
+    style ROUTER fill:#ff9900,stroke:#e67e22,stroke-width:3px
+    style CHAT fill:#ff9900,stroke:#e67e22,stroke-width:2px
+    style BEDROCK fill:#00a1c9,stroke:#0077a3,stroke-width:2px
     style COGNITO fill:#dd344c
+    style APIGW fill:#ff9900
+    style DDB fill:#3b48cc
+    style S3_STORAGE fill:#569a31
+    style CLOUDWATCH fill:#ff9900
+    style SECRETS fill:#dd344c
+    style IAM fill:#dd344c

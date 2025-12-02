@@ -173,13 +173,12 @@ jobs:
         run: |
           INVALIDATION_ID=$(aws cloudfront list-invalidations \
             --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --query "InvalidationList.Items[0].Id" \
-            --output text)
+            | jq -r '.InvalidationList.Items[0].Id')
           
           echo "Waiting for invalidation $INVALIDATION_ID to complete..."
           aws cloudfront wait invalidation-completed \
             --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
-            --id $INVALIDATION_ID
+            --id "$INVALIDATION_ID"
 
   verify:
     name: Verify Deployment

@@ -58,7 +58,7 @@ const AgentLandingPage: React.FC<AgentLandingPageProps> = React.memo(({
         return <RenewableAgentLanding onWorkflowSelect={onWorkflowSelect} />;
       
       case 'edicraft':
-        return <EDIcraftAgentLanding onWorkflowSelect={onWorkflowSelect} />;
+        return <EDIcraftAgentLanding onWorkflowSelect={onWorkflowSelect} onSendMessage={onSendMessage} />;
       
       default:
         // Fallback to auto agent if unknown agent type

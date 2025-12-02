@@ -1,41 +1,114 @@
-graph LR
+graph TB
+    subgraph "External Data Sources"
+        OSDU[OSDU Platform<br/>Well Data API]
+    end
+
     subgraph "User Interface"
-        UI[React Components]
+        UI[React Components<br/>CloudFront CDN]
     end
 
-    subgraph "API Gateway"
-        APIGW[HTTP API]
-        AUTH[Authorizer]
+    subgraph "API Gateway Layer"
+        APIGW[API Gateway HTTP API<br/>29s timeout]
+        AUTH[Lambda Authorizer<br/>JWT Validation]
     end
 
-    subgraph "Processing Layer"
-        CHAT[Chat Lambda]
-        AGENTS[Agent Layer]
-        TOOLS[Tool Lambdas]
+    subgraph "Compute Layer"
+        CHAT[Chat Lambda<br/>1024MB, 300s]
+        ROUTER[Agent Router<br/>Intent Detection]
+        PETRO[Petrophysics Agent]
+        ORCH[Renewable Orchestrator<br/>1024MB, 300s]
+        INGEST[OSDU Ingestion Lambda<br/>1024MB, 300s]
+        TOOLS[Tool Lambdas<br/>Python 3.12]
+    end
+
+    subgraph "Data Catalog & Discovery"
+        CATALOG[AWS Glue Data Catalog<br/>Metadata Repository]
+        CRAWLER[Glue Crawler<br/>Daily 2AM UTC]
     end
 
     subgraph "Data Storage"
-        DDB[(DynamoDB)]
-        S3[(S3 Bucket)]
+        DDB_MSG[DynamoDB: ChatMessage<br/>On-Demand, GSI]
+        DDB_SESS[DynamoDB: ChatSession<br/>On-Demand, GSI]
+        DDB_CTX[DynamoDB: SessionContext<br/>On-Demand, TTL 24h]
+        S3_WELL[S3: well-data/<br/>LAS Files]
+        S3_PROJ[S3: renewable-projects/<br/>Analysis Results]
+        S3_ART[S3: artifacts/<br/>Visualizations]
     end
 
     subgraph "AI Services"
-        BEDROCK[Bedrock]
+        BEDROCK[AWS Bedrock<br/>Claude 3.5 Sonnet]
     end
 
-    UI -->|1. User Query| APIGW
-    APIGW -->|2. Validate| AUTH
-    AUTH -->|3. Authorized| CHAT
-    CHAT -->|4. Route| AGENTS
-    AGENTS -->|5. Invoke| TOOLS
-    TOOLS -->|6. Generate| BEDROCK
-    TOOLS -->|7. Store Artifacts| S3
-    AGENTS -->|8. Save Response| DDB
-    DDB -->|9. Poll Updates| UI
-    S3 -->|10. Fetch Artifacts| UI
+    subgraph "Monitoring"
+        CW[CloudWatch<br/>Logs & Metrics]
+        SECRETS[Secrets Manager<br/>OSDU Credentials]
+    end
 
+    %% OSDU Data Ingestion Flow (HIGHLIGHTED - Steps A1-A5)
+    OSDU -.->|A1. Fetch Well Data<br/>HTTPS API| INGEST
+    INGEST -.->|A2. Get Credentials| SECRETS
+    INGEST -.->|A3. Store LAS Files| S3_WELL
+    S3_WELL -.->|A4. Trigger Crawler| CRAWLER
+    CRAWLER -.->|A5. Update Metadata| CATALOG
+
+    %% User Query Flow (Steps 1-12)
+    UI -->|1. User Query<br/>HTTPS POST| APIGW
+    APIGW -->|2. Validate Token| AUTH
+    AUTH -->|3. JWT Valid<br/>User Context| CHAT
+    CHAT -->|4. Save User Message<br/>WRITE| DDB_MSG
+    CHAT -->|5. Route Query| ROUTER
+    
+    %% Petrophysics Flow with Data Catalog
+    ROUTER -->|6a. Intent: Petro| PETRO
+    PETRO -->|7a. Query Metadata<br/>READ| CATALOG
+    CATALOG -->|8a. Return S3 Paths| PETRO
+    PETRO -->|9a. Read LAS Files<br/>READ| S3_WELL
+    PETRO -->|10a. Generate Response| BEDROCK
+    
+    %% Renewable Flow
+    ROUTER -.->|6b. Intent: Renewable<br/>ASYNC| ORCH
+    ORCH -.->|7b. Invoke Tools<br/>ASYNC| TOOLS
+    TOOLS -.->|8b. Generate AI Response| BEDROCK
+    TOOLS -.->|9b. Store Artifacts<br/>WRITE| S3_ART
+    ORCH -.->|10b. Save Context<br/>WRITE| DDB_CTX
+    
+    %% Response Flow
+    PETRO -->|11. Save AI Response<br/>WRITE| DDB_MSG
+    ORCH -.->|11. Save AI Response<br/>WRITE| DDB_MSG
+    
+    %% Polling Flow
+    UI -->|12. Poll for Updates<br/>READ every 2s| DDB_MSG
+    DDB_MSG -->|13. New Messages| UI
+    UI -->|14. Fetch Artifacts<br/>READ| S3_ART
+    
+    %% Monitoring
+    CHAT -->|Logs| CW
+    ORCH -->|Logs| CW
+    PETRO -->|Logs| CW
+    INGEST -->|Logs| CW
+
+    %% Styling - OSDU flow highlighted in red
+    style OSDU fill:#ff6b6b,stroke:#cc0000,stroke-width:4px
+    style INGEST fill:#ff6b6b,stroke:#cc0000,stroke-width:3px
+    style S3_WELL fill:#ff6b6b,stroke:#cc0000,stroke-width:2px
+    style CRAWLER fill:#9b59b6,stroke:#8e44ad,stroke-width:2px
+    style CATALOG fill:#9b59b6,stroke:#8e44ad,stroke-width:3px
+    
+    %% Service styling
     style APIGW fill:#ff9900
     style CHAT fill:#ff9900
-    style DDB fill:#3b48cc
-    style S3 fill:#569a31
+    style ROUTER fill:#ff9900
+    style ORCH fill:#ff9900
+    style DDB_MSG fill:#3b48cc
+    style DDB_SESS fill:#3b48cc
+    style DDB_CTX fill:#3b48cc
+    style S3_PROJ fill:#569a31
+    style S3_ART fill:#569a31
     style BEDROCK fill:#00a1c9
+    style CW fill:#ff9900
+    style SECRETS fill:#dd344c
+
+    %% Link styling
+    linkStyle 0,1,2,3,4 stroke:#cc0000,stroke-width:3px
+    linkStyle 5,6,7,8,9,10 stroke:#2ecc71,stroke-width:2px
+    linkStyle 11,12,13,14,15,16 stroke:#3498db,stroke-width:2px
