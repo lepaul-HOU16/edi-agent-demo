@@ -59,12 +59,17 @@ jobs:
 
       - name: Install CDK dependencies
         working-directory: cdk
-        run: npm ci
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
+          npm ci
 
       - name: Build Lambda functions
         working-directory: cdk
         continue-on-error: true
         run: |
+          echo "Cleaning dist directory..."
+          rm -rf dist
           echo "Building Lambda functions..."
           npm run build:lambda || npm run build:lambdas
           echo "Lambda functions built successfully"
