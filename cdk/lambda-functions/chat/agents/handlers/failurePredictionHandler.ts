@@ -61,7 +61,7 @@ export async function handleFailurePrediction(
       messageContentType: 'failure_prediction',
       title: `Failure Prediction: ${predictionData.equipmentName}`,
       subtitle: `Risk Level: ${predictionData.failureRisk.toUpperCase()} | Confidence: ${(predictionData.confidence * 100).toFixed(0)}%`,
-      data: {
+      prediction: {
         equipmentId: predictionData.equipmentId,
         equipmentName: predictionData.equipmentName,
         predictionDate: predictionData.predictionDate,
@@ -72,7 +72,7 @@ export async function handleFailurePrediction(
         contributingFactors: predictionData.contributingFactors,
         recommendations: predictionData.recommendations,
         methodology: predictionData.methodology,
-        historicalFailures: predictionData.historicalFailures
+        riskTimeline: predictionData.riskTimeline
       },
       visualizationType: 'timeline'
     };

@@ -82,18 +82,12 @@ export class EDIcraftAgent extends BaseEnhancedAgent {
       };
     }
     
-    // Validate configuration
-    if (!this.agentId || this.agentId === 'your_agent_id_here') {
-      console.error('❌ EDIcraftAgent: BEDROCK_AGENT_ID not configured');
-      return {
-        success: false,
-        message: 'EDIcraft agent is not configured. Please set BEDROCK_AGENT_ID environment variable.',
-        artifacts: [],
-        thoughtSteps: [],
-        connectionStatus: 'not_configured',
-        error: 'BEDROCK_AGENT_ID not set'
-      };
-    }
+    // Note: BEDROCK_AGENT_ID is optional if using RCON-only mode
+    // The MCP client will handle RCON operations without Bedrock Agent
+    console.log('🎮 EDIcraftAgent: Configuration status:', {
+      hasBedrockAgent: !!this.agentId && this.agentId !== 'your_agent_id_here',
+      hasMinecraftConfig: !!(process.env.MINECRAFT_HOST && process.env.MINECRAFT_PORT)
+    });
     
     try {
       // Use MCP client to process the message

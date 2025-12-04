@@ -524,6 +524,33 @@ export class MainStack extends cdk.Stack {
         SESSION_CONTEXT_TABLE: sessionContextTable.tableName, // Add missing env var
         S3_BUCKET: storageBucket.bucketName,
         CHAT_MESSAGE_TABLE: chatMessageTable.tableName, // For message persistence
+        
+        // Common Bedrock Configuration
+        BEDROCK_REGION: 'us-east-1',
+        
+        // Petrophysics Agent Configuration (Pattern 2: Agent-specific env vars)
+        PETROPHYSICS_AGENT_ID: 'QUQKELPKM2',
+        PETROPHYSICS_AGENT_ALIAS_ID: 'S5YWIUZOGB',
+        
+        // Maintenance Agent Configuration (Pattern 2: Agent-specific env vars)
+        MAINTENANCE_AGENT_ID: 'UZIMUIUEGG',
+        MAINTENANCE_AGENT_ALIAS_ID: 'U5UDPF00FT',
+        
+        // EDIcraft Agent Configuration (Pattern 1: Set actual non-sensitive values)
+        EDICRAFT_AGENT_ID: 'kl1b6iGNug', // Bedrock Agent Core ID (alphanumeric only, max 10 chars)
+        EDICRAFT_AGENT_ALIAS_ID: 'DEFAULT', // Bedrock Agent Core uses DEFAULT endpoint
+        MINECRAFT_HOST: 'edicraft.nigelgardiner.com', // Pattern 1: Actual value
+        MINECRAFT_PORT: '49001', // Pattern 1: Actual value
+        MINECRAFT_RCON_PASSWORD: process.env.MINECRAFT_RCON_PASSWORD || '', // Pattern 3: Sensitive - needs Secrets Manager
+        
+        // OSDU/EDI Configuration (Pattern 3: Sensitive - needs Secrets Manager)
+        EDI_PLATFORM_URL: process.env.EDI_PLATFORM_URL || '',
+        EDI_PARTITION: process.env.EDI_PARTITION || '',
+        
+        // Legacy environment variables (for backward compatibility with EDIcraft)
+        BEDROCK_AGENT_ID: 'kl1b6iGNug', // EDIcraft Bedrock Agent Core ID (alphanumeric only, max 10 chars)
+        BEDROCK_AGENT_ALIAS_ID: 'DEFAULT', // Bedrock Agent Core uses DEFAULT endpoint
+        
         FORCE_REFRESH: Date.now().toString(), // Force Lambda update
       },
     });
@@ -563,6 +590,36 @@ export class MainStack extends cdk.Stack {
       })
     );
 
+    // Grant Bedrock AgentCore permissions for EDIcraft agent
+    // CRITICAL: EDIcraft uses bedrock-agentcore NOT bedrock-agent-runtime
+    // See amplify/functions/edicraftAgent/mcpClient.ts for reference
+    chatFunction.function.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'bedrock-agentcore:InvokeAgent',
+          'bedrock-agentcore:InvokeAgentRuntime',
+          'bedrock-agent-runtime:InvokeAgent', // Keep for other agents that might use regular Bedrock Agents
+          'bedrock-agent:GetAgent', // For validating agent exists and retrieving metadata
+        ],
+        resources: ['*'], // TODO: Restrict to specific agent ARN in production
+      })
+    );
+
+    // Grant Secrets Manager permissions for retrieving credentials (Task 8)
+    chatFunction.function.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'secretsmanager:GetSecretValue',
+        ],
+        resources: [
+          `arn:aws:secretsmanager:us-east-1:${this.account}:secret:minecraft/rcon-password-*`,
+          `arn:aws:secretsmanager:us-east-1:${this.account}:secret:edicraft/osdu-credentials-*`,
+        ],
+      })
+    );
+
     // Add route: POST /api/chat/message
     this.httpApi.addRoutes({
       path: '/api/chat/message',
@@ -589,6 +646,49 @@ export class MainStack extends cdk.Stack {
       value: `${this.httpApi.apiEndpoint}/api/chat/message`,
       description: 'Chat message API endpoint',
       exportName: `${id}-ChatEndpoint`,
+    });
+
+    // ============================================================================
+    // EDIcraft AgentCore Proxy Lambda (Python)
+    // ============================================================================
+    
+    // Create Python Lambda to proxy requests to Bedrock AgentCore
+    // This is needed because Node.js doesn't have SDK support for AgentCore yet
+    const edicraftProxyFunction = new lambda.Function(this, 'EDIcraftProxyFunction', {
+      functionName: `${id}-edicraft-agentcore-proxy`,
+      runtime: lambda.Runtime.PYTHON_3_12,
+      handler: 'handler.handler',
+      code: lambda.Code.fromAsset(path.join(__dirname, '../lambda-functions/edicraft-agentcore-proxy')),
+      timeout: cdk.Duration.seconds(29),
+      memorySize: 512,
+      environment: {
+        BEDROCK_AGENT_ID: 'kl1b6iGNug',
+        // AWS_REGION is automatically set by Lambda runtime
+      },
+    });
+
+    // Grant Bedrock AgentCore permissions
+    edicraftProxyFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'bedrock-agent-runtime:InvokeAgent',
+          'bedrock-agentcore:InvokeAgent',
+        ],
+        resources: ['*'],
+      })
+    );
+
+    // Grant Chat Lambda permission to invoke the proxy
+    edicraftProxyFunction.grantInvoke(chatFunction.function);
+
+    // Add proxy Lambda ARN to Chat Lambda environment
+    chatFunction.function.addEnvironment('EDICRAFT_PROXY_LAMBDA_ARN', edicraftProxyFunction.functionArn);
+
+    new cdk.CfnOutput(this, 'EDIcraftProxyFunctionArn', {
+      value: edicraftProxyFunction.functionArn,
+      description: 'ARN of EDIcraft AgentCore proxy Lambda',
+      exportName: `${id}-EDIcraftProxyFunctionArn`,
     });
 
     // ============================================================================
