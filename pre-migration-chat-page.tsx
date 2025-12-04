@@ -1,10 +1,14 @@
+'use client';
+
 import React, { useEffect, useState } from 'react';
+
+import { generateClient } from "aws-amplify/data";
+import { type Schema } from "@/../amplify/data/resource";
 import { Typography, Paper, Divider, IconButton, Tooltip, List, ListItem, useTheme, useMediaQuery, Breadcrumbs } from '@mui/material';
 import FolderIcon from '@mui/icons-material/Folder';
 import PsychologyIcon from '@mui/icons-material/Psychology';
-import { useParams, useNavigate } from 'react-router-dom';
-import { Message } from '@/utils/types';
-import ChatMessage from '@/components/ChatMessage';
+import { Message } from '../../../../utils/types';
+import ChatMessage from '../../../components/ChatMessage';
 
 import ContentLayout from '@cloudscape-design/components/content-layout';
 import Header from '@cloudscape-design/components/header';
@@ -21,7 +25,7 @@ import StatusIndicator from '@cloudscape-design/components/status-indicator';
 import Badge from '@cloudscape-design/components/badge';
 import ExpandableSection from '@cloudscape-design/components/expandable-section';
 import ColumnLayout from '@cloudscape-design/components/column-layout';
-// Removed Next.js router - using React Router instead
+import { useRouter } from 'next/navigation';
 import RestartAlt from '@mui/icons-material/RestartAlt';
 import BreadcrumbGroup from '@cloudscape-design/components/breadcrumb-group';
 
@@ -32,22 +36,14 @@ import FileDrawer from '@/components/FileDrawer';
 import AgentSwitcher from '@/components/AgentSwitcher';
 import AgentLandingPage from '@/components/AgentLandingPage';
 import CollectionContextBadge from '@/components/CollectionContextBadge';
-import ChainOfThoughtDisplay from '@/components/ChainOfThoughtDisplay';
-import { ProjectContextProvider, useProjectContext } from '@/contexts/ProjectContext';
-import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { sendMessage } from '@/utils/chatUtils';
-import { getSession } from '@/lib/api/sessions';
+import { sendMessage } from '../../../../utils/amplifyUtils';
 import zIndex from '@mui/material/styles/zIndex';
-import { getCanvasCollectionContext, type CollectionData, getCollectionSummary } from '@/utils/collectionInheritance';
-import '@/utils/projectContextDebug'; // Initialize debug utilities
-import { useRenewableJobPolling } from '@/hooks/useRenewableJobPolling';
 
-// Inner component that uses ProjectContext
-function ChatPageContent() {
-    // Get active project from context
-    const { activeProject } = useProjectContext();
-    const { chatSessionId } = useParams<{ chatSessionId: string }>();
-    const navigate = useNavigate();
+function Page({
+    params,
+}: {
+    params: Promise<{ chatSessionId: string }>
+}) {
     const [userInput, setUserInput] = useState<string>('');
     const [activeChatSession, setActiveChatSession] = useState<any>();
     const [fileDrawerOpen, setFileDrawerOpen] = useState(false);
@@ -55,41 +51,8 @@ function ChatPageContent() {
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const [messages, setMessages] = useState<Message[]>([]);
-    const [isWaitingForResponse, setIsWaitingForResponse] = useState(false);
-    // Removed amplifyClient - using REST API instead
-    
-    // STREAMING: Poll for thought steps in realtime (fast polling for immediate updates)
-    const { latestMessage: streamingMessage, hasNewResults } = useRenewableJobPolling({
-        chatSessionId: chatSessionId || '',
-        enabled: isWaitingForResponse && !!chatSessionId,
-        pollingInterval: 500, // Poll every 500ms for fast streaming updates
-        onNewMessage: (streamingMsg) => {
-            console.log('[ChatPage] Received streaming thought steps:', streamingMsg.thoughtSteps?.length);
-            
-            // Update the last AI message with streaming thought steps
-            if (streamingMsg.thoughtSteps && streamingMsg.thoughtSteps.length > 0) {
-                setMessages(prev => {
-                    const updated = [...prev];
-                    // Find the last AI message
-                    for (let i = updated.length - 1; i >= 0; i--) {
-                        if (updated[i].role === 'ai') {
-                            // Update with streaming thought steps
-                            updated[i] = {
-                                ...updated[i],
-                                thoughtSteps: streamingMsg.thoughtSteps
-                            } as any;
-                            break;
-                        }
-                    }
-                    return updated;
-                });
-            }
-        }
-    });
-    
-    // Collection context state
-    const [collectionContext, setCollectionContext] = useState<CollectionData | null>(null);
-    const [loadingCollection, setLoadingCollection] = useState(false);
+    const router = useRouter();
+    const [amplifyClient, setAmplifyClient] = useState<ReturnType<typeof generateClient<Schema>> | null>(null);
     
     // Agent selection state - updated to include 'edicraft'
     const [selectedAgent, setSelectedAgent] = useState<'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft'>('auto');
@@ -105,17 +68,14 @@ function ChatPageContent() {
     };
     
     // Handler for sending messages programmatically (e.g., from landing page buttons)
-    // Options: { silent?: boolean } - when silent is true, user message won't appear in chat
-    const handleSendMessage = async (message: string, options?: { silent?: boolean }) => {
+    const handleSendMessage = async (message: string) => {
         if (!activeChatSession?.id || !message.trim()) {
             console.error('Cannot send message: missing chat session or empty message');
             return;
         }
         
         try {
-            console.log('🚀 [ChatPage] Sending message programmatically:', message);
-            console.log('🎯 [ChatPage] Active project:', activeProject);
-            console.log('🔇 [ChatPage] Silent mode:', options?.silent || false);
+            console.log('Sending message programmatically:', message);
             
             // Create user message
             const newMessage = {
@@ -125,36 +85,15 @@ function ChatPageContent() {
                 // Note: timestamp/createdAt is auto-generated by the schema
             };
             
-            // Add user message to UI immediately (unless silent mode is enabled)
-            if (!options?.silent) {
-                setMessages((prevMessages) => [...prevMessages, newMessage as any as Message]);
-            } else {
-                console.log('🔇 [ChatPage] Skipping user message display (silent mode)');
-            }
+            // Add user message to UI immediately
+            setMessages((prevMessages) => [...prevMessages, newMessage as Message]);
             
-            // Start polling for streaming thought steps
-            setIsWaitingForResponse(true);
-            
-            // Prepare project context for backend
-            const projectContext = activeProject ? {
-                projectId: activeProject.projectId,
-                projectName: activeProject.projectName,
-                location: activeProject.location,
-                coordinates: activeProject.coordinates
-            } : undefined;
-            
-            console.log('🎯 [ChatPage] Sending project context to backend:', projectContext);
-            
-            // Send to backend with project context
+            // Send to backend
             await sendMessage({
                 chatSessionId: activeChatSession.id,
                 newMessage: newMessage as any,
-                agentType: selectedAgent,
-                projectContext, // Pass project context to backend
+                selectedAgent: selectedAgent,
             });
-            
-            // Stop polling when response is complete
-            setIsWaitingForResponse(false);
             
             // Clear input
             setUserInput('');
@@ -181,11 +120,6 @@ function ChatPageContent() {
     }, []);
     
     const stableMessages = React.useMemo(() => messages, [messages]);
-    
-    // Memoized input change handler to prevent re-renders on every keystroke
-    const stableOnInputChange = React.useCallback((input: string) => {
-        setUserInput(input);
-    }, []);
     
     // Chain of thought auto-scroll state
     const [chainOfThoughtAutoScroll, setChainOfThoughtAutoScroll] = useState<boolean>(true);
@@ -314,107 +248,58 @@ function ChatPageContent() {
     }, []);
 
     const setActiveChatSessionAndUpload = async (newChatSession: any) => {
+        if (!amplifyClient) return;
+        
         try {
-            // TODO: Implement session update via REST API
-            console.log('Session update not yet implemented via REST API');
-            setActiveChatSession(newChatSession);
+            const resolvedParams = await params;
+            const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
+                id: resolvedParams.chatSessionId,
+                ...newChatSession
+            } as any);
+
+            if (updatedChatSession) setActiveChatSession(updatedChatSession);
         } catch (error) {
             console.error('Error updating chat session:', error);
         }
     }
 
-    //Get the chat session info, load messages, and load collection context
+    //Get the chat session info
     useEffect(() => {
+        if (!amplifyClient) return;
+        
         let isMounted = true;
         
         const fetchChatSession = async () => {
             try {
+                const resolvedParams = await params;
+                const chatSessionId = resolvedParams.chatSessionId;
+                
                 if (!isMounted || !chatSessionId) return;
                 
-                // Use REST API to get session
-                const sessionData = await getSession(chatSessionId);
+                const { data: newChatSessionData } = await amplifyClient.models.ChatSession.get({
+                    id: chatSessionId
+                });
                 
-                if (!isMounted || !sessionData) return;
+                if (!isMounted || !newChatSessionData) return;
                 
                 // If no name is provided, create a default name with date and time
-                if (!sessionData.name) {
+                if (!newChatSessionData.name) {
                     const defaultName = `New Canvas - ${new Date().toLocaleString()}`;
-                    // TODO: Update session name via REST API
+                    // Save the default name to the database
+                    const { data: updatedChatSession } = await amplifyClient.models.ChatSession.update({
+                        id: chatSessionId,
+                        name: defaultName
+                    } as any);
                     if (isMounted) {
-                        setActiveChatSession({ ...sessionData, name: defaultName });
+                        if (updatedChatSession) {
+                            setActiveChatSession(updatedChatSession);
+                        } else {
+                            setActiveChatSession({ ...newChatSessionData, name: defaultName });
+                        }
                     }
                 } else {
                     if (isMounted) {
-                        setActiveChatSession(sessionData);
-                    }
-                }
-                
-                // Load messages for this session
-                try {
-                    const { getSessionMessages } = await import('@/lib/api/sessions');
-                    const messagesResponse = await getSessionMessages(chatSessionId);
-                    if (messagesResponse.data && isMounted) {
-                        console.log('✅ Loaded messages:', messagesResponse.data.length);
-                        
-                        // STALE MESSAGE CLEANUP: Filter out stale streaming messages (older than 5 minutes)
-                        // This prevents persistent "Thinking" indicators from appearing after page reload
-                        // when streaming messages weren't properly cleaned up by the backend.
-                        // Requirements: 2.3, 2.4
-                        const now = Date.now();
-                        const FIVE_MINUTES_MS = 5 * 60 * 1000;
-                        
-                        const filteredMessages = messagesResponse.data.filter((msg: any) => {
-                            // Only filter streaming messages (role: 'ai-stream')
-                            if (msg.role === 'ai-stream') {
-                                const messageTime = msg.createdAt ? new Date(msg.createdAt).getTime() : 0;
-                                const age = now - messageTime;
-                                
-                                if (age > FIVE_MINUTES_MS) {
-                                    console.warn('⚠️ [STALE MESSAGE CLEANUP] Ignoring stale streaming message:', {
-                                        messageId: msg.id,
-                                        age: Math.round(age / 1000) + 's',
-                                        createdAt: msg.createdAt,
-                                        sessionId: chatSessionId
-                                    });
-                                    return false; // Filter out stale streaming message
-                                }
-                            }
-                            return true; // Keep all other messages
-                        });
-                        
-                        if (filteredMessages.length < messagesResponse.data.length) {
-                            const staleCount = messagesResponse.data.length - filteredMessages.length;
-                            console.warn(`⚠️ [STALE MESSAGE CLEANUP] Filtered out ${staleCount} stale streaming message(s) from session ${chatSessionId}`);
-                        }
-                        
-                        setMessages(filteredMessages as any);
-                    }
-                } catch (error) {
-                    console.error('❌ Error loading messages:', error);
-                    // Continue even if messages fail to load
-                }
-                
-                // Load collection context if this canvas is linked to a collection
-                if (sessionData.linkedCollectionId && isMounted) {
-                    console.log('🔗 Canvas linked to collection:', sessionData.linkedCollectionId);
-                    setLoadingCollection(true);
-                    
-                    try {
-                        const collectionData = await getCanvasCollectionContext(chatSessionId);
-                        if (collectionData && isMounted) {
-                            console.log('✅ Collection context loaded:', {
-                                name: collectionData.name,
-                                wellCount: collectionData.dataItems?.length || 0,
-                                dataSource: collectionData.dataSourceType
-                            });
-                            setCollectionContext(collectionData);
-                        }
-                    } catch (error) {
-                        console.error('❌ Error loading collection context:', error);
-                    } finally {
-                        if (isMounted) {
-                            setLoadingCollection(false);
-                        }
+                        setActiveChatSession(newChatSessionData);
                     }
                 }
             } catch (error) {
@@ -427,7 +312,7 @@ function ChatPageContent() {
         return () => {
             isMounted = false;
         };
-    }, [chatSessionId]);
+    }, [amplifyClient]);
 
     // Drawer variant only matters for mobile now
     const drawerVariant = "temporary";
@@ -456,6 +341,16 @@ function ChatPageContent() {
         }
     }, [activeChatSession?.id, currentSessionId]);
 
+    // Initialize Amplify client
+    useEffect(() => {
+        try {
+            const client = generateClient<Schema>();
+            setAmplifyClient(client);
+        } catch (error) {
+            console.error('Failed to generate Amplify client:', error);
+        }
+    }, []);
+
     if (!activeChatSession || !activeChatSession.id) {
         return (
             <div style={{
@@ -475,6 +370,8 @@ function ChatPageContent() {
     }
 
     const handleCreateNewChat = async () => {
+        if (!amplifyClient) return;
+        
         try {
             console.log('🔄 Creating new chat session and resetting chain of thought...');
             
@@ -491,11 +388,11 @@ function ChatPageContent() {
             const currentSessionId = activeChatSession?.id;
             if (currentSessionId) {
                 console.log('🔗 Navigating to create new chat with session context:', currentSessionId);
-                navigate(`/create-new-chat?fromSession=${currentSessionId}`);
+                router.push(`/create-new-chat?fromSession=${currentSessionId}`);
             } else {
                 // Fallback: create without context inheritance
                 console.log('⚠️ No current session ID, creating without context inheritance');
-                navigate('/create-new-chat');
+                router.push('/create-new-chat');
             }
         } catch (error) {
             console.error("Error creating chat session:", error);
@@ -504,111 +401,84 @@ function ChatPageContent() {
     }
 
     return (
-                <div className='main-container' data-page="chat">
-                <div className="reset-chat" style={{marginTop: '4px'}}>
-                    <Grid
-                        disableGutters
-                        gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
+        <div style={{ margin: '36px 80px 0' }}>
+            <ContentLayout
+                disableOverlap
+                headerVariant="divider"
+                header={
+                    <Header
+                        variant="h1"
+                        description=""
                     >
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}>
-                            <EditableTextBox
-                                object={activeChatSession}
-                                fieldPath="name"
-                                onUpdate={setActiveChatSessionAndUpload}
-                                typographyVariant="h6"
-                            />            
-                            <div style={{ display: 'flex', gap: '10px' }}>
-                                <AgentSwitcher
-                                    selectedAgent={selectedAgent}
-                                    onAgentChange={handleAgentChange}
-                                />
-                                <SegmentedControl
-                                selectedId={selectedId}
-                                onChange={({ detail }) =>
-                                    setSelectedId(detail.selectedId)
-                                }
-                                label="Segmented control with only icons"
-                                options={[
-                                    {
-                                        iconName: "gen-ai",
-                                        iconAlt: "Segment 1",
-                                        id: "seg-1"
-                                    },
-                                    {
-                                        iconSvg: (
-                                            <svg
-                                                xmlns="http://www.w3.org/2000/svg"
-                                                height="48"
-                                                viewBox="0 0 24 24"
-                                                width="48"
-                                            >
-                                                <g></g>
-                                                <g>
-                                                    <g>
-                                                        <path d="M13,8.57c-0.79,0-1.43,0.64-1.43,1.43s0.64,1.43,1.43,1.43s1.43-0.64,1.43-1.43S13.79,8.57,13,8.57z" />
-                                                        <path d="M13,3C9.25,3,6.2,5.94,6.02,9.64L4.1,12.2C3.85,12.53,4.09,13,4.5,13H6v3c0,1.1,0.9,2,2,2h1v3h7v-4.68 c2.36-1.12,4-3.53,4-6.32C20,6.13,16.87,3,13,3z M16,10c0,0.13-0.01,0.26-0.02,0.39l0.83,0.66c0.08,0.06,0.1,0.16,0.05,0.25 l-0.8,1.39c-0.05,0.09-0.16,0.12-0.24,0.09l-0.99-0.4c-0.21,0.16-0.43,0.29-0.67,0.39L14,13.83c-0.01,0.1-0.1,0.17-0.2,0.17h-1.6 c-0.1,0-0.18-0.07-0.2-0.17l-0.15-1.06c-0.25-0.1-0.47-0.23-0.68-0.39l-0.99,0.4c-0.09,0.03-0.2,0-0.25-0.09l-0.8-1.39 c-0.05-0.08-0.03-0.19,0.05-0.25l0.84-0.66C10.01,10.26,10,10.13,10,10c0-0.13,0.02-0.27,0.04-0.39L9.19,8.95 c-0.08-0.06-0.1-0.16-0.05-0.26l0.8-1.38c0.05-0.09,0.15-0.12,0.24-0.09l1,0.4c0.2-0.15,0.43-0.29,0.67-0.39l0.15-1.06 C12.02,6.07,12.1,6,12.2,6h1.6c0.1,0,0.18,0.07,0.2,0.17l0.15,1.06c0.24,0.1,0.46,0.23,0.67,0.39l1-0.4c0.09-0.03,0.2,0,0.24,0.09 l0.8,1.38c0.05,0.09,0.03,0.2-0.05,0.26l-0.85,0.66C15.99,9.73,16,9.86,16,10z" />
-                                                    </g>
-                                                </g>
-                                            </svg>
-                                        ),
-                                        iconAlt: "Segment 2",
-                                        id: "seg-2"
-                                    }
-                                ]}/>
-                            </div>
-
-                        </div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', width: 'calc(100% - 30px)' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                            {collectionContext ? (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-                                    <a href={`/collections/${collectionContext.id}`} style={{ color: '#0073bb', textDecoration: 'none' }}>{collectionContext.name}</a>
-                                    <span style={{ color: '#5f6b7a' }}>›</span>
-                                    <span style={{ color: '#000716', fontWeight: 600 }}>{activeChatSession?.name?.replace(/\s*-\s*\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M\s*$/, '') || 'Canvas'}</span>
-                                </div>
-                            ) : (
-                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-                                    <span style={{ color: '#5f6b7a' }}>No Collection</span>
-                                    <span style={{ color: '#5f6b7a' }}>›</span>
-                                    <span style={{ color: '#000716', fontWeight: 600 }}>{activeChatSession?.name?.replace(/\s*-\s*\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M\s*$/, '') || 'Canvas'}</span>
-                                </div>
-                            )}
-                        </div>
-                        <div className='toggles'>
-                            <Tooltip title="Start New Session">
-                                <IconButton
-                                    onClick={handleCreateNewChat}
-                                    color="primary"
-                                    size="large"
-                                >
-                                    <RestartAlt />
-                                </IconButton>
-                            </Tooltip>
-
-                            <Tooltip title={fileDrawerOpen ? "Hide Files" : "View Files"}>
-                                <IconButton
-                                    onClick={() => setFileDrawerOpen(!fileDrawerOpen)}
-                                    color="primary"
-                                    size="large"
-                                    sx={{
-                                        bgcolor: fileDrawerOpen ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                                        zIndex: 1300
-                                    }}
-                                >
-                                    <FolderIcon />
-                                </IconButton>
-                            </Tooltip>
-                        </div>
-                    </div>
-                </Grid>
-            </div>
-            <div className='content-area'>
+                        Workspace - Insights
+                    </Header>
+                }
+            />
+            <div className="reset-chat">
                 <Grid
                     disableGutters
                     gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
                 >
-                    {selectedId === "seg-1" ? (
-                    <div className='panel' style={{height: 'calc(100% - 12px)'}}>
+                    <div className='panel-header' style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+                        <AgentSwitcher
+                            selectedAgent={selectedAgent}
+                            onAgentChange={handleAgentChange}
+                            variant="panel"
+                        />
+                        <SegmentedControl
+                            selectedId={selectedId}
+                            onChange={({ detail }) =>
+                                setSelectedId(detail.selectedId)
+                            }
+                            label="Segmented control with only icons"
+                            options={[
+                                {
+                                    iconName: "gen-ai",
+                                    iconAlt: "Segment 1",
+                                    id: "seg-1"
+                                },
+                                {
+                                    iconSvg: (
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            height="48"
+                                            viewBox="0 0 24 24"
+                                            width="48"
+                                        >
+                                            <g></g>
+                                            <g>
+                                                <g>
+                                                    <path d="M13,8.57c-0.79,0-1.43,0.64-1.43,1.43s0.64,1.43,1.43,1.43s1.43-0.64,1.43-1.43S13.79,8.57,13,8.57z" />
+                                                    <path d="M13,3C9.25,3,6.2,5.94,6.02,9.64L4.1,12.2C3.85,12.53,4.09,13,4.5,13H6v3c0,1.1,0.9,2,2,2h1v3h7v-4.68 c2.36-1.12,4-3.53,4-6.32C20,6.13,16.87,3,13,3z M16,10c0,0.13-0.01,0.26-0.02,0.39l0.83,0.66c0.08,0.06,0.1,0.16,0.05,0.25 l-0.8,1.39c-0.05,0.09-0.16,0.12-0.24,0.09l-0.99-0.4c-0.21,0.16-0.43,0.29-0.67,0.39L14,13.83c-0.01,0.1-0.1,0.17-0.2,0.17h-1.6 c-0.1,0-0.18-0.07-0.2-0.17l-0.15-1.06c-0.25-0.1-0.47-0.23-0.68-0.39l-0.99,0.4c-0.09,0.03-0.2,0-0.25-0.09l-0.8-1.39 c-0.05-0.08-0.03-0.19,0.05-0.25l0.84-0.66C10.01,10.26,10,10.13,10,10c0-0.13,0.02-0.27,0.04-0.39L9.19,8.95 c-0.08-0.06-0.1-0.16-0.05-0.26l0.8-1.38c0.05-0.09,0.15-0.12,0.24-0.09l1,0.4c0.2-0.15,0.43-0.29,0.67-0.39l0.15-1.06 C12.02,6.07,12.1,6,12.2,6h1.6c0.1,0,0.18,0.07,0.2,0.17l0.15,1.06c0.24,0.1,0.46,0.23,0.67,0.39l1-0.4c0.09-0.03,0.2,0,0.24,0.09 l0.8,1.38c0.05,0.09,0.03,0.2-0.05,0.26l-0.85,0.66C15.99,9.73,16,9.86,16,10z" />
+                                                </g>
+                                            </g>
+                                        </svg>
+                                    ),
+                                    iconAlt: "Segment 2",
+                                    id: "seg-2"
+                                }
+                            ]}
+                        />
+                    </div>
+                    <div className='brea'>
+                        <BreadcrumbGroup
+                            items={[
+                                { text: 'Data Catalog', href: '/catalog' },
+                                { text: 'Data Collection: Cuu Long Basin', href: '#' },
+                                { text: 'Workspace', href: '#' },
+                                { text: 'Canvas: Petrophysical Analysis', href: '#' }
+                            ]}
+                            ariaLabel="Breadcrumbs"
+                        />
+                    </div>
+                </Grid>
+            </div>
+            <Grid
+                disableGutters
+                gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
+            >
+                {selectedId === "seg-1" ? (
+                    <div className='panel'>
                         <AgentLandingPage
                             selectedAgent={selectedAgent}
                             onWorkflowSelect={(prompt: string) => {
@@ -755,24 +625,19 @@ function ChatPageContent() {
                                         const selectedChatSessionId = activeChatSession.id;
                                         console.log("Selected Chat Session ID:", selectedChatSessionId);
 
-                                        const newMessage = {
-                                            role: 'user' as const,
+                                        const newMessage: Schema['ChatMessage']['createType'] = {
+                                            role: 'human',
                                             content: {
                                                 text: userInput
-                                            }
-                                        };
-
-                                        // Start polling for streaming thought steps
-                                        setIsWaitingForResponse(true);
+                                            },
+                                            chatSessionId: selectedChatSessionId!,
+                                        } as any
 
                                         await sendMessage({
                                             chatSessionId: selectedChatSessionId!,
                                             newMessage: newMessage,
                                             agentType: selectedAgent
                                         });
-                                        
-                                        // Stop polling when response is complete
-                                        setIsWaitingForResponse(false);
                                         setUserInput('');
                                     } catch (error) {
                                         console.error("Failed to send message:", error);
@@ -799,13 +664,275 @@ function ChatPageContent() {
                         </Container>
                     </div>
                 ) : (
-                    // Chain of Thought here - using reusable ChainOfThoughtDisplay component
-                    <div className='panel' style={{height: 'calc(100% - 12px)'}}>
-                        <ChainOfThoughtDisplay messages={messages} />
+                    // Chain of Thought here
+                    <div className='panel'>
+                        <Container
+                            footer=""
+                            header={
+                                <SpaceBetween direction="horizontal" size="m" alignItems="center">
+                                    <Box variant="h2">Chain of Thought - AI Reasoning Process</Box>
+                                    {/* <SpaceBetween direction="horizontal" size="xs">
+                                        <Button 
+                                            variant="inline-icon"
+                                            iconName="refresh"
+                                            onClick={() => scrollChainOfThoughtToBottom()}
+                                        >
+                                            Manual Scroll
+                                        </Button>
+                                        <Button 
+                                            variant="inline-icon"
+                                            iconName={chainOfThoughtAutoScroll ? "status-positive" : "status-warning"}
+                                            onClick={() => setChainOfThoughtAutoScroll(!chainOfThoughtAutoScroll)}
+                                        >
+                                            Auto-scroll {chainOfThoughtAutoScroll ? 'On' : 'Off'}
+                                        </Button>
+                                    </SpaceBetween> */}
+                                </SpaceBetween>
+                            }
+                        >
+                            {/* Create a proper scrollable container within the panel */}
+                            <div 
+                                ref={chainOfThoughtContainerRef}
+                                onScroll={handleChainOfThoughtScroll}
+                                style={{ 
+                                    overflowY: 'auto',
+                                    maxHeight: 'calc(100vh - 300px)',
+                                    position: 'relative',
+                                    paddingBottom: '60px'
+                                }}
+                            >
+                                {(() => {
+                                    // ENHANCED: Extract thought steps with better debugging and data handling
+                                    console.log('🧠 Chain of Thought: Processing messages for thought steps...');
+                                    console.log('🔍 Total messages:', messages.length);
+                                    
+                                    // Debug each message
+                                    messages.forEach((message, index) => {
+                                        if (message.role === 'ai') {
+                                            console.log(`🔍 AI Message ${index}:`, {
+                                                id: (message as any).id,
+                                                hasThoughtSteps: !!(message as any).thoughtSteps,
+                                                thoughtStepsLength: (message as any).thoughtSteps?.length || 0,
+                                                thoughtStepsType: typeof (message as any).thoughtSteps,
+                                                rawThoughtSteps: (message as any).thoughtSteps
+                                            });
+                                        }
+                                    });
+
+                                    // Extract thought steps with enhanced error handling
+                                    let thoughtStepsFromMessages: any[] = [];
+                                    
+                                    try {
+                                        thoughtStepsFromMessages = messages
+                                            .filter(message => {
+                                                const hasSteps = message.role === 'ai' && (message as any).thoughtSteps;
+                                                if (hasSteps) {
+                                                    console.log('🎯 Found AI message with thought steps:', (message as any).thoughtSteps);
+                                                }
+                                                return hasSteps;
+                                            })
+                                            .flatMap(message => {
+                                                const steps = (message as any).thoughtSteps || [];
+                                                console.log('📦 Extracting steps from message:', steps.length, 'steps');
+                                                
+                                                // CRITICAL FIX: Parse JSON strings stored in database
+                                                const parsedSteps = Array.isArray(steps) ? steps.map(step => {
+                                                    if (typeof step === 'string') {
+                                                        try {
+                                                            const parsed = JSON.parse(step);
+                                                            console.log('✅ Parsed JSON step:', parsed.title);
+                                                            return parsed;
+                                                        } catch (e) {
+                                                            console.error('❌ Failed to parse step JSON:', step);
+                                                            return null;
+                                                        }
+                                                    }
+                                                    return step; // Already an object
+                                                }) : [];
+                                                
+                                                return parsedSteps.filter(Boolean); // Remove nulls
+                                            })
+                                            .filter(step => step && typeof step === 'object') // Ensure valid step objects
+                                            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+                                            
+                                        console.log('✅ Final thought steps array:', thoughtStepsFromMessages.length, 'steps');
+                                        thoughtStepsFromMessages.forEach((step, index) => {
+                                            console.log(`🔍 Step ${index + 1}:`, {
+                                                id: step.id,
+                                                title: step.title,
+                                                summary: step.summary,
+                                                status: step.status,
+                                                hasDetails: !!step.details
+                                            });
+                                        });
+                                    } catch (error) {
+                                        console.error('❌ Error extracting thought steps:', error);
+                                        thoughtStepsFromMessages = [];
+                                    }
+
+                                    // If we have real thought steps, show them with Cloudscape Design components
+                                    if (thoughtStepsFromMessages.length > 0) {
+                                        console.log('🎉 Rendering', thoughtStepsFromMessages.length, 'thought steps');
+                                        return (
+                                            <SpaceBetween direction="vertical" size="m">
+                                                {thoughtStepsFromMessages.map((step, index) => {
+                                                    // ENHANCED: Provide fallback values for missing data
+                                                    const stepTitle = step.title || `Step ${index + 1}`;
+                                                    const stepSummary = step.summary || 'Processing...';
+                                                    const stepId = step.id || `step-${index}`;
+                                                    const stepStatus = step.status || 'complete';
+                                                    const stepType = step.type || 'processing';
+                                                    
+                                                    // Get appropriate Cloudscape icon and status for each step type
+                                                    const getStepConfig = (type: string, status: string) => {
+                                                        const configs = {
+                                                            intent_detection: {
+                                                                iconName: 'search',
+                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
+                                                                variant: 'blue'
+                                                            },
+                                                            parameter_extraction: {
+                                                                iconName: 'edit',
+                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
+                                                                variant: 'severity-medium'
+                                                            },
+                                                            tool_selection: {
+                                                                iconName: 'folder',
+                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
+                                                                variant: 'green'
+                                                            },
+                                                            execution: {
+                                                                iconName: 'status-in-progress',
+                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
+                                                                variant: 'blue'
+                                                            },
+                                                            validation: {
+                                                                iconName: 'status-positive',
+                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
+                                                                variant: 'green'
+                                                            },
+                                                            completion: {
+                                                                iconName: 'tick',
+                                                                statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
+                                                                variant: 'green'
+                                                            }
+                                                        };
+                                                        
+                                                        return configs[type] || {
+                                                            iconName: 'refresh',
+                                                            statusType: status === 'complete' ? 'success' : status === 'error' ? 'error' : 'in-progress',
+                                                            variant: 'blue'
+                                                        };
+                                                    };
+                                                    
+                                                    const config = getStepConfig(stepType, stepStatus);
+                                                    
+                                                    return (
+                                                        <Container
+                                                            key={stepId}
+                                                            header={
+                                                                <SpaceBetween direction="horizontal" size="m" alignItems="center">
+                                                                    <SpaceBetween direction="horizontal" size="s" alignItems="center">
+                                                                        <Icon name={config.iconName} />
+                                                                        <Box variant="h3" fontWeight="bold">
+                                                                            {stepTitle}
+                                                                        </Box>
+                                                                        <StatusIndicator type={config.statusType}>
+                                                                            {stepStatus === 'complete' ? 'Complete' : 
+                                                                             stepStatus === 'error' ? 'Error' : 
+                                                                             stepStatus === 'thinking' ? 'Processing' : 'Complete'}
+                                                                        </StatusIndicator>
+                                                                    </SpaceBetween>
+                                                                    <SpaceBetween direction="horizontal" size="xs">
+                                                                        <Badge color={config.variant}>
+                                                                            {stepType.replace('_', ' ').toUpperCase()}
+                                                                        </Badge>
+                                                                        {step.confidence && (
+                                                                            <Badge color="green">
+                                                                                {Math.round((step.confidence || 0) * 100)}% confidence
+                                                                            </Badge>
+                                                                        )}
+                                                                        {step.duration && (
+                                                                            <Badge>
+                                                                                {step.duration}ms
+                                                                            </Badge>
+                                                                        )}
+                                                                    </SpaceBetween>
+                                                                </SpaceBetween>
+                                                            }
+                                                        >
+                                                            <SpaceBetween direction="vertical" size="m">
+                                                                <Box>
+                                                                    {stepSummary}
+                                                                </Box>
+                                                                {step.details && (
+                                                                    <ExpandableSection
+                                                                        headerText="Technical Details"
+                                                                        defaultExpanded={false}
+                                                                        variant="footer"
+                                                                    >
+                                                                        <Box 
+                                                                            padding={{ left: 'm' }}
+                                                                            color="text-body-secondary"
+                                                                        >
+                                                                            <pre style={{ 
+                                                                                fontFamily: 'Monaco, Consolas, "Courier New", monospace',
+                                                                                fontSize: '12px',
+                                                                                whiteSpace: 'pre-wrap',
+                                                                                margin: 0,
+                                                                                backgroundColor: '#fafbfc',
+                                                                                padding: '12px',
+                                                                                borderRadius: '4px',
+                                                                                border: '1px solid #e9ecef'
+                                                                            }}>
+                                                                                {step.details}
+                                                                            </pre>
+                                                                        </Box>
+                                                                    </ExpandableSection>
+                                                                )}
+                                                            </SpaceBetween>
+                                                        </Container>
+                                                    );
+                                                })}
+                                            </SpaceBetween>
+                                        );
+                                    }
+
+                                    // ENHANCED: Show debug info in empty state using Cloudscape components
+                                    console.log('📝 No thought steps found - showing empty state');
+                                    const debugInfo = `Messages: ${messages.length}, AI messages: ${messages.filter(m => m.role === 'ai').length}`;
+                                    
+                                    return (
+                                        <Container>
+                                            <SpaceBetween direction="vertical" size="l" alignItems="center">
+                                                <Icon name="gen-ai" size="large" />
+                                                <SpaceBetween direction="vertical" size="m" alignItems="center">
+                                                    <Box variant="h2" textAlign="center">
+                                                        No AI reasoning process active
+                                                    </Box>
+                                                    <Box variant="p" textAlign="center" color="text-body-secondary">
+                                                        Submit a query to see the AI's step-by-step decision-making process.
+                                                        The chain of thought will show confidence levels, timing, and complete
+                                                        technical details for full transparency and verification.
+                                                    </Box>
+                                                    <Box variant="small" textAlign="center" color="text-body-secondary">
+                                                        Debug: {debugInfo}
+                                                    </Box>
+                                                </SpaceBetween>
+                                            </SpaceBetween>
+                                        </Container>
+                                    );
+                                })()}
+                                {/* Auto-scroll anchor point */}
+                                <div ref={chainOfThoughtEndRef} style={{ height: '1px' }} />
+                            </div>
+                        </Container>
                     </div>
                 )}
 
                 <div className='convo'>
+
+                    {/* Main chat area - always full width with padding for desktop drawer */}
                     <div style={{
                         height: '100%',
                         width: '100%',
@@ -816,53 +943,68 @@ function ChatPageContent() {
                         }),
                         paddingRight: fileDrawerOpen && !isMobile ? '0' : '0'
                     }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
+                            <EditableTextBox
+                                object={activeChatSession}
+                                fieldPath="name"
+                                onUpdate={setActiveChatSessionAndUpload}
+                                typographyVariant="h5"
+                            />
+                            <CollectionContextBadge chatSessionId={activeChatSession.id} />
+                        </div>
                         <div style={{
                             paddingBottom: '160px',
                         }}>
-                            {/* Collection Context Alert */}
-                            {collectionContext && (
-                                <Box margin={{ bottom: 'm' }}>
-                                    <Alert
-                                        type="info"
-                                        header={`Collection: ${collectionContext.name}`}
+                            <div className='toggles'>
+                                {/* File Drawer */}
+                                 <div style={{marginLeft: '20px'}}>
+                                    <IconButton
+                                        onClick={handleCreateNewChat}
+                                        color="primary"
+                                        size="large"
                                     >
-                                        <SpaceBetween direction="vertical" size="xs">
-                                            <Box>
-                                                {getCollectionSummary(collectionContext)}
-                                            </Box>
-                                            {collectionContext.dataSourceType === 'S3' && (
-                                                <Box>
-                                                    <strong>📁 File Access:</strong> All {collectionContext.dataItems?.length || 0} well files are accessible in the Session Files panel under <strong>global/well-data/</strong>
-                                                </Box>
-                                            )}
-                                            <Box>
-                                                <Button 
-                                                    variant="inline-link" 
-                                                    iconName="external"
-                                                    onClick={() => navigate(`/collections/${collectionContext.id}`)}
-                                                >
-                                                    View Collection Details
-                                                </Button>
-                                            </Box>
-                                        </SpaceBetween>
-                                    </Alert>
-                                </Box>
-                            )}
+                                        <RestartAlt />
+                                    </IconButton>
+                                    {/* <Button onClick={handleCreateNewChat}>Reset Chat</Button> */}
+                                </div>
 
-                            {/* ChatBox with agent switcher in input area */}
+                                <Tooltip title={fileDrawerOpen ? "Hide Files" : "View Files"}>
+                                    <IconButton
+                                        onClick={() => setFileDrawerOpen(!fileDrawerOpen)}
+                                        color="primary"
+                                        size="large"
+                                        sx={{
+                                            bgcolor: fileDrawerOpen ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
+                                            zIndex: 1300 // Ensure button is above drawer
+                                        }}
+                                    >
+                                        <FolderIcon />
+                                    </IconButton>
+                                </Tooltip>
+                            </div>
+
+                            {/* <Divider /> */}
+
+
+                            {/* <ChatBox
+                                            chatSessionId={activeChatSession.id}
+                                            showChainOfThought={showChainOfThought}
+                                        /> */}
                             <ChatBox
                                 chatSessionId={activeChatSession.id}
                                 showChainOfThought={showChainOfThought}
-                                onInputChange={stableOnInputChange}
+                                onInputChange={setUserInput}
                                 userInput={userInput}
                                 messages={stableMessages}
                                 setMessages={stableSetMessages}
                                 selectedAgent={selectedAgent}
                                 onAgentChange={handleAgentChange}
                             />
+
                         </div>
                     </div>
 
+                    {/* Floating file button for mobile - only show when drawer is closed */}
                     {isMobile && !fileDrawerOpen && (
                         <div
                             style={{
@@ -898,21 +1040,10 @@ function ChatPageContent() {
                         chatSessionId={activeChatSession.id}
                         variant={drawerVariant}
                     />
-                </div>
-                </Grid>
-            </div>
-            </div>
-    );
-}
 
-// Wrapper component that provides ProjectContext
-function Page() {
-    return (
-        <ErrorBoundary>
-            <ProjectContextProvider>
-                <ChatPageContent />
-            </ProjectContextProvider>
-        </ErrorBoundary>
+                </div>
+            </Grid >
+        </div>
     );
 }
 

@@ -604,7 +604,7 @@ const ComparativePerformanceTable: React.FC<{
                       <Box variant="small" color="text-body-secondary"> ({well.id})</Box>
                     </Box>
                     <Box fontSize="heading-m" fontWeight="bold">
-                      {well.keyMetrics.production?.toFixed(1) || 'N/A'} BPD
+                      {well.keyMetrics?.production?.toFixed(1) || 'N/A'} BPD
                     </Box>
                   </SpaceBetween>
                 </Box>
@@ -636,7 +636,7 @@ const ComparativePerformanceTable: React.FC<{
                       <Box variant="small" color="text-body-secondary"> ({well.id})</Box>
                     </Box>
                     <Box fontSize="heading-m" fontWeight="bold">
-                      {well.keyMetrics.production?.toFixed(1) || 'N/A'} BPD
+                      {well.keyMetrics?.production?.toFixed(1) || 'N/A'} BPD
                     </Box>
                   </SpaceBetween>
                 </Box>

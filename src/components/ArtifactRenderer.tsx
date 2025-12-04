@@ -16,6 +16,12 @@ import WakeAnalysisArtifact from './renewable/WakeAnalysisArtifact';
 import { CloudscapePorosityDisplay } from './cloudscape/CloudscapePorosityDisplay';
 import { CloudscapeShaleVolumeDisplay } from './cloudscape/CloudscapeShaleVolumeDisplay';
 import { CloudscapeSaturationDisplay } from './cloudscape/CloudscapeSaturationDisplay';
+// Maintenance components
+import WellsEquipmentDashboard from './maintenance/WellsEquipmentDashboard';
+import { EquipmentHealthArtifact } from './maintenance/EquipmentHealthArtifact';
+import { FailurePredictionArtifact } from './maintenance/FailurePredictionArtifact';
+import { MaintenanceScheduleArtifact } from './maintenance/MaintenanceScheduleArtifact';
+import { InspectionReportArtifact } from './maintenance/InspectionReportArtifact';
 
 interface Artifact {
   type: string;
@@ -157,6 +163,42 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts, onFollow
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
                 <CloudscapeSaturationDisplay data={artifact as any} />
+              </div>
+            );
+
+          case 'wells_equipment_dashboard':
+          case 'fleet_status':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <WellsEquipmentDashboard artifact={artifact as any} />
+              </div>
+            );
+
+          case 'equipment_health':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <EquipmentHealthArtifact data={artifact as any} />
+              </div>
+            );
+
+          case 'failure_prediction':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <FailurePredictionArtifact data={artifact as any} />
+              </div>
+            );
+
+          case 'maintenance_schedule':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <MaintenanceScheduleArtifact data={artifact as any} />
+              </div>
+            );
+
+          case 'inspection_report':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <InspectionReportArtifact data={artifact as any} />
               </div>
             );
             

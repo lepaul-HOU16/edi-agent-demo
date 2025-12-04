@@ -48,7 +48,7 @@ This plan systematically merges pre-migration UX patterns with post-migration fu
   - VERIFY: Agent response appears in chat (kept functionality)
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5, 7.1, 7.2_
 
-- [ ] 6. Identify other critical UX regressions
+- [x] 6. Identify other critical UX regressions
   - Review changed files list from Task 1
   - For each component file, check if it has UX regressions
   - Look for: missing loading states, missing error handling, missing user feedback
@@ -63,56 +63,56 @@ This plan systematically merges pre-migration UX patterns with post-migration fu
   - Document merge strategy for ChatPage
   - _Requirements: 4.1, 4.2, 4.3_
 
-- [ ] 8. Analyze ChatBox for smart merge opportunities
+- [x] 8. Analyze ChatBox for smart merge opportunities
   - Extract pre-migration ChatBox: `git show 925b396:src/components/ChatBox.tsx`
   - Compare with current ChatBox
   - Identify: (a) new features to keep, (b) UX patterns to restore
   - Document merge strategy for ChatBox
   - _Requirements: 4.1, 4.2, 4.3_
 
-- [ ] 9. Smart merge ChatPage (if regressions found)
+- [x] 9. Smart merge ChatPage (if regressions found)
   - Apply merge strategy from Task 7
   - KEEP: All new features and improvements
   - RESTORE: Any broken UX patterns (loading states, error handling, etc.)
   - Test on localhost to verify merge
   - _Requirements: 4.3, 4.4, 4.5, 6.1, 6.2, 6.3_
 
-- [ ] 10. Smart merge ChatBox (if regressions found)
+- [x] 10. Smart merge ChatBox (if regressions found)
   - Apply merge strategy from Task 8
   - KEEP: All new features and improvements
   - RESTORE: Any broken UX patterns
   - Test on localhost to verify merge
   - _Requirements: 4.3, 4.4, 4.5, 6.1, 6.2, 6.3_
 
-- [ ] 11. Analyze other agent landing pages
+- [x] 11. Analyze other agent landing pages
   - Check if other agent landing pages have similar regressions
   - Compare: AutoAgentLanding, PetrophysicsAgentLanding, MaintenanceAgentLanding, RenewableAgentLanding
   - For each, extract pre-migration version and compare
   - Document any regressions found
   - _Requirements: 2.2, 2.3, 4.1, 4.2_
 
-- [ ] 12. Smart merge other agent landing pages (if needed)
+- [x] 12. Smart merge other agent landing pages (if needed)
   - Apply same merge strategy as EDIcraft
   - KEEP: New features and agent improvements
   - RESTORE: Working UX patterns from pre-migration
   - Test each agent on localhost
   - _Requirements: 4.3, 4.4, 4.5, 6.1, 6.2, 6.3_
 
-- [ ] 13. Analyze utility functions for regressions
+- [x] 13. Analyze utility functions for regressions
   - Check `src/utils/chatUtils.ts` and other utilities
   - Compare pre-migration vs current
   - Identify any behavioral changes that broke functionality
   - Document merge strategy if needed
   - _Requirements: 5.1, 5.2, 5.3_
 
-- [ ] 14. Smart merge utility functions (if needed)
+- [x] 14. Smart merge utility functions (if needed)
   - Apply merge strategy for utilities
   - Ensure API wrappers produce same results as pre-migration
   - Keep any performance improvements
   - Test integration with components
   - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [ ] 15. Test CloudFront deployment fix
+- [x] 15. Test CloudFront deployment fix
   - Commit CloudFront workflow fix
   - Push to trigger GitHub Actions
   - Monitor deployment workflow
@@ -122,7 +122,7 @@ This plan systematically merges pre-migration UX patterns with post-migration fu
   - VERIFY: Deployment completes successfully
   - _Requirements: Infrastructure regression fix_
 
-- [ ] 16. Comprehensive localhost testing
+- [x] 16. Comprehensive localhost testing
   - Test all agents: Auto, Petrophysics, Maintenance, Renewable, EDIcraft
   - Test all major user workflows
   - Compare behavior to pre-migration (use git to check old behavior if needed)
@@ -136,7 +136,7 @@ This plan systematically merges pre-migration UX patterns with post-migration fu
   - Verify no new regressions introduced
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5, 9.1, 9.2, 9.3_
 
-- [ ] 18. Validate merge preserves post-migration improvements
+- [x] 18. Validate merge preserves post-migration improvements
   - Review all changes made during merge
   - Confirm all new agent features still work
   - Confirm all backend improvements still work

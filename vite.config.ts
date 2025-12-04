@@ -31,6 +31,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: '0.0.0.0', // Allow access from network devices (iPad, phone, etc.)
     port: 3000,
     open: true,
     hmr: {

@@ -11,22 +11,22 @@ const MaintenanceAgentLanding: React.FC<MaintenanceAgentLandingProps> = React.me
     {
       title: 'Equipment Health Assessment',
       description: 'Assess the current health status of pumps, compressors, and other equipment',
-      prompt: 'Assess health of PUMP-001'
+      prompt: 'What is the status of PUMP-001?'
     },
     {
       title: 'Failure Prediction',
       description: 'Predict potential equipment failures based on sensor data and historical patterns',
-      prompt: 'Predict failures for COMPRESSOR-001'
+      prompt: 'Predict failure for COMP-123'
     },
     {
-      title: 'Maintenance Schedule',
-      description: 'Generate optimized maintenance schedules based on equipment condition',
-      prompt: 'Generate maintenance schedule for all equipment'
+      title: 'All Wells Status',
+      description: 'View comprehensive status dashboard for all production wells',
+      prompt: 'Show me the status of all wells'
     },
     {
-      title: 'Inspection Planning',
-      description: 'Plan and prioritize equipment inspections based on risk assessment',
-      prompt: 'Plan inspections for high-risk equipment'
+      title: 'Equipment Diagnostics',
+      description: 'Run diagnostic analysis on specific equipment to identify issues',
+      prompt: 'Run diagnostics on TURBINE-005'
     }
   ];
 

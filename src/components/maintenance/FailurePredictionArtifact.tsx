@@ -45,7 +45,35 @@ interface FailurePredictionArtifactProps {
 
 export const FailurePredictionArtifact: React.FC<FailurePredictionArtifactProps> = ({ data }) => {
   const [detailsExpanded, setDetailsExpanded] = useState(false);
-  const prediction = data.prediction;
+  
+  // Handle multiple possible data structures
+  const prediction = data.prediction || (data as any).data || data;
+  
+  // Validate that we have the required data
+  if (!prediction || !prediction.failureRisk) {
+    return (
+      <Container
+        header={
+          <Header variant="h2">
+            Failure Prediction Analysis
+          </Header>
+        }
+      >
+        <Box color="text-status-error">
+          <SpaceBetween size="s">
+            <Box variant="h3">Error: Invalid Data Format</Box>
+            <Box>
+              The failure prediction data is missing or in an unexpected format. 
+              Please ensure the backend is returning data with the required fields.
+            </Box>
+            <Box variant="small" color="text-body-secondary">
+              Expected structure: {`{ prediction: { failureRisk, riskScore, timeToFailure, ... } }`}
+            </Box>
+          </SpaceBetween>
+        </Box>
+      </Container>
+    );
+  }
 
   // Risk level styling
   const getRiskStyle = (risk: string) => {

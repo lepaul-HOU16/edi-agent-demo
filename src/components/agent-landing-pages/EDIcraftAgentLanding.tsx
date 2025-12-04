@@ -4,7 +4,7 @@ import AgentVisualization from './AgentVisualization';
 
 interface EDIcraftAgentLandingProps {
   onWorkflowSelect?: (prompt: string) => void;
-  onSendMessage?: (message: string) => Promise<void>;
+  onSendMessage?: (message: string, options?: { silent?: boolean }) => Promise<void>;
 }
 
 const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ onWorkflowSelect, onSendMessage }) => {
@@ -24,8 +24,9 @@ const EDIcraftAgentLanding: React.FC<EDIcraftAgentLandingProps> = React.memo(({ 
     try {
       // Use the onSendMessage callback if provided (sends through chat)
       if (onSendMessage) {
-        console.log('[CLEAR BUTTON] Sending clear message through chat');
-        await onSendMessage('Clear the Minecraft environment and fill any terrain holes');
+        console.log('[CLEAR BUTTON] Sending clear message through chat (silent mode)');
+        // Send with silent: true to prevent user message from appearing in chat
+        await onSendMessage('Clear the Minecraft environment and fill any terrain holes', { silent: true });
 
         setClearResult({
           type: 'success',

@@ -1,8 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import ViewSelector from './ViewSelector';
+import React, { useMemo } from 'react';
 import ConsolidatedAnalysisView from './ConsolidatedAnalysisView';
-import IndividualWellView from './IndividualWellView';
 
 // Type definitions based on design document
 interface WellSummary {
@@ -96,14 +94,9 @@ interface WellsEquipmentDashboardProps {
   artifact: WellsDashboardArtifact;
 }
 
-type ViewMode = 'consolidated' | 'individual';
-
 const WellsEquipmentDashboard: React.FC<WellsEquipmentDashboardProps> = ({ artifact }) => {
   // State management
-  const [viewMode, setViewMode] = useState<ViewMode>('consolidated');
-  const [selectedWellId, setSelectedWellId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = React.useState<string | null>(null);
 
   // Parse artifact data
   const dashboardData = useMemo(() => {
@@ -118,37 +111,7 @@ const WellsEquipmentDashboard: React.FC<WellsEquipmentDashboardProps> = ({ artif
     }
   }, [artifact]);
 
-  // Get selected well data
-  const selectedWell = useMemo(() => {
-    if (!selectedWellId || !dashboardData) return null;
-    return dashboardData.wells.find(well => well.id === selectedWellId) || null;
-  }, [selectedWellId, dashboardData]);
 
-  // Handle view switching
-  const handleViewChange = (viewMode: 'consolidated' | 'individual', wellId?: string) => {
-    setIsLoading(true);
-    setError(null);
-
-    try {
-      if (viewMode === 'consolidated') {
-        // Switch to consolidated view
-        setViewMode('consolidated');
-        setSelectedWellId(null);
-      } else if (viewMode === 'individual' && wellId) {
-        // Switch to individual well view
-        const well = dashboardData?.wells.find(w => w.id === wellId);
-        if (!well) {
-          throw new Error(`Well ${wellId} not found`);
-        }
-        setViewMode('individual');
-        setSelectedWellId(wellId);
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to switch view');
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Error state
   if (error && !dashboardData) {
@@ -205,18 +168,8 @@ const WellsEquipmentDashboard: React.FC<WellsEquipmentDashboardProps> = ({ artif
     <div className="wells-equipment-dashboard" style={{
       width: '100%',
       maxWidth: '1400px',
-      margin: '0 auto',
-      padding: '1rem'
+      margin: '0 auto'
     }}>
-      {/* View Selector */}
-      <div className="dashboard-header" style={{ marginBottom: '1.5rem' }}>
-        <ViewSelector
-          wells={dashboardData.wells}
-          selectedView={selectedWellId || 'consolidated'}
-          onViewChange={handleViewChange}
-        />
-      </div>
-
       {/* Error message (non-fatal) */}
       {error && (
         <div className="dashboard-error-banner" style={{
@@ -231,63 +184,14 @@ const WellsEquipmentDashboard: React.FC<WellsEquipmentDashboardProps> = ({ artif
         </div>
       )}
 
-      {/* Loading overlay */}
-      {isLoading && (
-        <div className="dashboard-loading-overlay" style={{
-          position: 'relative',
-          opacity: 0.6,
-          pointerEvents: 'none'
-        }}>
-          <div style={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            zIndex: 1000
-          }}>
-            <div className="spinner" style={{
-              width: '40px',
-              height: '40px',
-              border: '4px solid #f3f3f3',
-              borderTop: '4px solid #3498db',
-              borderRadius: '50%',
-              animation: 'spin 1s linear infinite'
-            }} />
-          </div>
-        </div>
-      )}
-
-      {/* Main content */}
+      {/* Main content - Always show consolidated view */}
       <div className="dashboard-content">
-        {viewMode === 'consolidated' ? (
-          <ConsolidatedAnalysisView
-            summary={dashboardData.summary}
-            noteworthyConditions={dashboardData.noteworthyConditions}
-            comparativePerformance={dashboardData.comparativePerformance}
-          />
-        ) : selectedWell ? (
-          <IndividualWellView
-            well={selectedWell}
-            onBackToConsolidated={() => handleViewChange('consolidated')}
-          />
-        ) : (
-          <div className="no-well-selected" style={{
-            padding: '2rem',
-            textAlign: 'center',
-            color: '#666'
-          }}>
-            <p>No well selected. Please select a well from the dropdown.</p>
-          </div>
-        )}
+        <ConsolidatedAnalysisView
+          summary={dashboardData.summary}
+          noteworthyConditions={dashboardData.noteworthyConditions}
+          comparativePerformance={dashboardData.comparativePerformance}
+        />
       </div>
-
-      {/* CSS for spinner animation */}
-      <style jsx>{`
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}</style>
     </div>
   );
 };

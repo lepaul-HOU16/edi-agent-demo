@@ -23,7 +23,7 @@ agents:
     bedrock_agentcore:
       agent_id: edicraft-kl1b6iGNug
       agent_arn: arn:aws:bedrock-agentcore:us-east-1:484907533441:runtime/edicraft-kl1b6iGNug
-      agent_session_id: null
+      agent_session_id: 24ab8203-5628-4714-96ca-2fc1040fe73e
     codebuild:
       project_name: bedrock-agentcore-edicraft-builder
       execution_role: arn:aws:iam::484907533441:role/AmazonBedrockAgentCoreSDKCodeBuild-us-east-1-e947ba7ac5
