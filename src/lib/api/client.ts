@@ -6,7 +6,7 @@
 
 import { CognitoIdentityProviderClient, InitiateAuthCommand } from '@aws-sdk/client-cognito-identity-provider';
 
-export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://hbt1j807qf.execute-api.us-east-1.amazonaws.com';
+export const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://t4begsixg2.execute-api.us-east-1.amazonaws.com';
 
 const COGNITO_CONFIG = {
   userPoolId: 'us-east-1_sC6yswGji',

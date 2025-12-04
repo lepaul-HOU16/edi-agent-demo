@@ -1365,164 +1365,39 @@ function CatalogPageBase() {
         setMessages(prevMessages => [...prevMessages, loadingMessage]);
 
         try {
-          // TODO: Implement OSDU search via REST API
-          logger.info('⚠️ OSDU search not yet implemented via REST API');
-          const osduResponse = { data: null, errors: ['OSDU search not implemented'] };
+          // Execute OSDU search via the osduQueryExecutor utility
+          logger.info('🔍 Executing OSDU search via executeOSDUQuery');
+          const osduResult = await executeOSDUQuery(
+            prompt,
+            'osdu',
+            1000, // Request up to 1000 records
+            'well', // Default data type
+            0, // criteriaCount
+            undefined // templateUsed
+          );
 
-          logger.info('✅ OSDU search response:', osduResponse);
+          logger.info('✅ OSDU search result:', {
+            success: osduResult.success,
+            recordCount: osduResult.recordCount,
+            executionTime: `${osduResult.executionTime.toFixed(2)}ms`
+          });
 
           // Handle errors
-          if (osduResponse.errors && osduResponse.errors.length > 0) {
-            logger.error('❌ API errors:', osduResponse.errors);
-            const errorMessage = typeof osduResponse.errors[0] === 'string'
-              ? osduResponse.errors[0]
-              : (osduResponse.errors[0] as any).message || 'API query failed';
-            throw new Error(errorMessage);
+          if (!osduResult.success) {
+            logger.error('❌ OSDU search failed:', osduResult.error);
+            throw new Error(osduResult.error || 'OSDU search failed');
           }
 
-          if (!osduResponse.data) {
-            logger.error('❌ No data in OSDU response');
-            throw new Error('No data received from OSDU API');
+          if (!osduResult.records || osduResult.records.length === 0) {
+            logger.warn('⚠️ No OSDU records returned');
+            throw new Error('No OSDU records found for your query');
           }
 
-          let osduData;
-          try {
-            // Handle potential double-stringification
-            let parsedData = osduResponse.data;
-
-            // First parse if it's a string
-            if (typeof parsedData === 'string') {
-              parsedData = JSON.parse(parsedData);
-              logger.info('📊 First parse complete, type:', typeof parsedData);
-            }
-
-            // Check if it's still a string (double-stringified)
-            if (typeof parsedData === 'string') {
-              parsedData = JSON.parse(parsedData);
-              logger.info('📊 Second parse complete (was double-stringified), type:', typeof parsedData);
-            }
-
-            osduData = parsedData;
-
-            logger.info('📊 Final parsed OSDU data:', osduData);
-            logger.info('📊 OSDU data type:', typeof osduData);
-            logger.info('📊 OSDU data keys:', Object.keys(osduData || {}));
-            logger.info('📊 Has answer:', !!osduData?.answer);
-            logger.info('📊 Has recordCount:', osduData?.recordCount);
-            logger.info('📊 Has records:', !!osduData?.records);
-            logger.info('📊 Records length:', osduData?.records?.length);
-          } catch (parseError) {
-            logger.error('❌ JSON parse error:', parseError);
-            logger.error('❌ Raw data type:', typeof osduResponse.data);
-            logger.error('❌ Raw data preview:', String(osduResponse.data).substring(0, 500));
-            throw new Error(`Failed to parse OSDU response: ${parseError instanceof Error ? parseError.message : String(parseError)}`);
-          }
-
-          // Check if this is an error response from Lambda
-          if (osduData.error) {
-            logger.error('❌ OSDU Lambda error:', osduData.error);
-            throw new Error(osduData.error);
-          }
-
-          // Validate response has required fields
-          if (typeof osduData !== 'object' || osduData === null) {
-            logger.error('❌ Invalid OSDU response type:', typeof osduData);
-            throw new Error('Invalid response format from OSDU API');
-          }
-
-          // Ensure we have at least the answer field
-          if (!osduData.answer && osduData.recordCount === undefined && !osduData.records) {
-            logger.error('❌ Missing required fields in OSDU response:', osduData);
-            throw new Error('Incomplete response from OSDU API');
-          }
-
-          // Convert OSDU records to well data format for collection context
-          const convertOSDUToWellData = (osduRecord: any, index: number) => {
-            // Extract coordinates from various possible OSDU structures
-            let latitude = null;
-            let longitude = null;
-
-            // Try different coordinate field patterns (based on actual OSDU API response)
-            if (osduRecord.location?.lat && osduRecord.location?.lon) {
-              // Direct location object (most common in OSDU)
-              latitude = osduRecord.location.lat;
-              longitude = osduRecord.location.lon;
-            } else if (osduRecord.data?.SpatialLocation?.coordinates) {
-              [longitude, latitude] = osduRecord.data.SpatialLocation.coordinates;
-            } else if (osduRecord.data?.location?.coordinates) {
-              [longitude, latitude] = osduRecord.data.location.coordinates;
-            } else if (osduRecord.data?.location?.lat && osduRecord.data?.location?.lon) {
-              latitude = osduRecord.data.location.lat;
-              longitude = osduRecord.data.location.lon;
-            } else if (osduRecord.coordinates) {
-              [longitude, latitude] = osduRecord.coordinates;
-            } else if (osduRecord.latitude && osduRecord.longitude) {
-              latitude = osduRecord.latitude;
-              longitude = osduRecord.longitude;
-            }
-
-            // Build well data object compatible with catalog format
-            return {
-              id: osduRecord.recordId || osduRecord.osduRecordId || osduRecord.id || `osdu-${index}`,
-              name: osduRecord.WellName || osduRecord.name || osduRecord.Name || `OSDU-${index}`,
-              type: osduRecord.recordType || osduRecord.kind || osduRecord.type || 'OSDU Record',
-              location: osduRecord.field || osduRecord.location?.region || osduRecord.location || 'Unknown',
-              operator: osduRecord.company || osduRecord.operator || 'Unknown',
-              status: osduRecord.complianceStatus || osduRecord.status || 'Unknown',
-              depth: osduRecord.TopDepth && osduRecord.BottomDepth
-                ? `${osduRecord.TopDepth}-${osduRecord.BottomDepth}m`
-                : osduRecord.depth || 'Unknown',
-              latitude: latitude,
-              longitude: longitude,
-              // Additional OSDU-specific fields
-              basin: osduRecord.basin,
-              country: osduRecord.country,
-              logType: osduRecord.LogType,
-              // Mark as OSDU source for tracking
-              dataSource: 'OSDU',
-              osduId: osduRecord.recordId || osduRecord.osduRecordId,
-              // Preserve original OSDU data for reference
-              _osduOriginal: osduRecord
-            };
-          };
-
-          // Format OSDU records for table display
-          const recordsTable = osduData.records && osduData.records.length > 0
-            ? osduData.records.slice(0, 10).map((r: any, i: number) => {
-              // Extract key fields for table display
-              const record: any = {
-                id: r.id || `osdu-${i}`,
-                name: r.name || r.data?.name || r.id || 'Unknown',
-                type: r.type || r.kind || 'OSDU Record',
-                dataSource: 'OSDU' // Mark source
-              };
-
-              // Add additional relevant fields if present
-              if (r.data) {
-                if (r.data.location) record.location = r.data.location;
-                if (r.data.operator) record.operator = r.data.operator;
-                if (r.data.status) record.status = r.data.status;
-                if (r.data.depth) record.depth = r.data.depth;
-              }
-
-              // Add any top-level fields that aren't already included
-              Object.keys(r).forEach(key => {
-                if (!['id', 'name', 'type', 'kind', 'data', 'meta', 'acl', 'legal', 'ancestry'].includes(key)) {
-                  record[key] = r[key];
-                }
-              });
-
-              return record;
-            })
-            : [];
-
-          // Convert OSDU records to well data format for analysis
-          const osduWellData = osduData.records && osduData.records.length > 0
-            ? osduData.records.map(convertOSDUToWellData)
-            : [];
+          // Convert OSDU result records to well data format using the imported utility
+          const osduWellData = convertOSDUToWellData(osduResult.records);
 
           logger.info('🔄 Converted OSDU records to well data:', {
-            originalCount: osduData.records?.length || 0,
+            originalCount: osduResult.records.length,
             convertedCount: osduWellData.length,
             withCoordinates: osduWellData.filter(w => w.latitude && w.longitude).length
           });
@@ -1539,16 +1414,17 @@ function CatalogPageBase() {
 
           logger.info('💾 Saved OSDU context:', osduWellData.length, 'records');
 
-          // Build message text with safe defaults and enhanced formatting
-          const answer = osduData.answer || `Found ${osduWellData.length} OSDU records. You can now filter these results by asking follow-up questions like "show only production wells" or "filter by depth > 3000m"`;
-          const recordCount = osduData.recordCount || 0;
+          // Build message text using the result from executeOSDUQuery
+          const answer = osduResult.answer || `Found ${osduWellData.length} OSDU records. You can now filter these results by asking follow-up questions like "show only production wells" or "filter by depth > 3000m"`;
+          const recordCount = osduResult.recordCount || osduWellData.length;
 
           // Use Cloudscape component format for OSDU responses
           const osduResponseData = {
             answer,
             recordCount,
             records: osduWellData,
-            query: prompt
+            query: prompt,
+            executionTime: osduResult.executionTime
           };
 
           // Format as special OSDU response marker for frontend component
@@ -2191,8 +2067,8 @@ function CatalogPageBase() {
         gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
         >
           {selectedId === "seg-1" ? (
-            <div className='panel'>
-              <div style={{ position: 'relative', height: 'calc(100vh - 300px)', minHeight: '500px' }}>
+            <div className='panel' style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+              <div style={{ position: 'relative', flex: 1, minHeight: '500px' }}>
                 <MapComponent
                   ref={mapComponentRef}
                   mapColorScheme={mapColorScheme}
@@ -2204,7 +2080,7 @@ function CatalogPageBase() {
             </div>
           ) : selectedId === "seg-2" ? (
             // Data Analysis & Visualization Panel
-            <div className='panel'>
+            <div className='panel' style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Container
                 footer=""
                 header={
@@ -2215,7 +2091,7 @@ function CatalogPageBase() {
               >
                 <div style={{
                   overflowY: 'auto',
-                  maxHeight: 'calc(100vh - 300px)',
+                  flex: 1,
                   position: 'relative',
                   paddingBottom: '60px'
                 }}>

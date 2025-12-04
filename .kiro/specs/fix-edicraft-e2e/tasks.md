@@ -140,7 +140,7 @@ This plan systematically fixes **all agents** by identifying and resolving backe
   - Deploy and test on localhost
   - _Requirements: 12.1-12.5_
 
-- [ ] 16. Fix Renewable agent implementation
+- [x] 16. Fix Renewable agent implementation
   - Check if orchestrator is properly configured
   - Verify workflow execution is implemented
   - Check renewable tools Lambda connectivity
@@ -149,7 +149,7 @@ This plan systematically fixes **all agents** by identifying and resolving backe
   - Deploy and test on localhost
   - _Requirements: 13.1-13.5_
 
-- [ ] 17. Fix Auto agent implementation
+- [x] 17. Fix Auto agent implementation
   - Verify intent classification works
   - Check general knowledge model access
   - Add configuration validation
