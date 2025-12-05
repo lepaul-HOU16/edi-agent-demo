@@ -1110,8 +1110,8 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
   }, [mapColorScheme, handlePolygonCreate, handlePolygonDeleteEvent, handlePolygonUpdateEvent]);
 
   return (
-    <div style={{ position: 'relative' }}>
-      <div id="map" style={{ width: '100%', height: 'calc(calc(100vh - 188px))', borderRadius: '0 0 8px 8px' }} />
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div id="map" style={{ width: '100%', height: '100%', borderRadius: '0 0 8px 8px' }} />
     </div>
   );
 });

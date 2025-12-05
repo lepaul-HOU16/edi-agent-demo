@@ -27,7 +27,7 @@
   - Add troubleshooting notes for common issues
   - _Requirements: 2.1_
 
-- [-] 5. Test the workflow changes
+- [x] 5. Test the workflow changes
   - Commit and push changes to trigger CI/CD
   - Monitor GitHub Actions execution
   - Verify API URL is correctly fetched from CloudFormation
@@ -35,7 +35,7 @@
   - Check deployment logs for any errors
   - _Requirements: 1.1, 1.2, 1.4_
 
-- [ ] 6. Verify deployed frontend functionality
+- [x] 6. Verify deployed frontend functionality
   - Open deployed frontend URL: https://d2hkqpgqguj4do.cloudfront.net
   - Test chat session creation
   - Verify no ERR_NAME_NOT_RESOLVED errors in browser console

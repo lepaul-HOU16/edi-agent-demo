@@ -2067,8 +2067,8 @@ function CatalogPageBase() {
         gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
         >
           {selectedId === "seg-1" ? (
-            <div className='panel' style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <div style={{ position: 'relative', flex: 1, minHeight: '500px' }}>
+            <div className='panel' style={{ height: 'calc(100% - 29px)', borderBottomLeftRadius: '20px', display: 'flex', flexDirection: 'column', marginBottom: '160px' }}>
+              <div style={{ position: 'relative', flex: 1, minHeight: 0, height: '100%' }}>
                 <MapComponent
                   ref={mapComponentRef}
                   mapColorScheme={mapColorScheme}

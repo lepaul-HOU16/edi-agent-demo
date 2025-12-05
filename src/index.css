@@ -493,3 +493,15 @@ body[data-awsui-mode="light"] div.panel {
 .panel > div:first-child > [class*="awsui_root"]:first-child {
   border-radius: 0 !important;
 }
+
+/* Remove border from PromptInput send button */
+button[class*="awsui_action-button"][aria-label="Send message"],
+button[class*="action-button"][aria-label="Send message"],
+[class*="awsui_prompt-input"] button[type="submit"],
+[class*="prompt-input"] button[type="submit"] {
+  border: 0 !important;
+  border-width: 0 !important;
+  border-style: none !important;
+  box-shadow: none !important;
+  outline: none !important;
+}

@@ -782,3 +782,67 @@
 }
 
 
+
+/* ============================================
+   CATALOG PAGE LAYOUT FIXES
+   ============================================ */
+
+/* Main container for catalog page */
+[data-page="catalog"] .main-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  overflow: hidden;
+}
+
+/* Header area with controls */
+[data-page="catalog"] .reset-chat {
+  flex-shrink: 0;
+  padding: 16px 20px;
+}
+
+/* Content area that fills remaining space */
+[data-page="catalog"] .content-area {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+  min-height: 0; /* Important for flex children */
+}
+
+/* Grid container fills content area */
+[data-page="catalog"] .content-area > div {
+  width: 100%;
+  height: 100%;
+  display: flex;
+}
+
+/* Left panel (map/analysis/chain of thought) */
+[data-page="catalog"] .panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 0 0 8px 8px;
+}
+
+/* Right panel (chat) */
+[data-page="catalog"] .convo {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 20px;
+}
+
+/* Ensure map fills its container */
+[data-page="catalog"] .panel > div {
+  flex: 1;
+  min-height: 0;
+  position: relative;
+}
+
+/* Map component should fill parent */
+[data-page="catalog"] .leaflet-container {
+  height: 100% !important;
+  width: 100% !important;
+}

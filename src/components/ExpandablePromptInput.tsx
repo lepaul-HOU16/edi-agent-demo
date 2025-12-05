@@ -109,8 +109,18 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
         marginRight: '2px',
       },
       '& .awsui-prompt-input__action-button button': {
-        border: 'none !important',
+        border: '0 !important',
+        borderWidth: '0 !important',
+        borderStyle: 'none !important',
         boxShadow: 'none !important',
+        outline: 'none !important',
+      },
+      '& button[aria-label="Send message"]': {
+        border: '0 !important',
+        borderWidth: '0 !important',
+        borderStyle: 'none !important',
+        boxShadow: 'none !important',
+        outline: 'none !important',
       },
       '& .awsui-prompt-input__container': {
         width: '100%',
