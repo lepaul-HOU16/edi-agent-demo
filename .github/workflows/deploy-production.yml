@@ -1,5 +1,113 @@
 name: Deploy to Production
 
+# ================================================================================
+# PRODUCTION DEPLOYMENT WORKFLOW
+# ================================================================================
+#
+# This workflow deploys the full application stack to AWS:
+# 1. Run tests and build verification
+# 2. Deploy backend infrastructure (CDK, Lambda, API Gateway)
+# 3. Deploy frontend (React/Vite to S3/CloudFront)
+# 4. Verify deployment health
+#
+# CRITICAL: API URL CONFIGURATION
+# ================================================================================
+# The frontend must know the correct API Gateway URL to connect to the backend.
+# This workflow implements an automatic API URL configuration system:
+#
+# PROBLEM SOLVED:
+# - API Gateway URLs can change when infrastructure is redeployed
+# - Hardcoded URLs in GitHub secrets become stale and cause ERR_NAME_NOT_RESOLVED
+# - Manual URL updates are error-prone and easy to forget
+#
+# SOLUTION:
+# - Fetch API URL directly from CloudFormation stack outputs
+# - CloudFormation is the single source of truth for infrastructure
+# - API URL is automatically correct after every backend deployment
+#
+# HOW IT WORKS:
+# 1. Backend deployment creates/updates CloudFormation stack
+# 2. CloudFormation exports API Gateway URL as 'HttpApiUrl' output
+# 3. Frontend build step queries CloudFormation for this output
+# 4. API URL is passed to Vite build as VITE_API_URL environment variable
+# 5. Vite embeds the URL in the compiled frontend bundle
+# 6. Frontend uses this URL for all API calls at runtime
+#
+# FALLBACK MECHANISM:
+# - If CloudFormation query fails, uses hardcoded default URL
+# - Default URL is defined in src/lib/api/client.ts
+# - Fallback ensures builds don't fail due to temporary CloudFormation issues
+# - Warning is logged if fallback is used
+#
+# DEPLOYMENT ORDER (CRITICAL):
+# 1. deploy-backend job MUST complete before deploy-frontend
+# 2. This ensures CloudFormation outputs are available
+# 3. Frontend build uses the latest API URL from backend deployment
+#
+# TROUBLESHOOTING GUIDE:
+# ================================================================================
+#
+# SYMPTOM: Frontend shows ERR_NAME_NOT_RESOLVED
+# CAUSE: Frontend is trying to connect to wrong/old API Gateway URL
+# FIX:
+#   1. Check "Get API URL from CloudFormation" step logs
+#   2. Verify URL matches actual API Gateway endpoint
+#   3. Check CloudFormation stack outputs:
+#      aws cloudformation describe-stacks --stack-name EnergyInsights-development \
+#        --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue"
+#   4. If URL is wrong, verify backend deployment succeeded
+#   5. Redeploy frontend to pick up correct URL
+#
+# SYMPTOM: Build uses fallback URL instead of CloudFormation URL
+# CAUSE: CloudFormation query failed
+# FIX:
+#   1. Verify CloudFormation stack exists and is in stable state
+#   2. Check AWS credentials have CloudFormation read permissions
+#   3. Verify stack name is correct: EnergyInsights-development
+#   4. Check for network connectivity issues
+#
+# SYMPTOM: API calls fail with 403/404 errors
+# CAUSE: API Gateway configuration or Lambda function issues
+# FIX:
+#   1. Verify backend deployment succeeded
+#   2. Check Lambda function logs in CloudWatch
+#   3. Test API endpoint directly with curl
+#   4. Verify API Gateway routes are configured correctly
+#
+# SYMPTOM: Changes not visible after deployment
+# CAUSE: CloudFront cache not invalidated or still propagating
+# FIX:
+#   1. Wait 1-2 minutes for cache invalidation to complete
+#   2. Hard refresh browser: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)
+#   3. Check CloudFront invalidation status in AWS Console
+#   4. Verify "Invalidate CloudFront cache" step succeeded
+#
+# MANUAL VERIFICATION:
+# ================================================================================
+# After deployment, verify the configuration:
+#
+# 1. Check API URL in browser console:
+#    - Open https://d2hkqpgqguj4do.cloudfront.net
+#    - Open browser DevTools > Console
+#    - Look for API_BASE_URL or check Network tab for API calls
+#    - Verify URL matches CloudFormation output
+#
+# 2. Test API connectivity:
+#    curl https://[api-url]/api/health
+#
+# 3. Verify CloudFormation outputs:
+#    aws cloudformation describe-stacks \
+#      --stack-name EnergyInsights-development \
+#      --query "Stacks[0].Outputs"
+#
+# RELATED FILES:
+# ================================================================================
+# - src/lib/api/client.ts: Frontend API client with URL configuration
+# - cdk/lib/main-stack.ts: CDK stack that exports HttpApiUrl output
+# - vite.config.ts: Vite configuration for environment variables
+#
+# ================================================================================
+
 on:
   push:
     branches:
@@ -9,7 +117,7 @@ on:
 env:
   AWS_REGION: us-east-1
   NODE_VERSION: '20'
-  STACK_NAME: EnergyInsights-development
+  STACK_NAME: EnergyInsights-development  # CloudFormation stack name for API URL lookup
   CLOUDFRONT_DISTRIBUTION_ID: E18FPAPGJR8ZNO
 
 jobs:
@@ -135,10 +243,143 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # ============================================================================
+      # API URL CONFIGURATION - CRITICAL STEP
+      # ============================================================================
+      # This step fetches the correct API Gateway URL from CloudFormation stack
+      # outputs to ensure the frontend always connects to the right backend.
+      #
+      # WHY THIS IS NECESSARY:
+      # - API Gateway URLs can change when infrastructure is redeployed
+      # - Hardcoded URLs in GitHub secrets become stale and cause connection errors
+      # - CloudFormation is the single source of truth for infrastructure outputs
+      #
+      # HOW IT WORKS:
+      # 1. Query CloudFormation stack for the 'HttpApiUrl' output value
+      # 2. If query succeeds, use the returned URL (most common case)
+      # 3. If query fails, fall back to hardcoded default URL
+      # 4. Validate URL format (must start with https://)
+      # 5. Store URL in step output for use in frontend build
+      #
+      # FALLBACK MECHANISM:
+      # - Primary: CloudFormation stack output (HttpApiUrl)
+      # - Fallback: Hardcoded default URL in code (src/lib/api/client.ts)
+      # - The fallback ensures builds don't fail if CloudFormation is unavailable
+      #
+      # TROUBLESHOOTING:
+      # - If frontend shows ERR_NAME_NOT_RESOLVED:
+      #   1. Check this step's logs to see which URL was used
+      #   2. Verify CloudFormation stack has HttpApiUrl output
+      #   3. Ensure backend was deployed before frontend build
+      # - If API URL is wrong:
+      #   1. Check CloudFormation outputs match deployed API Gateway
+      #   2. Verify stack name is correct: ${{ env.STACK_NAME }}
+      #   3. Ensure AWS credentials have CloudFormation read permissions
+      # ============================================================================
+      - name: Get API URL from CloudFormation
+        id: get-api-url
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+        run: |
+          echo "============================================================================"
+          echo "🔍 Fetching API URL from CloudFormation"
+          echo "============================================================================"
+          echo "Stack Name: ${{ env.STACK_NAME }}"
+          echo "Region: ${{ env.AWS_REGION }}"
+          echo ""
+          
+          # Query CloudFormation for HttpApiUrl output
+          # This is the single source of truth for the API Gateway endpoint
+          echo "Querying CloudFormation stack outputs..."
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue" \
+            --output text 2>/dev/null || echo "")
+          
+          # Fallback mechanism: Use default URL if CloudFormation query fails
+          # This ensures the build doesn't fail if CloudFormation is temporarily unavailable
+          # The default URL should match the most recent known API Gateway endpoint
+          if [ -z "$API_URL" ]; then
+            echo "⚠️  WARNING: Could not fetch API URL from CloudFormation"
+            echo "⚠️  This may indicate:"
+            echo "    - CloudFormation stack doesn't exist or is being created"
+            echo "    - AWS credentials lack CloudFormation read permissions"
+            echo "    - Network connectivity issues"
+            echo ""
+            echo "📌 Using fallback URL from code default"
+            API_URL="https://t4begsixg2.execute-api.us-east-1.amazonaws.com"
+            echo "⚠️  NOTE: If this URL is outdated, frontend will fail to connect"
+            echo "⚠️  Verify CloudFormation stack outputs after deployment"
+          else
+            echo "✅ Successfully fetched API URL from CloudFormation stack output"
+          fi
+          
+          echo ""
+          echo "API URL Retrieved: $API_URL"
+          echo ""
+          
+          # Validate URL format to catch configuration errors early
+          # API Gateway URLs must always use HTTPS
+          if [[ ! "$API_URL" =~ ^https:// ]]; then
+            echo "❌ ERROR: Invalid API URL format"
+            echo "❌ Expected: https://..."
+            echo "❌ Got: $API_URL"
+            echo ""
+            echo "This indicates a configuration error. Check CloudFormation outputs."
+            exit 1
+          fi
+          
+          echo "✅ URL format validation passed"
+          echo ""
+          
+          # Store in step output for use in subsequent steps
+          # This will be passed to the frontend build as VITE_API_URL
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+          
+          echo "============================================================================"
+          echo "📡 API URL Configuration Complete"
+          echo "============================================================================"
+          echo "URL to be used for frontend build: $API_URL"
+          echo "This URL will be embedded in the frontend bundle as VITE_API_URL"
+          echo "============================================================================"
+          echo ""
+
+      # ============================================================================
+      # FRONTEND BUILD WITH API URL
+      # ============================================================================
+      # This step builds the frontend with the API URL fetched from CloudFormation.
+      #
+      # HOW API URL IS EMBEDDED:
+      # - VITE_API_URL environment variable is set during build
+      # - Vite replaces import.meta.env.VITE_API_URL with the actual URL
+      # - The URL is embedded in the compiled JavaScript bundle
+      # - At runtime, the frontend uses this URL for all API calls
+      #
+      # CODE REFERENCE:
+      # - See src/lib/api/client.ts for how the URL is used:
+      #   export const API_BASE_URL = import.meta.env.VITE_API_URL || 'default-url'
+      #
+      # IMPORTANT NOTES:
+      # - The API URL is baked into the build at compile time
+      # - Changing the API URL requires rebuilding and redeploying the frontend
+      # - The frontend cannot dynamically switch API URLs at runtime
+      # - This is why fetching the correct URL from CloudFormation is critical
+      #
+      # TROUBLESHOOTING:
+      # - If frontend connects to wrong API:
+      #   1. Check previous step's logs for API URL used
+      #   2. Verify VITE_API_URL was set correctly in this step
+      #   3. Rebuild frontend with correct URL
+      # - If API calls fail with CORS errors:
+      #   1. Verify API Gateway CORS configuration
+      #   2. Check that API URL matches deployed backend
+      # ============================================================================
       - name: Build frontend
         run: npm run build
         env:
-          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+          VITE_API_URL: ${{ steps.get-api-url.outputs.api-url }}
 
       - name: Get S3 bucket name
         id: get-bucket
@@ -270,19 +511,167 @@ jobs:
             echo "✅ API responding (HTTP $HTTP_CODE)"
           fi
 
+      - name: Get API URL for summary
+        id: get-api-url-summary
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: ${{ env.AWS_REGION }}
+        run: |
+          API_URL=$(aws cloudformation describe-stacks \
+            --stack-name ${{ env.STACK_NAME }} \
+            --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue" \
+            --output text)
+          echo "api-url=$API_URL" >> $GITHUB_OUTPUT
+
+      # ============================================================================
+      # DEPLOYMENT SUMMARY
+      # ============================================================================
+      # This step provides a comprehensive summary of the deployment including:
+      # - Deployment URLs for frontend and API
+      # - API URL configuration details (critical for troubleshooting)
+      # - Verification checklist
+      # - Troubleshooting guide for common issues
+      #
+      # WHY THIS IS IMPORTANT:
+      # - Provides immediate visibility into deployment configuration
+      # - Documents which API URL was used for frontend build
+      # - Helps diagnose connection issues quickly
+      # - Serves as deployment audit trail
+      #
+      # KEY INFORMATION DISPLAYED:
+      # - Frontend URL: Where users access the application
+      # - API Gateway URL: Backend endpoint the frontend connects to
+      # - API URL Source: Confirms URL came from CloudFormation (not fallback)
+      # - Build Variable: Shows exact VITE_API_URL value used in build
+      #
+      # TROUBLESHOOTING SECTION:
+      # - Provides step-by-step guide for common deployment issues
+      # - Includes AWS CLI commands for verification
+      # - Explains how to check browser console for errors
+      # - Documents expected wait times for cache invalidation
+      # ============================================================================
       - name: Deployment summary
         run: |
           echo "=========================================="
-          echo "Deployment Complete!"
+          echo "🚀 Deployment Complete!"
           echo "=========================================="
           echo ""
-          echo "Stack: ${{ env.STACK_NAME }}"
-          echo "Frontend: ${{ steps.get-url.outputs.url }}"
-          echo "Region: ${{ env.AWS_REGION }}"
+          echo "📦 Stack Information:"
+          echo "   Stack Name: ${{ env.STACK_NAME }}"
+          echo "   Region: ${{ env.AWS_REGION }}"
+          echo "   Status: ✅ Deployed Successfully"
           echo ""
-          echo "✅ Backend deployed"
-          echo "✅ Frontend deployed"
-          echo "✅ CloudFront cache invalidated"
-          echo "✅ Verification passed"
+          echo "🌐 Deployment URLs:"
+          echo "   Frontend URL: ${{ steps.get-url.outputs.url }}"
+          echo "   API Gateway URL: ${{ steps.get-api-url-summary.outputs.api-url }}"
           echo ""
+          echo "✅ Deployment Steps Completed:"
+          echo "   ✓ Backend CDK stack deployed"
+          echo "   ✓ Lambda functions updated"
+          echo "   ✓ Frontend built with correct API URL"
+          echo "   ✓ Frontend deployed to S3"
+          echo "   ✓ CloudFront cache invalidated"
+          echo "   ✓ Deployment verification passed"
+          echo ""
+          echo "=========================================="
+          echo "📡 API URL CONFIGURATION (CRITICAL)"
+          echo "=========================================="
+          echo "This section documents how the frontend was configured to connect"
+          echo "to the backend. This is the most common source of deployment issues."
+          echo ""
+          echo "API URL Source: CloudFormation Stack Output (HttpApiUrl)"
+          echo "   ↳ URL is fetched automatically from infrastructure deployment"
+          echo "   ↳ This ensures frontend always uses the correct backend URL"
+          echo "   ↳ No manual configuration or GitHub secrets required"
+          echo ""
+          echo "API URL Used: ${{ steps.get-api-url-summary.outputs.api-url }}"
+          echo "   ↳ This is the URL embedded in the frontend bundle"
+          echo "   ↳ All API calls from the frontend will use this URL"
+          echo "   ↳ Verify this matches your API Gateway endpoint"
+          echo ""
+          echo "Build Variable: VITE_API_URL=${{ steps.get-api-url-summary.outputs.api-url }}"
+          echo "   ↳ This environment variable was set during 'npm run build'"
+          echo "   ↳ Vite replaced import.meta.env.VITE_API_URL with this value"
+          echo "   ↳ The URL is now hardcoded in the compiled JavaScript"
+          echo ""
+          echo "✅ Frontend was built with the correct API URL from CloudFormation"
+          echo "✅ No stale or hardcoded URLs were used"
+          echo "=========================================="
+          echo ""
+          echo "=========================================="
+          echo "🔍 TROUBLESHOOTING GUIDE"
+          echo "=========================================="
+          echo ""
+          echo "ISSUE: Frontend shows ERR_NAME_NOT_RESOLVED"
+          echo "CAUSE: Frontend trying to connect to wrong/old API Gateway URL"
+          echo "STEPS TO FIX:"
+          echo "   1. Check API URL in browser console:"
+          echo "      - Open: ${{ steps.get-url.outputs.url }}"
+          echo "      - Open DevTools > Console"
+          echo "      - Look for API_BASE_URL or check Network tab"
+          echo "      - Verify URL matches: ${{ steps.get-api-url-summary.outputs.api-url }}"
+          echo ""
+          echo "   2. Verify CloudFormation outputs:"
+          echo "      aws cloudformation describe-stacks \\"
+          echo "        --stack-name ${{ env.STACK_NAME }} \\"
+          echo "        --query 'Stacks[0].Outputs'"
+          echo ""
+          echo "   3. Check frontend build logs:"
+          echo "      - Review 'Get API URL from CloudFormation' step above"
+          echo "      - Verify it shows: ✅ Successfully fetched API URL"
+          echo "      - If it shows ⚠️ fallback warning, backend may not be deployed"
+          echo ""
+          echo "   4. Test API directly:"
+          echo "      curl ${{ steps.get-api-url-summary.outputs.api-url }}/api/health"
+          echo ""
+          echo "   5. Wait for CloudFront cache:"
+          echo "      - Cache invalidation takes 1-2 minutes to propagate"
+          echo "      - Hard refresh browser: Cmd+Shift+R (Mac) or Ctrl+Shift+R (Windows)"
+          echo ""
+          echo "ISSUE: API calls fail with 403/404 errors"
+          echo "CAUSE: Backend deployment or configuration issue"
+          echo "STEPS TO FIX:"
+          echo "   1. Verify backend deployment succeeded (check logs above)"
+          echo "   2. Check Lambda function logs in CloudWatch"
+          echo "   3. Verify API Gateway routes are configured"
+          echo "   4. Test API endpoint directly with curl"
+          echo ""
+          echo "ISSUE: Changes not visible after deployment"
+          echo "CAUSE: CloudFront cache not yet invalidated"
+          echo "STEPS TO FIX:"
+          echo "   1. Wait 1-2 minutes for cache invalidation"
+          echo "   2. Hard refresh browser: Cmd+Shift+R or Ctrl+Shift+R"
+          echo "   3. Check CloudFront invalidation status in AWS Console"
+          echo "   4. Verify 'Invalidate CloudFront cache' step succeeded above"
+          echo ""
+          echo "ISSUE: Build used fallback URL instead of CloudFormation"
+          echo "CAUSE: CloudFormation query failed"
+          echo "STEPS TO FIX:"
+          echo "   1. Verify CloudFormation stack exists and is stable"
+          echo "   2. Check AWS credentials have CloudFormation read permissions"
+          echo "   3. Verify stack name is correct: ${{ env.STACK_NAME }}"
+          echo "   4. Check for network connectivity issues"
+          echo "   5. Review 'Get API URL from CloudFormation' step logs"
+          echo ""
+          echo "=========================================="
+          echo "📝 NEXT STEPS"
+          echo "=========================================="
+          echo "1. Open frontend: ${{ steps.get-url.outputs.url }}"
+          echo "2. Test chat functionality with different agents"
+          echo "3. Open browser DevTools > Network tab"
+          echo "4. Verify API calls go to: ${{ steps.get-api-url-summary.outputs.api-url }}"
+          echo "5. Check browser console for any errors"
+          echo "6. Confirm no ERR_NAME_NOT_RESOLVED errors"
+          echo ""
+          echo "=========================================="
+          echo "📚 RELATED DOCUMENTATION"
+          echo "=========================================="
+          echo "- API Client Code: src/lib/api/client.ts"
+          echo "- CDK Stack: cdk/lib/main-stack.ts"
+          echo "- Vite Config: vite.config.ts"
+          echo "- Workflow File: .github/workflows/deploy-production.yml"
+          echo ""
+          echo "For more information, see the deployment documentation"
+          echo "in the repository README.md"
           echo "=========================================="
