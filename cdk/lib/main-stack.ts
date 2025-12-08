@@ -1019,6 +1019,8 @@ export class MainStack extends cdk.Stack {
         STORAGE_BUCKET_NAME: storageBucket.bucketName,
         OSDU_BASE_URL: process.env.OSDU_BASE_URL || 'https://community.opensubsurface.org',
         OSDU_PARTITION_ID: process.env.OSDU_PARTITION_ID || 'opendes',
+        // OSDU Lambda API endpoint for internal calls
+        OSDU_API_ENDPOINT: `${this.httpApi.apiEndpoint}/api/osdu/search`,
       },
     });
 

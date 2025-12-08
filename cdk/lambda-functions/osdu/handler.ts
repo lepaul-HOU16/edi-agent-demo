@@ -12,6 +12,111 @@ interface OSDUSearchResponse {
   records: Array<any>;
 }
 
+interface FilterCriteria {
+  locations: string[];
+  operators: string[];
+  wellPrefixes: string[];
+}
+
+/**
+ * Parse natural language query to extract filter criteria
+ */
+function parseNaturalLanguageQuery(query: string): FilterCriteria {
+  const lowerQuery = query.toLowerCase();
+  const criteria: FilterCriteria = {
+    locations: [],
+    operators: [],
+    wellPrefixes: []
+  };
+  
+  // Location keywords - check for variations
+  const locationKeywords = [
+    { name: 'north sea', patterns: ['north sea', 'northsea', 'north-sea'] },
+    { name: 'gulf of mexico', patterns: ['gulf of mexico', 'gulf', 'gom', 'mexico'] },
+    { name: 'south china sea', patterns: ['south china sea', 'south china', 'scs'] },
+    { name: 'persian gulf', patterns: ['persian gulf', 'persian', 'arabian gulf'] },
+    { name: 'caspian sea', patterns: ['caspian sea', 'caspian'] }
+  ];
+  
+  for (const location of locationKeywords) {
+    if (location.patterns.some(pattern => lowerQuery.includes(pattern))) {
+      criteria.locations.push(location.name);
+    }
+  }
+  
+  // Operator keywords - check for company names with flexible matching
+  const operatorKeywords = [
+    { name: 'BP', patterns: ['bp', 'british petroleum'] },
+    { name: 'Shell', patterns: ['shell', 'royal dutch shell'] },
+    { name: 'Chevron', patterns: ['chevron'] },
+    { name: 'ExxonMobil', patterns: ['exxonmobil', 'exxon', 'mobil'] },
+    { name: 'TotalEnergies', patterns: ['totalenergies', 'total'] }
+  ];
+  
+  for (const operator of operatorKeywords) {
+    // Check if any pattern matches (case-insensitive)
+    if (operator.patterns.some(pattern => lowerQuery.includes(pattern))) {
+      criteria.operators.push(operator.name);
+    }
+  }
+  
+  // Well name prefixes - check for country codes
+  const wellPrefixes = [
+    { prefix: 'USA', patterns: ['usa', 'us ', 'united states', 'american'] },
+    { prefix: 'NOR', patterns: ['nor', 'norway', 'norwegian'] },
+    { prefix: 'VIE', patterns: ['vie', 'vietnam', 'vietnamese'] },
+    { prefix: 'UAE', patterns: ['uae', 'emirates', 'dubai', 'abu dhabi'] },
+    { prefix: 'KAZ', patterns: ['kaz', 'kazakhstan'] }
+  ];
+  
+  for (const well of wellPrefixes) {
+    if (well.patterns.some(pattern => lowerQuery.includes(pattern))) {
+      criteria.wellPrefixes.push(well.prefix);
+    }
+  }
+  
+  return criteria;
+}
+
+/**
+ * Filter demo data based on parsed criteria
+ */
+function filterDemoData(records: any[], criteria: FilterCriteria): any[] {
+  if (criteria.locations.length === 0 && 
+      criteria.operators.length === 0 && 
+      criteria.wellPrefixes.length === 0) {
+    return records; // No filters, return all
+  }
+  
+  return records.filter(record => {
+    // Location filter (case-insensitive substring match)
+    if (criteria.locations.length > 0) {
+      const recordLocation = (record.location || '').toLowerCase();
+      const matchesLocation = criteria.locations.some(loc => 
+        recordLocation.includes(loc.toLowerCase())
+      );
+      if (!matchesLocation) return false;
+    }
+    
+    // Operator filter (exact match)
+    if (criteria.operators.length > 0) {
+      const matchesOperator = criteria.operators.includes(record.operator);
+      if (!matchesOperator) return false;
+    }
+    
+    // Well name prefix filter
+    if (criteria.wellPrefixes.length > 0) {
+      const recordName = record.name || '';
+      const matchesPrefix = criteria.wellPrefixes.some(prefix => 
+        recordName.startsWith(prefix)
+      );
+      if (!matchesPrefix) return false;
+    }
+    
+    return true; // Passed all filters
+  });
+}
+
 export const handler = async (
   event: APIGatewayProxyEventV2
 ): Promise<APIGatewayProxyResultV2> => {
@@ -59,16 +164,70 @@ export const handler = async (
       const apiUrl = process.env.OSDU_API_URL;
       const apiKey = process.env.OSDU_API_KEY;
       
-      if (!apiUrl || !apiKey) {
-        console.error('❌ OSDU API configuration missing');
+      // If OSDU not configured, return demo data for testing
+      if (!apiUrl || !apiKey || apiUrl.includes('example.com')) {
+        console.log('⚠️ OSDU API not configured, returning demo data');
+        
+        // Generate realistic demo OSDU data with proper geographic distribution
+        const regions = [
+          { name: 'Gulf of Mexico', basin: 'Permian Basin', country: 'USA', latBase: 28, lonBase: -90, spread: 3 },
+          { name: 'North Sea', basin: 'North Sea Basin', country: 'Norway', latBase: 60, lonBase: 3, spread: 2 },
+          { name: 'South China Sea', basin: 'Pearl River Basin', country: 'Vietnam', latBase: 10, lonBase: 107, spread: 2.5 },
+          { name: 'Persian Gulf', basin: 'Zagros Basin', country: 'UAE', latBase: 25, lonBase: 53, spread: 2 },
+          { name: 'Caspian Sea', basin: 'South Caspian Basin', country: 'Kazakhstan', latBase: 42, lonBase: 51, spread: 2 }
+        ];
+        
+        const allDemoRecords = Array.from({ length: Math.min(maxResults, 50) }, (_, i) => {
+          const region = regions[i % regions.length];
+          const wellsInRegion = Math.floor(i / regions.length);
+          
+          return {
+            id: `osdu-demo-${i + 1}`,
+            name: `${region.country.substring(0, 3).toUpperCase()}-${String.fromCharCode(65 + (wellsInRegion % 26))}-${wellsInRegion + 1}`,
+            type: 'osdu:wks:master-data--Wellbore:1.0.0',
+            operator: ['Shell', 'BP', 'Chevron', 'ExxonMobil', 'TotalEnergies'][i % 5],
+            location: region.name,
+            basin: region.basin,
+            country: region.country,
+            depth: `${2000 + (i * 100)}m`,
+            status: ['Active', 'Producing', 'Exploration', 'Development'][i % 4],
+            dataSource: 'OSDU',
+            latitude: region.latBase + (Math.random() - 0.5) * region.spread,
+            longitude: region.lonBase + (Math.random() - 0.5) * region.spread
+          };
+        });
+        
+        // Parse query and apply filters
+        const filterCriteria = parseNaturalLanguageQuery(query);
+        const filteredRecords = filterDemoData(allDemoRecords, filterCriteria);
+        
+        console.log('🔍 Query parsing:', {
+          query,
+          criteria: filterCriteria,
+          totalRecords: allDemoRecords.length,
+          filteredRecords: filteredRecords.length
+        });
+        
+        // Build answer message
+        let answerParts = [`Found ${filteredRecords.length} wells`];
+        if (filterCriteria.locations.length > 0) {
+          answerParts.push(`in ${filterCriteria.locations.join(', ')}`);
+        }
+        if (filterCriteria.operators.length > 0) {
+          answerParts.push(`operated by ${filterCriteria.operators.join(', ')}`);
+        }
+        if (filterCriteria.wellPrefixes.length > 0) {
+          answerParts.push(`with prefix ${filterCriteria.wellPrefixes.join(', ')}`);
+        }
+        answerParts.push('(Demo Data)');
+        
         return {
-          statusCode: 503,
+          statusCode: 200,
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            error: 'OSDU API is not configured',
-            answer: 'The OSDU search service is not currently available.',
-            recordCount: 0,
-            records: []
+            answer: answerParts.join(' '),
+            recordCount: filteredRecords.length,
+            records: filteredRecords
           }),
         };
       }
@@ -77,7 +236,7 @@ export const handler = async (
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 50000);
       
-      console.log('📤 Calling OSDU API with maxResults:', maxResults);
+      console.log('📤 Calling OSDU API with query:', query, 'maxResults:', maxResults);
       
       let response;
       try {
@@ -90,6 +249,7 @@ export const handler = async (
           body: JSON.stringify({
             toolName: 'searchWells',
             input: {
+              query: query,
               maxResults: maxResults
             }
           }),
