@@ -357,13 +357,15 @@ const CatalogChatBoxCloudscape = (params: {
   }, [handleSend]);
 
   return (
-    <div style={{
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      position: 'relative'
-    }}>
+    <div 
+      className="catalog-chat-container"
+      style={{
+        width: '100%',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        position: 'relative'
+      }}>
       {/* Messages container with query builder at top */}
       <div
         ref={messagesContainerRef}

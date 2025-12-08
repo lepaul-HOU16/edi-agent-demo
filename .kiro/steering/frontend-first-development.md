@@ -16,13 +16,12 @@ Users interact with the frontend. They never see the backend. Therefore:
 
 ## CRITICAL: DEPLOYMENT POLICY
 
-**NEVER DEPLOY TO PRODUCTION MANUALLY**
+**Test localhost first, deploy backend when needed**
 
-See `.kiro/steering/NEVER-DEPLOY-TO-PRODUCTION.md` for deployment rules.
-
-- ❌ Do NOT run `./deploy-frontend.sh`
-- ✅ Test on localhost only (`npm run dev`)
-- ✅ CI/CD handles production deployment
+- ✅ Deploy backend/Lambda changes: `cd cdk && npm run deploy`
+- ✅ Test on localhost: `npm run dev` at http://localhost:3000
+- ✅ Localhost connects to deployed backend for realistic testing
+- ❌ Do NOT deploy frontend manually (CI/CD handles it)
 
 ## Development Order
 
@@ -55,9 +54,10 @@ See `.kiro/steering/NEVER-DEPLOY-TO-PRODUCTION.md` for deployment rules.
    - Implement business logic
    - Set up data storage
 
-6. **Deploy Frontend**
-   - Run `./deploy-frontend.sh`
-   - Verify in production
+6. **Deploy Backend & Test Locally**
+   - Deploy backend: `cd cdk && npm run deploy`
+   - Test on localhost: `npm run dev`
+   - Verify with deployed backend
 
 7. **Iterate Based on User Feedback**
    - Test with real users
@@ -158,12 +158,14 @@ Before writing ANY code, ask:
    - Store data in DynamoDB
    - Return response in format frontend expects
 
-5. **Deploy Frontend**
+5. **Deploy Backend & Test Locally**
    ```bash
-   ./deploy-frontend.sh
+   cd cdk && npm run deploy
+   npm run dev
    ```
 
-6. **Test in Production**
+6. **Test on Localhost**
+   - Open http://localhost:3000
    - Click "Save Project" button
    - Verify modal appears
    - Enter project name
@@ -349,21 +351,17 @@ const handleAction = async () => {
 
 ### The Deployment Rule
 
-**After ANY code change, deploy the frontend.**
+**Deploy backend when needed, test on localhost first**
 
-Even if you only changed backend code, deploy the frontend. Why?
-- Frontend may need rebuilding to pick up changes
-- Environment variables may have changed
-- API contracts may have shifted
-- Configuration may have updated
-- **Users can only see deployed frontend changes**
+Workflow:
+- Deploy backend changes: `cd cdk && npm run deploy`
+- Test on localhost: `npm run dev` at http://localhost:3000
+- Localhost connects to deployed backend for realistic testing
+- User validates, then pushes to trigger CI/CD frontend deployment
 
 ### Remember
 
-**Backend without frontend = invisible = worthless**
-
-**Frontend without deployment = local only = worthless**
-
-**Deployed frontend = user value = success**
-
-**ALWAYS DEPLOY THE FRONTEND.**
+**Backend deployment = Necessary for testing**
+**Localhost testing = ALWAYS required first**
+**Frontend deployment = CI/CD handles it**
+**Localhost + deployed backend = Best testing environment**

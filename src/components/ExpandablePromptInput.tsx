@@ -94,6 +94,22 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
         width: '100%',
         transition: justCleared ? 'opacity 0.2s ease-out' : 'none',
         opacity: justCleared ? 0.7 : 1,
+        borderRadius: '8px !important',
+        overflow: 'hidden !important',
+      },
+      '& .awsui-prompt-input__container': {
+        width: '100%',
+        padding: '8px',
+        boxSizing: 'border-box',
+        gap: '8px',
+        borderRadius: '8px !important',
+        overflow: 'hidden !important',
+      },
+      '& .awsui-prompt-input__container > *': {
+        borderRadius: '8px !important',
+      },
+      '& textarea': {
+        borderRadius: '8px !important',
       },
       '& .awsui-prompt-input__input': {
         width: '100% !important',
@@ -122,29 +138,29 @@ const ExpandablePromptInput: React.FC<ExpandablePromptInputProps> = ({
         boxShadow: 'none !important',
         outline: 'none !important',
       },
-      '& .awsui-prompt-input__container': {
-        width: '100%',
-        padding: '4px',
-        boxSizing: 'border-box',
-        gap: '4px',
-      },
       '& .awsui-prompt-input__input-wrapper': {
         width: '100%',
         flex: '1 1 auto',
         marginRight: '0px',
       }
     }}>
-      <PromptInput
-        onChange={({ detail }) => handleInputChange(detail.value)}
-        onAction={handleAction}
-        value={value}
-        actionButtonAriaLabel={actionButtonAriaLabel}
-        actionButtonIconName="send"
-        ariaLabel={ariaLabel}
-        placeholder={isSending ? "Sending..." : placeholder}
-        maxRows={10}
-        disabled={isSending}
-      />
+      <div style={{ 
+        borderRadius: '8px',
+        overflow: 'hidden',
+        width: '100%'
+      }}>
+        <PromptInput
+          onChange={({ detail }) => handleInputChange(detail.value)}
+          onAction={handleAction}
+          value={value}
+          actionButtonAriaLabel={actionButtonAriaLabel}
+          actionButtonIconName="send"
+          ariaLabel={ariaLabel}
+          placeholder={isSending ? "Sending..." : placeholder}
+          maxRows={10}
+          disabled={isSending}
+        />
+      </div>
       {isSending && (
         <Box sx={{
           position: 'absolute',

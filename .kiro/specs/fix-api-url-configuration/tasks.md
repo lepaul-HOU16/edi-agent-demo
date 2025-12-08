@@ -43,18 +43,18 @@
   - Test multiple agent types to ensure all API calls work
   - _Requirements: 1.1, 1.2_
 
-- [ ] 7. Verify localhost development still works
+- [x] 7. Verify localhost development still works
   - Run `npm run dev` locally
   - Test chat functionality on localhost:3000
   - Verify API proxy works correctly
   - Confirm no environment variable required for local dev
   - _Requirements: 3.1, 3.2, 3.3_
 
-- [ ] 8. Clean up obsolete GitHub secret
+- [x] 8. Clean up obsolete GitHub secret
   - Document that VITE_API_URL secret is no longer needed
   - Optionally delete the secret from GitHub repository settings
   - Update any documentation that references the secret
   - _Requirements: 2.3_
 
-- [ ] 9. Final checkpoint - Verify complete fix
+- [x] 9. Final checkpoint - Verify complete fix
   - Ensure all tests pass, ask the user if questions arise.

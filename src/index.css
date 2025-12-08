@@ -505,3 +505,76 @@ button[class*="action-button"][aria-label="Send message"],
   box-shadow: none !important;
   outline: none !important;
 }
+
+/* Force 8px border radius on Cloudscape PromptInput - NUCLEAR OPTION */
+[class*="awsui_prompt-input"],
+[class*="awsui_prompt-input"] > *,
+[class*="awsui_prompt-input"] textarea,
+[class*="awsui_prompt-input"] input,
+[class*="awsui_prompt-input"] button {
+  border-radius: 8px !important;
+}
+
+/* Ensure overflow hidden to clip rounded corners */
+[class*="awsui_prompt-input"] {
+  overflow: hidden !important;
+  border-radius: 8px !important;
+}
+
+/* CRITICAL: Force ALL corners to 8px - override any individual corner radius */
+[class*="awsui_prompt-input"],
+[class*="awsui_prompt-input"] > *,
+[class*="awsui_prompt-input"] textarea,
+[class*="awsui_prompt-input"] input {
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+}
+
+/* Force container wrapper to have 8px radius */
+[class*="awsui_prompt-input__container"],
+[class*="prompt-input__container"] {
+  border-radius: 8px !important;
+  border-top-left-radius: 8px !important;
+  border-top-right-radius: 8px !important;
+  border-bottom-left-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+/* CRITICAL FIX: Force segmented control icon size to 24x24 */
+[class*="awsui_segmented-control"] svg {
+  width: 24px !important;
+  height: 24px !important;
+  max-width: 24px !important;
+  max-height: 24px !important;
+}
+
+/* Force icon button borders to be removed */
+.MuiIconButton-root {
+  border: none !important;
+}
+
+.MuiIconButton-root:hover {
+  border: none !important;
+}
+
+/* NUCLEAR FIX: Force PersonIcon in Catalog to be 32x32 */
+.catalog-chat-container .MuiSvgIcon-root,
+[data-page="catalog"] .MuiSvgIcon-root {
+  max-width: 32px !important;
+  max-height: 32px !important;
+}
+
+/* ULTRA NUCLEAR: Force ALL user message icons to 32x32 */
+[class*="HumanMessage"] svg,
+[class*="human-message"] svg {
+  width: 32px !important;
+  height: 32px !important;
+  min-width: 32px !important;
+  min-height: 32px !important;
+  max-width: 32px !important;
+  max-height: 32px !important;
+  font-size: 32px !important;
+}

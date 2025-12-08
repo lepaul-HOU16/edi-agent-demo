@@ -71,8 +71,14 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
         <PersonIcon 
           sx={{ 
             color: 'rgb(0 108 224)',
-            width: 32, 
-            height: 32
+            width: '32px !important',
+            height: '32px !important',
+            minWidth: '32px',
+            minHeight: '32px',
+            maxWidth: '32px',
+            maxHeight: '32px',
+            flexShrink: 0,
+            fontSize: '32px',
           }} 
         />
         <div style={humanMessageStyle}>

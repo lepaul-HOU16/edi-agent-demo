@@ -690,7 +690,7 @@
   right: 3px;
   bottom: 3px;
   /* background: rgba(255, 255, 255, 0.95); */
-  border-radius: 27px;
+  border-radius: 5px;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   z-index: 0;

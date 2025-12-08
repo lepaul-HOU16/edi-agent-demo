@@ -73,14 +73,17 @@ aws cloudfront create-invalidation --distribution-id E3O1QDG49S3NGP --paths "/*"
 **GitHub Actions** - Automatically deploy on push to main branch:
 
 ```bash
-# Setup (one-time)
-bash scripts/setup-github-actions.sh
-
-# Then just push to main
+# Just push to main - API URL is automatically configured
 git push origin main
 ```
 
-See [GitHub Actions Setup Guide](./docs/GITHUB_ACTIONS_SETUP.md) for details.
+The workflow automatically:
+- Deploys the CDK backend
+- Fetches the API Gateway URL from CloudFormation
+- Builds the frontend with the correct URL
+- Deploys to CloudFront
+
+See [API_URL_FIX_COMPLETE.md](./API_URL_FIX_COMPLETE.md) for details on how API URL configuration works.
 
 ---
 
@@ -149,7 +152,7 @@ See [GitHub Actions Setup Guide](./docs/GITHUB_ACTIONS_SETUP.md) for details.
 
 All endpoints require JWT authentication via `Authorization: Bearer <token>` header.
 
-**Base URL:** `https://hbt1j807qf.execute-api.us-east-1.amazonaws.com`
+**Base URL:** Automatically configured from CloudFormation (see [API URL Configuration](#api-url-configuration))
 
 #### Chat & Sessions
 - `POST /api/chat/message` - Send chat message to AI agent
@@ -366,14 +369,21 @@ aws cloudfront create-invalidation \
   --paths "/*"
 ```
 
+### API URL Configuration
+
+**Production Deployment:**
+The API URL is automatically fetched from CloudFormation during CI/CD deployment. No manual configuration needed.
+
+**Local Development:**
+The API URL is automatically configured via proxy. No environment variable needed.
+
+See [API_URL_FIX_COMPLETE.md](./API_URL_FIX_COMPLETE.md) for details.
+
 ### Environment Variables
 
-Create `.env.local` with:
+For local development, create `.env.local` with:
 
 ```bash
-# API Configuration
-VITE_API_URL=https://hbt1j807qf.execute-api.us-east-1.amazonaws.com
-
 # Cognito Configuration (from CDK outputs)
 VITE_USER_POOL_ID=us-east-1_sC6yswGji
 VITE_USER_POOL_CLIENT_ID=18m99t0u39vi9614ssd8sf8vmb
@@ -381,6 +391,10 @@ VITE_USER_POOL_CLIENT_ID=18m99t0u39vi9614ssd8sf8vmb
 # OSDU Configuration
 EDI_PLATFORM_URL=https://osdu.vavourak.people.aws.dev
 EDI_PARTITION=osdu
+
+# Note: VITE_API_URL is no longer required
+# - Production: Automatically fetched from CloudFormation
+# - Local dev: Uses proxy configuration in vite.config.ts
 ```
 
 ---
@@ -439,9 +453,15 @@ aws cognito-idp admin-initiate-auth \
   --auth-parameters USERNAME=<user>,PASSWORD=<pass> \
   --region us-east-1
 
+# Get API URL from CloudFormation
+API_URL=$(aws cloudformation describe-stacks \
+  --stack-name EnergyInsights-development \
+  --query "Stacks[0].Outputs[?OutputKey=='HttpApiUrl'].OutputValue" \
+  --output text)
+
 # Test API with token
 TOKEN="<id-token-from-above>"
-curl -X GET https://hbt1j807qf.execute-api.us-east-1.amazonaws.com/api/chat/sessions \
+curl -X GET $API_URL/api/chat/sessions \
   -H "Authorization: Bearer $TOKEN"
 ```
 

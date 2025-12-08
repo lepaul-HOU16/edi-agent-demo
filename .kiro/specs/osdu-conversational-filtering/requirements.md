@@ -2,156 +2,99 @@
 
 ## Introduction
 
-This specification defines conversational filtering capabilities for OSDU search results in the Data Catalog. Users should be able to apply natural language filters to previously displayed OSDU well data without needing to repeat "OSDU" in every query. The system must maintain conversation context and intelligently apply filters to the current result set.
+**This is a REGRESSION FIX** - restoring OSDU conversational search functionality that worked before but is now broken.
+
+The OSDU conversational search has multiple critical regressions:
+1. Returns the same 50 hardcoded demo records regardless of query content
+2. Does not filter results based on natural language queries
+3. Does not maintain conversation context for follow-up filtering
+4. Map does not synchronize with search results table
+5. Prompt input has inconsistent border radius (4px instead of 8px)
+
+**Important**: If OSDU API has real data, use it. If not, keep demo data BUT make it filterable via NLP.
+
+This feature will restore conversational filtering, map synchronization, context persistence, and fix styling issues.
 
 ## Glossary
 
-- **OSDU Search Context**: The state containing the most recent OSDU search query and results
-- **Conversational Filter**: A natural language query that refines or filters existing OSDU results
-- **Filter Intent**: User intent to narrow down, sort, or modify currently displayed data
-- **Context Inheritance**: The ability to carry forward search context across multiple queries
-- **CatalogChatBoxCloudscape**: The chat component that manages conversation state
-- **OSDU Proxy Lambda**: Backend function that queries the OSDU API
+- **OSDU**: Open Subsurface Data Universe - an external data platform for oil & gas well data
+- **Demo Data**: The 50 sample OSDU records returned when real OSDU API credentials are not configured
+- **Conversational Filtering**: The ability to refine search results through natural language follow-up queries
+- **Query Parsing**: Extracting filter criteria (location, operator, well name) from natural language queries
+- **Prompt Input**: The expandable text input component used for entering search queries
+- **Border Radius**: The CSS property controlling the roundness of element corners
 
 ## Requirements
 
-### Requirement 1: Maintain OSDU Search Context
+### Requirement 1
 
-**User Story:** As a geoscientist, I want the system to remember my previous OSDU search results, so that I can apply filters without repeating the full query.
-
-#### Acceptance Criteria
-
-1. WHEN the System receives an OSDU search response, THE System SHALL store the query, results, and metadata in conversation context
-2. WHEN the System stores OSDU context, THE System SHALL include the original query text, record count, and full record array
-3. WHEN the System processes a new query, THE System SHALL check if OSDU context exists from previous queries
-4. WHERE OSDU context exists, THE System SHALL make it available to intent detection and query processing
-5. WHILE maintaining context, THE System SHALL preserve context for the duration of the chat session
-
-### Requirement 2: Detect Filter Intent
-
-**User Story:** As a geoscientist, I want to use natural language to filter my OSDU results, so that I can quickly narrow down to relevant wells.
+**User Story:** As a user searching OSDU data, I want my conversational queries to filter results intelligently, so that I can find specific wells by location, operator, or name.
 
 #### Acceptance Criteria
 
-1. WHEN the System receives a query with filter keywords, THE System SHALL detect filter intent
-2. WHEN the System detects filter intent, THE System SHALL identify the filter type (operator, location, depth, type, status)
-3. WHERE OSDU context exists, THE System SHALL prioritize filter intent over new search intent
-4. WHEN the System detects ambiguous intent, THE System SHALL check for OSDU context before defaulting to new search
-5. THE System SHALL recognize filter keywords including: "filter", "show only", "where", "with", "operator", "location", "depth", "type", "status"
+1. WHEN a user queries "show me wells in the north sea" THEN the system SHALL return only wells where location contains "North Sea"
+2. WHEN a user queries "show me BP wells" THEN the system SHALL return only wells where operator equals "BP"
+3. WHEN a user queries "show me USA wells" THEN the system SHALL return only wells where name starts with "USA"
+4. WHEN the OSDU API is configured AND has data THEN the system SHALL use real OSDU API data
+5. WHEN the OSDU API is NOT configured OR has no data THEN the system SHALL use filterable demo data
 
-### Requirement 3: Apply Client-Side Filters
+### Requirement 2
 
-**User Story:** As a geoscientist, I want filters applied instantly without making new API calls, so that I can iterate quickly through my data.
-
-#### Acceptance Criteria
-
-1. WHEN the System applies a filter, THE System SHALL filter the existing OSDU records array client-side
-2. WHEN the System filters by operator, THE System SHALL match operator field case-insensitively
-3. WHEN the System filters by location, THE System SHALL match location or country fields case-insensitively
-4. WHEN the System filters by depth, THE System SHALL parse depth values and apply numeric comparisons
-5. WHEN the System filters by type, THE System SHALL match type field case-insensitively
-6. WHERE multiple filters are specified, THE System SHALL apply all filters using AND logic
-7. WHILE filtering, THE System SHALL preserve the original unfiltered results for potential reset
-
-### Requirement 4: Display Filtered Results
-
-**User Story:** As a geoscientist, I want filtered results displayed in the same format as original results, so that I have a consistent experience.
+**User Story:** As a user, I want to refine my search results through follow-up conversational queries, so that I can progressively filter to exactly what I need.
 
 #### Acceptance Criteria
 
-1. WHEN the System displays filtered results, THE System SHALL use the existing OSDUSearchResponse component
-2. WHEN the System shows filtered data, THE System SHALL update the record count to reflect filtered count
-3. WHEN the System presents filtered results, THE System SHALL include a message indicating the filter applied
-4. WHERE no records match the filter, THE System SHALL display a "no results" message with the filter criteria
-5. WHILE showing filtered results, THE System SHALL provide a way to view the original unfiltered results
+1. WHEN a user queries "show me osdu wells" THEN the system SHALL store the full result set in conversation context
+2. WHEN a user follows up with "show me only wells in the north sea" THEN the system SHALL filter the previous results by location
+3. WHEN a user follows up with "show me only BP wells" THEN the system SHALL further filter by operator
+4. WHEN a user starts a new search THEN the system SHALL clear previous context and start fresh
+5. WHEN a user asks "show me all wells again" THEN the system SHALL restore the original unfiltered results
 
-### Requirement 5: Support Multiple Filter Types
+### Requirement 3
 
-**User Story:** As a geoscientist, I want to filter by various well attributes, so that I can find exactly the data I need.
-
-#### Acceptance Criteria
-
-1. THE System SHALL support filtering by operator name
-2. THE System SHALL support filtering by location or country
-3. THE System SHALL support filtering by depth range (greater than, less than, between)
-4. THE System SHALL support filtering by well type
-5. THE System SHALL support filtering by status
-6. WHERE the System encounters an unsupported filter, THE System SHALL display a helpful message listing supported filters
-
-### Requirement 6: Handle Filter Errors Gracefully
-
-**User Story:** As a geoscientist, I want clear feedback when filters cannot be applied, so that I understand what went wrong.
+**User Story:** As a user, I want the map to automatically update when I search or filter OSDU wells, so that I can see the geographic distribution of my results.
 
 #### Acceptance Criteria
 
-1. WHEN the System cannot parse a filter query, THE System SHALL display an error message with examples
-2. WHERE no OSDU context exists, THE System SHALL inform the user to perform an OSDU search first
-3. WHEN a filter returns zero results, THE System SHALL suggest broadening the filter criteria
-4. IF the System encounters invalid filter values, THE System SHALL explain the expected format
-5. WHILE processing filters, THE System SHALL log filter operations for debugging
+1. WHEN a user searches for OSDU wells THEN the map SHALL display markers for all returned wells with coordinates
+2. WHEN a user filters results conversationally THEN the map SHALL update to show only the filtered wells
+3. WHEN a user clicks a well marker on the map THEN the corresponding row in the table SHALL be highlighted
+4. WHEN a user clicks a well row in the table THEN the map SHALL center on that well's marker
+5. WHEN search results have no coordinates THEN the map SHALL display a message indicating "No location data available"
 
-### Requirement 7: Preserve Original Search Context
+### Requirement 4
 
-**User Story:** As a geoscientist, I want to reset filters and return to original results, so that I can start over if needed.
-
-#### Acceptance Criteria
-
-1. THE System SHALL maintain both filtered and original OSDU results in context
-2. WHEN the System applies a filter, THE System SHALL not modify the original results array
-3. WHERE the user requests "show all" or "reset", THE System SHALL display the original unfiltered results
-4. WHEN the System resets filters, THE System SHALL clear any active filter state
-5. WHILE maintaining context, THE System SHALL preserve original results until a new OSDU search is performed
-
-### Requirement 8: Support Conversational Follow-ups
-
-**User Story:** As a geoscientist, I want to apply multiple filters in sequence, so that I can progressively narrow down my results.
+**User Story:** As a user, I want the system to maintain my search context across multiple queries, so that I can progressively refine my results without repeating myself.
 
 #### Acceptance Criteria
 
-1. WHEN the System applies a filter, THE System SHALL update the context with filtered results
-2. WHERE a second filter is applied, THE System SHALL filter the already-filtered results
-3. WHEN the System processes sequential filters, THE System SHALL maintain a filter history
-4. IF the user requests "undo" or "previous", THE System SHALL revert to the previous filter state
-5. WHILE applying sequential filters, THE System SHALL display the cumulative filter criteria
+1. WHEN a user performs an OSDU search THEN the system SHALL store the full result set in osduContext state
+2. WHEN a user performs a follow-up query THEN the system SHALL check if osduContext exists before making a new API call
+3. WHEN osduContext exists THEN the system SHALL filter the cached results instead of calling the API again
+4. WHEN a user explicitly requests "all wells" or "reset" THEN the system SHALL clear osduContext and show original results
+5. WHEN a user switches to a different search type THEN the system SHALL clear osduContext
 
-### Requirement 9: Integrate with Existing Chat UI
+### Requirement 5
 
-**User Story:** As a geoscientist, I want filter operations to feel natural in the chat interface, so that the experience is seamless.
-
-#### Acceptance Criteria
-
-1. WHEN the System processes a filter, THE System SHALL add user and AI messages to the chat
-2. WHEN the System displays filtered results, THE System SHALL use the existing message components
-3. WHERE filters are applied, THE System SHALL maintain auto-scroll and interaction behaviors
-4. WHEN the System shows filter results, THE System SHALL include filter badges or indicators
-5. WHILE filtering, THE System SHALL provide loading indicators for consistency
-
-### Requirement 10: Provide Filter Examples and Help
-
-**User Story:** As a geoscientist, I want examples of filter queries, so that I know how to use the feature effectively.
+**User Story:** As a user, I want the system to handle both real OSDU API data and demo data intelligently, so that I can test functionality even without API access.
 
 #### Acceptance Criteria
 
-1. THE System SHALL provide filter examples in error messages when filters fail
-2. WHERE the user asks for help, THE System SHALL list supported filter types and syntax
-3. WHEN the System displays OSDU results, THE System SHALL include a hint about filtering capabilities
-4. IF the user enters an ambiguous filter, THE System SHALL suggest clarifications
-5. WHILE showing filter help, THE System SHALL include real examples based on current data
+1. WHEN OSDU_API_URL and OSDU_API_KEY are configured AND API returns data THEN the system SHALL use real OSDU data
+2. WHEN OSDU_API_URL and OSDU_API_KEY are NOT configured THEN the system SHALL use filterable demo data
+3. WHEN OSDU API is configured BUT returns no data THEN the system SHALL fall back to filterable demo data
+4. WHEN using demo data THEN the system SHALL clearly indicate "(Demo Data)" in the response
+5. WHEN using real OSDU data THEN the system SHALL indicate "(OSDU API)" in the response
 
-### Requirement 11: Support Result Pagination
+### Requirement 6
 
-**User Story:** As a geoscientist, I want to navigate through large result sets using pagination, so that I can view all records without overwhelming the interface.
+**User Story:** As a user, I want the FIRST prompt input box in the conversation to have consistent 8px border radius, so that the UI appears polished and professional.
 
 #### Acceptance Criteria
 
-1. WHEN the System displays OSDU results with more than 10 records, THE System SHALL show pagination controls
-2. WHEN the System paginates results, THE System SHALL display 10 records per page by default
-3. WHERE the user navigates to a different page, THE System SHALL update the displayed records accordingly
-4. WHEN the System applies filters, THE System SHALL reset pagination to page 1
-5. WHILE paginating, THE System SHALL preserve the current page when applying additional filters
-6. THE System SHALL display the current page number and total page count
-7. WHERE pagination controls are shown, THE System SHALL include previous and next page buttons
-8. WHEN the System is on the first page, THE System SHALL disable the previous page button
-9. WHEN the System is on the last page, THE System SHALL disable the next page button
-10. WHILE displaying paginated results, THE System SHALL show "Showing X-Y of Z records" indicator
+1. WHEN a user views the catalog page THEN the FIRST prompt input box SHALL have 8px border radius on all four corners
+2. WHEN a user views the catalog page THEN the FIRST prompt SHALL NOT have extra/inconsistent border radius on the top-right corner
+3. WHEN a user views subsequent prompts THEN they SHALL maintain correct 8px border radius (already working)
+4. WHEN a user compares the FIRST prompt to subsequent prompts THEN the border radius SHALL be visually consistent
+5. WHEN a user inspects the CSS THEN the FIRST prompt SHALL have border-radius: 8px on all corners
 

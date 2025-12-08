@@ -34,12 +34,16 @@ export interface CatalogSearchRequest {
 }
 
 export interface CatalogSearchResponse {
-  success: boolean;
-  data?: any;
-  results?: any;
+  success?: boolean;
+  type?: string; // GeoJSON type
+  features?: any[]; // GeoJSON features
   thoughtSteps?: any[];
   metadata?: any;
+  weatherLayers?: any;
   error?: string;
+  // Legacy fields for backward compatibility
+  data?: any;
+  results?: any;
 }
 
 /**
@@ -90,6 +94,46 @@ export async function searchCatalog(
     return response;
   } catch (error: any) {
     console.error('[Catalog API] Search catalog error:', error);
+    throw error;
+  }
+}
+
+export interface OSDUSearchRequest {
+  query: string;
+  dataPartition?: string;
+  maxResults?: number;
+}
+
+export interface OSDUSearchResponse {
+  answer: string;
+  recordCount: number;
+  records: Array<any>;
+  error?: string;
+}
+
+/**
+ * Search OSDU data platform directly
+ */
+export async function searchOSDU(
+  query: string,
+  maxResults: number = 1000
+): Promise<OSDUSearchResponse> {
+  try {
+    console.log('[OSDU API] Searching OSDU:', { query, maxResults });
+    
+    const response = await apiPost<OSDUSearchResponse>('/api/osdu/search', {
+      query,
+      maxResults,
+    });
+    
+    console.log('[OSDU API] Search results received:', {
+      recordCount: response.recordCount,
+      hasError: !!response.error,
+    });
+    
+    return response;
+  } catch (error: any) {
+    console.error('[OSDU API] Search OSDU error:', error);
     throw error;
   }
 }

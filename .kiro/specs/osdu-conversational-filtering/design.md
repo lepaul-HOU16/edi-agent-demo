@@ -2,573 +2,276 @@
 
 ## Overview
 
-This design implements conversational filtering for OSDU search results by maintaining search context in the chat session and applying client-side filters to existing results. The approach prioritizes speed (no API calls for filters), simplicity (minimal code changes), and user experience (natural language filtering).
+The OSDU conversational search is fundamentally broken. It returns hardcoded demo OSDU well data instead of calling the real OSDU API. This is SEPARATE from the catalog demo data (24 LAS files) which should remain.
 
-**Key Design Principles:**
-1. **Context Preservation**: Store OSDU results in session state
-2. **Client-Side Filtering**: Apply filters to existing data without API calls
-3. **Natural Language**: Support conversational filter queries
-4. **Graceful Degradation**: Fall back to new search if context is missing
+**Important Distinction**:
+- **Catalog demo data** (24 LAS files) → KEEP THIS ✅
+- **OSDU demo data** (50 fake OSDU wells) → REMOVE THIS ❌
+
+This design fixes the OSDU search issue by:
+
+1. **Removing OSDU demo data fallback** when OSDU API is configured
+2. **Adding NLP query parser** to extract search parameters from natural language
+3. **Connecting to real OSDU API** for all OSDU conversational searches
+4. **Providing clear error messages** when OSDU is not configured
+5. **Fixing border radius** inconsistency in prompt input (4px → 8px)
+6. **Preserving catalog demo data** for regular catalog searches
 
 ## Architecture
 
-### High-Level Flow
+### Current (Broken) Flow
 
 ```
-User: "show me osdu wells"
-    ↓
-OSDU Search → Store Results in Context
-    ↓
-Display Results
-    ↓
-User: "filter by operator Shell"
-    ↓
-Detect Filter Intent → Check Context Exists
-    ↓
-Apply Client-Side Filter
-    ↓
-Display Filtered Results (Same Component)
-    ↓
-User: "show only depth > 3000"
-    ↓
-Apply Additional Filter to Filtered Results
-    ↓
-Display Further Filtered Results
+User: "show me wells in the north sea"
+  ↓
+OSDU Lambda receives query
+  ↓
+Checks if OSDU_API_URL is configured
+  ↓
+NOT configured → Returns 50 hardcoded demo records (WRONG!)
+  ↓
+User sees fake data that doesn't match their query
 ```
 
-### Component Diagram
+### New (Fixed) Flow
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    Frontend (Browser)                        │
-│                                                              │
-│  ┌────────────────────────────────────────────────────┐    │
-│  │  CatalogChatBoxCloudscape                          │    │
-│  │  - Manages conversation state                      │    │
-│  │  - Stores OSDU search context (NEW)                │    │
-│  │  - Handles filter queries (NEW)                    │    │
-│  └────────────────┬───────────────────────────────────┘    │
-│                   │                                          │
-│  ┌────────────────▼───────────────────────────────────┐    │
-│  │  Intent Detection (Enhanced)                       │    │
-│  │  - Detect "OSDU" keyword                           │    │
-│  │  - Detect filter intent (NEW)                      │    │
-│  │  - Check for existing OSDU context (NEW)           │    │
-│  └────────────────┬───────────────────────────────────┘    │
-│                   │                                          │
-│         ┌─────────┴─────────┐                               │
-│         │                   │                               │
-│  ┌──────▼──────┐    ┌──────▼──────────────────────────┐   │
-│  │ New OSDU    │    │ Filter Existing Results (NEW)    │   │
-│  │ Search      │    │ - Parse filter criteria          │   │
-│  │             │    │ - Apply to cached results        │   │
-│  │             │    │ - Update display                 │   │
-│  └─────────────┘    └─────────────────────────────────┘   │
-│                                                              │
-└──────────────────────────────────────────────────────────────┘
+User: "show me wells in the north sea"
+  ↓
+OSDU Lambda receives query
+  ↓
+Parse query to extract: location="north sea"
+  ↓
+Check if OSDU_API_URL is configured
+  ↓
+NOT configured → Return error: "OSDU API not configured"
+IS configured → Call OSDU API with parsed parameters
+  ↓
+Return REAL results from OSDU API
 ```
 
 ## Components and Interfaces
 
-### 1. OSDU Search Context State
+### 1. NLP Query Parser (New)
 
-**Location**: `src/app/catalog/page.tsx`
+**Location**: `cdk/lambda-functions/osdu/queryParser.ts`
 
-**Purpose**: Store OSDU search results and metadata for filtering
-
-**Implementation**:
 ```typescript
-interface OSDUSearchContext {
-  query: string;                    // Original search query
-  timestamp: Date;                  // When search was performed
-  recordCount: number;              // Total records from API
-  records: OSDURecord[];            // Full record array
-  filteredRecords?: OSDURecord[];   // Currently filtered records
-  activeFilters?: FilterCriteria[]; // Applied filters
+interface ParsedQuery {
+  locations: string[];      // ["north sea", "gulf of mexico"]
+  operators: string[];      // ["BP", "Shell"]
+  wellPrefixes: string[];   // ["USA", "NOR"]
+  rawQuery: string;         // Original query for fallback
 }
 
-interface FilterCriteria {
-  type: 'operator' | 'location' | 'depth' | 'type' | 'status';
-  value: string | number;
-  operator?: '>' | '<' | '=' | 'contains';
-}
-
-// Add to page state
-const [osduContext, setOsduContext] = useState<OSDUSearchContext | null>(null);
-```
-
-**State Management**:
-- Store context after successful OSDU search
-- Clear context on new OSDU search
-- Preserve context across filter operations
-- Reset context on session end
-
-### 2. Filter Intent Detection
-
-**Location**: `src/app/catalog/page.tsx` (within `handleChatSearch`)
-
-**Purpose**: Detect when user wants to filter existing OSDU results
-
-**Implementation**:
-```typescript
-const detectFilterIntent = (query: string, hasOsduContext: boolean): {
-  isFilter: boolean;
-  filterType?: string;
-  filterValue?: string;
-  filterOperator?: string;
-} => {
-  const lowerQuery = query.toLowerCase().trim();
-  
-  // Only detect filter intent if OSDU context exists
-  if (!hasOsduContext) {
-    return { isFilter: false };
-  }
-  
-  // Filter keywords
-  const filterKeywords = [
-    'filter', 'show only', 'where', 'with', 
-    'operator', 'location', 'depth', 'type', 'status',
-    'greater than', 'less than', 'equals'
-  ];
-  
-  const hasFilterKeyword = filterKeywords.some(kw => lowerQuery.includes(kw));
-  
-  if (!hasFilterKeyword) {
-    return { isFilter: false };
-  }
-  
-  // Parse filter type and value
-  let filterType: string | undefined;
-  let filterValue: string | undefined;
-  let filterOperator: string = 'contains';
-  
-  // Operator filter
-  if (lowerQuery.includes('operator')) {
-    filterType = 'operator';
-    const match = lowerQuery.match(/operator\s+(?:is\s+)?([a-z0-9\s]+)/i);
-    if (match) filterValue = match[1].trim();
-  }
-  
-  // Location filter
-  else if (lowerQuery.includes('location') || lowerQuery.includes('country')) {
-    filterType = 'location';
-    const match = lowerQuery.match(/(?:location|country)\s+(?:is\s+)?([a-z0-9\s]+)/i);
-    if (match) filterValue = match[1].trim();
-  }
-  
-  // Depth filter
-  else if (lowerQuery.includes('depth')) {
-    filterType = 'depth';
-    
-    // Greater than
-    if (lowerQuery.includes('greater than') || lowerQuery.includes('>')) {
-      filterOperator = '>';
-      const match = lowerQuery.match(/(?:greater than|>)\s*(\d+)/);
-      if (match) filterValue = match[1];
-    }
-    // Less than
-    else if (lowerQuery.includes('less than') || lowerQuery.includes('<')) {
-      filterOperator = '<';
-      const match = lowerQuery.match(/(?:less than|<)\s*(\d+)/);
-      if (match) filterValue = match[1];
-    }
-    // Equals
-    else {
-      filterOperator = '=';
-      const match = lowerQuery.match(/depth\s+(?:is\s+)?(\d+)/);
-      if (match) filterValue = match[1];
-    }
-  }
-  
-  // Type filter
-  else if (lowerQuery.includes('type')) {
-    filterType = 'type';
-    const match = lowerQuery.match(/type\s+(?:is\s+)?([a-z0-9\s]+)/i);
-    if (match) filterValue = match[1].trim();
-  }
-  
-  // Status filter
-  else if (lowerQuery.includes('status')) {
-    filterType = 'status';
-    const match = lowerQuery.match(/status\s+(?:is\s+)?([a-z0-9\s]+)/i);
-    if (match) filterValue = match[1].trim();
-  }
-  
-  console.log('🔍 Filter intent detected:', { filterType, filterValue, filterOperator });
-  
-  return {
-    isFilter: true,
-    filterType,
-    filterValue,
-    filterOperator
-  };
-};
-```
-
-**Interface**:
-- Input: User query string, boolean indicating if OSDU context exists
-- Output: Filter intent object with type, value, and operator
-- Side effects: Console logging for debugging
-
-### 3. Client-Side Filter Application
-
-**Location**: `src/app/catalog/page.tsx`
-
-**Purpose**: Apply filters to existing OSDU records
-
-**Implementation**:
-```typescript
-const applyOsduFilter = (
-  records: OSDURecord[],
-  filterType: string,
-  filterValue: string,
-  filterOperator: string = 'contains'
-): OSDURecord[] => {
-  console.log('🔧 Applying filter:', { filterType, filterValue, filterOperator, recordCount: records.length });
-  
-  const filtered = records.filter(record => {
-    switch (filterType) {
-      case 'operator':
-        return record.operator?.toLowerCase().includes(filterValue.toLowerCase());
-      
-      case 'location':
-        return (
-          record.location?.toLowerCase().includes(filterValue.toLowerCase()) ||
-          record.country?.toLowerCase().includes(filterValue.toLowerCase())
-        );
-      
-      case 'depth':
-        if (!record.depth) return false;
-        const depthValue = parseFloat(record.depth.replace(/[^\d.]/g, ''));
-        const targetDepth = parseFloat(filterValue);
-        
-        switch (filterOperator) {
-          case '>':
-            return depthValue > targetDepth;
-          case '<':
-            return depthValue < targetDepth;
-          case '=':
-            return Math.abs(depthValue - targetDepth) < 100; // Within 100 units
-          default:
-            return false;
-        }
-      
-      case 'type':
-        return record.type?.toLowerCase().includes(filterValue.toLowerCase());
-      
-      case 'status':
-        return record.status?.toLowerCase().includes(filterValue.toLowerCase());
-      
-      default:
-        return true;
-    }
-  });
-  
-  console.log('✅ Filter applied:', { originalCount: records.length, filteredCount: filtered.length });
-  
-  return filtered;
-};
-```
-
-**Interface**:
-- Input: Records array, filter type, filter value, filter operator
-- Output: Filtered records array
-- Side effects: Console logging for debugging
-
-### 4. Enhanced Query Handling
-
-**Location**: `src/app/catalog/page.tsx` (within `handleChatSearch`)
-
-**Purpose**: Route queries to filter or new search based on intent
-
-**Implementation**:
-```typescript
-// In handleChatSearch function
-const handleChatSearch = async (prompt: string) => {
-  // ... existing code ...
-  
-  // Check for filter intent first if OSDU context exists
-  if (osduContext) {
-    const filterIntent = detectFilterIntent(prompt, true);
-    
-    if (filterIntent.isFilter && filterIntent.filterType && filterIntent.filterValue) {
-      console.log('🔍 Processing filter query');
-      
-      // Apply filter to existing results
-      const baseRecords = osduContext.filteredRecords || osduContext.records;
-      const filteredRecords = applyOsduFilter(
-        baseRecords,
-        filterIntent.filterType,
-        filterIntent.filterValue,
-        filterIntent.filterOperator
-      );
-      
-      // Update context with filtered results
-      const newFilter: FilterCriteria = {
-        type: filterIntent.filterType as any,
-        value: filterIntent.filterValue,
-        operator: filterIntent.filterOperator as any
-      };
-      
-      setOsduContext({
-        ...osduContext,
-        filteredRecords,
-        activeFilters: [...(osduContext.activeFilters || []), newFilter]
-      });
-      
-      // Create filter result message
-      const filterMessage: Message = {
-        id: uuidv4() as any,
-        role: "ai" as any,
-        content: {
-          text: `**🔍 Filtered OSDU Results**\n\n` +
-                `Applied filter: ${filterIntent.filterType} ${filterIntent.filterOperator || 'contains'} "${filterIntent.filterValue}"\n\n` +
-                `**Found ${filteredRecords.length} of ${osduContext.recordCount} records**\n\n` +
-                (filteredRecords.length > 0 
-                  ? `\`\`\`osdu-search-response\n${JSON.stringify({
-                      answer: `Filtered results by ${filterIntent.filterType}`,
-                      recordCount: filteredRecords.length,
-                      records: filteredRecords,
-                      query: prompt
-                    })}\n\`\`\``
-                  : `No records match the filter criteria.\n\n**Suggestions:**\n- Try a different ${filterIntent.filterType} value\n- Use "show all" to see original results\n- Refine your filter criteria`)
-        } as any,
-        responseComplete: true as any,
-        createdAt: new Date().toISOString() as any,
-        chatSessionId: '' as any,
-        owner: '' as any
-      } as any;
-      
-      setTimeout(() => {
-        setMessages(prevMessages => [...prevMessages, filterMessage]);
-      }, 0);
-      
-      return; // Exit early, don't proceed to new search
-    }
-  }
-  
-  // Check for "show all" or "reset" to clear filters
-  if (osduContext && (prompt.toLowerCase().includes('show all') || prompt.toLowerCase().includes('reset'))) {
-    console.log('🔄 Resetting filters');
-    
-    setOsduContext({
-      ...osduContext,
-      filteredRecords: undefined,
-      activeFilters: []
-    });
-    
-    const resetMessage: Message = {
-      id: uuidv4() as any,
-      role: "ai" as any,
-      content: {
-        text: `**🔄 Filters Reset**\n\n` +
-              `Showing all ${osduContext.recordCount} original results.\n\n` +
-              `\`\`\`osdu-search-response\n${JSON.stringify({
-                answer: `Showing all original OSDU search results`,
-                recordCount: osduContext.recordCount,
-                records: osduContext.records,
-                query: osduContext.query
-              })}\n\`\`\``
-      } as any,
-      responseComplete: true as any,
-      createdAt: new Date().toISOString() as any,
-      chatSessionId: '' as any,
-      owner: '' as any
-    } as any;
-    
-    setTimeout(() => {
-      setMessages(prevMessages => [...prevMessages, resetMessage]);
-    }, 0);
-    
-    return;
-  }
-  
-  // Existing intent detection for new searches
-  const searchIntent = detectSearchIntent(prompt);
-  
-  if (searchIntent === 'osdu') {
-    // ... existing OSDU search code ...
-    
-    // After successful OSDU search, store context
-    if (osduResponse.data) {
-      const osduData = typeof osduResponse.data === 'string' 
-        ? JSON.parse(osduResponse.data) 
-        : osduResponse.data;
-      
-      // Store OSDU context for filtering
-      setOsduContext({
-        query: prompt,
-        timestamp: new Date(),
-        recordCount: osduData.recordCount,
-        records: osduData.records,
-        filteredRecords: undefined,
-        activeFilters: []
-      });
-      
-      console.log('💾 OSDU context stored:', { recordCount: osduData.recordCount });
-      
-      // ... existing message creation code ...
-    }
-  } else {
-    // ... existing catalog search code ...
-  }
-};
-```
-
-### 5. Filter Help and Examples
-
-**Location**: `src/app/catalog/page.tsx`
-
-**Purpose**: Provide user guidance on filtering
-
-**Implementation**:
-```typescript
-const getFilterHelp = (): string => {
-  return `**🔍 OSDU Filtering Help**\n\n` +
-         `You can filter your OSDU results using natural language:\n\n` +
-         `**By Operator:**\n` +
-         `- "filter by operator Shell"\n` +
-         `- "show only operator BP"\n\n` +
-         `**By Location:**\n` +
-         `- "filter by location Norway"\n` +
-         `- "show only country USA"\n\n` +
-         `**By Depth:**\n` +
-         `- "show wells with depth greater than 3000"\n` +
-         `- "filter depth < 5000"\n\n` +
-         `**By Type:**\n` +
-         `- "filter by type production"\n` +
-         `- "show only type exploration"\n\n` +
-         `**By Status:**\n` +
-         `- "filter by status active"\n` +
-         `- "show only status producing"\n\n` +
-         `**Reset Filters:**\n` +
-         `- "show all"\n` +
-         `- "reset filters"`;
-};
-
-// Add help detection in handleChatSearch
-if (osduContext && (prompt.toLowerCase().includes('help') || prompt.toLowerCase().includes('how to filter'))) {
-  const helpMessage: Message = {
-    id: uuidv4() as any,
-    role: "ai" as any,
-    content: {
-      text: getFilterHelp()
-    } as any,
-    responseComplete: true as any,
-    createdAt: new Date().toISOString() as any,
-    chatSessionId: '' as any,
-    owner: '' as any
-  } as any;
-  
-  setTimeout(() => {
-    setMessages(prevMessages => [...prevMessages, helpMessage]);
-  }, 0);
-  
-  return;
+function parseNaturalLanguageQuery(query: string): ParsedQuery {
+  // Extract location keywords
+  // Extract operator names
+  // Extract well name patterns
+  // Return structured parameters
 }
 ```
+
+### 2. OSDU API Client (Enhanced)
+
+**Location**: `cdk/lambda-functions/osdu/osduClient.ts`
+
+```typescript
+interface OSDUSearchParams {
+  query: string;
+  locations?: string[];
+  operators?: string[];
+  wellPrefixes?: string[];
+  maxResults?: number;
+}
+
+async function searchOSDU(params: OSDUSearchParams): Promise<OSDUSearchResponse> {
+  // Validate OSDU_API_URL and OSDU_API_KEY are set
+  // Build OSDU API request with parsed parameters
+  // Call OSDU API
+  // Transform response to standard format
+  // Return results
+}
+```
+
+### 3. OSDU Lambda Handler (Modified)
+
+**Location**: `cdk/lambda-functions/osdu/handler.ts`
+
+**Changes**:
+- Remove demo data generation entirely when API is configured
+- Add NLP query parsing before API call
+- Return configuration error if OSDU not configured
+- Pass parsed parameters to OSDU API
+- Log all API calls for debugging
+
+### 4. Prompt Input Styling (Fixed)
+
+**Location**: `src/components/ExpandablePromptInput.tsx` or `src/globals.css`
+
+**Changes**:
+- Override border-radius to 8px for all corners
+- Remove extra border-radius on top-right corner
+- Ensure consistency with response containers
 
 ## Data Models
 
-### OSDU Search Context
+### Parsed Query
+
 ```typescript
-interface OSDUSearchContext {
-  query: string;                    // Original search query
-  timestamp: Date;                  // When search was performed
-  recordCount: number;              // Total records from API
-  records: OSDURecord[];            // Full record array
-  filteredRecords?: OSDURecord[];   // Currently filtered records (optional)
-  activeFilters?: FilterCriteria[]; // Applied filters (optional)
+interface ParsedQuery {
+  locations: string[];      // Extracted location keywords
+  operators: string[];      // Extracted operator names
+  wellPrefixes: string[];   // Extracted well name patterns
+  rawQuery: string;         // Original query text
+  confidence: number;       // 0-1 confidence in parsing
 }
 ```
 
-### Filter Criteria
+### OSDU API Request
+
 ```typescript
-interface FilterCriteria {
-  type: 'operator' | 'location' | 'depth' | 'type' | 'status';
-  value: string | number;
-  operator?: '>' | '<' | '=' | 'contains';
+interface OSDUAPIRequest {
+  toolName: 'searchWells';
+  input: {
+    query: string;          // Natural language or structured query
+    locations?: string[];   // Optional location filters
+    operators?: string[];   // Optional operator filters
+    wellPrefixes?: string[]; // Optional well name filters
+    maxResults: number;     // Max records to return
+  };
 }
 ```
 
-### OSDU Record (Existing)
+### OSDU API Response
+
 ```typescript
-interface OSDURecord {
-  id: string;
-  name: string;
-  type: string;
-  operator?: string;
-  location?: string;
-  basin?: string;
-  country?: string;
-  depth?: string;
-  logType?: string;
-  status?: string;
-  dataSource: string;
-  latitude?: number | null;
-  longitude?: number | null;
+interface OSDUAPIResponse {
+  statusCode: number;
+  body: {
+    records: OSDURecord[];
+    metadata: {
+      totalFound: number;
+      returned: number;
+      filtered: number;
+      authorized: number;
+    };
+  };
 }
 ```
+
+## Correctness Properties
+
+*A property is a characteristic or behavior that should hold true across all valid executions of a system-essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
+
+### Property 1: No demo data when API configured
+
+*For any* OSDU search request, if OSDU_API_URL and OSDU_API_KEY are set, the system should NEVER return hardcoded demo data.
+
+**Validates: Requirements 1.5, 5.1, 5.2**
+
+### Property 2: Configuration error when API not configured
+
+*For any* OSDU search request, if OSDU_API_URL or OSDU_API_KEY are NOT set, the system should return a configuration error, not demo data.
+
+**Validates: Requirements 3.1, 5.2**
+
+### Property 3: Query parsing extracts parameters
+
+*For any* natural language query containing location/operator/well name keywords, the parser should extract those parameters correctly.
+
+**Validates: Requirements 2.1, 2.2, 2.3**
+
+### Property 4: API calls include parsed parameters
+
+*For any* parsed query with extracted parameters, the OSDU API call should include those parameters in the request.
+
+**Validates: Requirements 2.4**
+
+### Property 5: Error messages are clear and actionable
+
+*For any* OSDU API error, the system should return a clear error message that explains what went wrong and how to fix it.
+
+**Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5**
+
+### Property 6: Results are marked as OSDU source
+
+*For any* successful OSDU API response, all returned records should be marked with dataSource="OSDU".
+
+**Validates: Requirements 4.5**
+
+### Property 7: Border radius is consistent
+
+*For any* prompt input element, the border-radius should be 8px on all four corners.
+
+**Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5**
 
 ## Error Handling
 
-### No OSDU Context
-```typescript
-if (!osduContext && filterIntent.isFilter) {
-  const errorMessage: Message = {
-    id: uuidv4() as any,
-    role: "ai" as any,
-    content: {
-      text: `**⚠️ No OSDU Results to Filter**\n\n` +
-            `Please perform an OSDU search first:\n` +
-            `- "show me osdu wells"\n` +
-            `- "search osdu for production wells"\n\n` +
-            `Then you can apply filters to the results.`
-    } as any,
-    responseComplete: true as any,
-    createdAt: new Date().toISOString() as any,
-    chatSessionId: '' as any,
-    owner: '' as any
-  } as any;
-  
-  setMessages(prevMessages => [...prevMessages, errorMessage]);
-  return;
+### Configuration Errors
+
+**When**: OSDU_API_URL or OSDU_API_KEY not set
+
+**Response**:
+```json
+{
+  "statusCode": 503,
+  "body": {
+    "error": "OSDU API not configured",
+    "answer": "OSDU search is not available. Please configure OSDU_API_URL and OSDU_API_KEY environment variables.",
+    "recordCount": 0,
+    "records": []
+  }
 }
 ```
 
-### Invalid Filter Query
-```typescript
-if (filterIntent.isFilter && (!filterIntent.filterType || !filterIntent.filterValue)) {
-  const errorMessage: Message = {
-    id: uuidv4() as any,
-    role: "ai" as any,
-    content: {
-      text: `**⚠️ Could Not Parse Filter**\n\n` +
-            `I couldn't understand your filter criteria.\n\n` +
-            getFilterHelp()
-    } as any,
-    responseComplete: true as any,
-    createdAt: new Date().toISOString() as any,
-    chatSessionId: '' as any,
-    owner: '' as any
-  } as any;
-  
-  setMessages(prevMessages => [...prevMessages, errorMessage]);
-  return;
+### API Errors
+
+**When**: OSDU API returns error status
+
+**Response**:
+```json
+{
+  "statusCode": 502,
+  "body": {
+    "error": "OSDU API error: <status>",
+    "answer": "Unable to search OSDU data. The OSDU service returned an error.",
+    "recordCount": 0,
+    "records": []
+  }
+}
+```
+
+### Timeout Errors
+
+**When**: OSDU API call exceeds 50 seconds
+
+**Response**:
+```json
+{
+  "statusCode": 504,
+  "body": {
+    "error": "Request timeout",
+    "answer": "The OSDU search request timed out. Please try again with a more specific query.",
+    "recordCount": 0,
+    "records": []
+  }
 }
 ```
 
 ### Zero Results
-```typescript
-if (filteredRecords.length === 0) {
-  const message = `**🔍 No Results Found**\n\n` +
-                  `No records match your filter: ${filterIntent.filterType} ${filterIntent.filterOperator} "${filterIntent.filterValue}"\n\n` +
-                  `**Suggestions:**\n` +
-                  `- Try a different ${filterIntent.filterType} value\n` +
-                  `- Use "show all" to see original ${osduContext.recordCount} results\n` +
-                  `- Check spelling and try again`;
-  
-  // ... create and display message ...
+
+**When**: OSDU API returns empty results
+
+**Response**:
+```json
+{
+  "statusCode": 200,
+  "body": {
+    "answer": "No wells found matching your query. Try broadening your search criteria.",
+    "recordCount": 0,
+    "records": []
+  }
 }
 ```
 
@@ -576,206 +279,186 @@ if (filteredRecords.length === 0) {
 
 ### Unit Tests
 
-**Test 1: Filter Intent Detection**
-```typescript
-describe('detectFilterIntent', () => {
-  it('should detect operator filter', () => {
-    const result = detectFilterIntent('filter by operator Shell', true);
-    expect(result.isFilter).toBe(true);
-    expect(result.filterType).toBe('operator');
-    expect(result.filterValue).toBe('Shell');
-  });
-  
-  it('should not detect filter without context', () => {
-    const result = detectFilterIntent('filter by operator Shell', false);
-    expect(result.isFilter).toBe(false);
-  });
-});
-```
+- Test query parser with various location keywords
+- Test query parser with various operator names
+- Test query parser with various well name patterns
+- Test query parser with multiple criteria
+- Test query parser with unparseable queries
+- Test OSDU client with valid configuration
+- Test OSDU client with missing configuration
+- Test OSDU client with invalid configuration
+- Test error message formatting
 
-**Test 2: Filter Application**
-```typescript
-describe('applyOsduFilter', () => {
-  const mockRecords: OSDURecord[] = [
-    { id: '1', name: 'Well-1', operator: 'Shell', type: 'Production', depth: '3500m' },
-    { id: '2', name: 'Well-2', operator: 'BP', type: 'Exploration', depth: '4200m' },
-    { id: '3', name: 'Well-3', operator: 'Shell', type: 'Production', depth: '2800m' }
-  ];
-  
-  it('should filter by operator', () => {
-    const filtered = applyOsduFilter(mockRecords, 'operator', 'Shell', 'contains');
-    expect(filtered.length).toBe(2);
-    expect(filtered.every(r => r.operator === 'Shell')).toBe(true);
-  });
-  
-  it('should filter by depth greater than', () => {
-    const filtered = applyOsduFilter(mockRecords, 'depth', '3000', '>');
-    expect(filtered.length).toBe(2);
-  });
-});
-```
+### Property-Based Tests
+
+We will use **fast-check** (TypeScript property-based testing library) for property tests. Each property test should run a minimum of 100 iterations.
+
+**Property 1: No demo data when API configured**
+- Generate random OSDU_API_URL and OSDU_API_KEY values
+- Generate random queries
+- Verify response NEVER contains hardcoded demo data
+- **Feature: osdu-conversational-filtering, Property 1: No demo data when API configured**
+
+**Property 2: Configuration error when API not configured**
+- Generate random queries
+- Set OSDU_API_URL and OSDU_API_KEY to empty/undefined
+- Verify response contains configuration error
+- **Feature: osdu-conversational-filtering, Property 2: Configuration error when API not configured**
+
+**Property 3: Query parsing extracts parameters**
+- Generate random queries with known keywords
+- Verify parser extracts expected parameters
+- **Feature: osdu-conversational-filtering, Property 3: Query parsing extracts parameters**
+
+**Property 4: API calls include parsed parameters**
+- Generate random parsed queries
+- Mock OSDU API client
+- Verify API calls include parsed parameters
+- **Feature: osdu-conversational-filtering, Property 4: API calls include parsed parameters**
+
+**Property 5: Error messages are clear and actionable**
+- Generate random error scenarios
+- Verify error messages contain helpful information
+- **Feature: osdu-conversational-filtering, Property 5: Error messages are clear and actionable**
 
 ### Integration Tests
 
-**Test 1: End-to-End Filter Flow**
-```bash
-# Test script: tests/test-osdu-filtering.js
-1. Perform OSDU search
-2. Verify context is stored
-3. Apply filter query
-4. Verify filtered results displayed
-5. Apply second filter
-6. Verify cumulative filtering
-7. Reset filters
-8. Verify original results restored
-```
+- Test full flow: query → parse → API call → response
+- Test with real OSDU API (if credentials available)
+- Test with mock OSDU API
+- Test error scenarios end-to-end
+- Verify border radius in browser DevTools
 
 ### Manual Testing
 
-**Test Cases**:
-1. Search OSDU → Apply operator filter → Verify filtered results
-2. Search OSDU → Apply depth filter → Verify numeric filtering
-3. Search OSDU → Apply multiple filters → Verify AND logic
-4. Search OSDU → Reset filters → Verify original results
-5. Apply filter without OSDU search → Verify error message
-6. Apply invalid filter → Verify help message
-7. Filter returns zero results → Verify suggestions
+- Configure OSDU_API_URL and OSDU_API_KEY
+- Test "show me wells in the north sea" query
+- Verify REAL OSDU data is returned
+- Test with OSDU not configured
+- Verify configuration error is returned
+- Test various query patterns
+- Inspect prompt input border radius in DevTools
 
-## Performance Considerations
+## Implementation Notes
 
-- **Client-Side Filtering**: Instant response, no API latency
-- **Memory Usage**: Stores full OSDU results in browser memory (typically < 1MB)
-- **Filter Complexity**: O(n) linear filtering, acceptable for typical result sets (< 1000 records)
-- **Context Lifetime**: Cleared on page refresh or new OSDU search
+### Query Parsing Strategy
 
-### 6. Pagination State and Controls
+Use simple keyword matching for MVP:
 
-**Location**: `src/components/OSDUSearchResponse.tsx`
+**Location keywords**:
+- "north sea" → location filter
+- "gulf of mexico" → location filter
+- "south china sea" → location filter
+- "persian gulf" → location filter
+- "caspian" → location filter
 
-**Purpose**: Paginate large result sets for better UX
+**Operator keywords**:
+- "BP" → operator filter
+- "Shell" → operator filter
+- "Chevron" → operator filter
+- "ExxonMobil" → operator filter
+- "TotalEnergies" → operator filter
 
-**Implementation**:
-```typescript
-import { Pagination } from '@cloudscape-design/components';
+**Well name patterns**:
+- "USA wells" → well name prefix "USA"
+- "NOR wells" → well name prefix "NOR"
+- Extract country codes from query
 
-export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
-  answer,
-  recordCount,
-  records,
-  query
-}) => {
-  // Pagination state
-  const [currentPageIndex, setCurrentPageIndex] = useState(1);
-  const pageSize = 10;
-  
-  // Calculate paginated items
-  const startIndex = (currentPageIndex - 1) * pageSize;
-  const endIndex = startIndex + pageSize;
-  const paginatedRecords = records.slice(startIndex, endIndex);
-  const totalPages = Math.ceil(records.length / pageSize);
-  
-  // Update display count for summary
-  const displayCount = paginatedRecords.length;
-  const showingStart = records.length > 0 ? startIndex + 1 : 0;
-  const showingEnd = startIndex + displayCount;
-  
-  return (
-    <SpaceBetween size="l">
-      {/* ... existing header and summary ... */}
-      
-      {/* Records Table with Pagination */}
-      {hasRecords ? (
-        <Table
-          columnDefinitions={[/* ... existing columns ... */]}
-          items={paginatedRecords}  // Use paginated records instead of slice(0, 10)
-          loadingText="Loading OSDU records"
-          sortingDisabled={false}
-          variant="container"
-          wrapLines={true}
-          stripedRows={true}
-          pagination={
-            records.length > pageSize ? (
-              <Pagination
-                currentPageIndex={currentPageIndex}
-                onChange={({ detail }) => setCurrentPageIndex(detail.currentPageIndex)}
-                pagesCount={totalPages}
-                ariaLabels={{
-                  nextPageLabel: "Next page",
-                  previousPageLabel: "Previous page",
-                  pageLabel: pageNumber => `Page ${pageNumber} of ${totalPages}`
-                }}
-              />
-            ) : undefined
-          }
-          header={
-            <Header
-              counter={`(${showingStart}-${showingEnd} of ${recordCount})`}
-              description="OSDU subsurface data records"
-            >
-              Record Details
-            </Header>
-          }
-        />
-      ) : (
-        // ... existing empty state ...
-      )}
-    </SpaceBetween>
-  );
-};
+### OSDU API Integration
+
+The OSDU API expects this format:
+
+```json
+{
+  "toolName": "searchWells",
+  "input": {
+    "query": "natural language query or structured query",
+    "maxResults": 1000
+  }
+}
 ```
 
-**Interface**:
-- Input: Records array, current page index
-- Output: Paginated records for display
-- Side effects: Page navigation updates displayed records
+We need to enhance this to pass parsed parameters. Options:
 
-**Pagination Behavior**:
-- Show pagination only if records > 10
-- Reset to page 1 when new search or filter applied
-- Preserve page when component re-renders with same data
-- Disable prev/next buttons at boundaries
+1. **Embed in query string**: "location:north sea operator:BP"
+2. **Use structured query syntax**: Build OSDU query from parsed params
+3. **Pass as separate fields**: Extend API contract (requires backend changes)
 
-### 7. Pagination Reset on Filter
+**Recommendation**: Use option 2 (structured query syntax) since OSDU Query Builder already does this.
 
-**Location**: `src/app/catalog/page.tsx` (within filter handling)
+### OSDU Demo Data Removal
 
-**Purpose**: Reset pagination when filters change the result set
+**IMPORTANT**: This only affects OSDU demo data in `cdk/lambda-functions/osdu/handler.ts`. The catalog demo data (24 LAS files) is NOT affected.
 
-**Implementation**:
+**Current code in OSDU handler** (WRONG):
 ```typescript
-// When creating filtered result message, include pagination reset hint
-const filterMessage: Message = {
-  id: uuidv4() as any,
-  role: "ai" as any,
-  content: {
-    text: `**🔍 Filtered OSDU Results**\n\n` +
-          `Applied filter: ${filterIntent.filterType} ${filterIntent.filterOperator || 'contains'} "${filterIntent.filterValue}"\n\n` +
-          `**Found ${filteredRecords.length} of ${osduContext.recordCount} records**\n\n` +
-          (filteredRecords.length > 0 
-            ? `\`\`\`osdu-search-response\n${JSON.stringify({
-                answer: `Filtered results by ${filterIntent.filterType}`,
-                recordCount: filteredRecords.length,
-                records: filteredRecords,
-                query: prompt,
-                resetPagination: true  // Hint to reset pagination
-              })}\n\`\`\``
-            : `No records match the filter criteria.`)
-  } as any,
-  // ... rest of message ...
-};
+// In cdk/lambda-functions/osdu/handler.ts
+if (!apiUrl || !apiKey || apiUrl.includes('example.com')) {
+  console.log('⚠️ OSDU API not configured, returning demo data');
+  
+  // Generate 50 fake OSDU wells - WRONG!
+  const demoRecords = Array.from({ length: 50 }, (_, i) => {
+    // ... fake OSDU data
+  });
+  
+  return demoRecords; // WRONG!
+}
 ```
 
-**Note**: The OSDUSearchResponse component will automatically reset to page 1 when it receives new records array (React state management).
+**Fixed code in OSDU handler** (RIGHT):
+```typescript
+// In cdk/lambda-functions/osdu/handler.ts
+if (!apiUrl || !apiKey || apiUrl.includes('example.com')) {
+  console.log('❌ OSDU API not configured');
+  return {
+    statusCode: 503,
+    body: {
+      error: 'OSDU API not configured',
+      answer: 'OSDU search is not available. Please configure OSDU_API_URL and OSDU_API_KEY.',
+      recordCount: 0,
+      records: []
+    }
+  };
+}
+```
 
-## Future Enhancements
+**Catalog demo data remains unchanged** - the 24 LAS files in the catalog Lambda are preserved.
 
-1. **Advanced Filters**: Support OR logic, regex patterns, date ranges
-2. **Filter Persistence**: Save filters across sessions
-3. **Filter UI**: Visual filter builder with dropdowns and sliders
-4. **Export Filtered Results**: Download filtered data as CSV/JSON
-5. **Filter Analytics**: Track most common filter patterns
-6. **Smart Suggestions**: Auto-suggest filter values based on data
-7. **Undo/Redo**: Full filter history with undo capability
-8. **Configurable Page Size**: Allow users to choose 10, 25, 50, 100 records per page
-9. **Jump to Page**: Direct page number input for large result sets
+### Border Radius Fix
+
+Add CSS override in `src/globals.css`:
+
+```css
+.awsui-prompt-input,
+.awsui-prompt-input__container {
+  border-radius: 8px !important;
+}
+
+/* Remove extra border radius on top-right corner */
+.awsui-prompt-input:first-child {
+  border-top-right-radius: 8px !important;
+}
+```
+
+### Performance Considerations
+
+- Query parsing is simple string matching, very fast (< 1ms)
+- OSDU API calls may take 5-30 seconds depending on query complexity
+- Use 50 second timeout to prevent hanging
+- Log all API calls for debugging and performance monitoring
+
+### Backward Compatibility
+
+**BREAKING CHANGE**: OSDU demo data will no longer be returned when OSDU is not configured. This is intentional - returning fake OSDU data is worse than returning an error.
+
+**What's changing**:
+- ❌ OSDU demo data (50 fake OSDU wells) → REMOVED
+- ✅ Catalog demo data (24 LAS files) → PRESERVED
+
+**Migration path**:
+1. Configure OSDU_API_URL and OSDU_API_KEY in production
+2. Test with real OSDU API
+3. Deploy changes
+4. Users will see real OSDU data or clear error messages
+5. Catalog searches continue to work with demo data
 

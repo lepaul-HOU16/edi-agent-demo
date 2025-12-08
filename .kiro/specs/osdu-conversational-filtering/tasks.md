@@ -1,172 +1,147 @@
-# Implementation Plan
+# Implementation Tasks
 
-- [x] 1. Add OSDU search context state management
-  - Add OSDUSearchContext interface to `src/app/catalog/page.tsx`
-  - Add FilterCriteria interface for tracking applied filters
-  - Add osduContext state variable using useState hook
-  - Add setOsduContext function for updating context
+## Task 1: Add NLP Query Parser to OSDU Lambda
+
+Implement intelligent query parsing to extract filter criteria from natural language.
+
+- [ ] 1.1 Create query parser utility in OSDU Lambda
+  - Add `parseNaturalLanguageQuery()` function to extract location/operator/well name filters
+  - Support location keywords: "north sea", "gulf of mexico", "south china sea", "persian gulf", "caspian"
+  - Support operator keywords: "BP", "Shell", "Chevron", "ExxonMobil", "TotalEnergies"
+  - Support well name prefixes: "USA", "NOR", "VIE", "UAE", "KAZ"
+  - Return structured `FilterCriteria` object
+  - _Requirements: 1.1, 1.2, 1.3_
+
+- [ ] 1.2 Add demo data filtering logic
+  - Implement `filterDemoData()` function that applies parsed criteria
+  - Support location filtering (case-insensitive substring match)
+  - Support operator filtering (exact match)
+  - Support well name filtering (prefix match)
+  - Combine multiple filters with AND logic
   - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
 
-- [x] 2. Store OSDU context after successful searches
-  - Update handleChatSearch to store context after OSDU API response
-  - Extract query, timestamp, recordCount, and records from response
-  - Initialize filteredRecords and activeFilters as empty
-  - Add console logging for context storage debugging
-  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+- [ ] 1.3 Integrate parser with OSDU handler
+  - Parse query before returning demo data
+  - Apply filters to demo records
+  - Return filtered results with accurate count
+  - Indicate "(Demo Data)" in response when using demo data
+  - Indicate "(OSDU API)" when using real API data
+  - _Requirements: 1.5, 5.1, 5.2, 5.3, 5.4, 5.5_
 
-- [x] 3. Implement filter intent detection function
-  - Create detectFilterIntent function in `src/app/catalog/page.tsx`
-  - Check for OSDU context existence before detecting filters
-  - Detect filter keywords (filter, show only, where, with)
-  - Parse operator filters with regex pattern matching
-  - Parse location/country filters with regex pattern matching
-  - Parse depth filters with numeric operators (>, <, =)
-  - Parse type and status filters with regex pattern matching
-  - Return filter intent object with type, value, and operator
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5_
+## Task 2: Implement Frontend Context Persistence
 
-- [x] 4. Implement client-side filter application function
-  - Create applyOsduFilter function in `src/app/catalog/page.tsx`
-  - Implement operator filtering with case-insensitive matching
-  - Implement location/country filtering with case-insensitive matching
-  - Implement depth filtering with numeric comparisons
-  - Implement type filtering with case-insensitive matching
-  - Implement status filtering with case-insensitive matching
-  - Add console logging for filter operations
-  - Return filtered records array
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6, 3.7_
+Restore conversation context for follow-up filtering queries.
 
-- [x] 5. Integrate filter detection into query handling
-  - Update handleChatSearch to check for filter intent when OSDU context exists
-  - Call detectFilterIntent before checking for new search intent
-  - Route to filter application if filter intent detected
-  - Continue to new search if no filter intent detected
-  - Add early return after filter processing to prevent new search
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 8.1, 8.2, 8.3_
+- [ ] 2.1 Add osduContext state to CatalogPage
+  - Create `OSDUSearchContext` interface with query, records, filteredRecords, activeFilters
+  - Add `useState<OSDUSearchContext | null>` for context persistence
+  - Store full result set when initial OSDU search completes
+  - _Requirements: 2.1, 4.1, 4.2_
 
-- [x] 6. Implement filter result display
-  - Apply filter to existing OSDU records using applyOsduFilter
-  - Update osduContext with filtered results and new filter criteria
-  - Create AI message with filtered results using osdu-search-response format
-  - Include filter description in message (type, operator, value)
-  - Display filtered record count vs total record count
-  - Use existing OSDUSearchResponse component for display
-  - _Requirements: 4.1, 4.2, 4.3, 4.4, 9.1, 9.2, 9.3, 9.4, 9.5_
+- [ ] 2.2 Implement client-side filtering for follow-up queries
+  - Check if osduContext exists before making new API call
+  - Parse follow-up query to extract additional filter criteria
+  - Filter cached results instead of calling API again
+  - Update filteredRecords in context
+  - _Requirements: 2.2, 2.3, 4.3_
 
-- [x] 7. Handle zero results from filters
-  - Check if filtered results array is empty
-  - Create helpful error message with filter criteria
-  - Suggest alternative actions (try different value, show all, refine)
-  - Display suggestions in chat using existing message components
-  - _Requirements: 4.4, 6.3_
+- [ ] 2.3 Add context reset logic
+  - Clear osduContext when user starts new search
+  - Clear osduContext when user says "show all" or "reset"
+  - Clear osduContext when switching search types
+  - Restore original unfiltered results when requested
+  - _Requirements: 2.4, 2.5, 4.4, 4.5_
 
-- [x] 8. Implement filter reset functionality
-  - Detect "show all" or "reset" keywords in query
-  - Clear filteredRecords and activeFilters from context
-  - Display original unfiltered results
-  - Create message indicating filters were reset
-  - Show original record count
-  - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
+## Task 3: Implement Map Synchronization
 
-- [x] 9. Add sequential filter support
-  - Apply new filters to already-filtered results (filteredRecords || records)
-  - Append new filter criteria to activeFilters array
-  - Update context with cumulative filtered results
-  - Display cumulative filter criteria in message
-  - _Requirements: 8.1, 8.2, 8.3, 8.5_
+Restore map-table synchronization for OSDU search results.
 
-- [x] 10. Implement filter help command
-  - Create comprehensive filter help message with examples
-  - Detect "help" or "how to filter" keywords in query
-  - Display filter help message in chat
-  - Include examples for operator, location, depth, type, status filters
-  - Include reset filter instructions
-  - _Requirements: 10.1, 10.2, 10.3, 10.4, 10.5_
+- [ ] 3.1 Update map markers when OSDU results change
+  - Extract well coordinates from OSDU records
+  - Create map markers for all wells with valid coordinates
+  - Update map bounds to fit all markers
+  - Display "No location data available" when no coordinates
+  - _Requirements: 3.1, 3.5_
 
-- [x] 11. Add error handling for missing context
-  - Check if osduContext exists before processing filter
-  - Display error message if filter attempted without OSDU context
-  - Suggest performing OSDU search first
-  - Provide example OSDU search queries
-  - _Requirements: 6.2_
+- [ ] 3.2 Filter map markers when results are filtered
+  - Listen for changes to filteredRecords in osduContext
+  - Remove markers for wells not in filtered results
+  - Update map markers when conversational filtering occurs
+  - Keep map synchronized with table at all times
+  - _Requirements: 3.2_
 
-- [x] 12. Add error handling for invalid filters
-  - Check if filter type and value were successfully parsed
-  - Display error message if filter parsing failed
-  - Show filter help with examples
-  - Log parsing errors for debugging
-  - _Requirements: 6.1, 6.4, 6.5_
+- [ ] 3.3 Add map-table interaction
+  - Highlight table row when map marker is clicked
+  - Center map on marker when table row is clicked
+  - Scroll table to show highlighted row
+  - Provide visual feedback for selected well
+  - _Requirements: 3.3, 3.4_
 
-- [x] 13. Add filter hints to OSDU results
-  - OSDU search result messages already include filtering hints in answer text
-  - Context information shows available filter capabilities
-  - Help command suggestion included in error messages
-  - _Requirements: 10.3_
+## Task 4: Fix First Prompt Border Radius
 
-- [ ]* 14. Create unit tests for filter functions
-  - Test detectFilterIntent with various filter queries
-  - Test detectFilterIntent without OSDU context
-  - Test applyOsduFilter for operator filtering
-  - Test applyOsduFilter for location filtering
-  - Test applyOsduFilter for depth filtering with >, <, = operators
-  - Test applyOsduFilter for type and status filtering
-  - Test sequential filter application
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5, 3.6_
+Fix the inconsistent border radius on the FIRST prompt input box only.
 
-- [ ]* 15. Create integration tests for filter workflow
-  - Test end-to-end: OSDU search → store context → apply filter → display results
-  - Test sequential filtering: apply multiple filters in sequence
-  - Test filter reset: apply filter → reset → verify original results
-  - Test error cases: filter without context, invalid filter syntax
-  - Test zero results: filter that matches no records
-  - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
+- [ ] 4.1 Identify CSS selector for first prompt
+  - Inspect ExpandablePromptInput component
+  - Find CSS class or selector that targets ONLY the first prompt
+  - Use `:first-child` or `:first-of-type` pseudo-selector if needed
+  - _Requirements: 6.1, 6.2_
 
-- [ ]* 16. Add filter operation logging
-  - Filter intent detection already logs results
-  - Filter application already logs before/after counts
-  - Context updates already logged (stored, filtered, reset)
-  - Error conditions already logged for debugging
-  - _Requirements: 6.5_
+- [ ] 4.2 Apply 8px border radius override
+  - Add CSS rule targeting first prompt specifically
+  - Set `border-radius: 8px !important` on all four corners
+  - Remove any extra border-radius on top-right corner
+  - Verify subsequent prompts remain unaffected
+  - Test in browser DevTools
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [x] 17. Add pagination to OSDUSearchResponse component
-  - Import Pagination component from @cloudscape-design/components
-  - Add currentPageIndex state variable with useState (default: 1)
-  - Define pageSize constant (10 records per page)
-  - Calculate startIndex and endIndex based on currentPageIndex
-  - Create paginatedRecords by slicing records array
-  - Calculate totalPages using Math.ceil(records.length / pageSize)
-  - Update items prop to use paginatedRecords instead of records.slice(0, 10)
-  - _Requirements: 11.1, 11.2, 11.3_
+## Task 5: Test and Verify
 
-- [x] 18. Add pagination controls to table
-  - Add pagination prop to Table component
-  - Conditionally render Pagination only if records.length > pageSize
-  - Pass currentPageIndex to Pagination component
-  - Implement onChange handler to update currentPageIndex
-  - Pass pagesCount (totalPages) to Pagination component
-  - Add accessibility labels for previous, next, and page buttons
-  - _Requirements: 11.6, 11.7, 11.8, 11.9_
+Test all regression fixes on localhost.
 
-- [x] 19. Update table header with pagination info
-  - Calculate showingStart (startIndex + 1 or 0 if no records)
-  - Calculate showingEnd (startIndex + displayCount)
-  - Update Table header counter to show "X-Y of Z" format
-  - Display current page range in header description
-  - _Requirements: 11.10_
+- [ ] 5.1 Test conversational filtering
+  - Query "show me osdu wells" → verify all wells returned
+  - Query "show me wells in the north sea" → verify only North Sea wells
+  - Query "show me BP wells" → verify only BP wells
+  - Query "show me USA wells" → verify only USA-prefixed wells
+  - Query with multiple criteria → verify AND logic works
+  - _Requirements: 1.1, 1.2, 1.3_
 
-- [x] 20. Handle pagination reset on filter changes
-  - Reset currentPageIndex to 1 when new records array received
-  - Use useEffect to detect records array changes
-  - Preserve page number when records array reference doesn't change
-  - Add console logging for pagination reset events
-  - _Requirements: 11.4, 11.5_
+- [ ] 5.2 Test context persistence
+  - Initial query → verify context stored
+  - Follow-up filter → verify cached results filtered (no API call)
+  - Query "show all" → verify original results restored
+  - New search → verify context cleared
+  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 4.1, 4.2, 4.3, 4.4, 4.5_
 
-- [x] 21. Test pagination functionality
-  - Test pagination with 50+ records (multiple pages)
-  - Test pagination with < 10 records (no pagination shown)
-  - Test page navigation (next, previous buttons)
-  - Test boundary conditions (first page, last page)
-  - Test pagination reset after filter application
-  - Test "Showing X-Y of Z" counter accuracy
-  - _Requirements: 11.1, 11.2, 11.3, 11.4, 11.5, 11.6, 11.7, 11.8, 11.9, 11.10_
+- [ ] 5.3 Test map synchronization
+  - OSDU search → verify map markers appear
+  - Filter results → verify map markers update
+  - Click marker → verify table row highlights
+  - Click table row → verify map centers on marker
+  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
+
+- [ ] 5.4 Test border radius fix
+  - Inspect first prompt in DevTools → verify 8px on all corners
+  - Inspect subsequent prompts → verify they remain correct
+  - Compare first and subsequent prompts → verify consistency
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
+
+- [ ] 5.5 Test demo data vs real API
+  - With OSDU API configured → verify real data used
+  - Without OSDU API configured → verify demo data used
+  - Demo data → verify "(Demo Data)" indicator shown
+  - Real API data → verify "(OSDU API)" indicator shown
+  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+
+## Notes
+
+- This is a REGRESSION FIX - restoring functionality that worked before
+- Demo data (24 LAS files) for catalog search is PRESERVED
+- Only OSDU demo data filtering is being fixed
+- Map synchronization was working before and needs to be restored
+- Context persistence was working before and needs to be restored
+- First prompt border radius is a cosmetic fix
+- Test on localhost first: `npm run dev`
+- Deploy backend if needed: `cd cdk && npm run deploy`
 

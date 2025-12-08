@@ -20,7 +20,7 @@ import { executeOSDUQuery, convertOSDUToWellData } from '@/utils/osduQueryExecut
 import { OSDUQueryBuilder } from '@/components/OSDUQueryBuilder';
 import type { QueryCriterion } from '@/components/OSDUQueryBuilder';
 import { createCollection } from '@/lib/api/collections';
-import { searchCatalog } from '@/lib/api/catalog';
+import { searchCatalog, searchOSDU } from '@/lib/api/catalog';
 
 // Import MapComponent directly - handle SSR with conditional rendering instead
 import MapComponentBase from './MapComponent';
@@ -304,10 +304,8 @@ function CatalogPageBase() {
           });
 
           try {
-            // Clear map first to ensure clean state
-            if (mapComponentRef.current.clearMap) {
-              mapComponentRef.current.clearMap();
-            }
+            // DON'T clear map - that causes flash to default center
+            // Just update data and bounds directly
             
             // Restore well data first
             if (mapState.wellData && mapComponentRef.current.updateMapData) {
@@ -318,13 +316,13 @@ function CatalogPageBase() {
               });
               mapComponentRef.current.updateMapData(mapState.wellData);
 
-              // Then restore bounds with longer delay
+              // Then restore bounds immediately with requestAnimationFrame
               if (mapState.bounds && mapComponentRef.current.fitBounds) {
-                setTimeout(() => {
-                  logger.debug('Calling fitBounds after delay...');
+                requestAnimationFrame(() => {
+                  logger.debug('Calling fitBounds...');
                   mapComponentRef.current.fitBounds(mapState.bounds);
                   logger.info('Map state restoration complete');
-                }, 1000);
+                });
               }
             }
           } catch (error) {
@@ -881,7 +879,38 @@ function CatalogPageBase() {
       return { isFilter: false };
     }
 
-    // Filter keywords
+    // Check for direct operator/location mentions FIRST (implicit filtering)
+    // This handles queries like "show me BP wells" or "wells in north sea"
+    const operatorNames = ['bp', 'shell', 'chevron', 'exxonmobil', 'exxon', 'totalenergies', 'total'];
+    const locationNames = ['north sea', 'gulf of mexico', 'south china sea', 'persian gulf', 'caspian'];
+    
+    // Check for operator mentions
+    for (const operator of operatorNames) {
+      if (lowerQuery.includes(operator)) {
+        logger.debug('Filter intent: Detected operator mention:', operator);
+        return {
+          isFilter: true,
+          filterType: 'operator',
+          filterValue: operator,
+          filterOperator: 'contains'
+        };
+      }
+    }
+    
+    // Check for location mentions
+    for (const location of locationNames) {
+      if (lowerQuery.includes(location)) {
+        logger.debug('Filter intent: Detected location mention:', location);
+        return {
+          isFilter: true,
+          filterType: 'location',
+          filterValue: location,
+          filterOperator: 'contains'
+        };
+      }
+    }
+
+    // Filter keywords for explicit filtering
     const filterKeywords = [
       'filter', 'show only', 'where', 'with',
       'operator', 'location', 'depth', 'type', 'status',
@@ -891,7 +920,7 @@ function CatalogPageBase() {
     const hasFilterKeyword = filterKeywords.some(kw => lowerQuery.includes(kw));
 
     if (!hasFilterKeyword) {
-      logger.debug('Filter intent: No filter keywords found');
+      logger.debug('Filter intent: No filter keywords or implicit filters found');
       return { isFilter: false };
     }
 
@@ -1209,14 +1238,36 @@ function CatalogPageBase() {
               }))
             };
 
+            // Calculate bounds for filtered results
+            const lats = filteredWithCoords.map(w => w.latitude!);
+            const lons = filteredWithCoords.map(w => w.longitude!);
+            const bounds = {
+              minLat: Math.min(...lats),
+              maxLat: Math.max(...lats),
+              minLon: Math.min(...lons),
+              maxLon: Math.max(...lons)
+            };
+
+            // Update map state with new data and bounds
             setMapState(prev => ({
               ...prev,
               wellData: osduGeoJSON,
+              bounds,
               hasSearchResults: true
             }));
 
-            if (selectedId === "seg-1" && mapComponentRef.current?.updateMapData) {
-              mapComponentRef.current.updateMapData(osduGeoJSON);
+            // Update map directly if on map panel
+            if (selectedId === "seg-1" && mapComponentRef.current) {
+              // Update markers and zoom in one smooth operation
+              if (mapComponentRef.current.updateMapData) {
+                mapComponentRef.current.updateMapData(osduGeoJSON);
+              }
+              // Immediately fit bounds to prevent flash
+              if (mapComponentRef.current.fitBounds) {
+                requestAnimationFrame(() => {
+                  mapComponentRef.current.fitBounds(bounds);
+                });
+              }
             }
           }
 
@@ -1326,14 +1377,36 @@ function CatalogPageBase() {
             }))
           };
 
+          // Calculate bounds for original results
+          const lats = originalWithCoords.map(w => w.latitude!);
+          const lons = originalWithCoords.map(w => w.longitude!);
+          const bounds = {
+            minLat: Math.min(...lats),
+            maxLat: Math.max(...lats),
+            minLon: Math.min(...lons),
+            maxLon: Math.max(...lons)
+          };
+
+          // Update map state
           setMapState(prev => ({
             ...prev,
             wellData: osduGeoJSON,
+            bounds,
             hasSearchResults: true
           }));
 
-          if (selectedId === "seg-1" && mapComponentRef.current?.updateMapData) {
-            mapComponentRef.current.updateMapData(osduGeoJSON);
+          // Update map directly if on map panel
+          if (selectedId === "seg-1" && mapComponentRef.current) {
+            // Update markers and zoom in one smooth operation
+            if (mapComponentRef.current.updateMapData) {
+              mapComponentRef.current.updateMapData(osduGeoJSON);
+            }
+            // Immediately fit bounds to prevent flash
+            if (mapComponentRef.current.fitBounds) {
+              requestAnimationFrame(() => {
+                mapComponentRef.current.fitBounds(bounds);
+              });
+            }
           }
         }
 
@@ -1678,6 +1751,184 @@ function CatalogPageBase() {
         logger.info('📤 No context sent - fresh search');
       }
 
+      // Check for OSDU intent - if detected, call OSDU API directly
+      const isOSDUQuery = lowerPrompt.includes('osdu');
+      
+      if (isOSDUQuery) {
+        logger.info('🔍 OSDU QUERY DETECTED - Calling OSDU API directly');
+        
+        try {
+          const osduResponse = await searchOSDU(prompt, 1000);
+          
+          logger.info('✅ OSDU API Response:', {
+            recordCount: osduResponse.recordCount,
+            hasError: !!osduResponse.error
+          });
+          
+          // Handle OSDU response
+          if (osduResponse.error) {
+            // Show error message
+            const errorMessage: Message = {
+              id: uuidv4() as any,
+              role: "ai" as any,
+              content: {
+                text: `❌ **OSDU Search Error**\n\n${osduResponse.answer}\n\n**Details:** ${osduResponse.error}\n\n**Suggestions:**\n- Contact your administrator to set up OSDU integration\n- Verify the OSDU API configuration\n- Check system status with your IT team\n\n💡 **Alternative:** Try a regular catalog search by removing "OSDU" from your query to search local data instead.`
+              } as any,
+              responseComplete: true as any,
+              createdAt: new Date().toISOString() as any,
+              chatSessionId: '' as any,
+              owner: '' as any
+            } as any;
+            
+            setMessages(prevMessages => [...prevMessages, errorMessage]);
+            setIsLoadingMapData(false);
+            return;
+          }
+          
+          // Convert OSDU records to GeoJSON for map display
+          const wellsWithCoords = osduResponse.records.filter((r: any) => r.latitude && r.longitude);
+          
+          logger.info('🗺️ Converting OSDU records to GeoJSON:', {
+            totalRecords: osduResponse.recordCount,
+            withCoordinates: wellsWithCoords.length
+          });
+          
+          const osduGeoJSON = {
+            type: "FeatureCollection" as const,
+            features: wellsWithCoords.map((record: any, index: number) => ({
+              type: "Feature" as const,
+              geometry: {
+                type: "Point" as const,
+                coordinates: [record.longitude, record.latitude]
+              },
+              properties: {
+                name: record.name || `OSDU Record ${index + 1}`,
+                type: record.type || 'OSDU Well',
+                operator: record.operator || 'Unknown',
+                location: record.location || record.basin || record.country || 'Unknown',
+                depth: record.depth || 'Unknown',
+                status: record.status || 'Unknown',
+                dataSource: 'OSDU',
+                category: 'osdu',
+                id: record.id || `osdu-${index}`
+              }
+            }))
+          };
+          
+          // Create table data for chat display
+          const tableItems = wellsWithCoords.map((record: any, index: number) => ({
+            id: record.id || `osdu-${index}`,
+            name: record.name || `OSDU Record ${index + 1}`,
+            type: record.type || 'OSDU Well',
+            location: record.location || record.basin || record.country || 'Unknown',
+            depth: record.depth || 'Unknown',
+            operator: record.operator || 'Unknown',
+            dataSource: 'OSDU'
+          }));
+          
+          // Create success message with table data
+          const messageText = `✅ **OSDU Search Complete**\n\n${osduResponse.answer}\n\nFound **${osduResponse.recordCount} records** (${wellsWithCoords.length} with map coordinates).\n\n**📊 OSDU Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n🗺️ *Records displayed on map with OSDU data source attribution.*`;
+          
+          const successMessage: Message = {
+            id: uuidv4() as any,
+            role: "ai" as any,
+            content: {
+              text: messageText
+            } as any,
+            responseComplete: true as any,
+            createdAt: new Date().toISOString() as any,
+            chatSessionId: '' as any,
+            owner: '' as any
+          } as any;
+          
+          setMessages(prevMessages => [...prevMessages, successMessage]);
+          
+          // Update map with OSDU results
+          if (wellsWithCoords.length > 0) {
+            // Calculate bounds
+            const coordinates = wellsWithCoords.map((r: any) => [r.longitude, r.latitude]);
+            const bounds = {
+              minLon: Math.min(...coordinates.map(c => c[0])),
+              maxLon: Math.max(...coordinates.map(c => c[0])),
+              minLat: Math.min(...coordinates.map(c => c[1])),
+              maxLat: Math.max(...coordinates.map(c => c[1]))
+            };
+            
+            const centerLon = (bounds.minLon + bounds.maxLon) / 2;
+            const centerLat = (bounds.minLat + bounds.maxLat) / 2;
+            
+            logger.info('🗺️ Saving OSDU map state:', {
+              center: [centerLon, centerLat],
+              bounds,
+              wellCount: wellsWithCoords.length
+            });
+            
+            // Save map state
+            setMapState({
+              center: [centerLon, centerLat],
+              zoom: 5,
+              bounds,
+              wellData: osduGeoJSON,
+              hasSearchResults: true
+            });
+            
+            // Update map if on map panel
+            if (selectedId === "seg-1" && mapComponentRef.current?.updateMapData) {
+              mapComponentRef.current.updateMapData(osduGeoJSON);
+              
+              // Fit bounds after short delay
+              setTimeout(() => {
+                if (mapComponentRef.current?.fitBounds) {
+                  mapComponentRef.current.fitBounds(bounds);
+                }
+              }, 500);
+            }
+            
+            // Update analysis data
+            const analysisWellData = wellsWithCoords.map((record: any) => ({
+              name: record.name || 'Unknown',
+              type: record.type || 'OSDU Well',
+              depth: record.depth || 'Unknown',
+              location: record.location || record.basin || record.country || 'Unknown',
+              operator: record.operator || 'Unknown',
+              coordinates: [record.longitude, record.latitude] as [number, number],
+              dataSource: 'OSDU',
+              category: 'osdu'
+            }));
+            
+            setAnalysisData(analysisWellData);
+            setAnalysisQueryType('osdu');
+            
+            logger.info('✅ OSDU data integrated:', {
+              mapFeatures: osduGeoJSON.features.length,
+              analysisRecords: analysisWellData.length
+            });
+          }
+          
+          setIsLoadingMapData(false);
+          return;
+          
+        } catch (osduError) {
+          logger.error('❌ OSDU API Error:', osduError);
+          
+          const errorMessage: Message = {
+            id: uuidv4() as any,
+            role: "ai" as any,
+            content: {
+              text: `❌ **OSDU Search Failed**\n\nUnable to search OSDU data at this time.\n\n**Error:** ${osduError instanceof Error ? osduError.message : String(osduError)}\n\n💡 **Alternative:** Try a regular catalog search by removing "OSDU" from your query.`
+            } as any,
+            responseComplete: true as any,
+            createdAt: new Date().toISOString() as any,
+            chatSessionId: '' as any,
+            owner: '' as any
+          } as any;
+          
+          setMessages(prevMessages => [...prevMessages, errorMessage]);
+          setIsLoadingMapData(false);
+          return;
+        }
+      }
+      
       // Call catalog search REST API with enhanced context
       const searchResponse = await searchCatalog(prompt, searchContextForBackend);
 
@@ -1975,9 +2226,9 @@ function CatalogPageBase() {
                   iconSvg: (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      height="48"
+                      height="24"
                       viewBox="0 0 24 24"
-                      width="48"
+                      width="24"
                     >
                       <path d="M3 13h8V3H3v10zm0 8h8v-6H3v6zm10 0h8V11h-8v10zm0-18v6h8V3h-8z" />
                     </svg>
@@ -1989,9 +2240,9 @@ function CatalogPageBase() {
                   iconSvg: (
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
-                      height="48"
+                      height="24"
                       viewBox="0 0 24 24"
-                      width="48"
+                      width="24"
                     >
                       <g></g>
                       <g>
@@ -2023,6 +2274,12 @@ function CatalogPageBase() {
                   onClick={handleCreateNewChat}
                   color="primary"
                   size="large"
+                  sx={{
+                    border: 'none',
+                    '&:hover': {
+                      border: 'none'
+                    }
+                  }}
                 >
                   <RestartAlt />
                 </IconButton>
@@ -2035,7 +2292,11 @@ function CatalogPageBase() {
                   size="large"
                   sx={{
                     bgcolor: showQueryBuilder ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                    zIndex: 1300
+                    zIndex: 1300,
+                    border: 'none',
+                    '&:hover': {
+                      border: 'none'
+                    }
                   }}
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -2051,7 +2312,11 @@ function CatalogPageBase() {
                   size="large"
                   sx={{
                     bgcolor: fileDrawerOpen ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                    zIndex: 1300
+                    zIndex: 1300,
+                    border: 'none',
+                    '&:hover': {
+                      border: 'none'
+                    }
                   }}
                 >
                   <FolderIcon />

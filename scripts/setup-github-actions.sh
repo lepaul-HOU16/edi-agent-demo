@@ -1,7 +1,32 @@
 #!/bin/bash
 
-# Setup script for GitHub Actions CI/CD
-# This script helps you configure GitHub secrets and verify the setup
+# ⚠️ DEPRECATED - THIS SCRIPT IS OBSOLETE ⚠️
+#
+# This script is no longer needed. The CI/CD workflow now automatically
+# fetches the API URL from CloudFormation, eliminating the need for
+# the VITE_API_URL GitHub secret.
+#
+# See API_URL_FIX_COMPLETE.md for details.
+#
+# If you need to set up GitHub Actions, you only need:
+# - AWS_ACCESS_KEY_ID
+# - AWS_SECRET_ACCESS_KEY
+#
+# The VITE_API_URL secret is no longer used and can be deleted.
+
+echo "=========================================="
+echo "⚠️  DEPRECATED SCRIPT"
+echo "=========================================="
+echo ""
+echo "This script is obsolete. The CI/CD workflow now automatically"
+echo "fetches the API URL from CloudFormation."
+echo ""
+echo "See API_URL_FIX_COMPLETE.md for details."
+echo ""
+echo "Exiting..."
+exit 1
+
+# OLD CODE BELOW - KEPT FOR REFERENCE ONLY
 
 set -e
 
