@@ -606,7 +606,7 @@
 
 /* Canvas pages (ChatPage, etc.) - split the difference with catalog */
 [data-page="chat"].main-container {
-  margin-top: 12px;
+  margin-top: 42px;
 }
 
 /* Panel (left side - 5/12 width = ~41.67%) */
@@ -925,4 +925,14 @@
 [data-page="catalog"] .leaflet-container {
   height: 100% !important;
   width: 100% !important;
+}
+
+/* ============================================
+   CHAT PAGE LIST ITEM PADDING FIX
+   ============================================ */
+
+/* Remove left/right padding from chat list items to match catalog design */
+[data-page="chat"] .MuiList-root .MuiListItem-root {
+  padding-left: 0 !important;
+  padding-right: 0 !important;
 }
