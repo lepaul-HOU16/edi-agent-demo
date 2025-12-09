@@ -27,8 +27,8 @@ const HumanMessageComponent: React.FC<HumanMessageComponentProps> = ({
   const humanMessageStyle = {
     backgroundColor: 'rgb(0 108 224)',
     color: '#FFFFFF', // Force white text in all modes
-    padding: theme.spacing(1),
-    borderRadius: theme.shape.borderRadius,
+    padding: '2px 17px',
+    borderRadius: '16px',
     maxWidth: '80%',
   };
 

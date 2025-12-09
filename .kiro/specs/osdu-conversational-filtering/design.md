@@ -2,95 +2,187 @@
 
 ## Overview
 
-The OSDU conversational search is fundamentally broken. It returns hardcoded demo OSDU well data instead of calling the real OSDU API. This is SEPARATE from the catalog demo data (24 LAS files) which should remain.
+This design implements **Universal Conversational Filtering** across ALL search types in the catalog. Currently, only OSDU searches support NLP filtering - catalog searches (the 24 LAS files) do not.
 
-**Important Distinction**:
-- **Catalog demo data** (24 LAS files) → KEEP THIS ✅
-- **OSDU demo data** (50 fake OSDU wells) → REMOVE THIS ❌
+**Current State**:
+- ✅ OSDU searches: "show me BP wells" → filters work
+- ❌ Catalog searches: "just the ones near Brunei" → no filtering, returns all 24 files
+- ❌ Inconsistent UX between search types
 
-This design fixes the OSDU search issue by:
+**Target State**:
+- ✅ OSDU searches: NLP filtering works
+- ✅ Catalog searches: NLP filtering works
+- ✅ Consistent UX across all search types
 
-1. **Removing OSDU demo data fallback** when OSDU API is configured
-2. **Adding NLP query parser** to extract search parameters from natural language
-3. **Connecting to real OSDU API** for all OSDU conversational searches
-4. **Providing clear error messages** when OSDU is not configured
-5. **Fixing border radius** inconsistency in prompt input (4px → 8px)
-6. **Preserving catalog demo data** for regular catalog searches
+This design achieves universal filtering by:
+
+1. **Creating shared NLP parser** - Extract common filtering logic into reusable utility
+2. **Enhancing Catalog Lambda** - Add same filtering capabilities to catalog-search handler
+3. **Unified Frontend Context** - Handle both OSDU and catalog contexts consistently
+4. **Consistent Commands** - Same NLP commands work for all search types
+5. **Fixing border radius** - Ensure consistent 8px border radius on first prompt
 
 ## Architecture
 
-### Current (Broken) Flow
+### Current (Broken) Flow - Catalog Searches
 
 ```
-User: "show me wells in the north sea"
+User: "show me my wells"
   ↓
-OSDU Lambda receives query
+Catalog Lambda returns all 24 LAS files
   ↓
-Checks if OSDU_API_URL is configured
+User: "just the ones near Brunei"
   ↓
-NOT configured → Returns 50 hardcoded demo records (WRONG!)
+Catalog Lambda returns all 24 LAS files again (NO FILTERING!)
   ↓
-User sees fake data that doesn't match their query
+User frustrated - filtering doesn't work
 ```
 
-### New (Fixed) Flow
+### New (Fixed) Flow - Universal Filtering
 
 ```
-User: "show me wells in the north sea"
+User: "show me my wells"
   ↓
-OSDU Lambda receives query
+Catalog Lambda returns all 24 LAS files
   ↓
-Parse query to extract: location="north sea"
+Frontend stores results in catalogContext
   ↓
-Check if OSDU_API_URL is configured
+User: "just the ones near Brunei"
   ↓
-NOT configured → Return error: "OSDU API not configured"
-IS configured → Call OSDU API with parsed parameters
+Frontend detects filter intent
   ↓
-Return REAL results from OSDU API
+Shared NLP Parser extracts: location="Brunei"
+  ↓
+Frontend filters cached results (no API call)
+  ↓
+Map updates to show only filtered wells
+  ↓
+User sees 8 wells near Brunei
+```
+
+### Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                     Frontend (CatalogPage)                   │
+│                                                               │
+│  ┌──────────────┐         ┌──────────────┐                  │
+│  │ osduContext  │         │catalogContext│                  │
+│  │ (OSDU data)  │         │ (24 LAS files)│                  │
+│  └──────────────┘         └──────────────┘                  │
+│         │                         │                          │
+│         └─────────┬───────────────┘                          │
+│                   │                                          │
+│         ┌─────────▼──────────┐                              │
+│         │ detectFilterIntent │                              │
+│         │  (unified logic)   │                              │
+│         └─────────┬──────────┘                              │
+│                   │                                          │
+│         ┌─────────▼──────────┐                              │
+│         │ applyContextFilter │                              │
+│         │ (works for both)   │                              │
+│         └─────────┬──────────┘                              │
+│                   │                                          │
+│         ┌─────────▼──────────┐                              │
+│         │   Update Map       │                              │
+│         └────────────────────┘                              │
+└─────────────────────────────────────────────────────────────┘
+                   │                         │
+                   │                         │
+        ┌──────────▼──────────┐   ┌─────────▼──────────┐
+        │   OSDU Lambda       │   │  Catalog Lambda     │
+        │                     │   │                     │
+        │  ┌───────────────┐ │   │  ┌───────────────┐ │
+        │  │ Shared NLP    │ │   │  │ Shared NLP    │ │
+        │  │ Parser        │ │   │  │ Parser        │ │
+        │  │ (common util) │ │   │  │ (common util) │ │
+        │  └───────────────┘ │   │  └───────────────┘ │
+        └─────────────────────┘   └────────────────────┘
 ```
 
 ## Components and Interfaces
 
-### 1. NLP Query Parser (New)
+### 1. Shared NLP Query Parser (New - Common Utility)
 
-**Location**: `cdk/lambda-functions/osdu/queryParser.ts`
+**Location**: `cdk/lambda-functions/shared/nlpParser.ts`
 
 ```typescript
 interface ParsedQuery {
-  locations: string[];      // ["north sea", "gulf of mexico"]
-  operators: string[];      // ["BP", "Shell"]
-  wellPrefixes: string[];   // ["USA", "NOR"]
+  locations: string[];      // ["north sea", "brunei", "malaysia"]
+  operators: string[];      // ["BP", "Shell", "My Company"]
+  wellPrefixes: string[];   // ["USA", "NOR", "WELL"]
+  depthFilter?: {           // NEW: Depth filtering
+    minDepth?: number;
+    maxDepth?: number;
+    unit: 'm' | 'ft';
+  };
   rawQuery: string;         // Original query for fallback
+  confidence: number;       // 0-1 confidence in parsing
 }
 
 function parseNaturalLanguageQuery(query: string): ParsedQuery {
-  // Extract location keywords
-  // Extract operator names
-  // Extract well name patterns
+  // Extract location keywords (Brunei, Malaysia, North Sea, etc.)
+  // Extract operator names (BP, Shell, My Company, etc.)
+  // Extract well name patterns (USA, NOR, WELL, etc.)
+  // Extract depth filters (deeper than 3000m, etc.)
   // Return structured parameters
 }
 ```
 
-### 2. OSDU API Client (Enhanced)
+**Key Features**:
+- Used by BOTH OSDU and Catalog Lambdas
+- Consistent filtering logic across all search types
+- Supports location, operator, well name, and depth filters
+- Returns confidence score for filtering decisions
 
-**Location**: `cdk/lambda-functions/osdu/osduClient.ts`
+### 2. Catalog Lambda Handler (Enhanced)
+
+**Location**: `cdk/lambda-functions/catalog-search/handler.ts`
+
+**Changes**:
+- Import shared NLP parser
+- Add filtering logic for catalog demo data (24 LAS files)
+- Support location filtering (Brunei, Malaysia, Offshore, etc.)
+- Support depth filtering (deeper than X meters)
+- Support operator filtering (My Company, etc.)
+- Return filtered results with accurate count
 
 ```typescript
-interface OSDUSearchParams {
-  query: string;
-  locations?: string[];
-  operators?: string[];
-  wellPrefixes?: string[];
-  maxResults?: number;
-}
+import { parseNaturalLanguageQuery } from '../shared/nlpParser';
 
-async function searchOSDU(params: OSDUSearchParams): Promise<OSDUSearchResponse> {
-  // Validate OSDU_API_URL and OSDU_API_KEY are set
-  // Build OSDU API request with parsed parameters
-  // Call OSDU API
-  // Transform response to standard format
-  // Return results
+async function filterCatalogData(
+  wells: any[], 
+  parsedQuery: ParsedQuery
+): Promise<any[]> {
+  let filtered = wells;
+  
+  // Filter by location
+  if (parsedQuery.locations.length > 0) {
+    filtered = filtered.filter(well => 
+      parsedQuery.locations.some(loc => 
+        well.properties.location?.toLowerCase().includes(loc.toLowerCase())
+      )
+    );
+  }
+  
+  // Filter by depth
+  if (parsedQuery.depthFilter) {
+    filtered = filtered.filter(well => {
+      const depth = parseDepth(well.properties.depth);
+      return depth >= parsedQuery.depthFilter.minDepth;
+    });
+  }
+  
+  // Filter by operator
+  if (parsedQuery.operators.length > 0) {
+    filtered = filtered.filter(well =>
+      parsedQuery.operators.some(op =>
+        well.properties.operator?.toLowerCase().includes(op.toLowerCase())
+      )
+    );
+  }
+  
+  return filtered;
 }
 ```
 
@@ -99,13 +191,61 @@ async function searchOSDU(params: OSDUSearchParams): Promise<OSDUSearchResponse>
 **Location**: `cdk/lambda-functions/osdu/handler.ts`
 
 **Changes**:
-- Remove demo data generation entirely when API is configured
-- Add NLP query parsing before API call
-- Return configuration error if OSDU not configured
-- Pass parsed parameters to OSDU API
-- Log all API calls for debugging
+- Import shared NLP parser (replace inline parser)
+- Use shared parser for consistency
+- Apply same filtering logic as catalog
+- Maintain existing OSDU API integration
 
-### 4. Prompt Input Styling (Fixed)
+### 4. Frontend Context Management (Enhanced)
+
+**Location**: `src/pages/CatalogPage.tsx`
+
+**Changes**:
+- Add `catalogContext` state (similar to existing `osduContext`)
+- Implement unified `detectFilterIntent()` that works for both contexts
+- Implement unified `applyContextFilter()` that works for both contexts
+- Maintain separate contexts for OSDU and catalog searches
+- Clear appropriate context when switching search types
+
+```typescript
+interface SearchContext {
+  query: string;
+  records: any[];
+  filteredRecords: any[];
+  activeFilters: ParsedQuery;
+  searchType: 'osdu' | 'catalog';
+}
+
+const [osduContext, setOsduContext] = useState<SearchContext | null>(null);
+const [catalogContext, setCatalogContext] = useState<SearchContext | null>(null);
+
+function detectFilterIntent(query: string): boolean {
+  // Detect if query is a filter command
+  // "just the ones...", "only wells...", "show me only...", etc.
+  return query.includes('just') || query.includes('only') || 
+         query.includes('filter') || query.includes('near');
+}
+
+function applyContextFilter(
+  context: SearchContext, 
+  filterQuery: string
+): SearchContext {
+  // Parse filter query using shared NLP parser
+  const parsed = parseNaturalLanguageQuery(filterQuery);
+  
+  // Apply filters to cached records
+  const filtered = filterRecords(context.records, parsed);
+  
+  // Return updated context
+  return {
+    ...context,
+    filteredRecords: filtered,
+    activeFilters: parsed
+  };
+}
+```
+
+### 5. Prompt Input Styling (Fixed)
 
 **Location**: `src/components/ExpandablePromptInput.tsx` or `src/globals.css`
 
@@ -164,47 +304,59 @@ interface OSDUAPIResponse {
 
 *A property is a characteristic or behavior that should hold true across all valid executions of a system-essentially, a formal statement about what the system should do. Properties serve as the bridge between human-readable specifications and machine-verifiable correctness guarantees.*
 
-### Property 1: No demo data when API configured
+### Property 1: Shared parser produces consistent results
 
-*For any* OSDU search request, if OSDU_API_URL and OSDU_API_KEY are set, the system should NEVER return hardcoded demo data.
+*For any* natural language query, when parsed by the shared NLP parser, it should produce identical filter criteria regardless of whether it's called from OSDU Lambda or Catalog Lambda.
 
-**Validates: Requirements 1.5, 5.1, 5.2**
+**Validates: Requirements 8.1, 8.2, 8.3**
 
-### Property 2: Configuration error when API not configured
+### Property 2: Location filtering works for all search types
 
-*For any* OSDU search request, if OSDU_API_URL or OSDU_API_KEY are NOT set, the system should return a configuration error, not demo data.
+*For any* search result set (OSDU or catalog), when filtered by location keyword, only results containing that location should be returned.
 
-**Validates: Requirements 3.1, 5.2**
+**Validates: Requirements 1.1, 6.2, 7.1**
 
-### Property 3: Query parsing extracts parameters
+### Property 3: Depth filtering works for all search types
 
-*For any* natural language query containing location/operator/well name keywords, the parser should extract those parameters correctly.
+*For any* search result set (OSDU or catalog), when filtered by depth criteria (e.g., "deeper than 3000m"), only results meeting that depth requirement should be returned.
 
-**Validates: Requirements 2.1, 2.2, 2.3**
+**Validates: Requirements 6.3, 7.2**
 
-### Property 4: API calls include parsed parameters
+### Property 4: Operator filtering works for all search types
 
-*For any* parsed query with extracted parameters, the OSDU API call should include those parameters in the request.
+*For any* search result set (OSDU or catalog), when filtered by operator name, only results with that operator should be returned.
 
-**Validates: Requirements 2.4**
+**Validates: Requirements 1.2, 7.3**
 
-### Property 5: Error messages are clear and actionable
+### Property 5: Context persistence prevents redundant API calls
 
-*For any* OSDU API error, the system should return a clear error message that explains what went wrong and how to fix it.
+*For any* follow-up filter query, if a search context exists, the system should filter cached results instead of making a new API call.
 
-**Validates: Requirements 3.1, 3.2, 3.3, 3.4, 3.5**
+**Validates: Requirements 2.2, 2.3, 4.2, 4.3**
 
-### Property 6: Results are marked as OSDU source
+### Property 6: Context reset restores original results
 
-*For any* successful OSDU API response, all returned records should be marked with dataSource="OSDU".
+*For any* search context, when user requests "show all" or "reset", the system should restore the original unfiltered results.
 
-**Validates: Requirements 4.5**
+**Validates: Requirements 2.5, 6.5, 7.4**
 
-### Property 7: Border radius is consistent
+### Property 7: Separate contexts for different search types
+
+*For any* user session, OSDU context and catalog context should be maintained separately and not interfere with each other.
+
+**Validates: Requirements 4.5, 7.5**
+
+### Property 8: Map synchronization with filtered results
+
+*For any* filtered result set, the map should update to show only markers for the filtered wells.
+
+**Validates: Requirements 3.1, 3.2**
+
+### Property 9: Border radius is consistent
 
 *For any* prompt input element, the border-radius should be 8px on all four corners.
 
-**Validates: Requirements 6.1, 6.2, 6.3, 6.4, 6.5**
+**Validates: Requirements 9.1, 9.2, 9.3, 9.4, 9.5**
 
 ## Error Handling
 

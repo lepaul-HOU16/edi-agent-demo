@@ -266,7 +266,7 @@ export const CloudscapeMultiWellCorrelationDisplay: React.FC<MultiWellCorrelatio
         )}
 
         {/* Visualizations Section */}
-        {data.visualizations && data.visualizations.length > 0 && (
+        {/* {data.visualizations && data.visualizations.length > 0 && (
           <ExpandableSection headerText="📊 Available Visualizations">
             <SpaceBetween size="s">
               {data.visualizations.map((viz, index) => (
@@ -279,7 +279,7 @@ export const CloudscapeMultiWellCorrelationDisplay: React.FC<MultiWellCorrelatio
               ))}
             </SpaceBetween>
           </ExpandableSection>
-        )}
+        )} */}
 
         {/* Analysis Notes Section */}
         {data.analysisNotes && (

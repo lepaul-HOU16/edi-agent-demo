@@ -133,8 +133,34 @@ function CatalogPageBase() {
     activeFilters?: FilterCriteria[]; // Applied filters
   }
 
-  // OSDU context state for filtering and follow-up queries
+  // Catalog Search Context for conversational filtering (24 LAS files)
+  interface CatalogRecord {
+    id: string;
+    name: string;
+    type: string;
+    operator?: string;
+    location?: string;
+    depth?: number;
+    depthUnit?: 'm' | 'ft';
+    wellName?: string;
+    dataSource: string;
+    latitude?: number | null;
+    longitude?: number | null;
+    properties?: any;
+  }
+
+  interface CatalogSearchContext {
+    query: string;                      // Original search query
+    timestamp: Date;                    // When search was performed
+    recordCount: number;                // Total records from API (24 LAS files)
+    records: CatalogRecord[];           // Full record array
+    filteredRecords?: CatalogRecord[];  // Currently filtered records
+    activeFilters?: FilterCriteria[];   // Applied filters
+  }
+
+  // Context state for filtering and follow-up queries
   const [osduContext, setOsduContext] = useState<OSDUSearchContext | null>(null);
+  const [catalogContext, setCatalogContext] = useState<CatalogSearchContext | null>(null);
   const [activeWeatherLayers, setActiveWeatherLayers] = useState<{ [key: string]: boolean }>({});
   const [showWeatherControls, setShowWeatherControls] = useState<boolean>(true);
 
@@ -176,6 +202,476 @@ function CatalogPageBase() {
 
   const drawerVariant = "temporary";
   const mapComponentRef = React.useRef<any>(null);
+
+  // Client-side NLP parsing (simplified version of shared parser)
+  const parseFilterQuery = useCallback((query: string): {
+    locations: string[];
+    operators: string[];
+    wellPrefixes: string[];
+    minDepth?: number;
+    depthUnit?: 'm' | 'ft';
+  } => {
+    const lowerQuery = query.toLowerCase();
+    const result: any = {
+      locations: [],
+      operators: [],
+      wellPrefixes: []
+    };
+
+    // Location keywords
+    const locationMap: Record<string, string> = {
+      'north sea': 'North Sea',
+      'gulf of mexico': 'Gulf of Mexico',
+      'brunei': 'Brunei',
+      'malaysia': 'Malaysia',
+      'offshore': 'Offshore',
+      'offshore brunei': 'Offshore Brunei',
+      'offshore malaysia': 'Offshore Malaysia'
+    };
+
+    // Operator keywords
+    const operatorMap: Record<string, string> = {
+      'bp': 'BP',
+      'shell': 'Shell',
+      'my company': 'My Company',
+      'chevron': 'Chevron',
+      'exxonmobil': 'ExxonMobil',
+      'exxon mobil': 'ExxonMobil'
+    };
+
+    // Well prefix keywords - match specific patterns to avoid false positives
+    const prefixMap: Record<string, string> = {
+      'usa': 'USA',
+      'nor': 'NOR',
+      'vie': 'VIE',
+      'uae': 'UAE',
+      'kaz': 'KAZ'
+    };
+
+    // Parse locations
+    for (const [keyword, location] of Object.entries(locationMap)) {
+      if (lowerQuery.includes(keyword)) {
+        result.locations.push(location);
+      }
+    }
+
+    // Parse operators
+    for (const [keyword, operator] of Object.entries(operatorMap)) {
+      if (lowerQuery.includes(keyword)) {
+        result.operators.push(operator);
+      }
+    }
+
+    // Parse well prefixes - use word boundaries to avoid matching "wells" as "WELL" prefix
+    for (const [keyword, prefix] of Object.entries(prefixMap)) {
+      // Skip "well" keyword entirely - it's too ambiguous (could be "show me wells" vs "WELL-001")
+      if (keyword === 'well') continue;
+      
+      // Match keyword as standalone word or followed by hyphen/number (e.g., "USA wells", "USA-001")
+      const prefixPattern = new RegExp(`\\b${keyword}(?:\\s+wells?|[-\\d])`, 'i');
+      if (prefixPattern.test(lowerQuery)) {
+        result.wellPrefixes.push(prefix);
+      }
+    }
+    
+    // Special case: "WELL" prefix ONLY if explicitly mentioned as identifier with hyphen/number (e.g., "WELL-001")
+    // Do NOT match "show me wells" or "osdu wells"
+    if (/\bwell-\d+/i.test(lowerQuery)) {
+      result.wellPrefixes.push('WELL');
+    }
+
+    // Parse depth criteria
+    const depthPatterns = [
+      /deeper\s+than\s+(\d+)\s*(m|meters?|ft|feet?)?/i,
+      /depth\s*[>]\s*(\d+)\s*(m|meters?|ft|feet?)?/i,
+      /depth\s+greater\s+than\s+(\d+)\s*(m|meters?|ft|feet?)?/i,
+      /wells?\s+with\s+depth\s*[>]\s*(\d+)\s*(m|meters?|ft|feet?)?/i,
+      /(?:above|over)\s+(\d+)\s*(m|meters?|ft|feet?)?/i
+    ];
+
+    for (const pattern of depthPatterns) {
+      const match = query.match(pattern);
+      if (match) {
+        const depth = parseInt(match[1]);
+        const unitStr = match[2]?.toLowerCase() || 'm';
+        const unit: 'm' | 'ft' = unitStr.startsWith('ft') || unitStr.startsWith('feet') ? 'ft' : 'm';
+        result.minDepth = depth;
+        result.depthUnit = unit;
+        break;
+      }
+    }
+
+    return result;
+  }, []);
+
+  // Unified filter detection for both OSDU and Catalog contexts
+  const detectFilterIntent = useCallback((query: string): { 
+    hasFilterIntent: boolean; 
+    contextType: 'osdu' | 'catalog' | 'none';
+    isResetCommand: boolean;
+  } => {
+    const lowerQuery = query.toLowerCase().trim();
+    
+    // Detect reset commands
+    const resetKeywords = ['show all', 'reset', 'clear filter', 'remove filter', 'all wells'];
+    const isResetCommand = resetKeywords.some(keyword => lowerQuery.includes(keyword));
+    
+    // Detect filter intent keywords
+    const filterKeywords = [
+      'just', 'only', 'near', 'deeper', 'filter',
+      'greater than', 'above', 'over', 'with depth', 'wells with'
+    ];
+    const hasFilterIntent = filterKeywords.some(keyword => lowerQuery.includes(keyword));
+    
+    // IMPORTANT: Don't treat initial search queries as filters
+    // "show me all my wells" or "show me my wells" should NOT be filters
+    const isInitialSearchQuery = (lowerQuery.includes('show me') && lowerQuery.includes('my wells')) ||
+                                  (lowerQuery.includes('show me') && lowerQuery.includes('osdu'));
+    
+    if (isInitialSearchQuery) {
+      return { hasFilterIntent: false, contextType: 'none', isResetCommand: false };
+    }
+    
+    // Determine which context to filter based on what data we have
+    let contextType: 'osdu' | 'catalog' | 'none' = 'none';
+    
+    if (hasFilterIntent || isResetCommand) {
+      // Check if we have catalog context (24 LAS files)
+      if (catalogContext && catalogContext.records.length > 0) {
+        contextType = 'catalog';
+      }
+      // Check if we have OSDU context
+      else if (osduContext && osduContext.records.length > 0) {
+        contextType = 'osdu';
+      }
+      // Check analysis data as fallback
+      else if (analysisData && analysisData.length > 0) {
+        // Determine from data source
+        const hasOSDU = analysisData.some(w => w.dataSource === 'OSDU');
+        const hasCatalog = analysisData.some(w => w.dataSource !== 'OSDU');
+        
+        if (hasCatalog) {
+          contextType = 'catalog';
+        } else if (hasOSDU) {
+          contextType = 'osdu';
+        }
+      }
+    }
+    
+    logger.info('🔍 Filter intent detection:', {
+      hasFilterIntent,
+      isResetCommand,
+      contextType,
+      hasCatalogContext: !!catalogContext,
+      hasOSDUContext: !!osduContext,
+      query: lowerQuery
+    });
+    
+    return { hasFilterIntent, contextType, isResetCommand };
+  }, [catalogContext, osduContext, analysisData]);
+
+  // Unified context filtering for both OSDU and Catalog
+  const applyContextFilter = useCallback((query: string, contextType: 'osdu' | 'catalog'): {
+    success: boolean;
+    filteredCount: number;
+    originalCount: number;
+    filterDescription: string;
+  } => {
+    const filters = parseFilterQuery(query);
+    const hasFilters = filters.locations.length > 0 || 
+                      filters.operators.length > 0 || 
+                      filters.wellPrefixes.length > 0 || 
+                      filters.minDepth !== undefined;
+
+    if (!hasFilters) {
+      return { success: false, filteredCount: 0, originalCount: 0, filterDescription: 'No filters detected' };
+    }
+
+    if (contextType === 'catalog' && catalogContext) {
+      // Filter catalog records
+      const recordsToFilter = catalogContext.filteredRecords || catalogContext.records;
+      const filtered = recordsToFilter.filter(record => {
+        // Location filter
+        if (filters.locations.length > 0) {
+          const locationMatch = filters.locations.some(loc => 
+            record.location?.toLowerCase().includes(loc.toLowerCase())
+          );
+          if (!locationMatch) return false;
+        }
+
+        // Operator filter
+        if (filters.operators.length > 0) {
+          const operatorMatch = filters.operators.some(op => 
+            record.operator?.toLowerCase().includes(op.toLowerCase())
+          );
+          if (!operatorMatch) return false;
+        }
+
+        // Well name prefix filter
+        if (filters.wellPrefixes.length > 0) {
+          const prefixMatch = filters.wellPrefixes.some(prefix => 
+            record.wellName?.toUpperCase().startsWith(prefix.toUpperCase())
+          );
+          if (!prefixMatch) return false;
+        }
+
+        // Depth filter - handle both number and string depth values
+        if (filters.minDepth !== undefined && record.depth !== undefined) {
+          let depthValue: number;
+          
+          if (typeof record.depth === 'number') {
+            depthValue = record.depth;
+          } else {
+            // Extract numeric value from depth string (e.g., "3650m (est.)" -> 3650)
+            const depthMatch = String(record.depth).match(/(\d+(?:\.\d+)?)/);
+            if (depthMatch) {
+              depthValue = parseFloat(depthMatch[1]);
+            } else {
+              // No valid depth found, exclude from results
+              return false;
+            }
+          }
+          
+          if (depthValue < filters.minDepth) return false;
+        }
+
+        return true;
+      });
+
+      // Update catalog context with filtered results
+      setCatalogContext({
+        ...catalogContext,
+        filteredRecords: filtered,
+        activeFilters: [
+          ...filters.locations.map(loc => ({ type: 'location' as const, value: loc })),
+          ...filters.operators.map(op => ({ type: 'operator' as const, value: op })),
+          ...(filters.minDepth ? [{ type: 'depth' as const, value: filters.minDepth, operator: '>' as const }] : [])
+        ]
+      });
+
+      // Update analysis data to match filtered results
+      const filteredWellData = filtered.map(record => ({
+        name: record.name,
+        type: record.type,
+        depth: record.depth?.toString() || 'Unknown',
+        location: record.location || 'Unknown',
+        operator: record.operator || 'Unknown',
+        coordinates: [record.longitude || 0, record.latitude || 0] as [number, number],
+        category: 'search_result',
+        dataSource: 'catalog'
+      }));
+
+      setAnalysisData(filteredWellData);
+
+      // 🔥 FIX: Update map with filtered data
+      const filteredGeoJSON = {
+        type: "FeatureCollection" as const,
+        features: filtered.map((record, index) => ({
+          type: "Feature" as const,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [record.longitude || 0, record.latitude || 0]
+          },
+          properties: {
+            name: record.name,
+            type: record.type,
+            depth: record.depth?.toString() || 'Unknown',
+            location: record.location || 'Unknown',
+            operator: record.operator || 'Unknown',
+            category: 'search_result',
+            dataSource: 'catalog',
+            id: record.id || `catalog-${index}`
+          }
+        }))
+      };
+
+      // Update map state
+      const coordinates = filtered.map(r => [r.longitude || 0, r.latitude || 0]);
+      const bounds = coordinates.length > 0 ? {
+        minLon: Math.min(...coordinates.map(c => c[0])),
+        maxLon: Math.max(...coordinates.map(c => c[0])),
+        minLat: Math.min(...coordinates.map(c => c[1])),
+        maxLat: Math.max(...coordinates.map(c => c[1]))
+      } : null;
+
+      setMapState(prev => ({
+        ...prev,
+        wellData: filteredGeoJSON,
+        bounds,
+        hasSearchResults: true
+      }));
+
+      // Update map immediately if on map panel
+      if (selectedId === "seg-1" && mapComponentRef.current?.updateMapData) {
+        logger.info('🗺️ Updating map with filtered catalog data:', filtered.length, 'wells');
+        mapComponentRef.current.updateMapData(filteredGeoJSON);
+        
+        if (bounds && mapComponentRef.current.fitBounds) {
+          setTimeout(() => {
+            mapComponentRef.current.fitBounds(bounds);
+          }, 300);
+        }
+      }
+
+      // Build filter description
+      const filterParts: string[] = [];
+      if (filters.locations.length > 0) filterParts.push(`location: ${filters.locations.join(', ')}`);
+      if (filters.operators.length > 0) filterParts.push(`operator: ${filters.operators.join(', ')}`);
+      if (filters.wellPrefixes.length > 0) filterParts.push(`well prefix: ${filters.wellPrefixes.join(', ')}`);
+      if (filters.minDepth) filterParts.push(`depth > ${filters.minDepth}${filters.depthUnit}`);
+
+      return {
+        success: true,
+        filteredCount: filtered.length,
+        originalCount: recordsToFilter.length,
+        filterDescription: filterParts.join(', ')
+      };
+    } else if (contextType === 'osdu' && osduContext) {
+      // Filter OSDU records (similar logic)
+      const recordsToFilter = osduContext.filteredRecords || osduContext.records;
+      const filtered = recordsToFilter.filter(record => {
+        // Location filter
+        if (filters.locations.length > 0) {
+          const locationMatch = filters.locations.some(loc => 
+            record.location?.toLowerCase().includes(loc.toLowerCase()) ||
+            record.basin?.toLowerCase().includes(loc.toLowerCase())
+          );
+          if (!locationMatch) return false;
+        }
+
+        // Operator filter
+        if (filters.operators.length > 0) {
+          const operatorMatch = filters.operators.some(op => 
+            record.operator?.toLowerCase().includes(op.toLowerCase())
+          );
+          if (!operatorMatch) return false;
+        }
+
+        // Well name prefix filter
+        if (filters.wellPrefixes.length > 0) {
+          const prefixMatch = filters.wellPrefixes.some(prefix => 
+            record.name?.toUpperCase().startsWith(prefix.toUpperCase())
+          );
+          if (!prefixMatch) return false;
+        }
+
+        // Depth filter - handle both number and string depth values
+        if (filters.minDepth !== undefined && record.depth) {
+          let depthValue: number;
+          
+          if (typeof record.depth === 'number') {
+            depthValue = record.depth;
+          } else if (typeof record.depth === 'string') {
+            // Extract numeric value from depth string (e.g., "3650m" -> 3650)
+            const depthMatch = record.depth.match(/(\d+(?:\.\d+)?)/);
+            if (depthMatch) {
+              depthValue = parseFloat(depthMatch[1]);
+            } else {
+              // No valid depth found, exclude from results
+              return false;
+            }
+          } else {
+            return false;
+          }
+          
+          if (depthValue < filters.minDepth) return false;
+        }
+
+        return true;
+      });
+
+      // Update OSDU context with filtered results
+      setOsduContext({
+        ...osduContext,
+        filteredRecords: filtered,
+        activeFilters: [
+          ...filters.locations.map(loc => ({ type: 'location' as const, value: loc })),
+          ...filters.operators.map(op => ({ type: 'operator' as const, value: op })),
+          ...(filters.minDepth ? [{ type: 'depth' as const, value: filters.minDepth, operator: '>' as const }] : [])
+        ]
+      });
+
+      // Update analysis data to match filtered results
+      const filteredWellData = filtered.map(record => ({
+        name: record.name,
+        type: record.type,
+        depth: record.depth || 'Unknown',
+        location: record.location || 'Unknown',
+        operator: record.operator || 'Unknown',
+        coordinates: [record.longitude || 0, record.latitude || 0] as [number, number],
+        category: 'search_result',
+        dataSource: 'OSDU'
+      }));
+
+      setAnalysisData(filteredWellData);
+
+      // 🔥 FIX: Update map with filtered OSDU data
+      const filteredGeoJSON = {
+        type: "FeatureCollection" as const,
+        features: filtered.map((record, index) => ({
+          type: "Feature" as const,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [record.longitude || 0, record.latitude || 0]
+          },
+          properties: {
+            name: record.name,
+            type: record.type,
+            depth: record.depth || 'Unknown',
+            location: record.location || 'Unknown',
+            operator: record.operator || 'Unknown',
+            category: 'osdu',
+            dataSource: 'OSDU',
+            id: record.id || `osdu-${index}`
+          }
+        }))
+      };
+
+      // Update map state
+      const coordinates = filtered.map(r => [r.longitude || 0, r.latitude || 0]);
+      const bounds = coordinates.length > 0 ? {
+        minLon: Math.min(...coordinates.map(c => c[0])),
+        maxLon: Math.max(...coordinates.map(c => c[0])),
+        minLat: Math.min(...coordinates.map(c => c[1])),
+        maxLat: Math.max(...coordinates.map(c => c[1]))
+      } : null;
+
+      setMapState(prev => ({
+        ...prev,
+        wellData: filteredGeoJSON,
+        bounds,
+        hasSearchResults: true
+      }));
+
+      // Update map immediately if on map panel
+      if (selectedId === "seg-1" && mapComponentRef.current?.updateMapData) {
+        logger.info('🗺️ Updating map with filtered OSDU data:', filtered.length, 'wells');
+        mapComponentRef.current.updateMapData(filteredGeoJSON);
+        
+        if (bounds && mapComponentRef.current.fitBounds) {
+          setTimeout(() => {
+            mapComponentRef.current.fitBounds(bounds);
+          }, 300);
+        }
+      }
+
+      // Build filter description
+      const filterParts: string[] = [];
+      if (filters.locations.length > 0) filterParts.push(`location: ${filters.locations.join(', ')}`);
+      if (filters.operators.length > 0) filterParts.push(`operator: ${filters.operators.join(', ')}`);
+      if (filters.wellPrefixes.length > 0) filterParts.push(`well prefix: ${filters.wellPrefixes.join(', ')}`);
+      if (filters.minDepth) filterParts.push(`depth > ${filters.minDepth}${filters.depthUnit}`);
+
+      return {
+        success: true,
+        filteredCount: filtered.length,
+        originalCount: recordsToFilter.length,
+        filterDescription: filterParts.join(', ')
+      };
+    }
+
+    return { success: false, filteredCount: 0, originalCount: 0, filterDescription: 'No context available' };
+  }, [catalogContext, osduContext, parseFilterQuery]);
 
   // Auto-scroll functionality for chain of thought
   const scrollChainOfThoughtToBottom = React.useCallback(() => {
@@ -864,133 +1360,6 @@ function CatalogPageBase() {
     return { filtered, filters };
   }, []);
 
-  // Filter intent detection function for conversational filtering
-  const detectFilterIntent = useCallback((query: string, hasOsduContext: boolean): {
-    isFilter: boolean;
-    filterType?: string;
-    filterValue?: string;
-    filterOperator?: string;
-  } => {
-    const lowerQuery = query.toLowerCase().trim();
-
-    // Only detect filter intent if OSDU context exists
-    if (!hasOsduContext) {
-      // Filter intent logging removed for performance
-      return { isFilter: false };
-    }
-
-    // Check for direct operator/location mentions FIRST (implicit filtering)
-    // This handles queries like "show me BP wells" or "wells in north sea"
-    const operatorNames = ['bp', 'shell', 'chevron', 'exxonmobil', 'exxon', 'totalenergies', 'total'];
-    const locationNames = ['north sea', 'gulf of mexico', 'south china sea', 'persian gulf', 'caspian'];
-    
-    // Check for operator mentions
-    for (const operator of operatorNames) {
-      if (lowerQuery.includes(operator)) {
-        logger.debug('Filter intent: Detected operator mention:', operator);
-        return {
-          isFilter: true,
-          filterType: 'operator',
-          filterValue: operator,
-          filterOperator: 'contains'
-        };
-      }
-    }
-    
-    // Check for location mentions
-    for (const location of locationNames) {
-      if (lowerQuery.includes(location)) {
-        logger.debug('Filter intent: Detected location mention:', location);
-        return {
-          isFilter: true,
-          filterType: 'location',
-          filterValue: location,
-          filterOperator: 'contains'
-        };
-      }
-    }
-
-    // Filter keywords for explicit filtering
-    const filterKeywords = [
-      'filter', 'show only', 'where', 'with',
-      'operator', 'location', 'depth', 'type', 'status',
-      'greater than', 'less than', 'equals'
-    ];
-
-    const hasFilterKeyword = filterKeywords.some(kw => lowerQuery.includes(kw));
-
-    if (!hasFilterKeyword) {
-      logger.debug('Filter intent: No filter keywords or implicit filters found');
-      return { isFilter: false };
-    }
-
-    // Parse filter type and value
-    let filterType: string | undefined;
-    let filterValue: string | undefined;
-    let filterOperator: string = 'contains';
-
-    // Operator filter
-    if (lowerQuery.includes('operator')) {
-      filterType = 'operator';
-      const match = lowerQuery.match(/operator\s+(?:is\s+)?([a-z0-9\s]+)/i);
-      if (match) filterValue = match[1].trim();
-    }
-
-    // Location filter
-    else if (lowerQuery.includes('location') || lowerQuery.includes('country')) {
-      filterType = 'location';
-      const match = lowerQuery.match(/(?:location|country)\s+(?:is\s+)?([a-z0-9\s]+)/i);
-      if (match) filterValue = match[1].trim();
-    }
-
-    // Depth filter
-    else if (lowerQuery.includes('depth')) {
-      filterType = 'depth';
-
-      // Greater than
-      if (lowerQuery.includes('greater than') || lowerQuery.includes('>')) {
-        filterOperator = '>';
-        const match = lowerQuery.match(/(?:greater than|>)\s*(\d+)/);
-        if (match) filterValue = match[1];
-      }
-      // Less than
-      else if (lowerQuery.includes('less than') || lowerQuery.includes('<')) {
-        filterOperator = '<';
-        const match = lowerQuery.match(/(?:less than|<)\s*(\d+)/);
-        if (match) filterValue = match[1];
-      }
-      // Equals
-      else {
-        filterOperator = '=';
-        const match = lowerQuery.match(/depth\s+(?:is\s+)?(\d+)/);
-        if (match) filterValue = match[1];
-      }
-    }
-
-    // Type filter
-    else if (lowerQuery.includes('type')) {
-      filterType = 'type';
-      const match = lowerQuery.match(/type\s+(?:is\s+)?([a-z0-9\s]+)/i);
-      if (match) filterValue = match[1].trim();
-    }
-
-    // Status filter
-    else if (lowerQuery.includes('status')) {
-      filterType = 'status';
-      const match = lowerQuery.match(/status\s+(?:is\s+)?([a-z0-9\s]+)/i);
-      if (match) filterValue = match[1].trim();
-    }
-
-    logger.debug('Filter intent detected:', { filterType, filterValue, filterOperator });
-
-    return {
-      isFilter: true,
-      filterType,
-      filterValue,
-      filterOperator
-    };
-  }, []);
-
   // Client-side filter application function for OSDU results
   const applyOsduFilter = useCallback((
     records: OSDURecord[],
@@ -1069,611 +1438,18 @@ function CatalogPageBase() {
     try {
       logger.info('PROCESSING CATALOG SEARCH:', prompt);
 
-      // TASK 11: Check for filter intent WITHOUT OSDU context - show error
-      const filterIntent = detectFilterIntent(prompt, !!osduContext);
-
-      if (filterIntent.isFilter && !osduContext) {
-        logger.debug('Filter intent detected but no OSDU context available');
-
-        // Display error message if filter attempted without OSDU context
-        const noContextMessage: Message = {
-          id: uuidv4() as any,
-          role: "ai" as any,
-          content: {
-            text: `⚠️ **No OSDU Results to Filter**\n\nI detected that you want to filter data, but there are no OSDU search results available to filter.\n\n**To use filtering:**\n1. First perform an OSDU search\n2. Then apply filters to refine those results\n\n**Example OSDU search queries:**\n- "show me osdu wells"\n- "search osdu for production wells"\n- "find osdu wells in Norway"\n- "osdu exploration wells"\n\n**After getting OSDU results, you can filter them:**\n- "filter by operator Shell"\n- "show only depth > 3000m"\n- "where location is Gulf of Mexico"\n\n💡 **Tip:** OSDU searches require the keyword "osdu" in your query to access external data sources.`
-          } as any,
-          responseComplete: true as any,
-          createdAt: new Date().toISOString() as any,
-          chatSessionId: '' as any,
-          owner: '' as any
-        } as any;
-
-        setMessages(prevMessages => [...prevMessages, noContextMessage]);
-        setIsLoadingMapData(false);
-
-        logger.debug('No context error message displayed');
-        return; // Early return to prevent further processing
-      }
-
-      // TASK 5: Check for filter intent FIRST when OSDU context exists
-      if (osduContext && filterIntent.isFilter) {
-        logger.debug('OSDU context exists, checking for filter intent...');
-
-        // TASK 12: Check if filter type and value were successfully parsed
-        if (!filterIntent.filterType || !filterIntent.filterValue) {
-          logger.error('❌ Filter parsing failed:', { filterIntent, query: prompt });
-
-          // Display error message if filter parsing failed
-          const parsingErrorMessage: Message = {
-            id: uuidv4() as any,
-            role: "ai" as any,
-            content: {
-              text: `⚠️ **Could Not Parse Filter**\n\nI detected that you want to filter data, but I couldn't understand your filter criteria.\n\n**What I received:** "${prompt}"\n\n**Common filter patterns:**\n\n**🏢 By Operator:**\n- "filter by operator Shell"\n- "show only operator BP"\n- "where operator is Chevron"\n\n**📍 By Location/Country:**\n- "filter by location Norway"\n- "show only country USA"\n- "where location is Gulf of Mexico"\n\n**📏 By Depth:**\n- "show wells with depth greater than 3000"\n- "filter depth > 5000"\n- "where depth < 2000"\n- "depth equals 4500"\n\n**🔧 By Type:**\n- "filter by type production"\n- "show only type exploration"\n- "where type is development"\n\n**📊 By Status:**\n- "filter by status active"\n- "show only status producing"\n- "where status is completed"\n\n💡 **Tip:** Make sure to include both the filter type (operator, location, depth, type, or status) and the value you want to filter by.\n\n**Current Context:**\n- Total OSDU records: ${osduContext.recordCount}\n- Currently showing: ${osduContext.filteredRecords?.length || osduContext.recordCount} records\n\nTry rephrasing your filter using one of the patterns above, or type "help" to see more examples.`
-            } as any,
-            responseComplete: true as any,
-            createdAt: new Date().toISOString() as any,
-            chatSessionId: '' as any,
-            owner: '' as any
-          } as any;
-
-          setMessages(prevMessages => [...prevMessages, parsingErrorMessage]);
-          setIsLoadingMapData(false);
-
-          logger.debug('Filter parsing error message displayed');
-          return; // Early return to prevent further processing
-        }
-
-        if (filterIntent.filterType && filterIntent.filterValue) {
-          logger.info('Filter intent detected, applying filter:', filterIntent);
-
-          // Apply filter to existing results (or already-filtered results)
-          const baseRecords = osduContext.filteredRecords || osduContext.records;
-          const filteredRecords = applyOsduFilter(
-            baseRecords,
-            filterIntent.filterType,
-            filterIntent.filterValue,
-            filterIntent.filterOperator
-          );
-
-          // Update context with filtered results and new filter criteria
-          const newFilter: FilterCriteria = {
-            type: filterIntent.filterType as any,
-            value: filterIntent.filterValue,
-            operator: filterIntent.filterOperator as any
-          };
-
-          setOsduContext({
-            ...osduContext,
-            filteredRecords,
-            activeFilters: [...(osduContext.activeFilters || []), newFilter]
-          });
-
-          // TASK 6: Create filter result display with enhanced formatting
-          // Build filter description with proper formatting
-          const filterOperatorDisplay = filterIntent.filterOperator === 'contains'
-            ? 'containing'
-            : filterIntent.filterOperator === '>'
-              ? 'greater than'
-              : filterIntent.filterOperator === '<'
-                ? 'less than'
-                : filterIntent.filterOperator === '='
-                  ? 'equal to'
-                  : filterIntent.filterOperator;
-
-          const filterDescription = `${filterIntent.filterType} ${filterOperatorDisplay} "${filterIntent.filterValue}"`;
-
-          // Build cumulative filter description if multiple filters applied
-          const allFilters = [...(osduContext.activeFilters || []), newFilter];
-          const filterSummary = allFilters.length > 1
-            ? `Applied ${allFilters.length} filters: ${allFilters.map(f => {
-              const op = f.operator === 'contains' ? 'containing' : f.operator === '>' ? '>' : f.operator === '<' ? '<' : f.operator === '=' ? '=' : f.operator;
-              return `${f.type} ${op} "${f.value}"`;
-            }).join(', ')}`
-            : `Applied filter: ${filterDescription}`;
-
-          // Create enhanced answer text with filter context
-          const answerText = filteredRecords.length > 0
-            ? `🔍 **Filtered OSDU Results**\n\n${filterSummary}\n\n**Results:** Found ${filteredRecords.length} of ${osduContext.recordCount} records matching your criteria.\n\n💡 **Tip:** You can apply additional filters or use "show all" to reset.`
-            : `🔍 **No Results Found**\n\n${filterSummary}\n\n**No records match your filter criteria.**\n\n**Suggestions:**\n- Try a different ${filterIntent.filterType} value\n- Use "show all" to see all ${osduContext.recordCount} original results\n- Refine your filter criteria`;
-
-          // Format OSDU response data for OSDUSearchResponse component
-          const osduResponseData = {
-            answer: answerText,
-            recordCount: filteredRecords.length,
-            records: filteredRecords,
-            query: prompt,
-            // Include filter metadata for component display
-            filterApplied: true,
-            filterDescription: filterDescription,
-            originalRecordCount: osduContext.recordCount,
-            activeFilters: allFilters
-          };
-
-          // Use osdu-search-response format for existing OSDUSearchResponse component
-          const messageText = `\`\`\`osdu-search-response\n${JSON.stringify(osduResponseData, null, 2)}\n\`\`\``;
-
-          // Create AI message with filtered results
-          const filteredMessage: Message = {
-            id: uuidv4() as any,
-            role: "ai" as any,
-            content: { text: messageText } as any,
-            responseComplete: true as any,
-            createdAt: new Date().toISOString() as any,
-            chatSessionId: '' as any,
-            owner: '' as any
-          } as any;
-
-          // Add message to chat
-          setMessages(prevMessages => [...prevMessages, filteredMessage]);
-
-          logger.debug('Filter result message created:', {
-            filterDescription,
-            filteredCount: filteredRecords.length,
-            originalCount: osduContext.recordCount,
-            totalFilters: allFilters.length
-          });
-
-          // Update map with filtered results
-          const filteredWithCoords = filteredRecords.filter(w => w.latitude && w.longitude);
-          if (filteredWithCoords.length > 0) {
-            const osduGeoJSON = {
-              type: "FeatureCollection" as const,
-              features: filteredWithCoords.map((well, index) => ({
-                type: "Feature" as const,
-                geometry: {
-                  type: "Point" as const,
-                  coordinates: [well.longitude!, well.latitude!]
-                },
-                properties: {
-                  name: well.name,
-                  type: well.type,
-                  operator: well.operator,
-                  location: well.location,
-                  depth: well.depth,
-                  status: well.status,
-                  dataSource: 'OSDU',
-                  category: 'osdu',
-                  id: well.id || `osdu-${index}`
-                }
-              }))
-            };
-
-            // Calculate bounds for filtered results
-            const lats = filteredWithCoords.map(w => w.latitude!);
-            const lons = filteredWithCoords.map(w => w.longitude!);
-            const bounds = {
-              minLat: Math.min(...lats),
-              maxLat: Math.max(...lats),
-              minLon: Math.min(...lons),
-              maxLon: Math.max(...lons)
-            };
-
-            // Update map state with new data and bounds
-            setMapState(prev => ({
-              ...prev,
-              wellData: osduGeoJSON,
-              bounds,
-              hasSearchResults: true
-            }));
-
-            // Update map directly if on map panel
-            if (selectedId === "seg-1" && mapComponentRef.current) {
-              // Update markers and zoom in one smooth operation
-              if (mapComponentRef.current.updateMapData) {
-                mapComponentRef.current.updateMapData(osduGeoJSON);
-              }
-              // Immediately fit bounds to prevent flash
-              if (mapComponentRef.current.fitBounds) {
-                requestAnimationFrame(() => {
-                  mapComponentRef.current.fitBounds(bounds);
-                });
-              }
-            }
-          }
-
-          setIsLoadingMapData(false);
-          return; // Early return after filter processing to prevent new search
-        }
-
-        // Filter intent logging removed for performance
-      }
-
-      // TASK 10: Check for filter help intent ("help" or "how to filter")
-      if (osduContext && (prompt.toLowerCase().includes('help') || prompt.toLowerCase().includes('how to filter'))) {
-        logger.info('Filter help requested, displaying comprehensive filter examples');
-
-        // Create comprehensive filter help message with examples for all filter types
-        const helpMessage: Message = {
-          id: uuidv4() as any,
-          role: "ai" as any,
-          content: {
-            text: `📖 **OSDU Filtering Help**\n\nYou can filter your OSDU results using natural language. Here are examples for each filter type:\n\n**🏢 By Operator:**\n- "filter by operator Shell"\n- "show only operator BP"\n- "where operator is Chevron"\n\n**📍 By Location/Country:**\n- "filter by location Norway"\n- "show only country USA"\n- "where location is Gulf of Mexico"\n\n**📏 By Depth:**\n- "show wells with depth greater than 3000"\n- "filter depth > 5000"\n- "where depth < 2000"\n- "depth equals 4500"\n\n**🔧 By Type:**\n- "filter by type production"\n- "show only type exploration"\n- "where type is development"\n\n**📊 By Status:**\n- "filter by status active"\n- "show only status producing"\n- "where status is completed"\n\n**🔄 Reset Filters:**\n- "show all" - Display all original results\n- "reset filters" - Clear all applied filters\n\n**💡 Tips:**\n- You can apply multiple filters in sequence to narrow down results\n- Filters are applied to your current result set\n- Use "show all" anytime to see the original unfiltered results\n\n**Current Context:**\n- Total OSDU records: ${osduContext.recordCount}\n- Active filters: ${osduContext.activeFilters?.length || 0}\n- Currently showing: ${osduContext.filteredRecords?.length || osduContext.recordCount} records`
-          } as any,
-          responseComplete: true as any,
-          createdAt: new Date().toISOString() as any,
-          chatSessionId: '' as any,
-          owner: '' as any
-        } as any;
-
-        // Add help message to chat
-        setMessages(prevMessages => [...prevMessages, helpMessage]);
-
-        logger.debug('Filter help message displayed');
-
-        setIsLoadingMapData(false);
-        return; // Early return after help display to prevent new search
-      }
-
-      // TASK 8: Check for filter reset intent ("show all" or "reset")
-      if (osduContext && (prompt.toLowerCase().includes('show all') || prompt.toLowerCase().includes('reset'))) {
-        logger.info('Filter reset detected, clearing filters and showing original results');
-
-        // Clear filteredRecords and activeFilters from context
-        setOsduContext({
-          ...osduContext,
-          filteredRecords: undefined,
-          activeFilters: []
-        });
-
-        // Create message indicating filters were reset with original record count
-        const resetAnswerText = `🔄 **Filters Reset**\n\nShowing all ${osduContext.recordCount} original results from your OSDU search.\n\n💡 **Tip:** You can apply new filters anytime by asking questions like "filter by operator Shell" or "show only depth > 3000m"`;
-
-        // Format OSDU response data for OSDUSearchResponse component
-        const osduResponseData = {
-          answer: resetAnswerText,
-          recordCount: osduContext.recordCount,
-          records: osduContext.records,
-          query: osduContext.query, // Use original query
-          // Indicate filters were reset
-          filterApplied: false,
-          filtersReset: true
-        };
-
-        // Use osdu-search-response format for existing OSDUSearchResponse component
-        const messageText = `\`\`\`osdu-search-response\n${JSON.stringify(osduResponseData, null, 2)}\n\`\`\``;
-
-        // Create AI message with reset confirmation and original unfiltered results
-        const resetMessage: Message = {
-          id: uuidv4() as any,
-          role: "ai" as any,
-          content: { text: messageText } as any,
-          responseComplete: true as any,
-          createdAt: new Date().toISOString() as any,
-          chatSessionId: '' as any,
-          owner: '' as any
-        } as any;
-
-        // Add message to chat
-        setMessages(prevMessages => [...prevMessages, resetMessage]);
-
-        logger.debug('Filter reset message created:', {
-          originalRecordCount: osduContext.recordCount,
-          originalQuery: osduContext.query,
-          filtersCleared: true
-        });
-
-        // Update map with original unfiltered results
-        const originalWithCoords = osduContext.records.filter(w => w.latitude && w.longitude);
-        if (originalWithCoords.length > 0) {
-          const osduGeoJSON = {
-            type: "FeatureCollection" as const,
-            features: originalWithCoords.map((well, index) => ({
-              type: "Feature" as const,
-              geometry: {
-                type: "Point" as const,
-                coordinates: [well.longitude!, well.latitude!]
-              },
-              properties: {
-                name: well.name,
-                type: well.type,
-                operator: well.operator,
-                location: well.location,
-                depth: well.depth,
-                status: well.status,
-                dataSource: 'OSDU',
-                category: 'osdu',
-                id: well.id || `osdu-${index}`
-              }
-            }))
-          };
-
-          // Calculate bounds for original results
-          const lats = originalWithCoords.map(w => w.latitude!);
-          const lons = originalWithCoords.map(w => w.longitude!);
-          const bounds = {
-            minLat: Math.min(...lats),
-            maxLat: Math.max(...lats),
-            minLon: Math.min(...lons),
-            maxLon: Math.max(...lons)
-          };
-
-          // Update map state
-          setMapState(prev => ({
-            ...prev,
-            wellData: osduGeoJSON,
-            bounds,
-            hasSearchResults: true
-          }));
-
-          // Update map directly if on map panel
-          if (selectedId === "seg-1" && mapComponentRef.current) {
-            // Update markers and zoom in one smooth operation
-            if (mapComponentRef.current.updateMapData) {
-              mapComponentRef.current.updateMapData(osduGeoJSON);
-            }
-            // Immediately fit bounds to prevent flash
-            if (mapComponentRef.current.fitBounds) {
-              requestAnimationFrame(() => {
-                mapComponentRef.current.fitBounds(bounds);
-              });
-            }
-          }
-        }
-
-        setIsLoadingMapData(false);
-        return; // Early return after reset processing to prevent new search
-      }
-
-      // Detect search intent (OSDU vs catalog) - only if not filtered above
-      const searchIntent = detectSearchIntent(prompt);
-      logger.info('Search intent:', searchIntent);
-
-      // Handle OSDU search intent
-      if (searchIntent === 'osdu') {
-        logger.debug('Executing OSDU search');
-
-        // Add loading message
-        const loadingMessage: Message = {
-          id: uuidv4() as any,
-          role: "ai" as any,
-          content: {
-            text: `🔍 **Searching OSDU data...**\n\nQuerying external OSDU data sources for: *"${prompt}"*`
-          } as any,
-          responseComplete: false as any,
-          createdAt: new Date().toISOString() as any,
-          chatSessionId: '' as any,
-          owner: '' as any
-        } as any;
-
-        setMessages(prevMessages => [...prevMessages, loadingMessage]);
-
-        try {
-          // Execute OSDU search via the osduQueryExecutor utility
-          logger.info('🔍 Executing OSDU search via executeOSDUQuery');
-          const osduResult = await executeOSDUQuery(
-            prompt,
-            'osdu',
-            1000, // Request up to 1000 records
-            'well', // Default data type
-            0, // criteriaCount
-            undefined // templateUsed
-          );
-
-          logger.info('✅ OSDU search result:', {
-            success: osduResult.success,
-            recordCount: osduResult.recordCount,
-            executionTime: `${osduResult.executionTime.toFixed(2)}ms`
-          });
-
-          // Handle errors
-          if (!osduResult.success) {
-            logger.error('❌ OSDU search failed:', osduResult.error);
-            throw new Error(osduResult.error || 'OSDU search failed');
-          }
-
-          if (!osduResult.records || osduResult.records.length === 0) {
-            logger.warn('⚠️ No OSDU records returned');
-            throw new Error('No OSDU records found for your query');
-          }
-
-          // Convert OSDU result records to well data format using the imported utility
-          const osduWellData = convertOSDUToWellData(osduResult.records);
-
-          logger.info('🔄 Converted OSDU records to well data:', {
-            originalCount: osduResult.records.length,
-            convertedCount: osduWellData.length,
-            withCoordinates: osduWellData.filter(w => w.latitude && w.longitude).length
-          });
-
-          // Save OSDU results to context for filtering
-          setOsduContext({
-            query: prompt,
-            timestamp: new Date(),
-            recordCount: osduWellData.length,
-            records: osduWellData,
-            filteredRecords: undefined,
-            activeFilters: []
-          });
-
-          logger.info('💾 Saved OSDU context:', osduWellData.length, 'records');
-
-          // Build message text using the result from executeOSDUQuery
-          const answer = osduResult.answer || `Found ${osduWellData.length} OSDU records. You can now filter these results by asking follow-up questions like "show only production wells" or "filter by depth > 3000m"`;
-          const recordCount = osduResult.recordCount || osduWellData.length;
-
-          // Use Cloudscape component format for OSDU responses
-          const osduResponseData = {
-            answer,
-            recordCount,
-            records: osduWellData,
-            query: prompt,
-            executionTime: osduResult.executionTime
-          };
-
-          // Format as special OSDU response marker for frontend component
-          const messageText = `\`\`\`osdu-search-response\n${JSON.stringify(osduResponseData, null, 2)}\n\`\`\``;
-
-          // Create OSDU results message
-          const osduMessage: Message = {
-            id: uuidv4() as any,
-            role: "ai" as any,
-            content: {
-              text: messageText
-            } as any,
-            responseComplete: true as any,
-            createdAt: new Date().toISOString() as any,
-            chatSessionId: '' as any,
-            owner: '' as any
-          } as any;
-
-          // Add OSDU well data to analysis data for collection context
-          if (osduWellData.length > 0) {
-            logger.info('📊 Adding OSDU data to analysis context:', osduWellData.length, 'records');
-
-            // Merge with existing analysis data if present
-            setAnalysisData(prevData => {
-              const merged = prevData ? [...prevData, ...osduWellData] : osduWellData;
-              logger.info('✅ Analysis data updated:', {
-                previousCount: prevData?.length || 0,
-                osduCount: osduWellData.length,
-                totalCount: merged.length
-              });
-              return merged;
-            });
-
-            // Update query type to indicate mixed data
-            setAnalysisQueryType(prevType => {
-              const newType = prevType ? `${prevType}+osdu` : 'osdu';
-              logger.info('🏷️ Query type updated:', prevType, '→', newType);
-              return newType;
-            });
-
-            // Update map with OSDU data if we have coordinates
-            const osduWithCoords = osduWellData.filter(w => w.latitude && w.longitude);
-            if (osduWithCoords.length > 0) {
-              logger.info('🗺️ Updating map with OSDU locations:', osduWithCoords.length, 'points');
-
-              // Convert OSDU well data to GeoJSON features for map display
-              const osduGeoJSON = {
-                type: "FeatureCollection" as const,
-                features: osduWithCoords.map((well, index) => ({
-                  type: "Feature" as const,
-                  geometry: {
-                    type: "Point" as const,
-                    coordinates: [well.longitude!, well.latitude!]
-                  },
-                  properties: {
-                    name: well.name,
-                    type: well.type,
-                    operator: well.operator,
-                    location: well.location,
-                    depth: well.depth,
-                    status: well.status,
-                    dataSource: 'OSDU',
-                    category: 'osdu',
-                    id: well.id || `osdu-${index}`
-                  }
-                }))
-              };
-
-              // Calculate bounds for OSDU data
-              const lats = osduWithCoords.map(w => w.latitude).filter(Boolean) as number[];
-              const lons = osduWithCoords.map(w => w.longitude).filter(Boolean) as number[];
-
-              if (lats.length > 0 && lons.length > 0) {
-                const bounds = {
-                  minLat: Math.min(...lats),
-                  maxLat: Math.max(...lats),
-                  minLon: Math.min(...lons),
-                  maxLon: Math.max(...lons)
-                };
-
-                // Calculate center
-                const center: [number, number] = [
-                  (bounds.minLon + bounds.maxLon) / 2,
-                  (bounds.minLat + bounds.maxLat) / 2
-                ];
-
-                // Update map state with OSDU GeoJSON data
-                setMapState(prevState => ({
-                  ...prevState,
-                  wellData: osduGeoJSON,
-                  bounds: bounds,
-                  center: center,
-                  hasSearchResults: true
-                }));
-
-                // If on map panel, update map immediately
-                if (selectedId === "seg-1" && mapComponentRef.current?.updateMapData) {
-                  logger.info('🗺️ Immediately updating map with OSDU data');
-                  mapComponentRef.current.updateMapData(osduGeoJSON);
-
-                  // Fit bounds to show all OSDU wells
-                  if (mapComponentRef.current.fitBounds) {
-                    setTimeout(() => {
-                      mapComponentRef.current.fitBounds(bounds);
-                    }, 100);
-                  }
-                }
-
-                logger.info('✅ Map state updated with OSDU GeoJSON data:', {
-                  center,
-                  bounds,
-                  wellCount: osduWithCoords.length,
-                  featureCount: osduGeoJSON.features.length
-                });
-              }
-            }
-          }
-
-          // Remove loading message and add result
-          setMessages(prevMessages => {
-            const filtered = prevMessages.filter(m => m.id !== loadingMessage.id);
-            return [...filtered, osduMessage];
-          });
-        } catch (osduError) {
-          logger.error('❌ OSDU search failed:', osduError);
-
-          // Determine error type for better user messaging using Cloudscape format
-          const errorMsg = osduError instanceof Error ? osduError.message : String(osduError);
-          let errorType: 'timeout' | 'auth' | 'network' | 'config' | 'rate-limit' | 'generic' = 'generic';
-          let userMessage = '';
-
-          // Categorize errors and use Cloudscape component format
-          if (errorMsg.includes('not configured') || errorMsg.includes('503')) {
-            errorType = 'config';
-          } else if (errorMsg.includes('401') || errorMsg.includes('403') || errorMsg.includes('forbidden') || errorMsg.includes('authentication')) {
-            errorType = 'auth';
-          } else if (errorMsg.includes('timeout') || errorMsg.includes('504')) {
-            errorType = 'timeout';
-          } else if (errorMsg.includes('429') || errorMsg.includes('too many requests')) {
-            errorType = 'rate-limit';
-          } else if (errorMsg.includes('network') || errorMsg.includes('fetch')) {
-            errorType = 'network';
-          } else {
-            errorType = 'generic';
-          }
-
-          // Format error response for Cloudscape component
-          userMessage = `\`\`\`osdu-error-response\n${JSON.stringify({ errorType, errorMessage: errorMsg, query: prompt }, null, 2)}\n\`\`\``;
-
-          // Remove loading message and show error
-          const errorMessage: Message = {
-            id: uuidv4() as any,
-            role: "ai" as any,
-            content: {
-              text: userMessage
-            } as any,
-            responseComplete: true as any,
-            createdAt: new Date().toISOString() as any,
-            chatSessionId: '' as any,
-            owner: '' as any
-          } as any;
-
-          setMessages(prevMessages => {
-            const filtered = prevMessages.filter(m => m.id !== loadingMessage.id);
-            return [...filtered, errorMessage];
-          });
-        } finally {
-          setIsLoadingMapData(false);
-        }
-
-        return; // Exit early for OSDU search
-      }
+      // OLD FILTERING CODE REMOVED - Using new unified approach above
+      // (Removed ~600 lines of old OSDU filtering logic)
 
       // Enhanced context determination for filtering (catalog search only)
       const isFirstQuery = !analysisData || analysisData.length === 0;
       const lowerPrompt = prompt.toLowerCase().trim();
+
+      // Clear catalog context on new search (not a filter operation)
+      if (isFirstQuery) {
+        logger.info('🧹 Clearing catalog context - starting new search');
+        setCatalogContext(null);
+      }
 
       // Phase 2: Detect collection creation intent (feature-flagged)
       if (creationEnabled && analysisData && analysisData.length > 0) {
@@ -1706,6 +1482,78 @@ function CatalogPageBase() {
         }
       }
 
+      // Detect "show all" or "reset" commands to restore original context
+      const resetKeywords = ['show all', 'reset', 'clear filter', 'remove filter', 'all wells'];
+      const isResetCommand = resetKeywords.some(keyword => lowerPrompt.includes(keyword));
+
+      if (isResetCommand && catalogContext && catalogContext.filteredRecords) {
+        logger.info('🔄 Reset command detected - restoring original catalog context');
+        
+        // Restore original unfiltered records
+        setCatalogContext({
+          ...catalogContext,
+          filteredRecords: undefined,
+          activeFilters: []
+        });
+
+        // Restore analysis data to original records
+        const restoredWellData = catalogContext.records.map(record => ({
+          name: record.name,
+          type: record.type,
+          depth: record.depth?.toString() || 'Unknown',
+          location: record.location || 'Unknown',
+          operator: record.operator || 'Unknown',
+          coordinates: [record.longitude || 0, record.latitude || 0] as [number, number],
+          category: 'search_result',
+          dataSource: 'catalog'
+        }));
+
+        setAnalysisData(restoredWellData);
+
+        const resetMessage: Message = {
+          id: uuidv4() as any,
+          role: "ai" as any,
+          content: {
+            text: `**🔄 Filters Cleared**\n\nRestored all **${catalogContext.recordCount} wells** from original search.\n\nAll filters have been removed and the complete dataset is now displayed.`
+          } as any,
+          responseComplete: true as any,
+          createdAt: new Date().toISOString() as any,
+          chatSessionId: '' as any,
+          owner: '' as any
+        } as any;
+
+        setMessages(prevMessages => [...prevMessages, resetMessage]);
+        setIsLoadingMapData(false);
+        return;
+      }
+
+      // UNIFIED FILTER DETECTION - Check if this is a filter operation
+      const filterIntent = detectFilterIntent(prompt);
+      
+      if (filterIntent.hasFilterIntent && !filterIntent.isResetCommand && filterIntent.contextType !== 'none') {
+        logger.info('🎯 FILTER INTENT DETECTED - Applying client-side filter');
+        
+        const filterResult = applyContextFilter(prompt, filterIntent.contextType);
+        
+        if (filterResult.success) {
+          const filterMessage: Message = {
+            id: uuidv4() as any,
+            role: "ai" as any,
+            content: {
+              text: `**🔍 Filtered Results**\n\nFiltered from **${filterResult.originalCount} wells** down to **${filterResult.filteredCount} wells**.\n\n**Active Filters:** ${filterResult.filterDescription}\n\n💡 Say "show all" to restore the original ${filterResult.originalCount} wells.`
+            } as any,
+            responseComplete: true as any,
+            createdAt: new Date().toISOString() as any,
+            chatSessionId: '' as any,
+            owner: '' as any
+          } as any;
+
+          setMessages(prevMessages => [...prevMessages, filterMessage]);
+          setIsLoadingMapData(false);
+          return; // Stop here - analysisData is already updated, table will render
+        }
+      }
+
       // Detect if this should be a filter operation on existing data
       const filterKeywords = ['filter', 'depth', 'greater than', '>', 'deeper', 'show wells with', 'wells with'];
       const isLikelyFilter = !isFirstQuery && filterKeywords.some(keyword => lowerPrompt.includes(keyword));
@@ -1713,8 +1561,10 @@ function CatalogPageBase() {
       logger.info('🔍 Context Analysis:', {
         isFirstQuery,
         isLikelyFilter,
+        isResetCommand,
         hasExistingData: !!analysisData,
         existingWellCount: analysisData?.length || 0,
+        hasCatalogContext: !!catalogContext,
         prompt: lowerPrompt,
         collectionsEnabled: creationEnabled
       });
@@ -2012,10 +1862,36 @@ function CatalogPageBase() {
           setAnalysisData(analysisWellData);
           setAnalysisQueryType(geoJsonData.metadata?.queryType || 'general');
 
-          logger.info('✅ Updated analysis context:', {
+          // Store catalog search context for conversational filtering
+          const catalogRecords: CatalogRecord[] = wellFeatures.map((feature: any) => ({
+            id: feature.properties?.id || feature.properties?.name || `well-${Math.random()}`,
+            name: feature.properties?.name || 'Unknown Well',
+            type: feature.properties?.type || 'Unknown',
+            operator: feature.properties?.operator,
+            location: feature.properties?.location,
+            depth: typeof feature.properties?.depth === 'number' ? feature.properties.depth : undefined,
+            depthUnit: feature.properties?.depthUnit || 'm',
+            wellName: feature.properties?.name,
+            dataSource: 'catalog',
+            latitude: feature.geometry?.coordinates?.[1],
+            longitude: feature.geometry?.coordinates?.[0],
+            properties: feature.properties
+          }));
+
+          setCatalogContext({
+            query: prompt,
+            timestamp: new Date(),
+            recordCount: catalogRecords.length,
+            records: catalogRecords,
+            filteredRecords: undefined, // No filters applied yet
+            activeFilters: []
+          });
+
+          logger.info('✅ Updated analysis context and catalog context:', {
             wellCount: analysisWellData.length,
             queryType: geoJsonData.metadata?.queryType || 'general',
-            isContextualFilter: geoJsonData.metadata?.contextFilter || false
+            isContextualFilter: geoJsonData.metadata?.contextFilter || false,
+            catalogContextRecords: catalogRecords.length
           });
         } else {
           // Only clear analysis data if this was a fresh search, not a failed filter
@@ -2208,15 +2084,16 @@ function CatalogPageBase() {
           gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
         >
           {/* left grid with title and segmented controls */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div className="reset-chat-left">
             <Typography variant="h6">Data Catalog - All Data</Typography>
-            <SegmentedControl
-              selectedId={selectedId}
-              onChange={({ detail }) =>
-                setSelectedId(detail.selectedId)
-              }
-              label="Segmented control with only icons"
-              options={[
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <SegmentedControl
+                selectedId={selectedId}
+                onChange={({ detail }) =>
+                  setSelectedId(detail.selectedId)
+                }
+                label="Segmented control with only icons"
+                options={[
                 {
                   iconName: "map",
                   iconAlt: "Map View",
@@ -2257,29 +2134,22 @@ function CatalogPageBase() {
                   id: "seg-3"
                 }
               ]}
-            />
+              />
+            </div>
           </div>
           {/* right grid with breadcrumbs and ctas */}
-          <div style={{ display: 'flex', justifyContent: 'space-between', width: 'calc(100% - 30px)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '14px' }}>
-                <a href="/catalog" style={{ color: '#0073bb', textDecoration: 'none' }}>Data Catalog</a>
-                <span style={{ color: '#5f6b7a' }}>›</span>
-                <span style={{ color: '#000716', fontWeight: 600 }}>All Data</span>
+          <div className="reset-chat-right">
+            <div className="breadcrumb-container" style={{ marginLeft: '23px' }}>
+              <div className="breadcrumb-links">
+                <span className="current">Data Catalog › All Data</span>
               </div>
             </div>
             <div className='toggles'>
-              <Tooltip title={showQueryBuilder ? "Start New Session" : "Start New Session"}>
+              <Tooltip title="Start New Session">
                 <IconButton
                   onClick={handleCreateNewChat}
                   color="primary"
                   size="large"
-                  sx={{
-                    border: 'none',
-                    '&:hover': {
-                      border: 'none'
-                    }
-                  }}
                 >
                   <RestartAlt />
                 </IconButton>
@@ -2292,11 +2162,7 @@ function CatalogPageBase() {
                   size="large"
                   sx={{
                     bgcolor: showQueryBuilder ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                    zIndex: 1300,
-                    border: 'none',
-                    '&:hover': {
-                      border: 'none'
-                    }
+                    zIndex: 1300
                   }}
                 >
                   <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
@@ -2312,11 +2178,7 @@ function CatalogPageBase() {
                   size="large"
                   sx={{
                     bgcolor: fileDrawerOpen ? 'rgba(25, 118, 210, 0.08)' : 'transparent',
-                    zIndex: 1300,
-                    border: 'none',
-                    '&:hover': {
-                      border: 'none'
-                    }
+                    zIndex: 1300
                   }}
                 >
                   <FolderIcon />
@@ -2332,20 +2194,18 @@ function CatalogPageBase() {
         gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
         >
           {selectedId === "seg-1" ? (
-            <div className='panel' style={{ height: 'calc(100% - 29px)', borderBottomLeftRadius: '20px', display: 'flex', flexDirection: 'column', marginBottom: '160px' }}>
-              <div style={{ position: 'relative', flex: 1, minHeight: 0, height: '100%' }}>
-                <MapComponent
-                  ref={mapComponentRef}
-                  mapColorScheme={mapColorScheme}
-                  onPolygonCreate={handlePolygonCreate}
-                  onPolygonDelete={handlePolygonDelete}
-                  onPolygonUpdate={handlePolygonUpdate}
-                />
-              </div>
+            <div className='panel'>
+              <MapComponent
+                ref={mapComponentRef}
+                mapColorScheme={mapColorScheme}
+                onPolygonCreate={handlePolygonCreate}
+                onPolygonDelete={handlePolygonDelete}
+                onPolygonUpdate={handlePolygonUpdate}
+              />
             </div>
           ) : selectedId === "seg-2" ? (
             // Data Analysis & Visualization Panel
-            <div className='panel' style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            <div className='panel'>
               <Container
                 footer=""
                 header={
@@ -2354,12 +2214,7 @@ function CatalogPageBase() {
                   </SpaceBetween>
                 }
               >
-                <div style={{
-                  overflowY: 'auto',
-                  flex: 1,
-                  position: 'relative',
-                  paddingBottom: '60px'
-                }}>
+                <div style={{ overflowY: 'auto', flex: 1, position: 'relative' }}>
                   {analysisData ? (
                     <GeoscientistDashboardErrorBoundary
                       fallbackTableData={analysisData}
@@ -2425,19 +2280,8 @@ function CatalogPageBase() {
           )}
 
           <div className='convo'>
-            <div style={{
-              height: '100%',
-              width: '100%',
-              position: 'relative',
-              transition: theme.transitions.create(['padding-right'], {
-                easing: theme.transitions.easing.easeOut,
-                duration: theme.transitions.duration.standard,
-              }),
-              paddingRight: fileDrawerOpen && !isMobile ? '0' : '0'
-            }}>
-              <div style={{
-                paddingBottom: '160px',
-              }}>
+            <div style={{ width: '100%', position: 'relative' }}>
+              <div>
 
                 <CatalogChatBoxCloudscape
                   onInputChange={setUserInput}

@@ -1,4 +1,5 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
+import { parseNaturalLanguageQuery, applyFilters, ParsedQuery } from '../shared/nlpParser';
 
 interface OSDUSearchRequest {
   query: string;
@@ -12,109 +13,28 @@ interface OSDUSearchResponse {
   records: Array<any>;
 }
 
-interface FilterCriteria {
-  locations: string[];
-  operators: string[];
-  wellPrefixes: string[];
-}
-
 /**
- * Parse natural language query to extract filter criteria
+ * Filter demo data using shared NLP parser
  */
-function parseNaturalLanguageQuery(query: string): FilterCriteria {
-  const lowerQuery = query.toLowerCase();
-  const criteria: FilterCriteria = {
-    locations: [],
-    operators: [],
-    wellPrefixes: []
-  };
+function filterDemoData(records: any[], filters: ParsedQuery): any[] {
+  console.log('🔍 Filtering OSDU data with shared parser');
+  console.log('📊 Input records:', records.length);
+  console.log('🎯 Filters:', filters);
   
-  // Location keywords - check for variations
-  const locationKeywords = [
-    { name: 'north sea', patterns: ['north sea', 'northsea', 'north-sea'] },
-    { name: 'gulf of mexico', patterns: ['gulf of mexico', 'gulf', 'gom', 'mexico'] },
-    { name: 'south china sea', patterns: ['south china sea', 'south china', 'scs'] },
-    { name: 'persian gulf', patterns: ['persian gulf', 'persian', 'arabian gulf'] },
-    { name: 'caspian sea', patterns: ['caspian sea', 'caspian'] }
-  ];
-  
-  for (const location of locationKeywords) {
-    if (location.patterns.some(pattern => lowerQuery.includes(pattern))) {
-      criteria.locations.push(location.name);
+  // Use shared parser's applyFilters function
+  const filtered = applyFilters(records, filters, {
+    location: (record) => record.location || '',
+    operator: (record) => record.operator || '',
+    wellName: (record) => record.name || '',
+    depth: (record) => {
+      const depthStr = record.depth || '0m';
+      const depthMatch = depthStr.match(/(\d+(?:\.\d+)?)/);
+      return depthMatch ? parseFloat(depthMatch[1]) : 0;
     }
-  }
-  
-  // Operator keywords - check for company names with flexible matching
-  const operatorKeywords = [
-    { name: 'BP', patterns: ['bp', 'british petroleum'] },
-    { name: 'Shell', patterns: ['shell', 'royal dutch shell'] },
-    { name: 'Chevron', patterns: ['chevron'] },
-    { name: 'ExxonMobil', patterns: ['exxonmobil', 'exxon', 'mobil'] },
-    { name: 'TotalEnergies', patterns: ['totalenergies', 'total'] }
-  ];
-  
-  for (const operator of operatorKeywords) {
-    // Check if any pattern matches (case-insensitive)
-    if (operator.patterns.some(pattern => lowerQuery.includes(pattern))) {
-      criteria.operators.push(operator.name);
-    }
-  }
-  
-  // Well name prefixes - check for country codes
-  const wellPrefixes = [
-    { prefix: 'USA', patterns: ['usa', 'us ', 'united states', 'american'] },
-    { prefix: 'NOR', patterns: ['nor', 'norway', 'norwegian'] },
-    { prefix: 'VIE', patterns: ['vie', 'vietnam', 'vietnamese'] },
-    { prefix: 'UAE', patterns: ['uae', 'emirates', 'dubai', 'abu dhabi'] },
-    { prefix: 'KAZ', patterns: ['kaz', 'kazakhstan'] }
-  ];
-  
-  for (const well of wellPrefixes) {
-    if (well.patterns.some(pattern => lowerQuery.includes(pattern))) {
-      criteria.wellPrefixes.push(well.prefix);
-    }
-  }
-  
-  return criteria;
-}
-
-/**
- * Filter demo data based on parsed criteria
- */
-function filterDemoData(records: any[], criteria: FilterCriteria): any[] {
-  if (criteria.locations.length === 0 && 
-      criteria.operators.length === 0 && 
-      criteria.wellPrefixes.length === 0) {
-    return records; // No filters, return all
-  }
-  
-  return records.filter(record => {
-    // Location filter (case-insensitive substring match)
-    if (criteria.locations.length > 0) {
-      const recordLocation = (record.location || '').toLowerCase();
-      const matchesLocation = criteria.locations.some(loc => 
-        recordLocation.includes(loc.toLowerCase())
-      );
-      if (!matchesLocation) return false;
-    }
-    
-    // Operator filter (exact match)
-    if (criteria.operators.length > 0) {
-      const matchesOperator = criteria.operators.includes(record.operator);
-      if (!matchesOperator) return false;
-    }
-    
-    // Well name prefix filter
-    if (criteria.wellPrefixes.length > 0) {
-      const recordName = record.name || '';
-      const matchesPrefix = criteria.wellPrefixes.some(prefix => 
-        recordName.startsWith(prefix)
-      );
-      if (!matchesPrefix) return false;
-    }
-    
-    return true; // Passed all filters
   });
+  
+  console.log('✅ Filtered OSDU data:', filtered.length, 'records match criteria');
+  return filtered;
 }
 
 export const handler = async (

@@ -71,14 +71,11 @@ export default function CollectionCreationModal({
 }: CollectionCreationModalProps) {
   
   return (
-    <>
-      
-      <div className="collection-modal-container">
-        <Modal
-          onDismiss={onDismiss}
-          visible={visible}
-          closeAriaLabel="Close modal"
-          header="Create Data Collection from Search Results"
+    <Modal
+      onDismiss={onDismiss}
+      visible={visible}
+      closeAriaLabel="Close modal"
+      header="Create Data Collection from Search Results"
           footer={
             <Box float="right">
               <SpaceBetween direction="horizontal" size="xs">
@@ -237,7 +234,5 @@ export default function CollectionCreationModal({
             })()}
           </SpaceBetween>
         </Modal>
-      </div>
-    </>
   );
 }

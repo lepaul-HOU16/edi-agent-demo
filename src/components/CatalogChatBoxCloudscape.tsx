@@ -371,15 +371,6 @@ const CatalogChatBoxCloudscape = (params: {
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="messages-container"
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          flexDirection: 'column',
-          display: 'flex',
-          marginBottom: '16px',
-          borderRadius: '14px',
-          position: 'relative'
-        }}
       >
         <div>
           {/* Query Builder - Inline at top of messages, full width */}
@@ -387,7 +378,7 @@ const CatalogChatBoxCloudscape = (params: {
             <div style={{ 
               width: '100%',
               marginBottom: '16px',
-              borderRadius: '14px',
+              borderRadius: '0',
               backgroundColor: '#ffffff'
             }}>
               <ExpandableSection

@@ -1,147 +1,168 @@
-# Implementation Tasks
+# Implementation Plan
 
-## Task 1: Add NLP Query Parser to OSDU Lambda
+- [x] 1.1 Create shared NLP parser module
+  - Extract to `cdk/lambda-functions/shared/nlpParser.ts`
+  - Support location keywords: "north sea", "brunei", "malaysia", "gulf of mexico", "offshore"
+  - Support operator keywords: "BP", "Shell", "My Company", "Chevron", "ExxonMobil"
+  - Support well name prefixes: "USA", "NOR", "WELL", "VIE", "UAE", "KAZ"
+  - Support depth filters: "deeper than Xm", "depth > Xm", "wells with depth > X"
+  - Return structured `ParsedQuery` object with confidence score
+  - _Requirements: 8.1, 8.2, 8.3, 8.4_
 
-Implement intelligent query parsing to extract filter criteria from natural language.
+- [x] 1.2 Add depth parsing logic to shared parser
+  - Merge depth parsing into shared parser
+  - Parse "deeper than 3000m" → minDepth: 3000, unit: 'm'
+  - Parse "depth > 5000 feet" → minDepth: 5000, unit: 'ft'
+  - Parse "wells with depth greater than 2500" → minDepth: 2500
+  - Support both meters and feet
+  - Handle various phrasings (deeper, greater than, >, above)
+  - _Requirements: 6.3, 7.2_
 
-- [ ] 1.1 Create query parser utility in OSDU Lambda
-  - Add `parseNaturalLanguageQuery()` function to extract location/operator/well name filters
-  - Support location keywords: "north sea", "gulf of mexico", "south china sea", "persian gulf", "caspian"
-  - Support operator keywords: "BP", "Shell", "Chevron", "ExxonMobil", "TotalEnergies"
-  - Support well name prefixes: "USA", "NOR", "VIE", "UAE", "KAZ"
-  - Return structured `FilterCriteria` object
-  - _Requirements: 1.1, 1.2, 1.3_
+- [x] 1.3 Add comprehensive location keywords
+  - Add "Brunei" → location filter
+  - Add "Malaysia" → location filter
+  - Add "Offshore" → location filter
+  - Add "Offshore Brunei" → location filter
+  - Add "Offshore Malaysia" → location filter
+  - Keep existing OSDU location keywords (North Sea, Gulf of Mexico, etc.)
+  - _Requirements: 6.2, 7.1_
 
-- [ ] 1.2 Add demo data filtering logic
-  - Implement `filterDemoData()` function that applies parsed criteria
-  - Support location filtering (case-insensitive substring match)
-  - Support operator filtering (exact match)
-  - Support well name filtering (prefix match)
+- [x] 2.1 Import shared NLP parser in Catalog Lambda
+  - Add import: `import { parseNaturalLanguageQuery } from '../shared/nlpParser';`
+  - Replace inline parsing with shared parser for filter criteria
+  - Ensure consistent behavior with OSDU Lambda
+  - _Requirements: 8.2, 8.3, 8.4_
+
+- [x] 2.2 Implement catalog data filtering function
+  - Create `filterCatalogData()` function that works on 24 LAS files
+  - Filter by location (Brunei, Malaysia, Offshore, etc.)
+  - Filter by depth (parse depth from properties, compare to minDepth)
+  - Filter by operator (My Company, etc.)
+  - Filter by well name prefix (WELL, etc.)
   - Combine multiple filters with AND logic
-  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+  - _Requirements: 6.2, 6.3, 6.4, 7.1, 7.2, 7.3_
 
-- [ ] 1.3 Integrate parser with OSDU handler
-  - Parse query before returning demo data
-  - Apply filters to demo records
+- [x] 2.3 Integrate filtering with catalog handler
+  - Parse query using shared NLP parser
+  - Apply filters to 24 LAS files before returning
   - Return filtered results with accurate count
-  - Indicate "(Demo Data)" in response when using demo data
-  - Indicate "(OSDU API)" when using real API data
-  - _Requirements: 1.5, 5.1, 5.2, 5.3, 5.4, 5.5_
+  - Indicate "(Filtered)" in response when filters applied
+  - Log filtering operations for debugging
+  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-## Task 2: Implement Frontend Context Persistence
+- [x] 3.1 Replace OSDU inline parser with shared parser
+  - Remove inline `parseNaturalLanguageQuery()` from OSDU handler
+  - Import shared parser: `import { parseNaturalLanguageQuery } from '../shared/nlpParser';`
+  - Update `filterDemoData()` to use shared parser interface
+  - Verify existing OSDU filtering still works
+  - _Requirements: 8.2, 8.3_
 
-Restore conversation context for follow-up filtering queries.
+- [x] 3.2 Test OSDU filtering with shared parser
+  - Test location filtering still works (North Sea, Gulf of Mexico)
+  - Test operator filtering still works (BP, Shell, Chevron)
+  - Test well name filtering still works (USA, NOR, VIE)
+  - Test depth filtering (new feature from shared parser)
+  - Verify no regressions in OSDU functionality
+  - _Requirements: 1.1, 1.2, 1.3, 8.2_
 
-- [ ] 2.1 Add osduContext state to CatalogPage
-  - Create `OSDUSearchContext` interface with query, records, filteredRecords, activeFilters
-  - Add `useState<OSDUSearchContext | null>` for context persistence
-  - Store full result set when initial OSDU search completes
-  - _Requirements: 2.1, 4.1, 4.2_
+- [x] 4.1 Add catalogContext state to CatalogPage
+  - Create `CatalogSearchContext` interface (similar to OSDUSearchContext)
+  - Add `catalogContext` state alongside existing `osduContext`
+  - Store full result set when catalog search completes
+  - Maintain separate contexts for OSDU and catalog
+  - _Requirements: 6.1, 7.5_
 
-- [ ] 2.2 Implement client-side filtering for follow-up queries
-  - Check if osduContext exists before making new API call
-  - Parse follow-up query to extract additional filter criteria
-  - Filter cached results instead of calling API again
-  - Update filteredRecords in context
-  - _Requirements: 2.2, 2.3, 4.3_
+- [x] 4.2 Implement unified filter detection
+  - Create `detectFilterIntent()` function that works for both contexts
+  - Detect filter keywords: "just", "only", "near", "deeper", "filter"
+  - Determine which context to filter (OSDU or catalog)
+  - Return filter intent with context type
+  - _Requirements: 7.1, 7.2, 7.3, 7.4_
 
-- [ ] 2.3 Add context reset logic
-  - Clear osduContext when user starts new search
-  - Clear osduContext when user says "show all" or "reset"
-  - Clear osduContext when switching search types
+- [x] 4.3 Implement unified context filtering
+  - Create `applyContextFilter()` that works for both contexts
+  - Use shared NLP parser logic (client-side version or duplicate logic)
+  - Filter cached results without API call
+  - Update appropriate context (OSDU or catalog)
+  - Update map markers to match filtered results
+  - _Requirements: 2.2, 2.3, 6.2, 6.3, 7.1, 7.2_
+
+- [x] 4.4 Add context reset logic
+  - Clear catalogContext when user starts new search
+  - Clear catalogContext when user says "show all" or "reset"
+  - Clear appropriate context when switching search types
   - Restore original unfiltered results when requested
-  - _Requirements: 2.4, 2.5, 4.4, 4.5_
+  - _Requirements: 2.5, 6.5, 7.4_
 
-## Task 3: Implement Map Synchronization
-
-Restore map-table synchronization for OSDU search results.
-
-- [ ] 3.1 Update map markers when OSDU results change
-  - Extract well coordinates from OSDU records
+- [x] 5.1 Update map markers when catalog results change
+  - Extract well coordinates from catalog records (24 LAS files)
   - Create map markers for all wells with valid coordinates
   - Update map bounds to fit all markers
   - Display "No location data available" when no coordinates
   - _Requirements: 3.1, 3.5_
 
-- [ ] 3.2 Filter map markers when results are filtered
-  - Listen for changes to filteredRecords in osduContext
+- [x] 5.2 Filter map markers when catalog results are filtered
+  - Listen for changes to filteredRecords in catalogContext
   - Remove markers for wells not in filtered results
   - Update map markers when conversational filtering occurs
   - Keep map synchronized with table at all times
   - _Requirements: 3.2_
 
-- [ ] 3.3 Add map-table interaction
-  - Highlight table row when map marker is clicked
-  - Center map on marker when table row is clicked
-  - Scroll table to show highlighted row
-  - Provide visual feedback for selected well
-  - _Requirements: 3.3, 3.4_
+- [x] 5.3 Ensure map works for both OSDU and catalog contexts
+  - Map updates correctly for OSDU filtered results (needs testing)
+  - Map updates correctly for catalog filtered results (new)
+  - Switching between contexts updates map appropriately
+  - No interference between OSDU and catalog map states
+  - _Requirements: 3.1, 3.2, 7.5_
 
-## Task 4: Fix First Prompt Border Radius
+- [x] 6.1 Deploy backend Lambda changes
+  - Deploy shared NLP parser utility
+  - Deploy enhanced Catalog Lambda with filtering
+  - Deploy updated OSDU Lambda with shared parser
+  - Run: `cd cdk && npm run deploy`
+  - Verify deployment succeeds
+  - Check CloudWatch logs for any errors
+  - _Requirements: All backend requirements_
 
-Fix the inconsistent border radius on the FIRST prompt input box only.
-
-- [ ] 4.1 Identify CSS selector for first prompt
-  - Inspect ExpandablePromptInput component
-  - Find CSS class or selector that targets ONLY the first prompt
-  - Use `:first-child` or `:first-of-type` pseudo-selector if needed
-  - _Requirements: 6.1, 6.2_
-
-- [ ] 4.2 Apply 8px border radius override
-  - Add CSS rule targeting first prompt specifically
-  - Set `border-radius: 8px !important` on all four corners
-  - Remove any extra border-radius on top-right corner
-  - Verify subsequent prompts remain unaffected
-  - Test in browser DevTools
-  - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
-
-## Task 5: Test and Verify
-
-Test all regression fixes on localhost.
-
-- [ ] 5.1 Test conversational filtering
+- [ ] 6.2 Test OSDU conversational filtering on localhost
+  - **Test file created:** `test-osdu-catalog-conversational-filtering.html`
+  - Open http://localhost:3000/catalog and follow test cases
+  - Start localhost: `npm run dev`
   - Query "show me osdu wells" → verify all wells returned
   - Query "show me wells in the north sea" → verify only North Sea wells
   - Query "show me BP wells" → verify only BP wells
   - Query "show me USA wells" → verify only USA-prefixed wells
   - Query with multiple criteria → verify AND logic works
-  - _Requirements: 1.1, 1.2, 1.3_
+  - _Requirements: 1.1, 1.2, 1.3, 7.1, 7.2, 7.3_
 
-- [ ] 5.2 Test context persistence
-  - Initial query → verify context stored
-  - Follow-up filter → verify cached results filtered (no API call)
-  - Query "show all" → verify original results restored
-  - New search → verify context cleared
-  - _Requirements: 2.1, 2.2, 2.3, 2.4, 2.5, 4.1, 4.2, 4.3, 4.4, 4.5_
-
-- [ ] 5.3 Test map synchronization
-  - OSDU search → verify map markers appear
-  - Filter results → verify map markers update
-  - Click marker → verify table row highlights
-  - Click table row → verify map centers on marker
-  - _Requirements: 3.1, 3.2, 3.3, 3.4, 3.5_
-
-- [ ] 5.4 Test border radius fix
-  - Inspect first prompt in DevTools → verify 8px on all corners
-  - Inspect subsequent prompts → verify they remain correct
-  - Compare first and subsequent prompts → verify consistency
+- [ ] 6.3 Test catalog conversational filtering on localhost
+  - Query "show me my wells" → verify all 24 LAS files returned
+  - Query "just the ones near Brunei" → verify only Brunei wells
+  - Query "only wells deeper than 3000m" → verify depth filtering works
+  - Query "show me wells in Malaysia" → verify Malaysia wells
+  - Query "show all wells again" → verify original 24 files restored
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 5.5 Test demo data vs real API
-  - With OSDU API configured → verify real data used
-  - Without OSDU API configured → verify demo data used
-  - Demo data → verify "(Demo Data)" indicator shown
-  - Real API data → verify "(OSDU API)" indicator shown
-  - _Requirements: 5.1, 5.2, 5.3, 5.4, 5.5_
+- [ ] 6.4 Test context persistence for both search types
+  - OSDU: Initial query → follow-up filter → verify no API call
+  - Catalog: Initial query → follow-up filter → verify no API call
+  - Switch between OSDU and catalog → verify separate contexts
+  - Query "show all" → verify appropriate context restored
+  - New search → verify appropriate context cleared
+  - _Requirements: 2.2, 2.3, 4.2, 4.3, 7.4, 7.5_
 
-## Notes
+- [ ] 6.5 Test map synchronization for both search types
+  - OSDU search → verify map markers appear
+  - OSDU filter → verify map markers update
+  - Catalog search → verify map markers appear
+  - Catalog filter → verify map markers update
+  - Switch between contexts → verify map updates correctly
+  - _Requirements: 3.1, 3.2, 3.5_
 
-- This is a REGRESSION FIX - restoring functionality that worked before
-- Demo data (24 LAS files) for catalog search is PRESERVED
-- Only OSDU demo data filtering is being fixed
-- Map synchronization was working before and needs to be restored
-- Context persistence was working before and needs to be restored
-- First prompt border radius is a cosmetic fix
-- Test on localhost first: `npm run dev`
-- Deploy backend if needed: `cd cdk && npm run deploy`
-
+- [ ] 6.6 Test consistency across search types
+  - Same filter command works for OSDU and catalog
+  - "just the ones near X" works for both
+  - "only wells deeper than X" works for both
+  - "show all" works for both
+  - Verify consistent UX across all search types
+  - _Requirements: 7.1, 7.2, 7.3, 7.4_

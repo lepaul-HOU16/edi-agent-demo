@@ -202,7 +202,7 @@
 .convo {
   width: calc(100% - 40px);
   min-height: 500px !important;
-  height: calc(100vh - 124px);
+  height: 100%;
   display: flex !important;
   flex-direction: column !important;
   overflow: hidden !important;
@@ -484,12 +484,106 @@
   width: 100% !important;
 }
 
+/* Breadcrumb styling for reset-chat header */
+.breadcrumb-container {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.breadcrumb-links {
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  font-size: 14px !important;
+  color: #545b64 !important;
+}
+
+.breadcrumb-links a {
+  color: #0972d3 !important;
+  text-decoration: none !important;
+}
+
+.breadcrumb-links a:hover {
+  text-decoration: underline !important;
+}
+
+.breadcrumb-links .separator {
+  color: #545b64 !important;
+}
+
+.breadcrumb-links .current {
+  color: #000716 !important;
+  font-weight: 500 !important;
+}
+
 .reset-chat {
   border-bottom: 1px solid #e5e7eb;
   margin-bottom: -1px;
   padding-bottom: 10px;
   position: relative;
   z-index: 100;
+  width: 100%;
+}
+
+/* Ensure Grid inside reset-chat stays horizontal */
+.reset-chat > [class*="awsui_grid_"] {
+  display: flex !important;
+  flex-wrap: nowrap !important;
+  align-items: center !important;
+  width: 100% !important;
+  gap: 16px !important;
+}
+
+/* Ensure Grid children don't overflow */
+.reset-chat-left,
+.reset-chat-right {
+  min-width: 0 !important;
+  flex-shrink: 1 !important;
+}
+
+/* Only hide overflow on left side to prevent text overflow */
+.reset-chat-left {
+  overflow: hidden !important;
+}
+
+/* Allow overflow on right side so icons aren't cut off */
+.reset-chat-right {
+  overflow: visible !important;
+}
+
+/* Left side - horizontal layout with title and controls */
+.reset-chat-left {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 16px !important;
+}
+
+/* Canvas: keep title and agent switcher together (no space-between) */
+[data-page="chat"] .reset-chat-left {
+  justify-content: flex-start !important;
+}
+
+/* Catalog-specific: push segmented control to the right within left column */
+[data-page="catalog"] .reset-chat-left {
+  justify-content: space-between !important;
+}
+
+/* Right side - space-between layout with breadcrumbs left, buttons right */
+.reset-chat-right {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 12px !important;
+  min-width: 0 !important;
+  padding-right: 8px !important;
+}
+
+/* Toggles container should be on the right */
+.reset-chat-right .toggles {
+  flex: 0 0 auto !important;
+  display: flex !important;
+  gap: 8px !important;
 }
 
 /* Content grid below header - panel and convo */
@@ -501,28 +595,24 @@
   width: calc(100% - 40px);
 }
 
-/* Header row - title and controls on left, breadcrumb and icons on right */
-.reset-chat [class*="awsui_grid_"] {
-  display: flex !important;
-  flex-wrap: nowrap !important;
-  gap: 40px !important;
-  align-items: center !important;
-  margin-bottom: 0 !important;
-}
-
 .toggles {
   position: relative;
   z-index: 0;
 }
 
 .main-container {
-  height: 100%;
+  height: calc(100% + 30px);
+}
+
+/* Canvas pages (ChatPage, etc.) - split the difference with catalog */
+[data-page="chat"].main-container {
+  margin-top: 12px;
 }
 
 /* Panel (left side - 5/12 width = ~41.67%) */
 .panel {
   width: 100% !important;
-  height: 100%;
+  height: calc(100% - 50px);
   min-height: 500px !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
@@ -540,11 +630,11 @@
 /* Conversation (right side - 7/12 width = ~58.33%) */
 .convo {
   width: calc(100% - 40px);
-  height: 100%;
+  height: calc(100% + 20px) !important;
   min-height: 500px !important;
   overflow: auto !important;
   position: relative !important;
-  padding: 16px 0 !important;
+  padding: 20px 0 !important;
   display: flex !important;
   flex-direction: column !important;
   box-sizing: border-box !important;
@@ -592,15 +682,7 @@
 
 /* Data Catalog specific spacing adjustments to match workspace */
 [data-page="catalog"].main-container {
-  margin-top: 8px;
-}
-
-[data-page="catalog"] .reset-chat {
-  padding-bottom: 13px;
-}
-
-[data-page="catalog"] .MuiIconButton-root {
-  padding: 8px !important;
+  margin-top: 12px;
 }
 
 [data-page="catalog"] .MuiTooltip-tooltip {
@@ -664,7 +746,6 @@
   /* Blue solid background */
   background: #006ce0;
   border-radius: 8px;
-  /* padding: 6px 6px 6px 20px; */
   box-shadow: 0 2px 12px rgba(0, 108, 224, 0.25);
   
   /* Layout */
@@ -798,7 +879,6 @@
 /* Header area with controls */
 [data-page="catalog"] .reset-chat {
   flex-shrink: 0;
-  padding: 16px 20px;
 }
 
 /* Content area that fills remaining space */
@@ -818,7 +898,7 @@
 
 /* Left panel (map/analysis/chain of thought) */
 [data-page="catalog"] .panel {
-  height: 100%;
+  height: calc(100% - 48px);
   display: flex;
   flex-direction: column;
   overflow: hidden;

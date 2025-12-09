@@ -1,51 +1,49 @@
-# Design Document: Fix Catalog Prompt Styling
+# Design Document: Fix Message Bubble Styling
 
 ## Overview
 
-This design addresses the INSANELY BROKEN user avatar sizing in the Catalog page where user message icons render at massive sizes, destroying the chat UI. The root cause is likely missing or overridden CSS constraints on the PersonIcon component.
+This design applies consistent styling to all message bubbles across the application with `padding: 0 10px` and `border-radius: 8px` for a polished, professional appearance.
 
-## Root Cause Analysis
+## Current State Analysis
 
 ### The Problem
-User avatars in CatalogChatBoxCloudscape are rendering at MASSIVE sizes (appears to be 200-300px+ based on screenshot) instead of the intended 32x32 pixels.
+Message bubbles currently use `theme.spacing(1)` for padding and `theme.shape.borderRadius` for border-radius, which may not provide the desired visual consistency.
 
-### Likely Causes
-1. **Missing flexShrink: 0** - Icon is being stretched by flex container
-2. **Missing explicit dimensions** - Width/height not being enforced
-3. **CSS Override** - Global styles overriding component-level styles
-4. **Cloudscape Conflict** - Cloudscape components interfering with Material-UI icons
-5. **SVG Scaling** - PersonIcon SVG not constrained properly
+### Target Styling
+- **Padding**: `0 10px` (vertical 0, horizontal 10px)
+- **Border-radius**: `8px`
 
-### Evidence
-- HumanMessageComponent already has `width: 32, height: 32` specified
-- Screenshot shows avatar is 10x+ larger than intended
-- Issue is specific to Catalog page (ChatPage likely works fine)
-- Previous session fixed similar issue by changing Avatar size from "large" to "normal"
+### Affected Components
+1. **HumanMessageComponent** - User messages (blue background)
+2. **AiMessageComponent** - AI responses
+3. **ThinkingMessageComponent** - Thinking indicators
+4. **All specialized message components** - Tool outputs, artifacts, etc.
 
 ## Architecture
 
 ### Component Hierarchy
 ```
-CatalogPage
-  └── CatalogChatBoxCloudscape
-      └── ChatMessage (for user messages)
-          └── HumanMessageComponent
-              └── PersonIcon (BROKEN - renders huge)
+All Pages (ChatPage, CatalogPage, Agent Pages)
+  └── ChatMessage
+      ├── HumanMessageComponent (user messages)
+      │   └── humanMessageStyle object
+      └── AiMessageComponent (AI responses)
+          └── message bubble styling
 ```
 
 ### Current Implementation
 ```tsx
 // HumanMessageComponent.tsx
-<PersonIcon 
-  sx={{ 
-    color: 'rgb(0 108 224)',
-    width: 32, 
-    height: 32
-  }} 
-/>
+const humanMessageStyle = {
+  backgroundColor: 'rgb(0 108 224)',
+  color: '#FFFFFF',
+  padding: theme.spacing(1),  // ← NEEDS TO CHANGE
+  borderRadius: theme.shape.borderRadius,  // ← NEEDS TO CHANGE
+  maxWidth: '80%',
+};
 ```
 
-**Problem**: The `sx` prop might not be sufficient to constrain the icon in all contexts.
+**Problem**: Using theme values instead of explicit pixel values for consistency.
 
 ## Components and Interfaces
 
@@ -55,98 +53,62 @@ CatalogPage
 
 **Changes:**
 ```tsx
-<PersonIcon 
-  sx={{ 
-    color: 'rgb(0 108 224)',
-    width: '32px !important',  // Add !important and px units
-    height: '32px !important',
-    minWidth: '32px',          // Prevent shrinking
-    minHeight: '32px',
-    maxWidth: '32px',          // Prevent growing
-    maxHeight: '32px',
-    flexShrink: 0,             // Prevent flex compression
-    fontSize: '32px',          // Constrain SVG size
-  }} 
-/>
+const humanMessageStyle = {
+  backgroundColor: 'rgb(0 108 224)',
+  color: '#FFFFFF',
+  padding: '0 10px',  // ← CHANGED from theme.spacing(1)
+  borderRadius: '8px',  // ← CHANGED from theme.shape.borderRadius
+  maxWidth: '80%',
+};
 ```
 
 **Rationale:**
-- `!important` overrides any conflicting CSS
-- Explicit px units prevent percentage-based scaling
-- min/max constraints prevent any size changes
-- flexShrink: 0 prevents flex container compression
-- fontSize constrains the SVG icon size
+- Explicit pixel values ensure consistency across all themes
+- `0 10px` provides horizontal padding without vertical padding
+- `8px` border-radius creates modern, rounded corners
+- Maintains existing maxWidth constraint
 
-### 2. Container Constraints
+### 2. AiMessageComponent Fix
 
-**File:** `src/components/messageComponents/HumanMessageComponent.tsx`
+**File:** `src/components/messageComponents/AiMessageComponent.tsx`
 
 **Changes:**
+Find the message bubble styling and update to:
 ```tsx
-<div style={{ 
-  display: 'flex', 
-  alignItems: 'flex-start', 
-  gap: '8px',
-  width: '100%',
-  justifyContent: 'flex-end'
-}}>
-  <div style={{
-    width: '32px',           // Add explicit container size
-    height: '32px',
-    minWidth: '32px',
-    minHeight: '32px',
-    maxWidth: '32px',
-    maxHeight: '32px',
-    flexShrink: 0,
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',      // Clip any overflow
-  }}>
-    <PersonIcon 
-      sx={{ 
-        color: 'rgb(0 108 224)',
-        width: '32px !important',
-        height: '32px !important',
-        flexShrink: 0,
-        fontSize: '32px',
-      }} 
-    />
-  </div>
-  <div style={humanMessageStyle}>
-    {/* Message content */}
-  </div>
-</div>
+const aiMessageStyle = {
+  // ... existing styles ...
+  padding: '0 10px',  // ← ADD/UPDATE
+  borderRadius: '8px',  // ← ADD/UPDATE
+  // ... existing styles ...
+};
 ```
 
 **Rationale:**
-- Wrapping container provides additional size constraint
-- overflow: hidden clips any icon overflow
-- Double-layer protection against sizing issues
+- Consistent styling between user and AI messages
+- Same padding and border-radius values
+- Maintains visual harmony
 
-### 3. CSS Reset for Catalog Page
+### 3. Other Message Components
 
-**File:** `src/pages/CatalogPage.tsx` or `src/index.css`
+**Files to check and update:**
+- `src/components/messageComponents/ThinkingMessageComponent.tsx`
+- Any other components that render message bubbles
 
-**Add global CSS reset:**
-```css
-/* Prevent icon scaling in Catalog chat */
-.catalog-chat-container svg {
-  max-width: 32px !important;
-  max-height: 32px !important;
-}
-
-.catalog-chat-container .MuiSvgIcon-root {
-  width: 32px !important;
-  height: 32px !important;
-  font-size: 32px !important;
-}
+**Pattern:**
+```tsx
+// Find any style objects with padding/borderRadius
+const messageStyle = {
+  // ... existing styles ...
+  padding: '0 10px',  // ← ENSURE THIS
+  borderRadius: '8px',  // ← ENSURE THIS
+  // ... existing styles ...
+};
 ```
 
 **Rationale:**
-- Global CSS as last line of defense
-- Targets all SVG icons in catalog chat
-- Prevents any Material-UI icon from scaling
+- Comprehensive consistency across all message types
+- Single source of truth for bubble styling
+- Easy to maintain and update
 
 ## Data Models
 
@@ -219,14 +181,14 @@ If icon still renders incorrectly:
 
 ## Success Criteria
 
-1. ✅ User avatar is exactly 32x32 pixels
-2. ✅ Avatar size remains fixed on resize
-3. ✅ Avatar size unchanged in dark mode
-4. ✅ All user avatars consistently sized
-5. ✅ No layout shifts or overflow
+1. ✅ All message bubbles have `padding: 0 10px`
+2. ✅ All message bubbles have `borderRadius: 8px`
+3. ✅ Styling is consistent across ChatPage, CatalogPage, and agent pages
+4. ✅ Text remains readable and properly wrapped
+5. ✅ No layout shifts or overflow issues
 6. ✅ No console errors or warnings
-7. ✅ ChatPage avatars unchanged
-8. ✅ AI message icons unchanged
+7. ✅ Dark mode styling remains correct
+8. ✅ Visual consistency across all message types
 
 ## Notes
 

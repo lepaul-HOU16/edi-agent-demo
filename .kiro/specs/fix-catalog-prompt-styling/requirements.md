@@ -2,74 +2,75 @@
 
 ## Introduction
 
-The Catalog page has INSANELY BROKEN prompt styling where user message avatars are rendering at MASSIVE sizes, completely destroying the UI. The user icon appears as a giant black circle that takes up a huge portion of the screen, making the chat interface unusable.
+The message bubbles (both user and AI messages) across all chat interfaces need consistent styling with `padding: 0 10px` and `border-radius: 8px` to create a polished, professional appearance.
 
 ## Glossary
 
-- **UserAvatar**: The icon/avatar displayed next to user messages in the chat interface
+- **MessageBubble**: The container holding the message text (both user and AI messages)
+- **HumanMessageComponent**: Component that renders user messages with blue background
+- **AiMessageComponent**: Component that renders AI responses
+- **humanMessageStyle**: The style object defining user message bubble appearance
 - **CatalogChatBox**: The chat component used in the Catalog page for data queries
-- **PersonIcon**: Material-UI icon component used to represent the user
-- **MessageBubble**: The container holding the user's message text
 
 ## Requirements
 
-### Requirement 1: User Avatar Must Be Normal Size
+### Requirement 1: Message Bubbles Must Have Consistent Padding
 
-**User Story:** As a user of the Catalog page, I want user message avatars to be a normal, reasonable size so that I can actually see and use the chat interface.
-
-#### Acceptance Criteria
-
-1. WHEN a user message is displayed THEN the user avatar SHALL be exactly 32x32 pixels
-2. WHEN the avatar is rendered THEN it SHALL NOT scale beyond its specified dimensions
-3. WHEN multiple messages are displayed THEN all user avatars SHALL be consistently sized at 32x32 pixels
-4. WHEN the page is resized THEN the avatar size SHALL remain fixed at 32x32 pixels
-5. WHEN dark mode is toggled THEN the avatar size SHALL remain unchanged
-
-### Requirement 2: Avatar Styling Must Be Consistent
-
-**User Story:** As a developer, I want avatar styling to be consistent across all chat components so that the UI looks professional and polished.
+**User Story:** As a user, I want message bubbles to have consistent padding so that text is properly spaced and readable.
 
 #### Acceptance Criteria
 
-1. WHEN rendering user avatars THEN the system SHALL use the same styling rules across ChatPage and CatalogPage
-2. WHEN CSS is applied THEN no global styles SHALL override the avatar dimensions
-3. WHEN Cloudscape components are used THEN their default sizing SHALL be overridden to match our design
-4. WHEN Material-UI icons are used THEN their size SHALL be explicitly set to prevent scaling
-5. WHEN flexbox layouts are used THEN the avatar SHALL have flexShrink: 0 to prevent compression
+1. WHEN a user message is displayed THEN the message bubble SHALL have padding of 0 10px (vertical 0, horizontal 10px)
+2. WHEN an AI message is displayed THEN the message bubble SHALL have padding of 0 10px
+3. WHEN multiple messages are displayed THEN all message bubbles SHALL have consistent padding
+4. WHEN the page is resized THEN the padding SHALL remain consistent
+5. WHEN dark mode is toggled THEN the padding SHALL remain unchanged
 
-### Requirement 3: Message Layout Must Be Preserved
+### Requirement 2: Message Bubbles Must Have Rounded Corners
 
-**User Story:** As a user, I want the message layout to remain clean and readable with properly sized avatars.
-
-#### Acceptance Criteria
-
-1. WHEN a user message is displayed THEN the avatar SHALL be aligned to the right
-2. WHEN the message bubble is rendered THEN it SHALL have a maximum width of 80%
-3. WHEN the avatar and message are displayed THEN there SHALL be an 8px gap between them
-4. WHEN long messages are displayed THEN the avatar SHALL remain at the top of the message
-5. WHEN the layout is rendered THEN the avatar SHALL NOT push other elements off screen
-
-### Requirement 4: Fix Must Apply to All Catalog Components
-
-**User Story:** As a developer, I want the fix to apply everywhere user avatars are rendered in the Catalog page.
+**User Story:** As a user, I want message bubbles to have rounded corners (8px border-radius) for a modern, polished appearance.
 
 #### Acceptance Criteria
 
-1. WHEN CatalogChatBoxCloudscape renders user messages THEN avatars SHALL be 32x32 pixels
-2. WHEN CatalogPage displays chat history THEN all user avatars SHALL be correctly sized
-3. WHEN new messages are added THEN their avatars SHALL match the fixed size
-4. WHEN the component re-renders THEN avatar sizes SHALL remain consistent
-5. WHEN CSS is updated THEN no regressions SHALL be introduced to other components
+1. WHEN a user message is displayed THEN the message bubble SHALL have border-radius of 8px
+2. WHEN an AI message is displayed THEN the message bubble SHALL have border-radius of 8px
+3. WHEN multiple messages are displayed THEN all message bubbles SHALL have consistent border-radius
+4. WHEN the page is resized THEN the border-radius SHALL remain 8px
+5. WHEN dark mode is toggled THEN the border-radius SHALL remain 8px
 
-### Requirement 5: Visual Regression Prevention
+### Requirement 3: Styling Must Apply to All Message Components
 
-**User Story:** As a QA engineer, I want to ensure this fix doesn't break other parts of the UI.
+**User Story:** As a developer, I want the styling to apply consistently across all message components (HumanMessageComponent, AiMessageComponent, etc.).
 
 #### Acceptance Criteria
 
-1. WHEN the fix is applied THEN AI message icons SHALL remain unchanged
-2. WHEN the fix is applied THEN the prompt input SHALL remain unchanged
-3. WHEN the fix is applied THEN the message text SHALL remain readable
-4. WHEN the fix is applied THEN the overall layout SHALL remain functional
-5. WHEN the fix is deployed THEN no console errors SHALL be introduced
+1. WHEN HumanMessageComponent renders THEN it SHALL use padding: 0 10px and borderRadius: 8px
+2. WHEN AiMessageComponent renders THEN it SHALL use padding: 0 10px and borderRadius: 8px
+3. WHEN messages are displayed on ChatPage THEN they SHALL have consistent styling
+4. WHEN messages are displayed on CatalogPage THEN they SHALL have consistent styling
+5. WHEN messages are displayed on any agent page THEN they SHALL have consistent styling
+
+### Requirement 4: Padding Must Not Break Text Layout
+
+**User Story:** As a user, I want the padding changes to improve readability without breaking text layout or causing overflow issues.
+
+#### Acceptance Criteria
+
+1. WHEN padding is applied THEN text SHALL remain fully visible within the bubble
+2. WHEN long messages are displayed THEN text SHALL wrap properly within the bubble
+3. WHEN padding is applied THEN the bubble SHALL NOT exceed its maxWidth constraint
+4. WHEN padding is applied THEN no horizontal scrolling SHALL be introduced
+5. WHEN padding is applied THEN line breaks SHALL be preserved correctly
+
+### Requirement 5: Visual Consistency Across All Pages
+
+**User Story:** As a user, I want message bubbles to look consistent whether I'm on ChatPage, CatalogPage, or any agent landing page.
+
+#### Acceptance Criteria
+
+1. WHEN viewing messages on ChatPage THEN styling SHALL match CatalogPage
+2. WHEN viewing messages on agent landing pages THEN styling SHALL match ChatPage
+3. WHEN viewing messages on RenewablePage THEN styling SHALL match other pages
+4. WHEN viewing messages on MaintenancePage THEN styling SHALL match other pages
+5. WHEN viewing messages on PetrophysicsPage THEN styling SHALL match other pages
 

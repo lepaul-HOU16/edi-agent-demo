@@ -1,5 +1,6 @@
 import { Handler } from 'aws-lambda';
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from '@aws-sdk/client-s3';
+import { parseNaturalLanguageQuery, applyFilters, ParsedQuery } from '../shared/nlpParser';
 
 // Thought types - inline definitions since this Lambda doesn't have access to shared utils
 interface ThoughtStep {
@@ -186,49 +187,34 @@ async function fetchUserWells(): Promise<any[]> {
   }
 }
 
-// Function to parse depth criteria from query
-function parseDepthCriteria(lowerQuery: string): any {
-  console.log('🔍 Parsing depth criteria from:', lowerQuery);
+/**
+ * Filter catalog data (24 LAS files) using shared NLP parser
+ * Supports location, depth, operator, and well name prefix filtering
+ */
+function filterCatalogData(wells: any[], filters: ParsedQuery): any[] {
+  console.log('🔍 Filtering catalog data with shared parser');
+  console.log('📊 Input wells:', wells.length);
+  console.log('🎯 Filters:', filters);
   
-  // Enhanced depth pattern matching
-  const depthPatterns = [
-    /(?:wells?|data)\s*(?:with|having)?\s*depth\s*(?:greater\s*than|>|above)\s*(\d+)\s*(m|meter|ft|feet)?/i,
-    /(?:depth|deeper)\s*(?:greater\s*than|>|above)\s*(\d+)\s*(m|meter|ft|feet)?/i,
-    /(?:wells?|data)\s*(?:deeper\s*than|>)\s*(\d+)\s*(m|meter|ft|feet)?/i,
-    /(?:filter|show|find)\s*(?:wells?|data)?\s*(?:with|having)?\s*depth\s*(?:>|greater\s*than|above)\s*(\d+)/i
-  ];
+  if (!filters.hasFilters) {
+    console.log('✅ No filters detected, returning all wells');
+    return wells;
+  }
   
-  for (const pattern of depthPatterns) {
-    const match = lowerQuery.match(pattern);
-    if (match) {
-      const depthValue = parseInt(match[1]);
-      const unit = match[2] || 'm'; // Default to meters
-      
-      console.log('✅ Depth criteria found:', {
-        minDepth: depthValue,
-        unit: unit,
-        operator: 'greater_than'
-      });
-      
-      return {
-        minDepth: depthValue,
-        unit: unit,
-        operator: 'greater_than',
-        filterType: 'depth_filter'
-      };
+  // Use shared parser's applyFilters function
+  const filtered = applyFilters(wells, filters, {
+    location: (well) => well.properties?.location || '',
+    operator: (well) => well.properties?.operator || '',
+    wellName: (well) => well.properties?.name || '',
+    depth: (well) => {
+      const depthStr = well.properties?.depth || '0m';
+      const depthMatch = depthStr.match(/(\d+(?:\.\d+)?)/);
+      return depthMatch ? parseFloat(depthMatch[1]) : 0;
     }
-  }
+  });
   
-  // Check for simple depth mentions
-  const simpleDepthMatch = lowerQuery.match(/(\d+)\s*(m|meter|ft|feet|foot)/);
-  if (simpleDepthMatch || lowerQuery.includes('deep')) {
-    const depth = simpleDepthMatch ? parseInt(simpleDepthMatch[1]) : 3000;
-    console.log('✅ Simple depth criteria found:', { minDepth: depth });
-    return { minDepth: depth, unit: 'm', operator: 'greater_than' };
-  }
-  
-  console.log('❌ No depth criteria found');
-  return null;
+  console.log('✅ Filtered catalog data:', filtered.length, 'wells match criteria');
+  return filtered;
 }
 
 // Enhanced NLP query parser with conservative intent detection to prevent hallucinations
@@ -1043,24 +1029,37 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
       console.log('Handling "my wells" query - fetching user LAS files from S3');
       const userWells = await fetchUserWells();
       
+      // Parse query using shared NLP parser for filtering
+      const filters = parseNaturalLanguageQuery(searchQuery);
+      console.log('🎯 Shared parser filters:', filters);
+      
+      // Apply filters to catalog data
+      const filteredWells = filterCatalogData(userWells, filters);
+      const isFiltered = filteredWells.length < userWells.length;
+      
+      console.log(`📊 Catalog filtering: ${filteredWells.length}/${userWells.length} wells ${isFiltered ? '(Filtered)' : ''}`);
+      
       return {
         type: "FeatureCollection",
         metadata: {
           type: "wells",
           searchQuery: searchQuery,
-          source: "Personal LAS Files (Real Coordinates)",
-          recordCount: userWells.length,
+          source: `Personal LAS Files (Real Coordinates)${isFiltered ? ' (Filtered)' : ''}`,
+          recordCount: filteredWells.length,
+          originalCount: userWells.length,
+          filtered: isFiltered,
+          filterCriteria: filters.hasFilters ? filters : undefined,
           region: 'offshore-brunei-malaysia',
           queryType: 'myWells',
           timestamp: new Date().toISOString(),
-          coordinateBounds: userWells.length > 0 ? {
-            minLon: Math.min(...userWells.map(f => f.geometry.coordinates[0])),
-            maxLon: Math.max(...userWells.map(f => f.geometry.coordinates[0])),
-            minLat: Math.min(...userWells.map(f => f.geometry.coordinates[1])),
-            maxLat: Math.max(...userWells.map(f => f.geometry.coordinates[1]))
+          coordinateBounds: filteredWells.length > 0 ? {
+            minLon: Math.min(...filteredWells.map(f => f.geometry.coordinates[0])),
+            maxLon: Math.max(...filteredWells.map(f => f.geometry.coordinates[0])),
+            minLat: Math.min(...filteredWells.map(f => f.geometry.coordinates[1])),
+            maxLat: Math.max(...filteredWells.map(f => f.geometry.coordinates[1]))
           } : null
         },
-        features: userWells
+        features: filteredWells
       };
     }
     
