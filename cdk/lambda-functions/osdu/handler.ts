@@ -1,5 +1,6 @@
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { parseNaturalLanguageQuery, applyFilters, ParsedQuery } from '../shared/nlpParser';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
 interface OSDUSearchRequest {
   query: string;
@@ -13,8 +14,59 @@ interface OSDUSearchResponse {
   records: Array<any>;
 }
 
+interface OSDUCredentials {
+  apiUrl: string;
+  apiKey: string;
+}
+
+// Global credentials cache for Lambda reuse
+let credentialsCache: OSDUCredentials | null = null;
+
 /**
- * Filter demo data using shared NLP parser
+ * Get OSDU API credentials from AWS Secrets Manager
+ */
+async function getOSDUCredentials(): Promise<OSDUCredentials> {
+  // Return cached credentials if available
+  if (credentialsCache) {
+    console.log('✅ Using cached OSDU credentials');
+    return credentialsCache;
+  }
+
+  console.log('🔐 Fetching OSDU credentials from Secrets Manager');
+  
+  const secretsClient = new SecretsManagerClient({});
+  const command = new GetSecretValueCommand({
+    SecretId: 'osdu-credentials'
+  });
+
+  try {
+    const response = await secretsClient.send(command);
+    const secretString = response.SecretString;
+    
+    if (!secretString) {
+      throw new Error('Secret value is empty');
+    }
+
+    const credentials = JSON.parse(secretString);
+    
+    // Validate required fields
+    if (!credentials.apiUrl || !credentials.apiKey) {
+      throw new Error('Missing required credential fields (apiUrl, apiKey)');
+    }
+
+    // Cache credentials
+    credentialsCache = credentials;
+    console.log('✅ OSDU credentials loaded successfully');
+    
+    return credentials;
+  } catch (error) {
+    console.error('❌ Failed to load OSDU credentials:', error);
+    throw new Error('Unable to load OSDU credentials from Secrets Manager');
+  }
+}
+
+/**
+ * Filter demo data using shared NLP parser (fallback for when OSDU not configured)
  */
 function filterDemoData(records: any[], filters: ParsedQuery): any[] {
   console.log('🔍 Filtering OSDU data with shared parser');
@@ -80,228 +132,135 @@ export const handler = async (
         };
       }
       
-      // Get API configuration
-      const apiUrl = process.env.OSDU_API_URL;
-      const apiKey = process.env.OSDU_API_KEY;
-      
-      // If OSDU not configured, return demo data for testing
-      if (!apiUrl || !apiKey || apiUrl.includes('example.com')) {
-        console.log('⚠️ OSDU API not configured, returning demo data');
-        
-        // Generate realistic demo OSDU data with proper geographic distribution
-        const regions = [
-          { name: 'Gulf of Mexico', basin: 'Permian Basin', country: 'USA', latBase: 28, lonBase: -90, spread: 3 },
-          { name: 'North Sea', basin: 'North Sea Basin', country: 'Norway', latBase: 60, lonBase: 3, spread: 2 },
-          { name: 'South China Sea', basin: 'Pearl River Basin', country: 'Vietnam', latBase: 10, lonBase: 107, spread: 2.5 },
-          { name: 'Persian Gulf', basin: 'Zagros Basin', country: 'UAE', latBase: 25, lonBase: 53, spread: 2 },
-          { name: 'Caspian Sea', basin: 'South Caspian Basin', country: 'Kazakhstan', latBase: 42, lonBase: 51, spread: 2 }
-        ];
-        
-        const allDemoRecords = Array.from({ length: Math.min(maxResults, 50) }, (_, i) => {
-          const region = regions[i % regions.length];
-          const wellsInRegion = Math.floor(i / regions.length);
-          
-          return {
-            id: `osdu-demo-${i + 1}`,
-            name: `${region.country.substring(0, 3).toUpperCase()}-${String.fromCharCode(65 + (wellsInRegion % 26))}-${wellsInRegion + 1}`,
-            type: 'osdu:wks:master-data--Wellbore:1.0.0',
-            operator: ['Shell', 'BP', 'Chevron', 'ExxonMobil', 'TotalEnergies'][i % 5],
-            location: region.name,
-            basin: region.basin,
-            country: region.country,
-            depth: `${2000 + (i * 100)}m`,
-            status: ['Active', 'Producing', 'Exploration', 'Development'][i % 4],
-            dataSource: 'OSDU',
-            latitude: region.latBase + (Math.random() - 0.5) * region.spread,
-            longitude: region.lonBase + (Math.random() - 0.5) * region.spread
-          };
-        });
-        
-        // Parse query and apply filters
-        const filterCriteria = parseNaturalLanguageQuery(query);
-        const filteredRecords = filterDemoData(allDemoRecords, filterCriteria);
-        
-        console.log('🔍 Query parsing:', {
-          query,
-          criteria: filterCriteria,
-          totalRecords: allDemoRecords.length,
-          filteredRecords: filteredRecords.length
-        });
-        
-        // Build answer message
-        let answerParts = [`Found ${filteredRecords.length} wells`];
-        if (filterCriteria.locations.length > 0) {
-          answerParts.push(`in ${filterCriteria.locations.join(', ')}`);
-        }
-        if (filterCriteria.operators.length > 0) {
-          answerParts.push(`operated by ${filterCriteria.operators.join(', ')}`);
-        }
-        if (filterCriteria.wellPrefixes.length > 0) {
-          answerParts.push(`with prefix ${filterCriteria.wellPrefixes.join(', ')}`);
-        }
-        answerParts.push('(Demo Data)');
-        
-        return {
-          statusCode: 200,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            answer: answerParts.join(' '),
-            recordCount: filteredRecords.length,
-            records: filteredRecords
-          }),
-        };
-      }
-      
-      // Call OSDU API using the correct format
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 50000);
-      
-      console.log('📤 Calling OSDU API with query:', query, 'maxResults:', maxResults);
-      
-      let response;
+      // Try to call real OSDU API
+      let useRealAPI = false;
+      let credentials: OSDUCredentials | null = null;
+
       try {
-        response = await fetch(apiUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey
-          },
-          body: JSON.stringify({
-            toolName: 'searchWells',
-            input: {
+        credentials = await getOSDUCredentials();
+        useRealAPI = true;
+        console.log('✅ Real OSDU API available');
+      } catch (error) {
+        console.log('⚠️ OSDU API not configured, falling back to demo data:', error.message);
+      }
+
+      // Use real OSDU API if available
+      if (useRealAPI && credentials) {
+        console.log('🔍 Calling real OSDU API');
+
+        try {
+          // Call colleague's serverless OSDU API
+          const response = await fetch(credentials.apiUrl, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': credentials.apiKey
+            },
+            body: JSON.stringify({
               query: query,
+              dataPartition: dataPartition,
               maxResults: maxResults
-            }
-          }),
-          signal: controller.signal
-        });
-      } catch (fetchError: any) {
-        clearTimeout(timeoutId);
-        
-        if (fetchError.name === 'AbortError') {
+            })
+          });
+
+          if (!response.ok) {
+            throw new Error(`OSDU API returned ${response.status}`);
+          }
+
+          const data = await response.json();
+          
+          console.log('✅ Real OSDU search successful:', data.recordCount, 'wells found');
+
           return {
-            statusCode: 504,
+            statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              error: 'Request timeout',
-              answer: 'The OSDU search request timed out.',
+              answer: data.answer || `Found ${data.recordCount} wells in OSDU`,
+              recordCount: data.recordCount || 0,
+              records: data.records || []
+            }),
+          };
+        } catch (apiError) {
+          console.error('❌ Real OSDU API error:', apiError);
+          
+          // Return error response
+          return {
+            statusCode: 502,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              error: 'OSDU API error',
+              answer: 'Unable to search OSDU data. Please check credentials and try again.',
               recordCount: 0,
               records: []
             }),
           };
         }
+      }
+
+      // Fallback to demo data if OSDU not configured
+      console.log('⚠️ Using demo data (OSDU not configured)');
+      
+      // Generate realistic demo OSDU data with proper geographic distribution
+      const regions = [
+        { name: 'Gulf of Mexico', basin: 'Permian Basin', country: 'USA', latBase: 28, lonBase: -90, spread: 3 },
+        { name: 'North Sea', basin: 'North Sea Basin', country: 'Norway', latBase: 60, lonBase: 3, spread: 2 },
+        { name: 'South China Sea', basin: 'Pearl River Basin', country: 'Vietnam', latBase: 10, lonBase: 107, spread: 2.5 },
+        { name: 'Persian Gulf', basin: 'Zagros Basin', country: 'UAE', latBase: 25, lonBase: 53, spread: 2 },
+        { name: 'Caspian Sea', basin: 'South Caspian Basin', country: 'Kazakhstan', latBase: 42, lonBase: 51, spread: 2 }
+      ];
+      
+      const allDemoRecords = Array.from({ length: Math.min(maxResults, 50) }, (_, i) => {
+        const region = regions[i % regions.length];
+        const wellsInRegion = Math.floor(i / regions.length);
         
         return {
-          statusCode: 502,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            error: 'Network error',
-            answer: 'Unable to reach OSDU service.',
-            recordCount: 0,
-            records: []
-          }),
+          id: `osdu-demo-${i + 1}`,
+          name: `${region.country.substring(0, 3).toUpperCase()}-${String.fromCharCode(65 + (wellsInRegion % 26))}-${wellsInRegion + 1}`,
+          type: 'osdu:wks:master-data--Wellbore:1.0.0',
+          operator: ['Shell', 'BP', 'Chevron', 'ExxonMobil', 'TotalEnergies'][i % 5],
+          location: region.name,
+          basin: region.basin,
+          country: region.country,
+          depth: `${2000 + (i * 100)}m`,
+          status: ['Active', 'Producing', 'Exploration', 'Development'][i % 4],
+          dataSource: 'OSDU',
+          latitude: region.latBase + (Math.random() - 0.5) * region.spread,
+          longitude: region.lonBase + (Math.random() - 0.5) * region.spread
         };
+      });
+      
+      // Parse query and apply filters
+      const filterCriteria = parseNaturalLanguageQuery(query);
+      const filteredRecords = filterDemoData(allDemoRecords, filterCriteria);
+      
+      console.log('🔍 Query parsing:', {
+        query,
+        criteria: filterCriteria,
+        totalRecords: allDemoRecords.length,
+        filteredRecords: filteredRecords.length
+      });
+      
+      // Build answer message
+      let answerParts = [`Found ${filteredRecords.length} wells`];
+      if (filterCriteria.locations.length > 0) {
+        answerParts.push(`in ${filterCriteria.locations.join(', ')}`);
       }
-      
-      clearTimeout(timeoutId);
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ OSDU API error:', response.status, errorText);
-        
-        return {
-          statusCode: response.status,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            error: `OSDU API request failed: ${response.status}`,
-            answer: 'Unable to search OSDU data at this time.',
-            recordCount: 0,
-            records: []
-          }),
-        };
+      if (filterCriteria.operators.length > 0) {
+        answerParts.push(`operated by ${filterCriteria.operators.join(', ')}`);
       }
-      
-      // Parse response
-      let rawData: any;
-      try {
-        rawData = await response.json();
-      } catch (parseError) {
-        return {
-          statusCode: 502,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            error: 'Invalid response from OSDU API',
-            answer: 'Received invalid data from OSDU service.',
-            recordCount: 0,
-            records: []
-          }),
-        };
+      if (filterCriteria.wellPrefixes.length > 0) {
+        answerParts.push(`with prefix ${filterCriteria.wellPrefixes.join(', ')}`);
       }
-      
-      // Transform response - handle the new API format
-      let answer = 'Search completed';
-      let recordCount = 0;
-      let records: any[] = [];
-      
-      // New API format: { statusCode, body: { records, metadata } }
-      if (rawData.body && rawData.body.records) {
-        records = rawData.body.records;
-        const metadata = rawData.body.metadata || {};
-        recordCount = metadata.totalFound || metadata.returned || records.length;
-        answer = `Found ${recordCount} wells in OSDU`;
-        
-        console.log('📊 Extracted from new API format:', {
-          recordsLength: records.length,
-          totalFound: metadata.totalFound,
-          returned: metadata.returned,
-          filtered: metadata.filtered,
-          authorized: metadata.authorized,
-          finalRecordCount: recordCount
-        });
-      }
-      // Fallback: old format with reasoningSteps
-      else if (rawData.reasoningSteps && Array.isArray(rawData.reasoningSteps)) {
-        for (const step of rawData.reasoningSteps) {
-          if (step.type === 'tool_result' && step.result?.body?.records) {
-            records = step.result.body.records;
-            recordCount = step.result.body.metadata?.totalFound || 
-                         step.result.body.metadata?.returned || 
-                         records.length;
-            
-            console.log('📊 Extracted from reasoningSteps:', {
-              recordsLength: records.length,
-              totalFound: step.result.body.metadata?.totalFound,
-              returned: step.result.body.metadata?.returned,
-              finalRecordCount: recordCount
-            });
-            break;
-          }
-        }
-      }
-      // Fallback: top-level records
-      else if (rawData.records) {
-        records = rawData.records;
-        recordCount = rawData.recordCount || records.length;
-        
-        console.log('📊 Extracted from top-level:', {
-          recordsLength: records.length,
-          recordCount: rawData.recordCount,
-          finalRecordCount: recordCount
-        });
-      }
-      
-      const result: OSDUSearchResponse = {
-        answer,
-        recordCount,
-        records
-      };
-      
-      console.log('✅ OSDU search successful:', { recordCount, recordsLength: records.length });
+      answerParts.push('(Demo Data)');
       
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(result),
+        body: JSON.stringify({
+          answer: answerParts.join(' '),
+          recordCount: filteredRecords.length,
+          records: filteredRecords
+        }),
       };
     }
     

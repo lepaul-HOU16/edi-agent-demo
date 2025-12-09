@@ -655,16 +655,16 @@ function IntervalsVisualization({ data }: { data: any }) {
         <Card variant="outlined">
           <CardContent>
             <Typography variant="h6" gutterBottom>Best Reservoir Intervals</Typography>
-            <TableContainer>
-              <Table>
+            <TableContainer sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+              <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Rank</TableCell>
-                    <TableCell>Depth (ft)</TableCell>
-                    <TableCell>Thickness</TableCell>
-                    <TableCell>Avg Porosity</TableCell>
-                    <TableCell>Quality</TableCell>
-                    <TableCell>Est. Permeability</TableCell>
+                    <TableCell sx={{ minWidth: 60 }}>Rank</TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>Depth (ft)</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>Thickness</TableCell>
+                    <TableCell sx={{ minWidth: 100 }}>Avg Porosity</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>Quality</TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>Est. Permeability</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -726,17 +726,17 @@ function IntervalsVisualization({ data }: { data: any }) {
       {data.highPorosityZones && data.highPorosityZones.length > 0 && (
         <Card variant="outlined">
           <CardContent>
-            <Typography variant="h6" gutterBottom>High-Porosity Zones</Typography>
-            <TableContainer>
-              <Table>
+            <Typography variant="h6" gutterBottom">High-Porosity Zones</Typography>
+            <TableContainer sx={{ overflowX: 'auto', maxWidth: '100%' }}>
+              <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Zone</TableCell>
-                    <TableCell>Depth Range</TableCell>
-                    <TableCell>Thickness</TableCell>
-                    <TableCell>Avg Porosity</TableCell>
-                    <TableCell>Peak Porosity</TableCell>
-                    <TableCell>Quality</TableCell>
+                    <TableCell sx={{ minWidth: 60 }}>Zone</TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>Depth Range</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>Thickness</TableCell>
+                    <TableCell sx={{ minWidth: 100 }}>Avg Porosity</TableCell>
+                    <TableCell sx={{ minWidth: 100 }}>Peak Porosity</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>Quality</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>

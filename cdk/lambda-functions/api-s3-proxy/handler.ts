@@ -127,7 +127,45 @@ export const handler = async (
         };
       }
 
-      // Generate a signed URL that expires in 1 hour
+      // For porosity-data requests, return JSON directly instead of signed URL
+      if (key.startsWith('porosity-data/')) {
+        console.log(`[S3 Proxy API] Fetching porosity data directly: ${key}`);
+        
+        const command = new GetObjectCommand({
+          Bucket: bucketName,
+          Key: key,
+        });
+
+        const response = await s3Client.send(command);
+        const content = await response.Body?.transformToString();
+
+        if (!content) {
+          return {
+            statusCode: 404,
+            headers: {
+              'Content-Type': 'application/json',
+              'Access-Control-Allow-Origin': '*',
+            },
+            body: JSON.stringify({
+              error: 'Porosity data not found',
+              key,
+            }),
+          };
+        }
+
+        // Return JSON data directly with cache headers
+        return {
+          statusCode: 200,
+          headers: {
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*',
+            'Cache-Control': 'public, max-age=3600', // Cache for 1 hour
+          },
+          body: content,
+        };
+      }
+
+      // For other requests, generate a signed URL that expires in 1 hour
       const command = new GetObjectCommand({
         Bucket: bucketName,
         Key: key,

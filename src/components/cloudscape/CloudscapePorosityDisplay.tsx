@@ -2,10 +2,11 @@
  * Concise Cloudscape Porosity Display
  * Simplified, professional display that fits within chat width
  * Shows 4 log curves side by side
+ * Supports S3-based log data fetching for large datasets
  */
 
 
-import React, { Suspense } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import Container from '@cloudscape-design/components/container';
 import Header from '@cloudscape-design/components/header';
 import ColumnLayout from '@cloudscape-design/components/column-layout';
@@ -14,23 +15,97 @@ import SpaceBetween from '@cloudscape-design/components/space-between';
 import ProgressBar from '@cloudscape-design/components/progress-bar';
 import ExpandableSection from '@cloudscape-design/components/expandable-section';
 import Spinner from '@cloudscape-design/components/spinner';
+import Alert from '@cloudscape-design/components/alert';
 
 // Dynamic import for Plotly
 const Plot = React.lazy(() => import('react-plotly.js')) as any;
+
+interface S3Reference {
+  bucket: string;
+  key: string;
+  region: string;
+  sizeBytes: number;
+}
+
+interface LogData {
+  DEPT?: number[];
+  DEPTH?: number[];
+  RHOB?: number[];
+  NPHI?: number[];
+  PHID?: number[];
+  PHIN?: number[];
+  PHIE?: number[];
+  POROSITY?: number[];
+  GR?: number[];
+}
 
 interface CloudscapePorosityDisplayProps {
   data: any;
 }
 
 export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps> = ({ data }) => {
+  // State for S3-fetched log data
+  const [logData, setLogData] = useState<LogData | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  
   console.log('🎨 CloudscapePorosityDisplay received data:', {
     hasData: !!data,
     hasResults: !!data?.results,
     hasStatistics: !!data?.results?.statistics,
     statistics: data?.results?.statistics,
     hasCurveData: !!data?.results?.curveData,
-    curveDataKeys: data?.results?.curveData ? Object.keys(data.results.curveData) : []
+    curveDataKeys: data?.results?.curveData ? Object.keys(data.results.curveData) : [],
+    hasLogDataS3: !!data?.logDataS3,
+    hasEmbeddedLogData: !!data?.logData
   });
+  
+  // Fetch log data from S3 if reference exists
+  useEffect(() => {
+    const fetchLogDataFromS3 = async (s3Ref: S3Reference) => {
+      console.log('📥 Fetching log data from S3:', s3Ref);
+      setLoading(true);
+      setError(null);
+      
+      try {
+        const url = `/api/s3-proxy?bucket=${encodeURIComponent(s3Ref.bucket)}&key=${encodeURIComponent(s3Ref.key)}`;
+        console.log('📥 S3 proxy URL:', url);
+        
+        const response = await fetch(url);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch log data: ${response.statusText}`);
+        }
+        
+        const fetchedData = await response.json();
+        console.log('✅ Successfully fetched log data from S3:', {
+          keys: Object.keys(fetchedData),
+          depthLength: fetchedData.DEPT?.length || fetchedData.DEPTH?.length
+        });
+        
+        setLogData(fetchedData);
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Unknown error fetching log data';
+        console.error('❌ Failed to fetch log data from S3:', errorMessage);
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    // Check for S3 reference
+    if (data?.logDataS3) {
+      console.log('🔍 Found S3 reference, fetching log data...');
+      fetchLogDataFromS3(data.logDataS3);
+    } else if (data?.logData) {
+      // Fallback: use embedded log data (backward compatibility)
+      console.log('🔍 Using embedded log data (backward compatibility)');
+      setLogData(data.logData);
+    } else {
+      console.log('⚠️ No log data source found (neither S3 reference nor embedded data)');
+      setLogData(null);
+    }
+  }, [data]);
   
   const results = data?.results || {};
   
@@ -87,15 +162,17 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
   // Create side-by-side log curves (4 tracks)
   const createLogPlot = () => {
     console.log('🎨 createLogPlot called');
-    console.log('🎨 results:', results);
-    console.log('🎨 results.curveData:', results?.curveData);
+    console.log('🎨 logData state:', logData);
+    console.log('🎨 loading:', loading);
+    console.log('🎨 error:', error);
     
-    if (!results?.curveData) {
-      console.warn('⚠️ No curveData found in results');
+    // Use fetched logData from state
+    if (!logData) {
+      console.warn('⚠️ No logData available in state');
       return null;
     }
     
-    const curves = results.curveData;
+    const curves = logData;
     const depth = curves.DEPT || curves.DEPTH || [];
     
     console.log('🎨 Curves available:', Object.keys(curves));
@@ -157,13 +234,13 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
       });
     }
     
-    // Track 4: Calculated Porosity
-    if (curves.POROSITY || results.porosityValues) {
-      const porosityData = curves.POROSITY || results.porosityValues;
+    // Track 4: Calculated Effective Porosity (PHIE)
+    if (curves.PHIE || curves.POROSITY || results.porosityValues) {
+      const porosityData = curves.PHIE || curves.POROSITY || results.porosityValues;
       traces.push({
         x: porosityData,
         y: depth,
-        name: 'Porosity',
+        name: 'PHIE',
         type: 'scatter',
         mode: 'lines',
         line: { color: '#f59e0b', width: 2 },
@@ -227,7 +304,7 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
           </Header>
         }
       >
-        <ColumnLayout columns={4} variant="text-grid">
+        <ColumnLayout columns={4} variant="text-grid" minColumnWidth={120}>
           <div>
             <Box variant="awsui-key-label">Mean Porosity</Box>
             <Box variant="awsui-value-large">{(statistics.mean * 100 || 0).toFixed(1)}%</Box>
@@ -260,7 +337,21 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
       <Container
         header={<Header variant="h3">Log Curves</Header>}
       >
-        {createLogPlot() || (
+        {loading ? (
+          <Box textAlign="center" padding="l">
+            <Spinner size="large" />
+            <Box variant="p" color="text-body-secondary" margin={{ top: 's' }}>
+              Loading log curve data from S3...
+            </Box>
+          </Box>
+        ) : error ? (
+          <Alert type="error" header="Failed to load log data">
+            {error}
+            <Box variant="small" color="text-body-secondary" margin={{ top: 's' }}>
+              The porosity analysis completed successfully, but the log curve visualization data could not be loaded.
+            </Box>
+          </Alert>
+        ) : createLogPlot() || (
           <Box textAlign="center" padding="l">
             <Box variant="p" color="text-body-secondary">
               Log curve data not available. The calculation completed successfully, but curve visualization data was not included in the response.

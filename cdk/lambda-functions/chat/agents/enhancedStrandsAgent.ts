@@ -1049,8 +1049,19 @@ export class EnhancedStrandsAgent extends BaseEnhancedAgent {
 
   private async handleCalculatePorosity(message: string, wellName: string | null, method: string | null): Promise<any> {
     console.log('🧮 === CALCULATE POROSITY HANDLER START ===');
-    console.log('🏷️ Well Name:', wellName);
+    console.log('📝 Original message:', message);
+    console.log('🏷️ Well Name received:', wellName);
     console.log('⚙️ Method:', method);
+    
+    // DEBUG: Re-extract well name to verify
+    const reExtractedWellName = this.extractWellName(message);
+    console.log('🔍 Re-extracted well name:', reExtractedWellName);
+    
+    // Use re-extracted well name if original is null
+    if (!wellName && reExtractedWellName) {
+      console.log('⚠️ Using re-extracted well name instead of null');
+      wellName = reExtractedWellName;
+    }
     
     if (!wellName) {
       console.log('❌ No well name provided, fetching available wells...');
@@ -1103,7 +1114,38 @@ Available methods: density, neutron, effective porosity`
       `${this.wellDataPath}${wellName}.las`
     );
     
-    const result = await this.callMCPTool('calculate_porosity', { wellName, method: calcMethod });
+    // FIX: Use TypeScript comprehensive porosity tool directly instead of Python Lambda
+    let result;
+    try {
+      const { comprehensivePorosityAnalysisTool } = await import('../tools/comprehensivePorosityAnalysisTool');
+      console.log('✅ Imported comprehensivePorosityAnalysisTool successfully');
+      
+      const toolResult = await comprehensivePorosityAnalysisTool.func({ 
+        wellNames: [wellName],
+        analysisType: 'single_well',
+        depthRange: null 
+      });
+      
+      console.log('✅ Tool executed, result type:', typeof toolResult);
+      console.log('📦 Tool result preview:', typeof toolResult === 'string' ? toolResult.substring(0, 200) : 'Not a string');
+      
+      // Parse the tool result (it returns a JSON string)
+      result = JSON.parse(toolResult);
+      console.log('✅ Parsed result successfully:', {
+        success: result.success,
+        hasArtifacts: !!result.artifacts,
+        artifactCount: result.artifacts?.length || 0,
+        hasMessage: !!result.message
+      });
+    } catch (toolError) {
+      console.error('❌ Error calling comprehensivePorosityAnalysisTool:', toolError);
+      this.errorThoughtStep(dataStep.id, toolError instanceof Error ? toolError : new Error('Tool execution failed'), { wellName });
+      return {
+        success: false,
+        message: `Failed to analyze porosity for ${wellName}: ${toolError instanceof Error ? toolError.message : 'Unknown error'}`,
+        artifacts: []
+      };
+    }
     
     // Complete data retrieval step
     this.completeThoughtStep(dataStep.id, {
@@ -1111,13 +1153,13 @@ Available methods: density, neutron, effective porosity`
         wellName,
         s3Bucket: this.s3Bucket,
         s3Key: `${this.wellDataPath}${wellName}.las`,
-        method: calcMethod,
-        toolCalled: 'calculate_porosity'
+        analysisType: 'single_well',
+        toolCalled: 'comprehensivePorosityAnalysisTool (TypeScript)'
       }, null, 2)
     });
     
     if (result.success) {
-      console.log('✅ Porosity Calculation Success for:', wellName);
+      console.log('✅ Comprehensive Porosity Analysis Success for:', wellName);
       console.log('📊 MCP Tool Result Structure:', {
         hasArtifacts: Array.isArray(result.artifacts),
         artifactCount: result.artifacts?.length || 0,
@@ -1127,109 +1169,78 @@ Available methods: density, neutron, effective porosity`
       
       // VERBOSE THOUGHT STEP: Calculation
       const calcStep = this.addCalculationStep(
-        'Porosity',
-        `${calcMethod} porosity method`,
-        { wellName, method: calcMethod }
+        'Comprehensive Porosity Analysis',
+        `Full analysis with log curves`,
+        { wellName, analysisType: 'single_well' }
       );
       
       this.completeThoughtStep(calcStep.id, {
         details: JSON.stringify({
-          method: calcMethod,
           wellName,
+          analysisType: 'single_well',
           artifactCount: result.artifacts?.length || 0,
           success: true
         }, null, 2)
       });
       
-      // Create artifact with curve data from MCP result
-      console.log('📊 MCP Result Data:', {
-        hasCurveData: !!result.curve_data,
-        hasStatistics: !!result.statistics,
-        statisticsMean: result.statistics?.mean,
-        statisticsStdDev: result.statistics?.std_dev,
-        statisticsMin: result.statistics?.min,
-        statisticsMax: result.statistics?.max,
-        fullResult: JSON.stringify(result).substring(0, 500)
-      });
-      
-      // Check if Lambda returned artifacts with data
+      // comprehensive_porosity_analysis returns a COMPLETE artifact with logData
+      // Just pass it through directly - don't rebuild it
       const hasArtifacts = result.artifacts && result.artifacts.length > 0;
-      const hasStatistics = hasArtifacts && result.artifacts[0].results?.statistics?.mean;
       
-      if (!hasStatistics) {
-        console.log('❌ Lambda returned no valid statistics data');
+      if (!hasArtifacts) {
+        console.log('❌ No artifacts returned from comprehensive_porosity_analysis');
         console.log('Result structure:', JSON.stringify(result).substring(0, 500));
         return {
           success: false,
-          message: 'Porosity calculation failed - no valid data returned from calculator. The well data may not exist or the calculation failed.',
+          message: 'Porosity analysis failed - no artifacts returned. The well data may not exist.',
           artifacts: []
         };
       }
       
-      // Lambda returns the artifact already formatted, just use it directly
-      const lambdaArtifact = result.artifacts[0];
-      const stats = lambdaArtifact.results.statistics;
-      const curveData = lambdaArtifact.results.curveData;
-      const dataQuality = lambdaArtifact.results.dataQuality;
+      // Use the artifact directly from comprehensive_porosity_analysis
+      // It already has logData, executiveSummary, results, etc.
+      const artifact = result.artifacts[0];
       
-      const artifact = {
-        messageContentType: 'comprehensive_porosity_analysis',
-        analysisType: 'single_well',
-        wellName: wellName,
-        results: {
-          method: calcMethod,
-          curveData: curveData || {},
-          statistics: stats || {},
-          dataQuality: dataQuality || {},
-          enhancedPorosityAnalysis: {
-            calculationMethods: {
-              densityPorosity: {
-                average: `${(stats.mean * 100).toFixed(1)}%`
-              },
-              neutronPorosity: {
-                average: `${(stats.mean * 100).toFixed(1)}%`
-              },
-              effectivePorosity: {
-                average: `${(stats.mean * 100).toFixed(1)}%`
-              }
-            },
-            dataQuality: {
-              completeness: dataQuality?.completeness ? `${dataQuality.completeness.toFixed(1)}%` : '0%',
-              dataPoints: dataQuality?.totalPoints || 0,
-              validPoints: dataQuality?.validPoints || 0
-            }
-          }
-        }
-      };
-      
-      console.log('📦 Created Artifact:', {
-        hasResults: !!artifact.results,
-        hasCurveData: !!artifact.results.curveData,
-        hasStatistics: !!artifact.results.statistics,
-        enhancedAverage: artifact.results.enhancedPorosityAnalysis.calculationMethods.densityPorosity.average
+      console.log('📦 Using Comprehensive Artifact:', {
+        messageContentType: artifact.messageContentType,
+        analysisType: artifact.analysisType,
+        wellName: artifact.wellName,
+        hasLogData: !!artifact.logData,
+        hasExecutiveSummary: !!artifact.executiveSummary,
+        hasResults: !!artifact.results
       });
       
       const response = {
         success: true,
-        message: result.message || `Porosity analysis complete for ${wellName} using ${calcMethod} method`,
+        message: result.message || `Comprehensive porosity analysis complete for ${wellName}`,
         artifacts: [artifact],
         thoughtSteps: this.getThoughtSteps()
       };
       
-      console.log('🎉 PRESERVED ARTIFACTS IN HANDLER RESPONSE:', {
+      console.log('🎉 PRESERVED COMPREHENSIVE ARTIFACTS:', {
         artifactCount: response.artifacts?.length || 0,
         thoughtStepCount: response.thoughtSteps?.length || 0,
         responseSuccess: response.success
       });
       
-      console.log('🧮 === CALCULATE POROSITY HANDLER END (SUCCESS WITH ARTIFACTS) ===');
+      console.log('🧮 === CALCULATE POROSITY HANDLER END (SUCCESS WITH COMPREHENSIVE ARTIFACTS) ===');
       return response;
     }
     
+    // Handle error response from tool
     console.log('❌ Porosity Calculation Failed for:', wellName, result);
     this.errorThoughtStep(dataStep.id, new Error('Porosity calculation failed'), { wellName, method: calcMethod });
     console.log('🧮 === CALCULATE POROSITY HANDLER END (FAILED) ===');
-    return result;
+    
+    // Tool returned an error object - convert it to proper response format
+    const errorMessage = result.error || result.message || 'Porosity analysis failed';
+    const suggestion = result.suggestion || '';
+    
+    return {
+      success: false,
+      message: `${errorMessage}${suggestion ? '\n\n' + suggestion : ''}`,
+      artifacts: []
+    };
   }
 
   private async handleCalculateShale(message: string, wellName: string | null, method: string | null): Promise<any> {
@@ -2973,16 +2984,18 @@ Next Steps:
           wellNames: multipleWells,
           includeVisualization: true,
           generateCrossplot: true,
-          identifyReservoirIntervals: true
+          identifyReservoirIntervals: true,
+          sessionId: this.sessionId // NEW: Pass sessionId for S3 storage
         };
       } else if (wellName) {
         console.log('🎯 SINGLE-WELL COMPREHENSIVE ANALYSIS');
         parameters = {
           analysisType: 'single_well',
-          wellName: wellName,
+          wellNames: [wellName], // FIXED: Tool expects wellNames (plural) as array
           includeVisualization: true,
           generateCrossplot: true,
-          identifyReservoirIntervals: true
+          identifyReservoirIntervals: true,
+          sessionId: this.sessionId // NEW: Pass sessionId for S3 storage
         };
       } else {
         console.log('🎯 FIELD-WIDE ANALYSIS (no specific wells)');
@@ -2990,7 +3003,8 @@ Next Steps:
           analysisType: 'field_overview',
           includeVisualization: true,
           generateCrossplot: true,
-          identifyReservoirIntervals: true
+          identifyReservoirIntervals: true,
+          sessionId: this.sessionId // NEW: Pass sessionId for S3 storage
         };
       }
       

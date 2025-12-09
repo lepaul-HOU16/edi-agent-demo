@@ -604,15 +604,21 @@
   height: calc(100% + 30px);
 }
 
-/* Canvas pages (ChatPage, etc.) - split the difference with catalog */
+/* Canvas pages (ChatPage, etc.) - use padding instead of margin to avoid flex collapse */
 [data-page="chat"].main-container {
-  margin-top: 42px;
+  padding-top: 4px !important;
+  margin-top: 0 !important;
+}
+
+/* Canvases list page - compensate for AppLayout padding (5px top, 40px sides) */
+[data-page="canvases"].main-container {
+  margin: 31px 40px 0 !important; /* 31px + 5px AppLayout padding = 36px total top */
 }
 
 /* Panel (left side - 5/12 width = ~41.67%) */
 .panel {
   width: 100% !important;
-  height: calc(100% - 50px);
+  height: calc(100% - 41px);
   min-height: 500px !important;
   overflow-y: auto !important;
   overflow-x: hidden !important;
@@ -682,7 +688,7 @@
 
 /* Data Catalog specific spacing adjustments to match workspace */
 [data-page="catalog"].main-container {
-  margin-top: 12px;
+  margin-top: 4px;
 }
 
 [data-page="catalog"] .MuiTooltip-tooltip {
@@ -898,7 +904,7 @@
 
 /* Left panel (map/analysis/chain of thought) */
 [data-page="catalog"] .panel {
-  height: calc(100% - 48px);
+  height: calc(100% - 41px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -935,4 +941,15 @@
 [data-page="chat"] .MuiList-root .MuiListItem-root {
   padding-left: 0 !important;
   padding-right: 0 !important;
+}
+
+/* ============================================
+   CANVASES PAGE SPECIFIC STYLING
+   ============================================ */
+
+/* Canvas workspace chat page - specific height adjustment */
+/* Updated: 2025-12-09 1:10 PM - Use canvases-panel class */
+/* This inherits base .panel styling and adds Canvas-specific height override */
+.panel.canvases-panel {
+  height: calc(100% - 38px) !important;
 }

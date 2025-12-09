@@ -17,6 +17,7 @@ import ProjectsPage from './pages/ProjectsPage';
 import SignInPage from './pages/SignInPage';
 import ReinventDemoPage from './pages/ReinventDemoPage';
 import WakeHeatMapMockup from './pages/WakeHeatMapMockup';
+import OSDUQueryBuilderMockup from './pages/OSDUQueryBuilderMockup';
 
 function App() {
   return (
@@ -42,6 +43,7 @@ function App() {
         
         {/* Development/mockup routes */}
         <Route path="/mockup/wake-heatmap" element={<ProtectedRoute><WakeHeatMapMockup /></ProtectedRoute>} />
+        <Route path="/mockup/osdu-query-builder" element={<ProtectedRoute><OSDUQueryBuilderMockup /></ProtectedRoute>} />
         
         {/* Catch-all redirect */}
         <Route path="*" element={<Navigate to="/" replace />} />

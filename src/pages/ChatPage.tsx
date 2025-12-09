@@ -608,7 +608,7 @@ function ChatPageContent() {
                     gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
                 >
                     {selectedId === "seg-1" ? (
-                    <div className='panel'>
+                    <div className='panel canvases-panel'>
                         <AgentLandingPage
                             selectedAgent={selectedAgent}
                             onWorkflowSelect={(prompt: string) => {
@@ -618,7 +618,7 @@ function ChatPageContent() {
                         />
                     </div>
                 ) : selectedId === "seg-1-old" ? (
-                    <div className='panel'>
+                    <div className='panel canvases-panel'>
                         <Container
                             footer=""
                             header="AI-Powered Workflow Recommendations"
@@ -800,7 +800,7 @@ function ChatPageContent() {
                     </div>
                 ) : (
                     // Chain of Thought here - using reusable ChainOfThoughtDisplay component
-                    <div className='panel'>
+                    <div className='panel canvases-panel'>
                         <ChainOfThoughtDisplay messages={messages} />
                     </div>
                 )}

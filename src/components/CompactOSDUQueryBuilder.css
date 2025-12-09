@@ -1,0 +1,85 @@
+/* Compact OSDU Query Builder Styles */
+
+.compact-query-builder-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 1400;
+  max-height: 400px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  transition: box-shadow 0.2s ease;
+  background: white;
+}
+
+.compact-query-builder {
+  max-height: 400px;
+  overflow: hidden;
+  border-radius: 8px;
+  background: white;
+}
+
+.criteria-list-scrollable {
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+.criteria-list-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.criteria-list-scrollable::-webkit-scrollbar-thumb {
+  background: #d5dbdb;
+  border-radius: 3px;
+}
+
+.criteria-list-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #aab7b8;
+}
+
+.criteria-list-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.query-preview-code {
+  display: block;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', 'Courier New', monospace;
+  font-size: 12px;
+  line-height: 1.6;
+  color: #00ff00;
+  background: #232f3e;
+  padding: 12px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 768px) {
+  .compact-query-builder-sticky,
+  .compact-query-builder {
+    max-height: 350px;
+  }
+
+  .criteria-list-scrollable {
+    max-height: 150px;
+  }
+
+  .query-preview-code {
+    font-size: 11px;
+    padding: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .compact-query-builder-sticky,
+  .compact-query-builder {
+    max-height: 300px;
+  }
+
+  .criteria-list-scrollable {
+    max-height: 120px;
+  }
+}

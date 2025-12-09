@@ -266,7 +266,7 @@ function CanvasListPageBase() {
   };
 
   return (
-    <div style={{ margin: '36px 80px 0' }}>
+    <div className="main-container" data-page="canvases">
       <ContentLayout
         disableOverlap
         headerVariant="divider"
@@ -346,7 +346,6 @@ function CanvasListPageBase() {
                 handleCanvasClick(detail.selectedItems[0].id);
               }
             }}
-            className="fixed-height-cards"
             empty={
               <Box textAlign="center" color="inherit" padding="xxl">
                 <SpaceBetween direction="vertical" size="m">

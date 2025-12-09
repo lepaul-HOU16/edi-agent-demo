@@ -11,7 +11,7 @@ const PetrophysicsAgentLanding: React.FC<PetrophysicsAgentLandingProps> = React.
     {
       title: 'Porosity Calculation',
       description: 'Calculate porosity for a specific well using density and neutron logs',
-      prompt: 'Calculate porosity for WELL-001'
+      prompt: 'Calculate porosity for WELL-004'
     },
     {
       title: 'Shale Volume Analysis',

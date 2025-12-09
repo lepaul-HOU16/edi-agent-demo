@@ -37,6 +37,10 @@ export default defineConfig({
     hmr: {
       overlay: true,
     },
+    // Disable aggressive caching for CSS
+    watch: {
+      usePolling: true,
+    },
     proxy: {
       '/api': {
         target: process.env.VITE_API_URL || 'https://t4begsixg2.execute-api.us-east-1.amazonaws.com',
@@ -45,6 +49,10 @@ export default defineConfig({
         rewrite: (path) => path, // Keep /api prefix
       },
     },
+  },
+  // Force CSS reload
+  css: {
+    devSourcemap: true,
   },
   define: {
     'process.env': {},

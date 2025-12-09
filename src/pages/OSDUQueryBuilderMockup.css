@@ -1,0 +1,90 @@
+/* OSDU Query Builder Mockup Styles */
+
+.mockup-page-container {
+  padding: 20px;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Compact Query Builder - Sticky Version */
+.compact-query-builder-sticky {
+  position: sticky;
+  top: 0;
+  z-index: 1400;
+  max-height: 400px;
+  overflow: hidden;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-radius: 8px;
+  transition: box-shadow 0.2s ease;
+}
+
+/* Compact Query Builder - Non-Sticky Version */
+.compact-query-builder {
+  max-height: 400px;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+/* Scrollable Criteria List */
+.criteria-list-scrollable {
+  max-height: 200px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 4px;
+}
+
+.criteria-list-scrollable::-webkit-scrollbar {
+  width: 6px;
+}
+
+.criteria-list-scrollable::-webkit-scrollbar-thumb {
+  background: #d5dbdb;
+  border-radius: 3px;
+}
+
+.criteria-list-scrollable::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Query Preview Code */
+.query-preview-code {
+  display: block;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  color: #00ff00;
+  background: #232f3e;
+  padding: 12px;
+  border-radius: 4px;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+/* Old Query Builder Container */
+.old-query-builder-container {
+  max-height: 800px;
+  overflow-y: auto;
+}
+
+/* Demo Result Box */
+.demo-result-box {
+  background: #f5f5f5;
+  border-left: 4px solid #0972d3;
+  border-radius: 4px;
+}
+
+/* Responsive Adjustments */
+@media (max-width: 768px) {
+  .mockup-page-container {
+    padding: 12px;
+  }
+
+  .compact-query-builder-sticky,
+  .compact-query-builder {
+    max-height: 350px;
+  }
+
+  .criteria-list-scrollable {
+    max-height: 150px;
+  }
+}
