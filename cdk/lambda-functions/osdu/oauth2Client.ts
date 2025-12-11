@@ -1,8 +1,13 @@
 /**
- * OAuth2 Client for Amazon Federate Authentication
- * Handles token requests, caching, and automatic refresh
+ * UNUSED - OAuth2 Client for Amazon Federate Authentication
+ * 
+ * This file is commented out because we're using Option B (colleague's serverless API)
+ * instead of direct EDI Platform integration with OAuth2.
+ * 
+ * Kept for reference in case we need to switch to direct integration later.
  */
 
+/*
 export interface OAuth2Config {
   clientId: string;
   clientSecret: string;
@@ -77,3 +82,4 @@ export class OSDUOAuth2Client {
     console.log('🗑️ OAuth2 token cache cleared');
   }
 }
+*/

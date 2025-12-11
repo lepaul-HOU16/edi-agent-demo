@@ -50,15 +50,15 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     zoom: number;
     pitch: number;
     bearing: number;
-    wellData: any;
-    weatherLayers: string[];
+    wellData: any | null;      // Store well GeoJSON for theme persistence
+    weatherLayers: string[];   // Track active weather layers
   }>({
     center: [106.9, 10.2],
     zoom: 5,
     pitch: 0,
     bearing: 0,
-    wellData: null,
-    weatherLayers: []
+    wellData: null,            // Initialize as null
+    weatherLayers: []          // Initialize as empty array
   });
 
   // AWS configuration for Amazon Location Service
@@ -422,6 +422,15 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
       const opacity = layerType === 'temperature' ? 0.8 : 
                     layerType === 'precipitation' ? 0.7 : 0.6;
       mapRef.current.setPaintProperty(layerId, 'heatmap-opacity', visible ? opacity : 0);
+      
+      // Track active weather layers in state for theme persistence
+      setCurrentMapState(prev => ({
+        ...prev,
+        weatherLayers: visible
+          ? [...prev.weatherLayers, layerType].filter((v, i, a) => a.indexOf(v) === i) // Dedupe
+          : prev.weatherLayers.filter(l => l !== layerType)
+      }));
+      console.log('💾 Active weather layers:', visible ? 'added' : 'removed', layerType);
     }
   }, []);
 
@@ -531,6 +540,13 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
 
     console.log('🔄 updateMapData called with', geoJsonData.features.length, 'features');
     console.log('🔄 Feature names:', geoJsonData.features.slice(0, 5).map((f: any) => f.properties?.name));
+    
+    // CRITICAL: Save well data to state for theme persistence
+    setCurrentMapState(prev => ({
+      ...prev,
+      wellData: geoJsonData
+    }));
+    console.log('💾 Saved well data to state:', geoJsonData.features.length, 'wells');
     
     // Check if this is a weather maps query
     const isWeatherQuery = geoJsonData.metadata?.queryType === 'weatherMaps';
@@ -867,16 +883,18 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
         bearing: 0
       });
       
+      // Clear state including well data and weather layers
+      console.log('🧹 Clearing map state');
       setCurrentMapState({
         center: [106.9, 10.2],
         zoom: 5,
         pitch: 0,
         bearing: 0,
-        wellData: null,
-        weatherLayers: []
+        wellData: null,        // Clear well data
+        weatherLayers: []      // Clear weather layers
       });
       
-      console.log('✅ Map cleared successfully');
+      console.log('✅ Map cleared successfully (state reset)');
     } catch (error) {
       console.error('❌ Error clearing map:', error);
     }
@@ -911,7 +929,7 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
       
       // Restore map state and markers after style loads
       mapRef.current.once('styledata', () => {
-        console.log('🎨 Style loaded, restoring markers and state');
+        console.log('🎨 Style loaded, restoring state');
         
         // Restore camera position
         if (mapRef.current) {
@@ -921,19 +939,25 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
             pitch: currentPitch,
             bearing: currentBearing
           });
+          console.log('✅ Camera position restored');
           
-          // Re-add well markers if they exist
+          // CRITICAL: Re-add well markers if they exist
           if (currentMapState.wellData) {
-            console.log('🎨 Re-adding well markers after theme change');
+            const markerCount = currentMapState.wellData.features?.length || 0;
+            console.log('🎨 Restoring', markerCount, 'well markers after theme change');
             updateMapData(currentMapState.wellData);
+            console.log('✅ Markers restored successfully');
+          } else {
+            console.log('ℹ️ No well data to restore');
           }
           
           // Re-enable weather layers if they were active
           if (currentMapState.weatherLayers.length > 0) {
-            console.log('🎨 Re-enabling weather layers:', currentMapState.weatherLayers);
+            console.log('🎨 Restoring weather layers:', currentMapState.weatherLayers);
             currentMapState.weatherLayers.forEach(layerType => {
               toggleWeatherLayer(layerType, true);
             });
+            console.log('✅ Weather layers restored');
           }
         }
       });

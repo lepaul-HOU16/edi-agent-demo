@@ -8,7 +8,8 @@ import {
   ButtonDropdown, 
   Button, 
   Spinner,
-  Icon
+  Icon,
+  Pagination
 } from '@cloudscape-design/components';
 import ExpandablePromptInput from './ExpandablePromptInput';
 import { OSDUSearchResponse, OSDUErrorResponse } from './OSDUSearchResponse';
@@ -25,6 +26,9 @@ const ProfessionalGeoscientistDisplay = React.memo(({
 }: { 
   tableData: any[]
 }) => {
+  const [currentPageIndex, setCurrentPageIndex] = useState(1);
+  const pageSize = 10;
+
   // Generate column definitions dynamically based on the first item's keys
   const columnDefinitions = useMemo(() => {
     if (!tableData || tableData.length === 0) return [];
@@ -39,6 +43,12 @@ const ProfessionalGeoscientistDisplay = React.memo(({
         sortingField: key
       }));
   }, [tableData]);
+
+  // Calculate pagination
+  const startIndex = (currentPageIndex - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedData = tableData.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(tableData.length / pageSize);
 
   return (
     <div 
@@ -60,8 +70,15 @@ const ProfessionalGeoscientistDisplay = React.memo(({
       }}>
         <Table
           columnDefinitions={columnDefinitions}
-          items={tableData}
+          items={paginatedData}
           trackBy={(item) => item.name || item.id || JSON.stringify(item)}
+          pagination={
+            <Pagination
+              currentPageIndex={currentPageIndex}
+              pagesCount={totalPages}
+              onChange={({ detail }) => setCurrentPageIndex(detail.currentPageIndex)}
+            />
+          }
         />
       </div>
     </div>

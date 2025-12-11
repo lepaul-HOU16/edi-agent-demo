@@ -52,14 +52,14 @@ export function parseNaturalLanguageQuery(query: string): ParsedQuery {
     'exxon mobil': 'ExxonMobil'
   };
 
-  // Well name prefixes
+  // Well name prefixes - only match when used as actual prefixes, not generic "wells"
   const wellPrefixKeywords = {
-    'usa': 'USA',
-    'nor': 'NOR', 
-    'well': 'WELL',
-    'vie': 'VIE',
-    'uae': 'UAE',
-    'kaz': 'KAZ'
+    'usa-': 'USA',
+    'nor-': 'NOR', 
+    'well-': 'WELL',  // Only match "well-" not just "well" or "wells"
+    'vie-': 'VIE',
+    'uae-': 'UAE',
+    'kaz-': 'KAZ'
   };
 
   let matchCount = 0;
@@ -80,7 +80,7 @@ export function parseNaturalLanguageQuery(query: string): ParsedQuery {
     }
   }
 
-  // Parse well prefixes
+  // Parse well prefixes - only match explicit prefix patterns
   for (const [keyword, prefix] of Object.entries(wellPrefixKeywords)) {
     if (lowerQuery.includes(keyword)) {
       result.wellPrefixes.push(prefix);

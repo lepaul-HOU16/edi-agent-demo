@@ -146,11 +146,11 @@ export const handler = async (
 
       // Use real OSDU API if available
       if (useRealAPI && credentials) {
-        console.log('🔍 Calling real OSDU API');
+        console.log('🔍 Calling real OSDU API - fetching first page to determine total');
 
         try {
-          // Call colleague's serverless OSDU API
-          const response = await fetch(credentials.apiUrl, {
+          // First, fetch page 1 to get total count
+          const firstResponse = await fetch(credentials.apiUrl, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -159,25 +159,63 @@ export const handler = async (
             body: JSON.stringify({
               query: query,
               dataPartition: dataPartition,
-              maxResults: maxResults
+              maxResults: 100, // Request max per page
+              offset: 0
             })
           });
 
-          if (!response.ok) {
-            throw new Error(`OSDU API returned ${response.status}`);
+          if (!firstResponse.ok) {
+            throw new Error(`OSDU API returned ${firstResponse.status}`);
           }
 
-          const data = await response.json();
+          const firstData = await firstResponse.json();
+          console.log('🔍 Raw OSDU API response (first page):', JSON.stringify(firstData).substring(0, 500));
           
-          console.log('✅ Real OSDU search successful:', data.recordCount, 'wells found');
+          // Extract first page wells and total count
+          let allWells: any[] = [];
+          let totalFound = 0;
+          
+          if (firstData.reasoningSteps && Array.isArray(firstData.reasoningSteps)) {
+            for (const step of firstData.reasoningSteps) {
+              if (step.type === 'tool_result' && step.tool === 'searchWells' && step.result?.body?.records) {
+                allWells = step.result.body.records;
+                totalFound = step.result.body.metadata?.totalFound || allWells.length;
+                console.log(`✅ First page: ${allWells.length} wells (total available: ${totalFound})`);
+                break;
+              }
+            }
+          }
+          
+          const wells = allWells.slice(0, Math.min(allWells.length, maxResults));
+          
+          console.log(`✅ Returning ${wells.length} wells (total available: ${totalFound})`);
+          
+          // Transform OSDU records to frontend format
+          const transformedWells = wells.map((record: any) => ({
+            id: record.recordId || record.osduRecordId || 'unknown',
+            name: record.name || record.WellName || record.Name || 'Unnamed',
+            type: record.kind || record.recordType || 'unknown',
+            operator: record.company || 'Unknown',
+            location: record.field || record.basin || record.location?.region || 'Unknown',
+            basin: record.basin || 'Unknown',
+            country: record.country || 'Unknown',
+            depth: record.BottomDepth ? `${record.BottomDepth}ft` : 'Unknown',
+            status: record.complianceStatus || 'Unknown',
+            dataSource: 'OSDU',
+            latitude: record.location?.lat || null,
+            longitude: record.location?.lon || null
+          }));
+          
+          console.log('✅ Real OSDU search successful:', transformedWells.length, 'wells transformed');
+          console.log('📍 Sample well:', transformedWells[0]);
 
           return {
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              answer: data.answer || `Found ${data.recordCount} wells in OSDU`,
-              recordCount: data.recordCount || 0,
-              records: data.records || []
+              answer: data.response || `Found ${totalFound} wells in OSDU`,
+              recordCount: totalFound,
+              records: transformedWells
             }),
           };
         } catch (apiError) {

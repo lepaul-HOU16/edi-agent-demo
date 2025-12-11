@@ -1,8 +1,13 @@
 /**
- * EDI Platform API Client
- * Handles OSDU search requests with OAuth2 authentication
+ * UNUSED - EDI Platform API Client
+ * 
+ * This file is commented out because we're using Option B (colleague's serverless API)
+ * instead of direct EDI Platform integration with OAuth2.
+ * 
+ * Kept for reference in case we need to switch to direct integration later.
  */
 
+/*
 import { OSDUOAuth2Client } from './oauth2Client';
 
 export interface EDISearchRequest {
@@ -98,3 +103,4 @@ export class EDIPlatformClient {
     };
   }
 }
+*/

@@ -1676,8 +1676,8 @@ function CatalogPageBase() {
             dataSource: 'OSDU'
           }));
           
-          // Create success message with table data
-          const messageText = `✅ **OSDU Search Complete**\n\n${osduResponse.answer}\n\nFound **${osduResponse.recordCount} records** (${wellsWithCoords.length} with map coordinates).\n\n**📊 OSDU Data Table:**\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\`\n\n🗺️ *Records displayed on map with OSDU data source attribution.*`;
+          // Create compact success message with table data
+          const messageText = `✅ **${osduResponse.answer}** • ${wellsWithCoords.length} wells on map\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\``;
           
           const successMessage: Message = {
             id: uuidv4() as any,
@@ -1765,7 +1765,7 @@ function CatalogPageBase() {
             id: uuidv4() as any,
             role: "ai" as any,
             content: {
-              text: `❌ **OSDU Search Failed**\n\nUnable to search OSDU data at this time.\n\n**Error:** ${osduError instanceof Error ? osduError.message : String(osduError)}\n\n💡 **Alternative:** Try a regular catalog search by removing "OSDU" from your query.`
+              text: `❌ **OSDU search failed** • ${osduError instanceof Error ? osduError.message : String(osduError)}`
             } as any,
             responseComplete: true as any,
             createdAt: new Date().toISOString() as any,

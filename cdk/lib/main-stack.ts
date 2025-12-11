@@ -1213,6 +1213,19 @@ export class MainStack extends cdk.Stack {
       },
     });
 
+    // Grant Secrets Manager permissions for OSDU credentials
+    osduFunction.function.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          'secretsmanager:GetSecretValue',
+        ],
+        resources: [
+          `arn:aws:secretsmanager:us-east-1:${this.account}:secret:osdu-credentials-*`,
+        ],
+      })
+    );
+
     // Add routes for OSDU API
     // POST /api/osdu/search
     this.httpApi.addRoutes({

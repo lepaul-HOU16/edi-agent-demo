@@ -1,0 +1,41 @@
+{
+  "timing": {
+    "pass": true,
+    "details": {
+      "hasJumpTo": true,
+      "hasStyleData": true,
+      "hasUpdateMapData": true,
+      "message": "Implementation uses efficient methods for fast theme changes"
+    }
+  },
+  "rendering": {
+    "pass": true,
+    "details": {
+      "usesOnce": true,
+      "restoresInStyleData": true,
+      "usesFunctionalSetState": true,
+      "message": "Implementation prevents duplicate rendering"
+    }
+  },
+  "memory": {
+    "pass": true,
+    "details": {
+      "savesWellData": true,
+      "clearsWellData": true,
+      "clearsWeatherLayers": true,
+      "initializesState": true,
+      "message": "Implementation properly manages memory"
+    }
+  },
+  "transition": {
+    "pass": true,
+    "details": {
+      "restoresCamera": true,
+      "restoresMarkers": true,
+      "restoresWeatherLayers": true,
+      "hasErrorHandling": true,
+      "hasLogging": true,
+      "message": "Implementation provides smooth transitions"
+    }
+  }
+}

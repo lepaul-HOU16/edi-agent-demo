@@ -1,45 +1,45 @@
 # Implementation Plan
 
-## Phase 1: OSDU Integration with Real Credentials
+## Phase 1: Fix OSDU Search Regression (Option B - Colleague's Serverless API)
 
-- [ ] 1.1 Create OAuth2 client module
-  - Create `cdk/lambda-functions/osdu/oauth2Client.ts`
-  - Implement token request with client credentials flow
-  - Add token caching with expiry checking (5 min buffer)
-  - Add automatic token refresh logic
-  - Handle authentication errors gracefully
-  - _Requirements: 2.1, 2.2, 2.3_
+- [ ] 1.1 Verify Secrets Manager credentials
+  - Check `osdu-credentials` secret exists with `apiUrl` and `apiKey`
+  - Verify IAM permissions allow Lambda to read secret
+  - Test secret retrieval in Lambda handler
+  - Log credential loading success/failure
+  - _Requirements: 1.1, 2.4, 2.5_
 
-- [ ] 1.2 Create EDI Platform API client
-  - Create `cdk/lambda-functions/osdu/ediPlatformClient.ts`
-  - Implement search method with OAuth2 authentication
-  - Add proper headers (Authorization, data-partition-id)
-  - Transform EDI response to frontend format
-  - Handle API errors with clear messages
-  - _Requirements: 1.2, 3.2_
+- [ ] 1.2 Debug colleague's OSDU API
+  - Test direct API call with credentials from Secrets Manager
+  - Verify API returns real OSDU data (not demo data)
+  - Check API response format matches expected structure
+  - Log full API request/response for debugging
+  - Identify why demo data fallback is triggering
+  - _Requirements: 1.2, 1.3, 3.2_
 
-- [ ] 1.3 Store OSDU credentials in Secrets Manager
-  - Create secret `osdu-credentials` with client ID, secret, URLs
-  - Add IAM permissions for Lambda to read secret
-  - Create helper function to retrieve credentials
-  - Add error handling for missing/invalid credentials
-  - _Requirements: 2.4, 2.5_
-
-- [ ] 1.4 Update OSDU Lambda handler
-  - Remove demo data generation code
-  - Initialize OAuth2 and EDI clients on cold start
-  - Call real EDI Platform API for searches
-  - Transform well records to frontend format
-  - Add comprehensive error handling
+- [ ] 1.3 Fix handler to use real OSDU data
+  - Ensure `useRealAPI` flag is set correctly when credentials exist
+  - Remove or fix demo data fallback logic
+  - Verify API response parsing extracts wells correctly
+  - Add better error handling for API failures
+  - Log when real API is used vs demo fallback
   - _Requirements: 1.1, 1.3, 1.4, 1.5, 3.1, 3.2, 3.3, 3.4_
 
-- [ ] 1.5 Deploy and test OSDU integration
-  - Deploy Lambda with new code: `cd cdk && npm run deploy`
-  - Test authentication with real credentials
-  - Execute sample OSDU queries
-  - Verify real well data is returned
-  - Test error scenarios (invalid credentials, API down)
-  - _Requirements: All Phase 1 requirements_
+- [ ] 1.4 Test OSDU search with real data
+  - Deploy Lambda: `cd cdk && npm run deploy`
+  - Execute OSDU search query from frontend
+  - Verify real wells are returned (not demo data)
+  - Check wells have valid coordinates for map display
+  - Test various query types (location, operator, prefix)
+  - _Requirements: 1.1, 1.2, 1.3, 1.4, 1.5_
+
+- [ ] 1.5 Add defensive logging and error handling
+  - Log when credentials are loaded from Secrets Manager
+  - Log when calling colleague's API (URL, query params)
+  - Log API response status and record count
+  - Add clear error messages when API fails
+  - Ensure demo fallback only triggers when API is unavailable
+  - _Requirements: 1.4, 1.5, 3.4, 3.5_
 
 ## Phase 2: Compact Query Builder Design
 
