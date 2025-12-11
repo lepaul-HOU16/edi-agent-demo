@@ -2194,7 +2194,7 @@ function CatalogPageBase() {
         gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
         >
           {selectedId === "seg-1" ? (
-            <div className='panel'>
+            <div className='panel' style={{ height: 'calc(100vh - 108px)', overflow: 'hidden' }}>
               <MapComponent
                 ref={mapComponentRef}
                 mapColorScheme={mapColorScheme}
@@ -2205,7 +2205,7 @@ function CatalogPageBase() {
             </div>
           ) : selectedId === "seg-2" ? (
             // Data Analysis & Visualization Panel
-            <div className='panel'>
+            <div className='panel' style={{ height: 'calc(100vh - 108px)', overflow: 'hidden' }}>
               <Container
                 footer=""
                 header={
@@ -2214,7 +2214,7 @@ function CatalogPageBase() {
                   </SpaceBetween>
                 }
               >
-                <div style={{ overflowY: 'auto', flex: 1, position: 'relative' }}>
+                <div style={{ overflowY: 'auto', height: 'calc(100vh - 220px)', position: 'relative' }}>
                   {analysisData ? (
                     <GeoscientistDashboardErrorBoundary
                       fallbackTableData={analysisData}
@@ -2274,7 +2274,7 @@ function CatalogPageBase() {
             </div>
           ) : (
             // Chain of Thought Panel (seg-3) - using reusable ChainOfThoughtDisplay component
-            <div className='panel'>
+            <div className='panel' style={{ height: 'calc(100vh - 108px)', overflow: 'hidden' }}>
               <ChainOfThoughtDisplay messages={messages} />
             </div>
           )}
