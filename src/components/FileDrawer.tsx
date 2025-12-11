@@ -56,6 +56,17 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  // Debug logging to confirm rendering
+  React.useEffect(() => {
+    console.log('🗂️ FileDrawer render state:', {
+      open,
+      isMobile,
+      variant,
+      chatSessionId,
+      zIndex: isMobile ? theme.zIndex.drawer : 1250
+    });
+  }, [open, isMobile, variant, chatSessionId, theme.zIndex.drawer]);
+
   // File extensions to icon mapping
   const fileIcons: Record<string, React.ReactNode> = {
     '.txt': <InsertDriveFileIcon style={{ color: '#2196f3' }} />,
@@ -228,7 +239,7 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
             height: '100%',
             backgroundColor: 'background.paper',
             boxShadow: '-8px 0 20px rgba(0,0,0,0.1)',
-            zIndex: theme.zIndex.drawer,
+            zIndex: 1300, // ABOVE all page content, controls, and buttons (100-1000), BELOW modals (1400+)
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
@@ -238,6 +249,7 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
               easing: theme.transitions.easing.easeOut,
               duration: theme.transitions.duration.enteringScreen,
             }),
+            willChange: 'transform', // Hardware acceleration for smooth transitions
           }}
         >
           <Box

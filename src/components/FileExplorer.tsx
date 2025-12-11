@@ -608,9 +608,22 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
 
   if (isLoading && fileStructure.length === 0) {
     return (
-      <Box>
-        {/* Always show navigation toolbar */}
-        <Box display="flex" alignItems="center" px={1} py={0.5} bgcolor="background.paper">
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* Always show navigation toolbar - STICKY */}
+        <Box 
+          display="flex" 
+          alignItems="center" 
+          px={1} 
+          py={0.5} 
+          bgcolor="background.paper"
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            borderBottom: '1px solid rgba(0,0,0,0.08)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+        >
           <IconButton
             size="small"
             onClick={handleBackClick}
@@ -655,7 +668,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
             </Badge>
           </IconButton>
         </Box>
-        <Box display="flex" justifyContent="center" alignItems="center" height="200px">
+        <Box display="flex" justifyContent="center" alignItems="center" flex={1}>
           <CircularProgress />
         </Box>
       </Box>
@@ -664,9 +677,22 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
 
   if (error && fileStructure.length === 0) {
     return (
-      <Box>
-        {/* Always show navigation toolbar */}
-        <Box display="flex" alignItems="center" px={1} py={0.5} bgcolor="background.paper">
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* Always show navigation toolbar - STICKY */}
+        <Box 
+          display="flex" 
+          alignItems="center" 
+          px={1} 
+          py={0.5} 
+          bgcolor="background.paper"
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            borderBottom: '1px solid rgba(0,0,0,0.08)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+        >
           <IconButton
             size="small"
             onClick={handleBackClick}
@@ -711,7 +737,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
             </Badge>
           </IconButton>
         </Box>
-        <Box p={2}>
+        <Box p={2} flex={1}>
           <Typography color="error">{error}</Typography>
           <IconButton onClick={handleRefresh} color="primary" size="small" sx={{ mt: 1 }}>
             <RefreshIcon /> Retry
@@ -723,9 +749,22 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
 
   if (fileStructure.length === 0 && !isLoading) {
     return (
-      <Box>
-        {/* Always show navigation toolbar */}
-        <Box display="flex" alignItems="center" px={1} py={0.5} bgcolor="background.paper">
+      <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+        {/* Always show navigation toolbar - STICKY */}
+        <Box 
+          display="flex" 
+          alignItems="center" 
+          px={1} 
+          py={0.5} 
+          bgcolor="background.paper"
+          sx={{
+            position: 'sticky',
+            top: 0,
+            zIndex: 10,
+            borderBottom: '1px solid rgba(0,0,0,0.08)',
+            boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+          }}
+        >
           <IconButton
             size="small"
             onClick={handleBackClick}
@@ -770,7 +809,7 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
             </Badge>
           </IconButton>
         </Box>
-        <Box p={2}>
+        <Box p={2} flex={1}>
           <Typography variant="body2" color="textSecondary">
             No files found in this folder.
           </Typography>
@@ -788,6 +827,8 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
       sx={{ 
         position: 'relative',
         height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
         ...(isDragging && {
           '&::after': {
             content: '""',
@@ -805,8 +846,21 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
         })
       }}
     >
-      {/* Navigation toolbar */}
-      <Box display="flex" alignItems="center" px={1} py={0.5} bgcolor="background.paper">
+      {/* Navigation toolbar - STICKY at top */}
+      <Box 
+        display="flex" 
+        alignItems="center" 
+        px={1} 
+        py={0.5} 
+        bgcolor="background.paper"
+        sx={{
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          borderBottom: '1px solid rgba(0,0,0,0.08)',
+          boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+        }}
+      >
         <IconButton
           size="small"
           onClick={handleBackClick}
@@ -852,10 +906,12 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
         </IconButton>
       </Box>
 
-      {/* File list with slight animation when refreshing */}
+      {/* File list with slight animation when refreshing - SCROLLABLE */}
       <Box sx={{
         opacity: isRefreshing ? 0.7 : 1,
         transition: 'opacity 0.3s ease',
+        flex: 1,
+        overflow: 'auto',
       }}>
         <List dense>
           {fileStructure.map((item) => (

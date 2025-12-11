@@ -2280,8 +2280,8 @@ function CatalogPageBase() {
           )}
 
           <div className='convo'>
-            <div style={{ width: '100%', position: 'relative' }}>
-              <div>
+            <div style={{ width: '100%', position: 'relative', height: '100%' }}>
+              <div style={{ height: '100%' }}>
 
                 <CatalogChatBoxCloudscape
                   onInputChange={setUserInput}

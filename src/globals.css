@@ -500,7 +500,7 @@
   margin-bottom: -1px;
   height: 60px;
   position: relative;
-  z-index: 10000;
+  z-index: 100;
   display: flex;
   align-items: center;
 }
@@ -576,7 +576,7 @@
 
 .toggles {
   position: relative;
-  z-index: 0;
+  z-index: 100;
 }
 
 .main-container {
@@ -718,7 +718,7 @@
   bottom: 40px;
   left: 0;
   right: 0;
-  z-index: 1000;
+  z-index: 100;
   pointer-events: none;
   max-width: 1920px;
   margin: auto;
@@ -932,8 +932,8 @@
   height: 100%;
 }
 
-/* Second child level of convo needs height */
-[data-page="catalog"] .convo > * > * {
+/* Second child level of convo needs height - SCOPED to chat container only */
+[data-page="catalog"] .convo > * > .catalog-chat-container {
   height: 100%;
 }
 
@@ -950,9 +950,9 @@
   padding-bottom: 100px;
 }
 
-/* Controls panel (second immediate child of catalog-chat-container) - ensure it's above everything */
+/* Controls panel (second immediate child of catalog-chat-container) - below FileDrawer */
 [data-page="catalog"] .catalog-chat-container > .controls {
-  z-index: 10000 !important;
+  z-index: 100 !important;
 }
 
 /* Ensure map fills its container */

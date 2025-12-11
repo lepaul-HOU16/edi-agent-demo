@@ -522,7 +522,7 @@ const CatalogChatBoxCloudscape = (params: {
           position: 'fixed',
           right: '22px',
           bottom: '90px',
-          zIndex: 10002, // Higher than controls (10000) to ensure it's always clickable
+          zIndex: 200, // Above controls (100) but below FileDrawer (1300)
         }}
       >
         <PushToTalkButton
@@ -539,7 +539,7 @@ const CatalogChatBoxCloudscape = (params: {
           position: 'fixed',
           right: '22px',
           bottom: '50px',
-          zIndex: 10001, // Higher than controls (10000) to ensure it's always clickable
+          zIndex: 200, // Above controls (100) but below FileDrawer (1300)
         }}
       >
         <Button
