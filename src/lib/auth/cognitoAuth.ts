@@ -76,6 +76,7 @@ export class CognitoAuthProvider {
 
   /**
    * Sign in with username and password
+   * Returns session on success, or throws special error if password change required
    */
   async signIn(username: string, password: string): Promise<CognitoUserSession> {
     return new Promise((resolve, reject) => {
@@ -99,7 +100,45 @@ export class CognitoAuthProvider {
           console.error('❌ Cognito Auth: Sign in failed', err);
           reject(err);
         },
+        newPasswordRequired: (userAttributes, requiredAttributes) => {
+          console.log('🔑 Cognito Auth: New password required');
+          // Store the cognitoUser for password change
+          const error: any = new Error('NEW_PASSWORD_REQUIRED');
+          error.code = 'NewPasswordRequired';
+          error.cognitoUser = cognitoUser;
+          error.userAttributes = userAttributes;
+          error.requiredAttributes = requiredAttributes;
+          reject(error);
+        },
       });
+    });
+  }
+
+  /**
+   * Complete new password challenge for admin-created users
+   * Must be called after signIn returns NewPasswordRequired error
+   */
+  async completeNewPasswordChallenge(
+    cognitoUser: CognitoUser,
+    newPassword: string,
+    userAttributes?: any
+  ): Promise<CognitoUserSession> {
+    return new Promise((resolve, reject) => {
+      cognitoUser.completeNewPasswordChallenge(
+        newPassword,
+        userAttributes || {},
+        {
+          onSuccess: (session) => {
+            this.currentSession = session;
+            console.log('✅ Cognito Auth: Password changed successfully');
+            resolve(session);
+          },
+          onFailure: (err) => {
+            console.error('❌ Cognito Auth: Password change failed', err);
+            reject(this.mapCognitoError(err));
+          },
+        }
+      );
     });
   }
 

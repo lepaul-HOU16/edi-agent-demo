@@ -39,21 +39,21 @@
   - Ensure navigation clears error states
   - _Requirements: 6.1, 6.2, 6.3, 6.4, 6.5_
 
-- [ ] 6. Implement error handling
+- [x] 6. Implement error handling
   - Map Cognito error codes to user-friendly messages
   - Handle network errors gracefully
   - Display rate limiting messages
   - Add error logging for debugging
   - _Requirements: 7.1, 7.2, 7.3, 7.4, 7.5_
 
-- [ ] 7. Add loading states and visual feedback
+- [x] 7. Add loading states and visual feedback
   - Implement loading spinners on submit buttons
   - Disable form inputs during async operations
   - Show success messages after verification
   - Add loading state for resend code button
   - _Requirements: 8.1, 8.2, 8.3, 8.4, 8.5_
 
-- [ ] 8. Style components for consistency
+- [x] 8. Style components for consistency
   - Match SignInPage styling and layout
   - Use Cloudscape Design System components
   - Ensure mobile responsiveness (max-width 400px)
@@ -61,7 +61,7 @@
   - Test on various screen sizes
   - _Requirements: 1.1_
 
-- [ ] 9. Checkpoint - Ensure all tests pass, ask the user if questions arise
+- [x] 9. Checkpoint - Ensure all tests pass, ask the user if questions arise
 
 - [ ]* 10. Write property-based tests
   - [ ]* 10.1 Property test: Valid input acceptance

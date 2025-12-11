@@ -704,7 +704,7 @@ export const comprehensivePorosityAnalysisTool: MCPTool = {
         console.log('🎯 Prioritized WELL-004 (known good data) to front of analysis queue');
       }
 
-      for (const wellName of prioritizedWells.slice(0, 5)) { // Limit to 5 wells for performance
+      for (const wellName of prioritizedWells.slice(0, 2)) { // FIXED: Limit to 2 wells to prevent DynamoDB size limit (was 5)
         try {
           console.log(`Attempting porosity analysis for well: ${wellName}`);
           const wellAnalysis = await analyzeSingleWellPorosity(wellName, matrixDensity, porosityCutoff, highPorosityCutoff, depthRange, sessionId);

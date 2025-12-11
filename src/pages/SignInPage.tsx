@@ -44,6 +44,18 @@ const SignInPage: React.FC = () => {
     } catch (err: any) {
       console.error('❌ Sign in failed:', err);
       
+      // Handle NEW_PASSWORD_REQUIRED challenge
+      if (err.code === 'NewPasswordRequired') {
+        console.log('🔑 Password change required, redirecting...');
+        navigate('/change-password', {
+          state: {
+            cognitoUser: err.cognitoUser,
+            userAttributes: err.userAttributes,
+          },
+        });
+        return;
+      }
+      
       // Parse Cognito error messages
       let errorMessage = 'Sign in failed. Please try again.';
       
