@@ -7,6 +7,7 @@ import Button from '@cloudscape-design/components/button';
 import SpaceBetween from '@cloudscape-design/components/space-between';
 import Box from '@cloudscape-design/components/box';
 import Alert from '@cloudscape-design/components/alert';
+import Link from '@cloudscape-design/components/link';
 import { cognitoAuth } from '@/lib/auth/cognitoAuth';
 
 const SignInPage: React.FC = () => {
@@ -165,6 +166,22 @@ const SignInPage: React.FC = () => {
               >
                 {loading ? 'Signing in...' : 'Sign In'}
               </Button>
+
+              <Box textAlign="center">
+                <Box variant="p" color="text-body-secondary">
+                  Don't have an account?{' '}
+                  <Link
+                    href="#"
+                    onFollow={(e) => {
+                      e.preventDefault();
+                      setError(null); // Clear error state on navigation
+                      navigate('/sign-up');
+                    }}
+                  >
+                    Create Account
+                  </Link>
+                </Box>
+              </Box>
             </SpaceBetween>
           </form>
         </Container>

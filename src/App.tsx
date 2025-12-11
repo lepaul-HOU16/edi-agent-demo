@@ -15,6 +15,8 @@ import PreviewPage from './pages/PreviewPage';
 import CanvasesPage from './pages/CanvasesPage';
 import ProjectsPage from './pages/ProjectsPage';
 import SignInPage from './pages/SignInPage';
+import SignUpPage from './pages/SignUpPage';
+import VerifyEmailPage from './pages/VerifyEmailPage';
 import ReinventDemoPage from './pages/ReinventDemoPage';
 import WakeHeatMapMockup from './pages/WakeHeatMapMockup';
 import OSDUQueryBuilderMockup from './pages/OSDUQueryBuilderMockup';
@@ -23,8 +25,10 @@ function App() {
   return (
     <AppLayout>
       <Routes>
-        {/* Public route - sign-in page */}
+        {/* Public routes - authentication pages */}
         <Route path="/sign-in" element={<SignInPage />} />
+        <Route path="/sign-up" element={<SignUpPage />} />
+        <Route path="/verify-email" element={<VerifyEmailPage />} />
         
         {/* Protected routes - require authentication */}
         <Route path="/" element={<ProtectedRoute><HomePage /></ProtectedRoute>} />
