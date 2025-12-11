@@ -627,7 +627,9 @@ const ChatBox = (params: {
   const handleVoiceRecordingStateChange = useCallback((isRecording: boolean) => {
     setIsVoiceRecording(isRecording);
     
-    // Hide input when voice recording starts
+    // PTT can ONLY hide input, never show it
+    // When recording starts, hide the input if it's visible
+    // When recording stops, do nothing - input stays in its current state
     if (isRecording && isInputVisible) {
       devLog('🎤 ChatBox: Voice recording started, hiding input');
       setIsInputVisible(false);
@@ -637,11 +639,13 @@ const ChatBox = (params: {
   // Handler for PTT transcription completion
   const handleVoiceTranscriptionComplete = useCallback((text: string) => {
     devLog('🎤 ChatBox: Voice transcription complete:', text);
+    // Clear voice display IMMEDIATELY before sending to prevent duplicate
+    setVoiceTranscription('');
+    setIsVoiceRecording(false);
+    
     if (text.trim()) {
       handleSend(text);
     }
-    setVoiceTranscription('');
-    setIsVoiceRecording(false);
   }, [handleSend]);
 
   return (
@@ -713,8 +717,8 @@ const ChatBox = (params: {
             </ListItem>
           )}
           
-          {/* Voice Transcription Display - shown in conversation area when recording */}
-          {(isVoiceRecording || voiceTranscription.length > 0) && (
+          {/* Voice Transcription Display - shown ONLY while actively recording */}
+          {isVoiceRecording && (
             <ListItem>
               <div style={{ width: '100%' }}>
                 <VoiceTranscriptionDisplay

@@ -507,6 +507,14 @@ button[class*="action-button"][aria-label="Send message"],
   outline: none !important;
 }
 
+/* Move send icon up to center it vertically */
+button[class*="awsui_action-button"][aria-label="Send message"] svg,
+button[class*="action-button"][aria-label="Send message"] svg,
+[class*="awsui_prompt-input"] button[type="submit"] svg,
+[class*="prompt-input"] button[type="submit"] svg {
+  transform: translateY(-2px) !important;
+}
+
 /* Force 8px border radius on Cloudscape PromptInput - NUCLEAR OPTION */
 [class*="awsui_prompt-input"],
 [class*="awsui_prompt-input"] > *,
@@ -578,4 +586,9 @@ button[class*="action-button"][aria-label="Send message"],
   max-width: 32px !important;
   max-height: 32px !important;
   font-size: 32px !important;
+}
+
+/* CRITICAL: Override computed class z-index for modals/dropdowns */
+.css-9k6g6o {
+  z-index: 12000 !important;
 }

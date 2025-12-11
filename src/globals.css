@@ -141,6 +141,8 @@
   width: 100% !important;
 }
 
+
+
 /* Ensure grid columns don't overflow and maintain proper sizing */
 [class*="awsui_grid-column_"] {
   box-sizing: border-box !important;
@@ -177,36 +179,13 @@
   padding-top: 2px;
 }
 
+/* Content area - base styles */
 .content-area {
   height: 100%;
-
-  &>div {
-    height: 100%;
-  }
 }
 
-
-/* CatalogPage specific panel and convo styling */
-.panel {
-  width: 100% !important;
-  min-height: 500px !important;
+.content-area > div {
   height: 100%;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  background: #ffffff !important;
-  border: 1px solid #e5e7eb !important;
-  border-radius: 8px !important;
-}
-
-.convo {
-  width: calc(100% - 40px);
-  min-height: 500px !important;
-  height: 100%;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden !important;
-  padding: 16px 0 !important;
 }
 
 /* Cards Component */
@@ -588,11 +567,10 @@
 }
 
 /* Content grid below header - panel and convo */
-.reset-chat + [class*="awsui_grid_"],  .content-area [class*="awsui_grid_"] {
+.reset-chat + [class*="awsui_grid_"],  .content-area > [class*="awsui_grid_"] {
   display: flex !important;
   flex-wrap: nowrap !important;
   gap: 40px !important;
-  /* min-height: calc(100vh - 250px) !important; */
   width: calc(100% - 40px);
 }
 
@@ -618,35 +596,35 @@
   margin: 31px 40px 0 !important; /* 31px + 5px AppLayout padding = 36px total top */
 }
 
-/* Panel (left side - 5/12 width = ~41.67%) */
+/* Panel - base styles (overridden by page-specific rules) */
 .panel {
-  width: 100% !important;
-  height: 100%;
-  min-height: 500px !important;
-  overflow-y: auto !important;
-  overflow-x: hidden !important;
-  position: relative !important;
-  background: #ffffff !important;
-  border: 1px solid #e5e7eb !important;
-  border-radius: 8px !important;
-  border-top-left-radius: 0 !important;
-  border-top-right-radius: 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  box-sizing: border-box !important;
+  width: 100%;
+  height: calc(100vh - 108px);
+  min-height: 500px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 
-/* Conversation (right side - 7/12 width = ~58.33%) */
+/* Conversation - base styles (overridden by page-specific rules) */
 .convo {
   width: calc(100% - 40px);
-  height: 100% !important;
-  min-height: 500px !important;
-  overflow: auto !important;
-  position: relative !important;
-  padding: 20px 0 !important;
-  display: flex !important;
-  flex-direction: column !important;
-  box-sizing: border-box !important;
+  height: 100%;
+  min-height: 500px;
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  padding: 0;
 }
 
 /* Agent landing pages */
@@ -738,11 +716,27 @@
 .controls {
   position: fixed;
   bottom: 40px;
-  left: 52px;
-  right: 72px;
+  left: 0;
+  right: 0;
   z-index: 1000;
-  padding: 0 40px;
   pointer-events: none;
+  max-width: 1920px;
+  margin: auto;
+  width: 100%;
+}
+
+
+/* Target only the right column with colspan-7 inside .controls */
+.controls > [class*="awsui_grid_"] > [class*="awsui_grid-column_"][class*="awsui_colspan-7"] {
+  padding-left: 40px !important;
+  padding-right: 77px !important;
+}
+
+/* Remove right padding on screens wider than 1920px */
+@media (min-width: 2000px) {
+  .controls > [class*="awsui_grid_"] > [class*="awsui_grid-column_"][class*="awsui_colspan-7"] {
+    padding-right: 0 !important;
+  }
 }
 
 /* Input background - blue container with white overlay */
@@ -867,13 +861,7 @@
 }
 
 .app-container {
-  flex-grow: 1;
-  overflow: hidden;
-  border-bottom: 1px solid #e5e7eb;
-  margin-bottom: -1px;
-  height: 60px;
-  position: relative;
-  z-index: 10000;
+  height: 100%;
 }
 
 /* Apply padding on screens less than 1920px wide */
@@ -892,8 +880,9 @@
 [data-page="catalog"] .main-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100%;
   overflow: hidden;
+  position: relative;
 }
 
 /* Header area with controls */
@@ -914,12 +903,16 @@
   width: 100%;
   height: 100%;
   display: flex;
-  padding-bottom: 99px;
+}
+
+/* Force Grid columns to not recalculate on scrollbar */
+[data-page="catalog"] .content-area [class*="awsui_grid-column_"] {
+  flex-shrink: 0 !important;
 }
 
 /* Left panel (map/analysis/chain of thought) */
 [data-page="catalog"] .panel {
-  height: 100%;
+  height: calc(100% - 108px) !important;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -928,11 +921,38 @@
 
 /* Right panel (chat) */
 [data-page="catalog"] .convo {
-  height: 100%;
-  display: flex;
-  flex-direction: column;
+  height: calc(100vh - 108px);
+  display: block;
   overflow: hidden;
+  position: relative;
+}
+
+/* First child of convo needs height */
+[data-page="catalog"] .convo > * {
+  height: 100%;
+}
+
+/* Second child level of convo needs height */
+[data-page="catalog"] .convo > * > * {
+  height: 100%;
+}
+
+/* Messages container inside convo - use absolute positioning to isolate from layout */
+[data-page="catalog"] .messages-container {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
   padding: 20px;
+  padding-bottom: 100px;
+}
+
+/* Controls panel (second immediate child of catalog-chat-container) - ensure it's above everything */
+[data-page="catalog"] .catalog-chat-container > .controls {
+  z-index: 10000 !important;
 }
 
 /* Ensure map fills its container */

@@ -243,18 +243,19 @@ const CatalogChatBoxCloudscape = (params: {
 
   const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
     const container = e.currentTarget;
-    // For normal layout, check if we're at the bottom
-    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 10;
+    // Account for 100px padding-bottom when checking if at bottom
+    // Only hide button when truly at absolute bottom (within 5px)
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 5;
     setIsScrolledToBottom(isAtBottom);
   }, []);
 
   const scrollToBottom = useCallback(() => {
-    if (messagesEndRef.current) {
+    if (messagesContainerRef.current) {
       console.log('Scrolling to bottom, messages length:', messages.length);
-      // Use scrollIntoView on the end ref for more reliable scrolling
-      messagesEndRef.current.scrollIntoView({ 
-        behavior: 'smooth',
-        block: 'end'
+      // Scroll to absolute bottom accounting for padding
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: 'smooth'
       });
       // Update isScrolledToBottom after a brief delay to ensure scroll completes
       setTimeout(() => {
@@ -265,25 +266,14 @@ const CatalogChatBoxCloudscape = (params: {
 
   // Auto-scroll to bottom when new messages arrive - with proper timing
   useEffect(() => {
-    if (messagesEndRef.current && messages.length > 0) {
+    if (messagesContainerRef.current && messages.length > 0) {
       console.log('Auto-scroll effect triggered, messages:', messages.length);
-      // Multiple approaches to ensure reliable scrolling
+      // Scroll to absolute bottom accounting for padding
       const timeoutId = setTimeout(() => {
         requestAnimationFrame(() => {
-          // First try scrollIntoView
           scrollToBottom();
-          
-          // Backup: also try container scroll after additional delay
-          setTimeout(() => {
-            if (messagesContainerRef.current) {
-              messagesContainerRef.current.scrollTo({
-                top: messagesContainerRef.current.scrollHeight + 100, // Add extra buffer
-                behavior: 'smooth'
-              });
-            }
-          }, 100);
         });
-      }, 300); // Increased delay
+      }, 300);
       
       return () => clearTimeout(timeoutId);
     }
@@ -339,7 +329,9 @@ const CatalogChatBoxCloudscape = (params: {
   const handleVoiceRecordingStateChange = useCallback((isRecording: boolean) => {
     setIsVoiceRecording(isRecording);
     
-    // Hide input when voice recording starts
+    // PTT can ONLY hide input, never show it
+    // When recording starts, hide the input if it's visible
+    // When recording stops, do nothing - input stays in its current state
     if (isRecording && isInputVisible) {
       console.log('🎤 Catalog: Voice recording started, hiding input');
       setIsInputVisible(false);
@@ -349,11 +341,13 @@ const CatalogChatBoxCloudscape = (params: {
   // Handler for PTT transcription completion
   const handleVoiceTranscriptionComplete = useCallback((text: string) => {
     console.log('🎤 Catalog: Voice transcription complete:', text);
+    // Clear voice display IMMEDIATELY before sending to prevent duplicate
+    setVoiceTranscription('');
+    setIsVoiceRecording(false);
+    
     if (text.trim()) {
       handleSend(text);
     }
-    setVoiceTranscription('');
-    setIsVoiceRecording(false);
   }, [handleSend]);
 
   return (
@@ -420,8 +414,8 @@ const CatalogChatBoxCloudscape = (params: {
             </div>
           ))}
           
-          {/* Voice Transcription Display - shown in conversation area when recording */}
-          {(isVoiceRecording || voiceTranscription.length > 0) && (
+          {/* Voice Transcription Display - shown ONLY while actively recording */}
+          {isVoiceRecording && (
             <div style={{ marginBottom: '16px' }}>
               <VoiceTranscriptionDisplay
                 transcription={voiceTranscription}
@@ -448,77 +442,75 @@ const CatalogChatBoxCloudscape = (params: {
           gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
         >
           <div></div>
-          <div>
-            <div className='input-bkgd'>
-              <ExpandablePromptInput
-                onChange={(value) => onInputChange(value)}
-                onAction={() => handleSend(userInput)}
-                value={userInput}
-                actionButtonAriaLabel="Send message"
-                actionButtonIconName="send"
-                ariaLabel="Prompt input with action button"
-                placeholder="Ask me a question about your data"
-              />
-              <div style={{ 
-                color: 'white', 
-                fontSize: '11px', 
-                lineHeight: '14px', 
-                marginRight: '-2px',
-                width: '50px', 
-              }}>
-                Data Sources
-              </div>
-              <ButtonDropdown
-                items={[
-                  {
-                    text: 'OSDU',
-                    id: 'osduData'
-                  },
-                  {
-                    text: 'TGS',
-                    id: 'tgsData'
-                  },
-                  {
-                    text: 'Volve',
-                    id: 'volveData'
-                  },
-                  {
-                    text: 'S&P',
-                    id: 'spData'
-                  },
-                ]}
-                expandToViewport={true}
-                onItemClick={({ detail }) => {
-                  // Find the clicked item and populate the text box with its text
-                  const clickedItem = [
-                    {
-                      text: 'can you show me weather maps for the area near my wells',
-                      id: '1'
-                    },
-                    {
-                      text: 'show me my wells with reservoir analysis',
-                      id: '2'
-                    },
-                    {
-                      text: 'field development recommendations for my wells',
-                      id: '3'
-                    },
-                    {
-                      text: 'production optimization analysis',
-                      id: '4'
-                    },
-                    {
-                      text: 'operational weather windows for drilling',
-                      id: '5'
-                    }
-                  ].find(item => item.id === detail.id);
-                  
-                  if (clickedItem) {
-                    onInputChange(clickedItem.text);
-                  }
-                }}
-              />
+          <div className='input-bkgd'>
+            <ExpandablePromptInput
+              onChange={(value) => onInputChange(value)}
+              onAction={() => handleSend(userInput)}
+              value={userInput}
+              actionButtonAriaLabel="Send message"
+              actionButtonIconName="send"
+              ariaLabel="Prompt input with action button"
+              placeholder="Ask me a question about your data"
+            />
+            <div style={{ 
+              color: 'white', 
+              fontSize: '11px', 
+              lineHeight: '14px', 
+              marginRight: '-2px',
+              width: '50px', 
+            }}>
+              Data Sources
             </div>
+            <ButtonDropdown
+              items={[
+                {
+                  text: 'OSDU',
+                  id: 'osduData'
+                },
+                {
+                  text: 'TGS',
+                  id: 'tgsData'
+                },
+                {
+                  text: 'Volve',
+                  id: 'volveData'
+                },
+                {
+                  text: 'S&P',
+                  id: 'spData'
+                },
+              ]}
+              expandToViewport={true}
+              onItemClick={({ detail }) => {
+                // Find the clicked item and populate the text box with its text
+                const clickedItem = [
+                  {
+                    text: 'can you show me weather maps for the area near my wells',
+                    id: '1'
+                  },
+                  {
+                    text: 'show me my wells with reservoir analysis',
+                    id: '2'
+                  },
+                  {
+                    text: 'field development recommendations for my wells',
+                    id: '3'
+                  },
+                  {
+                    text: 'production optimization analysis',
+                    id: '4'
+                  },
+                  {
+                    text: 'operational weather windows for drilling',
+                    id: '5'
+                  }
+                ].find(item => item.id === detail.id);
+                
+                if (clickedItem) {
+                  onInputChange(clickedItem.text);
+                }
+              }}
+            />
           </div>
         </Grid>
 
@@ -529,8 +521,8 @@ const CatalogChatBoxCloudscape = (params: {
         style={{
           position: 'fixed',
           right: '22px',
-          bottom: '98px',
-          zIndex: 1002,
+          bottom: '90px',
+          zIndex: 10002, // Higher than controls (10000) to ensure it's always clickable
         }}
       >
         <PushToTalkButton
@@ -547,7 +539,7 @@ const CatalogChatBoxCloudscape = (params: {
           position: 'fixed',
           right: '22px',
           bottom: '50px',
-          zIndex: 1001,
+          zIndex: 10001, // Higher than controls (10000) to ensure it's always clickable
         }}
       >
         <Button
@@ -562,8 +554,8 @@ const CatalogChatBoxCloudscape = (params: {
       {!isScrolledToBottom && (
         <div style={{
           position: 'fixed',
-          bottom: '22px',
-          right: '50px',
+          bottom: '10px',
+          right: '22px',
           zIndex: 1400
         }}>
           <Button
