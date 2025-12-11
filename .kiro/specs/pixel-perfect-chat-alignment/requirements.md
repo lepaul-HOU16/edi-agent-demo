@@ -60,9 +60,9 @@ This specification addresses the need for pixel-perfect visual consistency betwe
 
 #### Acceptance Criteria
 
-1. WHEN the PTT button is rendered THEN it SHALL be positioned at fixed right 22px bottom 98px with z-index 1002 in both interfaces
+1. WHEN the PTT button is rendered THEN it SHALL be positioned at fixed right 22px bottom 90px with z-index 1002 in both interfaces
 2. WHEN the toggle button is rendered THEN it SHALL be positioned at fixed right 22px bottom 50px with z-index 1001 in both interfaces
-3. WHEN the scroll-to-bottom button appears THEN it SHALL be positioned at fixed bottom 120px right 20px with z-index 1400 in both interfaces
+3. WHEN the scroll-to-bottom button appears THEN it SHALL be positioned at fixed bottom 10px right 22px with z-index 1400 in both interfaces
 4. WHEN buttons are hovered THEN they SHALL use identical hover states and transitions in both interfaces
 5. WHEN the input is hidden THEN the toggle button SHALL use variant="primary" in both interfaces
 
@@ -135,8 +135,9 @@ This specification addresses the need for pixel-perfect visual consistency betwe
 1. WHEN controls are rendered THEN they SHALL have z-index 1000 in both interfaces
 2. WHEN toggle button is rendered THEN it SHALL have z-index 1001 in both interfaces
 3. WHEN PTT button is rendered THEN it SHALL have z-index 1002 in both interfaces
-4. WHEN scroll-to-bottom button is rendered THEN it SHALL have z-index 1400 in both interfaces
-5. WHEN loading indicator is rendered THEN it SHALL have z-index 1000 in both interfaces
+4. WHEN FileDrawer is rendered THEN it SHALL have z-index 1250 in both interfaces
+5. WHEN scroll-to-bottom button is rendered THEN it SHALL have z-index 1400 in both interfaces
+6. WHEN loading indicator is rendered THEN it SHALL have z-index 1000 in both interfaces
 
 ### Requirement 11: Identical CSS Class Usage
 
@@ -197,3 +198,15 @@ This specification addresses the need for pixel-perfect visual consistency betwe
 3. WHEN screen reader is used THEN both interfaces SHALL provide identical aria-labels
 4. WHEN keyboard navigation is used THEN both interfaces SHALL have identical tab order
 5. WHEN reduced motion is preferred THEN both interfaces SHALL respect prefers-reduced-motion identically
+
+### Requirement 16: Inline Style Override for CSS Conflicts
+
+**User Story:** As a developer, I want to use inline styles to override problematic CSS selectors, so that layout remains consistent despite global CSS rules.
+
+#### Acceptance Criteria
+
+1. WHEN the root chat container is rendered THEN it SHALL use inline styles for width, height, display, flexDirection, and position in both interfaces
+2. WHEN problematic CSS selector `[data-page="catalog"] .convo > * > *` exists THEN inline styles SHALL take precedence
+3. WHEN container dimensions are set THEN they SHALL be width: 100%, height: 100% via inline styles in both interfaces
+4. WHEN flex layout is applied THEN it SHALL be display: flex, flexDirection: column via inline styles in both interfaces
+5. WHEN positioning is set THEN it SHALL be position: relative via inline styles in both interfaces

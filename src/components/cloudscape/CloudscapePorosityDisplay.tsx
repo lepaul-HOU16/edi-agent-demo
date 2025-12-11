@@ -16,6 +16,7 @@ import ProgressBar from '@cloudscape-design/components/progress-bar';
 import ExpandableSection from '@cloudscape-design/components/expandable-section';
 import Spinner from '@cloudscape-design/components/spinner';
 import Alert from '@cloudscape-design/components/alert';
+import { getAuthToken } from '@/lib/api/client';
 
 // Dynamic import for Plotly
 const Plot = React.lazy(() => import('react-plotly.js')) as any;
@@ -68,10 +69,17 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
       setError(null);
       
       try {
-        const url = `/api/s3-proxy?bucket=${encodeURIComponent(s3Ref.bucket)}&key=${encodeURIComponent(s3Ref.key)}`;
+        // Get auth token using the proper API client method
+        const token = await getAuthToken();
+        
+        const url = `/api/s3-proxy?key=${encodeURIComponent(s3Ref.key)}`;
         console.log('📥 S3 proxy URL:', url);
         
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
         
         if (!response.ok) {
           throw new Error(`Failed to fetch log data: ${response.statusText}`);

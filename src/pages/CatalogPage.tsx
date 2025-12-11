@@ -2141,7 +2141,9 @@ function CatalogPageBase() {
           <div className="reset-chat-right">
             <div className="breadcrumb-container" style={{ marginLeft: '23px' }}>
               <div className="breadcrumb-links">
-                <span className="current">Data Catalog › All Data</span>
+                <a href="/catalog">Data Catalog</a>
+                <span className="separator">›</span>
+                <span className="current">All Data</span>
               </div>
             </div>
             <div className='toggles'>

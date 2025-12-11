@@ -894,6 +894,52 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     clearMap
   }), [updateMapData, fitBounds, toggleWeatherLayer, getWeatherLayers, getMapState, restoreMapState, toggle3D, clearMap]);
 
+  // Separate useEffect for theme changes - updates style without re-creating map
+  useEffect(() => {
+    if (mapRef.current) {
+      const newStyle = `https://maps.geo.${REGION}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`;
+      console.log('🎨 Updating map style for theme change:', mapColorScheme);
+      
+      // Save current map state before style change
+      const currentCenter = mapRef.current.getCenter();
+      const currentZoom = mapRef.current.getZoom();
+      const currentPitch = mapRef.current.getPitch();
+      const currentBearing = mapRef.current.getBearing();
+      
+      // Update style while preserving markers and state
+      mapRef.current.setStyle(newStyle);
+      
+      // Restore map state and markers after style loads
+      mapRef.current.once('styledata', () => {
+        console.log('🎨 Style loaded, restoring markers and state');
+        
+        // Restore camera position
+        if (mapRef.current) {
+          mapRef.current.jumpTo({
+            center: currentCenter,
+            zoom: currentZoom,
+            pitch: currentPitch,
+            bearing: currentBearing
+          });
+          
+          // Re-add well markers if they exist
+          if (currentMapState.wellData) {
+            console.log('🎨 Re-adding well markers after theme change');
+            updateMapData(currentMapState.wellData);
+          }
+          
+          // Re-enable weather layers if they were active
+          if (currentMapState.weatherLayers.length > 0) {
+            console.log('🎨 Re-enabling weather layers:', currentMapState.weatherLayers);
+            currentMapState.weatherLayers.forEach(layerType => {
+              toggleWeatherLayer(layerType, true);
+            });
+          }
+        }
+      });
+    }
+  }, [mapColorScheme]);
+
   useEffect(() => {
     const mapContainer = document.getElementById("map");
     if (mapContainer && !mapRef.current) {
@@ -1107,7 +1153,7 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
         mapRef.current = null;
       }
     };
-  }, [mapColorScheme, handlePolygonCreate, handlePolygonDeleteEvent, handlePolygonUpdateEvent]);
+  }, [handlePolygonCreate, handlePolygonDeleteEvent, handlePolygonUpdateEvent]);
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>

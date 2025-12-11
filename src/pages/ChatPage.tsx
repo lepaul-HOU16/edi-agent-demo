@@ -608,7 +608,7 @@ function ChatPageContent() {
                     gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
                 >
                     {selectedId === "seg-1" ? (
-                    <div className='panel canvases-panel'>
+                    <div className='panel' style={{ overflow: 'hidden' }}>
                         <AgentLandingPage
                             selectedAgent={selectedAgent}
                             onWorkflowSelect={(prompt: string) => {
@@ -618,7 +618,7 @@ function ChatPageContent() {
                         />
                     </div>
                 ) : selectedId === "seg-1-old" ? (
-                    <div className='panel canvases-panel'>
+                    <div className='panel' style={{ overflow: 'hidden' }}>
                         <Container
                             footer=""
                             header="AI-Powered Workflow Recommendations"
@@ -800,14 +800,14 @@ function ChatPageContent() {
                     </div>
                 ) : (
                     // Chain of Thought here - using reusable ChainOfThoughtDisplay component
-                    <div className='panel canvases-panel'>
+                    <div className='panel' style={{ overflow: 'hidden' }}>
                         <ChainOfThoughtDisplay messages={messages} />
                     </div>
                 )}
 
                 <div className='convo'>
-                    <div style={{ width: '100%', position: 'relative' }}>
-                        <div>
+                    <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                        <div style={{ height: '100%' }}>
                             {/* Collection Context Alert */}
                             {collectionContext && (
                                 <Box margin={{ bottom: 'm' }}>

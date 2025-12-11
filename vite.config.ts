@@ -16,6 +16,7 @@ export default defineConfig({
   },
   css: {
     postcss: undefined,
+    devSourcemap: true,
   },
   build: {
     outDir: 'dist',
@@ -49,10 +50,6 @@ export default defineConfig({
         rewrite: (path) => path, // Keep /api prefix
       },
     },
-  },
-  // Force CSS reload
-  css: {
-    devSourcemap: true,
   },
   define: {
     'process.env': {},

@@ -587,7 +587,6 @@
 
 /* Canvas pages (ChatPage, etc.) - use padding instead of margin to avoid flex collapse */
 [data-page="chat"].main-container {
-  padding-top: 4px !important;
   margin-top: 0 !important;
 }
 
@@ -718,7 +717,7 @@
   bottom: 40px;
   left: 0;
   right: 0;
-  z-index: 100;
+  z-index: 1000;
   pointer-events: none;
   max-width: 1920px;
   margin: auto;
@@ -952,7 +951,7 @@
 
 /* Controls panel (second immediate child of catalog-chat-container) - below FileDrawer */
 [data-page="catalog"] .catalog-chat-container > .controls {
-  z-index: 100 !important;
+  z-index: 1000 !important;
 }
 
 /* Ensure map fills its container */
@@ -983,8 +982,8 @@
    ============================================ */
 
 /* Canvas workspace chat page - specific height adjustment */
-/* Updated: 2025-12-09 1:10 PM - Use canvases-panel class */
-/* This inherits base .panel styling and adds Canvas-specific height override */
-.panel.canvases-panel {
-  height: 100% !important;
+/* Updated: 2025-12-11 - ChatPage panels need different height due to parent container differences */
+/* Use page-specific selector instead of canvases-panel class */
+[data-page="chat"] .panel {
+  height: calc(100vh - 157px) !important;
 }

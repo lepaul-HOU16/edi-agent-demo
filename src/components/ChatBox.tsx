@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Box, List, ListItem, Typography, CircularProgress, Fab, Paper } from '@mui/material';
-import KeyboardArrowDownIcon from '@mui/icons-material/KeyboardArrowDown';
+import { Box, Typography, CircularProgress, Paper } from '@mui/material';
 
 import { Message } from '@/utils/types';
 
@@ -14,6 +13,7 @@ import ExpandablePromptInput from './ExpandablePromptInput';
 import AgentSwitcher from './AgentSwitcher';
 import { PushToTalkButton } from './PushToTalkButton';
 import { VoiceTranscriptionDisplay } from './VoiceTranscriptionDisplay';
+import { Spinner } from '@cloudscape-design/components';
 
 import { getThinkingContextFromStep } from '@/utils/thoughtTypes';
 import { useRenewableJobPolling, useChatMessagePolling } from '@/hooks';
@@ -71,10 +71,6 @@ const ChatBox = (params: {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
-  
-  // Simplified auto-scroll state
-  const [autoScroll, setAutoScroll] = useState<boolean>(true);
-  const [messageCount, setMessageCount] = useState<number>(0);
   
   // Chain of Thought thinking state management
   const [thinkingState, setThinkingState] = useState<{
@@ -147,67 +143,20 @@ const ChatBox = (params: {
     }
   }, []);
 
-  // FINE-TUNED: Enhanced autoscroll with better positioning and slower animation
-  const performAutoScroll = useCallback(() => {
-    if (!autoScroll || !messagesContainerRef.current) return;
-    
-    devLog('🚀 ChatBox: Performing fine-tuned autoscroll');
-    
-    const container = messagesContainerRef.current;
-    
-    // Calculate extra scroll distance to account for input area (increased buffer)
-    const inputBuffer = 200; // Increased buffer to account for input area and padding
-    const targetScrollTop = container.scrollHeight + inputBuffer;
-    
-    // Method 1: Use scrollIntoView with smooth animation on the end ref
-    if (messagesEndRef.current) {
-      try {
-        // Add custom CSS for slower scroll animation
-        const originalScrollBehavior = container.style.scrollBehavior;
-        container.style.scrollBehavior = 'smooth';
-        container.style.scrollPaddingBottom = '180px'; // Add padding to scroll farther
-        
-        messagesEndRef.current.scrollIntoView({ 
-          behavior: 'smooth',
-          block: 'end',
-          inline: 'nearest'
-        });
-        
-        // Reset after scroll
-        setTimeout(() => {
-          if (messagesContainerRef.current) {
-            messagesContainerRef.current.style.scrollBehavior = originalScrollBehavior;
-          }
-        }, 800);
-        
-        devLog('✅ ChatBox: Slow smooth scrollIntoView completed');
-      } catch (error) {
-        devWarn('❌ ChatBox: scrollIntoView failed:', error);
-      }
+  const scrollToBottom = useCallback(() => {
+    if (messagesContainerRef.current) {
+      console.log('Scrolling to bottom, messages length:', messages.length);
+      // Scroll to absolute bottom accounting for padding
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: 'smooth'
+      });
+      // Update isScrolledToBottom after a brief delay to ensure scroll completes
+      setTimeout(() => {
+        setIsScrolledToBottom(true);
+      }, 500);
     }
-    
-    // Method 2: Enhanced scrollTo with buffer and slower timing
-    setTimeout(() => {
-      try {
-        if (messagesContainerRef.current) {
-          messagesContainerRef.current.scrollTo({
-            top: targetScrollTop,
-            behavior: 'smooth'
-          });
-          devLog('✅ ChatBox: Delayed smooth scrollTo completed with extended buffer');
-        }
-      } catch (error) {
-        devWarn('❌ ChatBox: Delayed scrollTo failed:', error);
-      }
-    }, 100); // Small delay to ensure DOM is fully updated
-    
-    // Log final position after animation completes
-    setTimeout(() => {
-      if (messagesContainerRef.current) {
-        devLog('📏 ChatBox: Final scroll position:', messagesContainerRef.current.scrollTop, '/', messagesContainerRef.current.scrollHeight);
-      }
-    }, 800); // Increased delay for slower animation
-  }, [autoScroll]);
+  }, [messages.length]);
 
   // Memoized displayed messages with deduplication
   const displayedMessages = React.useMemo(() => {
@@ -247,31 +196,20 @@ const ChatBox = (params: {
     return allMessages.filter(shouldDisplayMessage);
   }, [messages, streamChunkMessage, shouldDisplayMessage]);
 
-  // CONSOLIDATED: Single useEffect for all autoscroll triggers
+  // Auto-scroll to bottom when new messages arrive - with proper timing
   useEffect(() => {
-    const newMessageCount = displayedMessages.length;
-    
-    // Re-enable auto-scroll for new messages
-    if (newMessageCount > messageCount && !autoScroll) {
-      devLog('🔄 ChatBox: Re-enabling auto-scroll for new messages');
-      setAutoScroll(true);
-    }
-    
-    // Update message count
-    if (newMessageCount !== messageCount) {
-      setMessageCount(newMessageCount);
-    }
-    
-    // Perform autoscroll for any content change
-    if (autoScroll && (newMessageCount > 0 || streamChunkMessage || thinkingState.isActive)) {
-      devLog('🔄 ChatBox: Triggering consolidated autoscroll');
+    if (messagesContainerRef.current && messages.length > 0) {
+      console.log('Auto-scroll effect triggered, messages:', messages.length);
+      // Scroll to absolute bottom accounting for padding
+      const timeoutId = setTimeout(() => {
+        requestAnimationFrame(() => {
+          scrollToBottom();
+        });
+      }, 300);
       
-      // Use requestAnimationFrame to ensure DOM is updated
-      requestAnimationFrame(() => {
-        performAutoScroll();
-      });
+      return () => clearTimeout(timeoutId);
     }
-  }, [displayedMessages, messageCount, streamChunkMessage, thinkingState.isActive, autoScroll, performAutoScroll]);
+  }, [messages.length, scrollToBottom]);
 
 
 
@@ -300,35 +238,11 @@ const ChatBox = (params: {
     }
 
     // Check if we're at the bottom
-    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 10;
+    const isAtBottom = container.scrollHeight - container.scrollTop <= container.clientHeight + 5;
     setIsScrolledToBottom(isAtBottom);
-    
-    // Detect user interrupt
-    if (!isAtBottom && autoScroll) {
-      devLog('ChatBox: User scrolled up, disabling auto-scroll');
-      setAutoScroll(false);
-    }
-  }, [hasMoreMessages, isLoadingMore, loadMoreMessages, autoScroll]);
+  }, [hasMoreMessages, isLoadingMore, loadMoreMessages]);
 
-  const scrollToBottom = useCallback(() => {
-    if (messagesContainerRef.current) {
-      devLog('🔄 ChatBox: Manual scroll to bottom triggered');
-      
-      // Re-enable auto-scroll when user manually scrolls to bottom
-      if (!autoScroll) {
-        devLog('🔄 ChatBox: Re-enabling auto-scroll via manual button');
-        setAutoScroll(true);
-      }
-      
-      // Use the performAutoScroll function
-      performAutoScroll();
-      
-      // Update isScrolledToBottom state
-      setTimeout(() => {
-        setIsScrolledToBottom(true);
-      }, 100);
-    }
-  }, [performAutoScroll, autoScroll]);
+
 
   // Handle typing state changes from input - disabled to prevent interference
   const handleTypingStateChange = useCallback((typing: boolean) => {
@@ -649,25 +563,21 @@ const ChatBox = (params: {
   }, [handleSend]);
 
   return (
-    <div style={{
-      width: '100%',
-      height: '100%',
-      display: 'flex',
-      flexDirection: 'column',
-      position: 'relative'
-    }}>
+    <div className="catalog-chat-container">
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="messages-container"
         style={{
-          flex: 1,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
           overflowY: 'auto',
-          flexDirection: 'column',
-          display: 'flex',
-          marginBottom: '16px',
-          borderRadius: '14px',
-          position: 'relative'
+          overflowX: 'hidden',
+          padding: '20px',
+          paddingBottom: '100px'
         }}
       >
         {isLoadingMore && (
@@ -676,7 +586,7 @@ const ChatBox = (params: {
           </div>
         )}
 
-        <List>
+        <div>
           {displayedMessages
             .filter((message) => {
               // Filter out ai-stream messages - they should NOT appear in conversation
@@ -691,19 +601,19 @@ const ChatBox = (params: {
             devLog(`🔑 Rendering message with stable key: ${stableKey}`);
             
             return (
-              <ListItem key={stableKey}>
+              <div key={stableKey} style={{ marginBottom: '16px' }}>
                 <ChatMessage
                   message={message}
                   onRegenerateMessage={(message as any).role === 'human' ? handleRegenerateMessage : undefined}
                   onSendMessage={handleSend}
                 />
-              </ListItem>
+              </div>
             );
           })}
           
           {/* Show thinking indicator when AI is processing - SINGLE INDICATOR ONLY */}
           {(isLoading || thinkingState.isActive) && (
-            <ListItem>
+            <div style={{ marginBottom: '16px' }}>
               <div style={{ width: '100%' }}>
                 <ThinkingIndicator
                   context={thinkingState.context || "🧠 Analyzing your request..."}
@@ -714,12 +624,12 @@ const ChatBox = (params: {
                   isVisible={true}
                 />
               </div>
-            </ListItem>
+            </div>
           )}
           
           {/* Voice Transcription Display - shown ONLY while actively recording */}
           {isVoiceRecording && (
-            <ListItem>
+            <div style={{ marginBottom: '16px' }}>
               <div style={{ width: '100%' }}>
                 <VoiceTranscriptionDisplay
                   transcription={voiceTranscription}
@@ -727,11 +637,11 @@ const ChatBox = (params: {
                   isVisible={true}
                 />
               </div>
-            </ListItem>
+            </div>
           )}
           
           <div ref={messagesEndRef} />
-        </List>
+        </div>
 
       </div>
 
@@ -797,7 +707,7 @@ const ChatBox = (params: {
         style={{
           position: 'fixed',
           right: '22px',
-          bottom: '98px',
+          bottom: '90px',
           zIndex: 1002,
         }}
       >
@@ -827,23 +737,44 @@ const ChatBox = (params: {
       </div>
       
       {!isScrolledToBottom && (
-        <Fab
-          color="primary"
-          size="small"
-          onClick={scrollToBottom}
-          sx={{
+        <div
+          style={{
             position: 'fixed',
-            bottom: 120,
-            right: 20,
-            zIndex: 1400,
-            opacity: 0.8,
-            '&:hover': {
-              opacity: 1
-            }
+            bottom: '10px',
+            right: '22px',
+            zIndex: 1400
           }}
         >
-          <KeyboardArrowDownIcon />
-        </Fab>
+          <Button
+            variant="primary"
+            iconName="angle-down"
+            onClick={scrollToBottom}
+            ariaLabel="Scroll to bottom"
+          />
+        </div>
+      )}
+      
+      {/* Loading indicator */}
+      {isLoading && (
+        <div style={{
+          position: 'absolute',
+          bottom: '80px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          alignItems: 'center',
+          backgroundColor: '#ffffff',
+          padding: '8px 16px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+          zIndex: 1000,
+          border: '1px solid #e9ebed'
+        }}>
+          <Spinner size="normal" />
+          <span style={{ marginLeft: '8px', fontSize: '14px', color: '#232f3e' }}>
+            Processing your query...
+          </span>
+        </div>
       )}
     </div>
   );

@@ -351,15 +351,7 @@ const CatalogChatBoxCloudscape = (params: {
   }, [handleSend]);
 
   return (
-    <div 
-      className="catalog-chat-container"
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative'
-      }}>
+    <div className="catalog-chat-container">
       {/* Messages container with query builder at top */}
       <div
         ref={messagesContainerRef}
@@ -522,7 +514,7 @@ const CatalogChatBoxCloudscape = (params: {
           position: 'fixed',
           right: '22px',
           bottom: '90px',
-          zIndex: 200, // Above controls (100) but below FileDrawer (1300)
+          zIndex: 1002,
         }}
       >
         <PushToTalkButton
@@ -539,7 +531,7 @@ const CatalogChatBoxCloudscape = (params: {
           position: 'fixed',
           right: '22px',
           bottom: '50px',
-          zIndex: 200, // Above controls (100) but below FileDrawer (1300)
+          zIndex: 1001,
         }}
       >
         <Button

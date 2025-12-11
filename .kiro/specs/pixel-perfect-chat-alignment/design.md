@@ -53,8 +53,23 @@ Both components will use identical structure, styling, and behavior patterns.
 - CatalogChatBoxCloudscape uses plain `<div>` elements
 - ChatBox has `padding-left/right` on ListItems
 - Different scroll container styling
+- CatalogChatBoxCloudscape uses inline styles for container dimensions (required to override problematic CSS)
 
 **Design Solution:**
+
+**Use inline styles for root container** - Critical to override problematic CSS selector `[data-page="catalog"] .convo > * > *`:
+```tsx
+// Root container - MUST use inline styles
+<div 
+  className="catalog-chat-container"
+  style={{
+    width: '100%',
+    height: '100%',
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative'
+  }}>
+```
 
 **Remove MUI List wrappers** - Replace with plain divs to match catalog structure:
 ```tsx
@@ -162,7 +177,7 @@ useEffect(() => {
   position: 'fixed',
   right: '22px',
   bottom: '90px',  // Changed from 98px to match catalog
-  zIndex: 10002,   // Changed from 1002 to match catalog
+  zIndex: 1002,    // BELOW FileDrawer (1250) so drawer can cover buttons
 }}>
   <PushToTalkButton {...props} />
 </div>
@@ -172,7 +187,7 @@ useEffect(() => {
   position: 'fixed',
   right: '22px',
   bottom: '50px',
-  zIndex: 10001,   // Changed from 1001 to match catalog
+  zIndex: 1001,    // BELOW FileDrawer (1250) so drawer can cover buttons
 }}>
   <Button {...props} />
 </div>
@@ -183,7 +198,7 @@ useEffect(() => {
     position: 'fixed',
     bottom: '10px',  // Changed from 120px to match catalog
     right: '22px',
-    zIndex: 1400
+    zIndex: 1400     // ABOVE FileDrawer (1250) - scroll button stays visible
   }}>
     <Button
       variant="primary"
@@ -398,11 +413,11 @@ interface VoiceState {
 **Validates: Requirements 3.1, 12.1, 12.2**
 
 ### Property 4: Button Position Invariance
-*For any* viewport state, PTT button SHALL be at fixed right 22px bottom 90px with z-index 10002 in both interfaces
+*For any* viewport state, PTT button SHALL be at fixed right 22px bottom 90px with z-index 1002 in both interfaces
 **Validates: Requirements 4.1**
 
 ### Property 5: Toggle Button Position Invariance
-*For any* viewport state, toggle button SHALL be at fixed right 22px bottom 50px with z-index 10001 in both interfaces
+*For any* viewport state, toggle button SHALL be at fixed right 22px bottom 50px with z-index 1001 in both interfaces
 **Validates: Requirements 4.2**
 
 ### Property 6: Scroll Button Position Invariance
@@ -426,8 +441,8 @@ interface VoiceState {
 **Validates: Requirements 8.1**
 
 ### Property 11: Z-Index Layering Consistency
-*For any* UI state, controls SHALL have z-index 1000, toggle button 10001, PTT button 10002, and scroll button 1400 in both interfaces
-**Validates: Requirements 10.1, 10.2, 10.3, 10.4**
+*For any* UI state, controls SHALL have z-index 1000, toggle button 1001, PTT button 1002, FileDrawer 1250, and scroll button 1400 in both interfaces
+**Validates: Requirements 10.1, 10.2, 10.3, 10.4, 10.5**
 
 ### Property 12: CSS Class Name Consistency
 *For any* rendered element, messages-container, controls, and input-bkgd classes SHALL be used identically in both interfaces
@@ -444,6 +459,10 @@ interface VoiceState {
 ### Property 15: Scroll Detection Threshold Consistency
 *For any* scroll event, isAtBottom SHALL be true when scrollHeight - scrollTop <= clientHeight + 5 in both interfaces
 **Validates: Requirements 3.2**
+
+### Property 16: Inline Style Override Consistency
+*For any* root chat container, inline styles SHALL be applied for width: 100%, height: 100%, display: flex, flexDirection: column, position: relative in both interfaces
+**Validates: Requirements 16.1, 16.3, 16.4, 16.5**
 
 ## Error Handling
 
