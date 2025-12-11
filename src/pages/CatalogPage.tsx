@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { Alert, Badge, BreadcrumbGroup, Cards, Container, ContentLayout, ExpandableSection, Grid, Header, Icon, SpaceBetween, Table, Box as CloudscapeBox, Button, Pagination, SegmentedControl, Modal } from '@cloudscape-design/components';
+import { Alert, Badge, BreadcrumbGroup, Cards, Container, ContentLayout, ExpandableSection, Grid, Header, Icon, SpaceBetween, Table, Box as CloudscapeBox, Button, Pagination, SegmentedControl, Modal, ButtonDropdown } from '@cloudscape-design/components';
 import { useTheme, IconButton, Tooltip, List, ListItem, useMediaQuery, Typography, Box } from '@mui/material';
 import FileDrawer from '@/components/FileDrawer';
 import FolderIcon from '@mui/icons-material/Folder';
@@ -2335,7 +2335,65 @@ function CatalogPageBase() {
           </div>
         </Grid>
       </div>
-
+      <div className="app-container">
+        <Grid
+          disableGutters
+          gridDefinition={[{ colspan: 5 }, { colspan: 7 }]}
+        >
+          {/* left grid with title and segmented controls */}
+          <div className="reset-chat-left">
+            
+          </div>
+          {/* right grid with breadcrumbs and ctas */}
+          <div className="reset-chat-right">
+            <Typography
+              variant="inherit"
+              color="white"
+              style={{ lineHeight: '14px', width: '50px', marginRight: '-13px', marginLeft: '10px' }}
+              fontSize={11}
+            >
+              Example Queries
+            </Typography>
+            <ButtonDropdown
+              items={[
+                {
+                  text: 'Show me wells with GR, DTC and RHOB logs',
+                  id: '1'
+                },
+                {
+                  text: 'Find WELL-008',
+                  id: '2'
+                },
+                {
+                  text: 'Which wells have logs below 3000 meters',
+                  id: '3'
+                }
+              ]}
+              onItemClick={({ detail }) => {
+                // Find the clicked item and populate the text box with its text
+                const clickedItem = [
+                  {
+                    text: 'Show me wells with GR, DTC and RHOB logs',
+                    id: '1'
+                  },
+                  {
+                    text: 'Find WELL-008',
+                    id: '2'
+                  },
+                  {
+                    text: 'Which wells have logs below 3000 meters',
+                    id: '3'
+                  }
+                ].find(item => item.id === detail.id);
+                
+                if (clickedItem) {
+                  setUserInput(clickedItem.text);
+                }
+              }}
+            ></ButtonDropdown>
+          </div>
+        </Grid>
+      </div>
 
 
       {/* Phase 2: Collection Creation Modal (Feature-Flagged) */}

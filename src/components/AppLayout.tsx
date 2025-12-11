@@ -225,11 +225,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({ children }) => {
           ]),
         ]}
       />
-      <div style={{
-        flexGrow: 1,
-        overflow: 'hidden', // Changed from 'auto' to 'hidden' - pages handle their own scroll
-        padding: '5px 40px 40px 40px',
-      }}>
+      <div className='app-container'>
         {children}
       </div>
     </div>

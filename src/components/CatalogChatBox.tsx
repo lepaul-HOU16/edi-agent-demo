@@ -225,65 +225,7 @@ const CatalogChatBox = (params: {
         </List>
       </Box>
 
-      <div className='controls'>
-        <div className='input-bkgd'>
-          <ExpandablePromptInput
-            onChange={(value) => onInputChange(value)}
-            onAction={() => handleSend(userInput)}
-            value={userInput}
-            actionButtonAriaLabel="Send message"
-            actionButtonIconName="send"
-            ariaLabel="Prompt input with action button"
-            placeholder="Search for wells or seismic data..."
-          />
-          <Typography
-            variant="inherit"
-            color="white"
-            style={{ lineHeight: '14px', width: '50px', marginRight: '-13px', marginLeft: '10px' }}
-            fontSize={11}
-          >
-            Example Queries
-          </Typography>
-          <ButtonDropdown
-            items={[
-              {
-                text: 'Show me wells with GR, DTC and RHOB logs',
-                id: '1'
-              },
-              {
-                text: 'Find WELL-008',
-                id: '2'
-              },
-              {
-                text: 'Which wells have logs below 3000 meters',
-                id: '3'
-              }
-            ]}
-            onItemClick={({ detail }) => {
-              // Find the clicked item and populate the text box with its text
-              const clickedItem = [
-                {
-                  text: 'Show me wells with GR, DTC and RHOB logs',
-                  id: '1'
-                },
-                {
-                  text: 'Find WELL-008',
-                  id: '2'
-                },
-                {
-                  text: 'Which wells have logs below 3000 meters',
-                  id: '3'
-                }
-              ].find(item => item.id === detail.id);
-              
-              if (clickedItem) {
-                onInputChange(clickedItem.text);
-              }
-            }}
-          ></ButtonDropdown>
-        </div>
-      </div>
-      
+
       {!isScrolledToBottom && (
         <Fab
           color="primary"
