@@ -39,8 +39,8 @@ const SignInPage: React.FC = () => {
       await cognitoAuth.signIn(username.trim(), password);
       console.log('✅ Sign in successful, redirecting...');
       
-      // Redirect to home page after successful sign-in
-      navigate('/');
+      // Force full page reload to trigger auth state refresh in AppLayout
+      window.location.href = '/';
     } catch (err: any) {
       console.error('❌ Sign in failed:', err);
       

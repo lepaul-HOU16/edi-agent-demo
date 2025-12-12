@@ -1,6 +1,17 @@
 /* Import Cloudscape Design System styles */
 @import '@cloudscape-design/global-styles/index.css';
 
+/* Z-Index Scale - Consistent layering hierarchy */
+:root {
+  --z-index-navigation: 10000;
+  --z-index-modal: 9000;
+  --z-index-dropdown: 1000;
+  --z-index-floating: 100;
+  --z-index-content: 10;
+  --z-index-background: 1;
+  --z-index-decorative: -1;
+}
+
 /* Reset and base styles */
 *,
 *::before,
@@ -591,4 +602,31 @@ button[class*="action-button"][aria-label="Send message"] svg,
 /* CRITICAL: Override computed class z-index for modals/dropdowns */
 .css-9k6g6o {
   z-index: 12000 !important;
+}
+
+/* ============================================
+   Z-INDEX FIXES - TopNavigation Above All Content
+   ============================================ */
+
+/* Ensure TopNavigation appears above all page content including hero-header backgrounds */
+[class*="awsui_top-navigation"],
+header[class*="awsui"] {
+  z-index: var(--z-index-navigation, 10000) !important;
+  position: relative !important;
+}
+
+/* ============================================
+   HERO-HEADER BACKGROUND Z-INDEX FIX
+   ============================================ */
+
+/* Hero-header container - low z-index so TopNavigation appears above it */
+.hero-header {
+  position: relative !important;
+  z-index: 1 !important;
+}
+
+/* Ensure content inside hero-header is clickable and visible */
+.hero-header > * {
+  position: relative !important;
+  z-index: 2 !important;
 }

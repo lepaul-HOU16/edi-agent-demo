@@ -172,11 +172,12 @@ const SignUpPage: React.FC = () => {
   };
 
   // Check if form is valid (all fields filled and no validation errors)
-  const isFormValid = username && email && password && confirmPassword && 
-                      Object.keys(validationErrors).length === 0;
+  const hasErrors = Object.values(validationErrors).some(error => error !== undefined);
+  const isFormValid = username && email && password && confirmPassword && !hasErrors;
 
   return (
     <div
+      className="hero-header"
       style={{
         backgroundImage: `url("/login/edi-bkgd.jpg")`,
         backgroundSize: 'cover',
@@ -186,6 +187,7 @@ const SignUpPage: React.FC = () => {
         height: 'calc(100% + 80px)',
         marginLeft: '-40px',
         marginTop: '-40px',
+        padding: '50px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',

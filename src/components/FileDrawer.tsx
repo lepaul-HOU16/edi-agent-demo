@@ -239,7 +239,7 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
             height: '100%',
             backgroundColor: 'background.paper',
             boxShadow: '-8px 0 20px rgba(0,0,0,0.1)',
-            zIndex: 1300, // ABOVE all page content, controls, and buttons (100-1000), BELOW modals (1400+)
+            zIndex: 10001, // ABOVE TopNavigation (10000) - must be topmost for close button to work
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden',
