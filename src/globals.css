@@ -724,12 +724,6 @@
   width: 100%;
 }
 
-/* On catalog page, make controls only cover the right side */
-[data-page="catalog"] .controls {
-  left: 41.67% !important; /* Start at the 5/12 mark (where colspan-7 begins) */
-  z-index: 1000 !important;
-}
-
 /* Target only the right column with colspan-7 inside .controls */
 .controls > [class*="awsui_grid_"] > [class*="awsui_grid-column_"][class*="awsui_colspan-7"] {
   padding-left: 40px !important;
@@ -954,16 +948,6 @@
   overflow-x: hidden;
   padding: 20px;
   padding-bottom: 100px;
-}
-
-/* Controls panel (second immediate child of catalog-chat-container) - below panel on left, above chat on right */
-[data-page="catalog"] .catalog-chat-container > .controls {
-  z-index: 1050 !important;
-}
-
-/* On catalog page, lower the main controls z-index so panel can be above it */
-[data-page="catalog"] .controls {
-  z-index: 900 !important;
 }
 
 /* Ensure map fills its container */

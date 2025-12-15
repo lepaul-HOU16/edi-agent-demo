@@ -2208,16 +2208,36 @@ function CatalogPageBase() {
           ) : selectedId === "seg-2" ? (
             // Data Analysis & Visualization Panel
             <div className='panel' style={{ height: 'calc(100vh - 108px)', overflow: 'hidden' }}>
-              <Container
-                footer=""
-                header={
-                  <SpaceBetween direction="horizontal" size="m" alignItems="center">
-                    <CloudscapeBox variant="h2">Data Analysis & Visualization</CloudscapeBox>
-                  </SpaceBetween>
-                }
+              <Box
+                sx={{
+                  height: '100%',
+                  width: '100%',
+                  padding: '20px',
+                  backgroundColor: theme.palette.mode === 'dark' ? 'var(--awsui-color-background-container-content)' : '#ffffff',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  overflow: 'auto'
+                }}
               >
-                <div style={{ overflowY: 'auto', height: 'calc(100vh - 220px)', position: 'relative' }}>
-                  {analysisData ? (
+                {/* Header */}
+                <Box sx={{ marginBottom: '16px' }}>
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      color: theme.palette.mode === 'dark' ? '#9ca3af' : '#6c757d',
+                      fontSize: '12px',
+                      fontWeight: 500,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px'
+                    }}
+                  >
+                    Data Analysis & Visualization
+                  </Typography>
+                </Box>
+
+                {/* Content */}
+                {analysisData ? (
+                  <Box sx={{ flex: 1, overflow: 'auto' }}>
                     <GeoscientistDashboardErrorBoundary
                       fallbackTableData={analysisData}
                       searchQuery={`Analysis for ${analysisData.length} wells`}
@@ -2233,46 +2253,31 @@ function CatalogPageBase() {
                         } : undefined}
                       />
                     </GeoscientistDashboardErrorBoundary>
-                  ) : (
-                    <Container>
-                      <SpaceBetween direction="vertical" size="l" alignItems="center">
-                        <Icon name="settings" size="large" />
-                        <SpaceBetween direction="vertical" size="m" alignItems="center">
-                          <Box
-                            sx={{
-                              padding: '40px 20px',
-                              textAlign: 'center',
-                              backgroundColor: '#f8f9fa',
-                              borderRadius: '8px',
-                              marginTop: '12px'
-                            }}
-                          >
-                            <Typography
-                              variant="h6"
-                              sx={{
-                                color: '#6c757d',
-                                marginBottom: '8px',
-                                fontSize: '16px'
-                              }}
-                            >
-                              No AI reasoning process active
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              sx={{
-                                color: '#868e96',
-                                fontSize: '13px'
-                              }}
-                            >
-                              Submit a query to see the AI's step-by-step decision-making process
-                            </Typography>
-                          </Box>
-                        </SpaceBetween>
-                      </SpaceBetween>
-                    </Container>
-                  )}
-                </div>
-              </Container>
+                  </Box>
+                ) : (
+                  <Box
+                    sx={{
+                      flex: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      padding: '40px 20px',
+                      textAlign: 'center'
+                    }}
+                  >
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: theme.palette.mode === 'dark' ? '#9ca3af' : '#6c757d',
+                        fontSize: '14px',
+                        fontStyle: 'italic'
+                      }}
+                    >
+                      Analysis visualizations will appear here as you query the data catalog
+                    </Typography>
+                  </Box>
+                )}
+              </Box>
             </div>
           ) : (
             // Chain of Thought Panel (seg-3) - using reusable ChainOfThoughtDisplay component
