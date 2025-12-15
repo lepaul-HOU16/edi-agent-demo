@@ -688,6 +688,9 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
       <Dialog
         open={createFolderDialogOpen}
         onClose={() => !isCreatingFolder && setCreateFolderDialogOpen(false)}
+        sx={{
+          zIndex: 10002
+        }}
         PaperProps={{
           sx: {
             borderRadius: '8px',
