@@ -133,11 +133,13 @@ const SignUpPage: React.FC = () => {
     
     try {
       console.log('📝 Attempting sign up...');
-      await cognitoAuth.signUp(username.trim(), email.trim(), password);
+      // Cognito User Pool is configured to use email as username
+      // Pass email as both username and email attribute
+      await cognitoAuth.signUp(email.trim(), email.trim(), password);
       console.log('✅ Sign up successful, redirecting to verification...');
       
-      // Navigate to verification page with username
-      navigate('/verify-email', { state: { username: username.trim() } });
+      // Navigate to verification page with email (which is the username in Cognito)
+      navigate('/verify-email', { state: { username: email.trim() } });
     } catch (err: any) {
       console.error('❌ Sign up failed:', err);
       
@@ -225,16 +227,17 @@ const SignUpPage: React.FC = () => {
               )}
 
               <FormField
-                label="Username"
+                label="Display Name"
                 stretch
                 errorText={validationErrors.username}
+                description="This is how your name will appear in the system"
               >
                 <Input
                   value={username}
                   onChange={({ detail }) => handleUsernameChange(detail.value)}
-                  placeholder="Enter your username"
+                  placeholder="Enter your display name"
                   disabled={loading}
-                  autoComplete="username"
+                  autoComplete="name"
                   type="text"
                   invalid={!!validationErrors.username}
                 />
