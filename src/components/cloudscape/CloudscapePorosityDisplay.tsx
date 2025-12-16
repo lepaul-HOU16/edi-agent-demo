@@ -61,58 +61,31 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
     hasEmbeddedLogData: !!data?.logData
   });
   
-  // Fetch log data from S3 if reference exists
+  // Load log data from embedded data or S3 reference
   useEffect(() => {
-    const fetchLogDataFromS3 = async (s3Ref: S3Reference) => {
-      console.log('📥 Fetching log data from S3:', s3Ref);
-      setLoading(true);
-      setError(null);
-      
-      try {
-        // Get auth token using the proper API client method
-        const token = await getAuthToken();
-        
-        const url = `/api/s3-proxy?key=${encodeURIComponent(s3Ref.key)}`;
-        console.log('📥 S3 proxy URL:', url);
-        
-        const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to fetch log data: ${response.statusText}`);
-        }
-        
-        const fetchedData = await response.json();
-        console.log('✅ Successfully fetched log data from S3:', {
-          keys: Object.keys(fetchedData),
-          depthLength: fetchedData.DEPT?.length || fetchedData.DEPTH?.length
-        });
-        
-        setLogData(fetchedData);
-      } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : 'Unknown error fetching log data';
-        console.error('❌ Failed to fetch log data from S3:', errorMessage);
-        setError(errorMessage);
-      } finally {
-        setLoading(false);
-      }
-    };
-    
-    // Check for S3 reference
-    if (data?.logDataS3) {
-      console.log('🔍 Found S3 reference, fetching log data...');
-      fetchLogDataFromS3(data.logDataS3);
-    } else if (data?.logData) {
-      // Fallback: use embedded log data (backward compatibility)
-      console.log('🔍 Using embedded log data (backward compatibility)');
+    // PRIORITY 1: Use embedded log data if available (most reliable)
+    if (data?.logData) {
+      console.log('✅ Using embedded log data');
       setLogData(data.logData);
-    } else {
-      console.log('⚠️ No log data source found (neither S3 reference nor embedded data)');
-      setLogData(null);
+      setLoading(false);
+      setError(null);
+      return;
     }
+    
+    // PRIORITY 2: S3 reference (not currently supported - would need signed URLs)
+    if (data?.logDataS3) {
+      console.warn('⚠️ S3 reference found but S3 proxy not implemented - cannot load log curves');
+      setError('Log curve visualization requires embedded data. S3 storage not yet supported in frontend.');
+      setLogData(null);
+      setLoading(false);
+      return;
+    }
+    
+    // No data available
+    console.log('⚠️ No log data source found');
+    setLogData(null);
+    setLoading(false);
+    setError(null);
   }, [data]);
   
   const results = data?.results || {};
@@ -197,24 +170,10 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
       return null;
     }
     
-    // Define 4 tracks: GR, RHOB, NPHI, Porosity
+    // Define 3 tracks: RHOB, NPHI, Porosity (GR not included in downsampled data)
     const traces = [];
     
-    // Track 1: GR (Gamma Ray)
-    if (curves.GR) {
-      traces.push({
-        x: curves.GR,
-        y: depth,
-        name: 'GR',
-        type: 'scatter',
-        mode: 'lines',
-        line: { color: '#10b981', width: 1 },
-        xaxis: 'x1',
-        yaxis: 'y'
-      });
-    }
-    
-    // Track 2: RHOB (Bulk Density)
+    // Track 1: RHOB (Bulk Density)
     if (curves.RHOB) {
       traces.push({
         x: curves.RHOB,
@@ -223,12 +182,12 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
         type: 'scatter',
         mode: 'lines',
         line: { color: '#ef4444', width: 1 },
-        xaxis: 'x2',
+        xaxis: 'x1',
         yaxis: 'y'
       });
     }
     
-    // Track 3: NPHI (Neutron Porosity)
+    // Track 2: NPHI (Neutron Porosity)
     if (curves.NPHI) {
       traces.push({
         x: curves.NPHI,
@@ -237,12 +196,12 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
         type: 'scatter',
         mode: 'lines',
         line: { color: '#3b82f6', width: 1 },
-        xaxis: 'x3',
+        xaxis: 'x2',
         yaxis: 'y'
       });
     }
     
-    // Track 4: Calculated Effective Porosity (PHIE)
+    // Track 3: Calculated Effective Porosity (PHIE)
     if (curves.PHIE || curves.POROSITY || results.porosityValues) {
       const porosityData = curves.PHIE || curves.POROSITY || results.porosityValues;
       traces.push({
@@ -252,7 +211,7 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
         type: 'scatter',
         mode: 'lines',
         line: { color: '#f59e0b', width: 2 },
-        xaxis: 'x4',
+        xaxis: 'x3',
         yaxis: 'y'
       });
     }
@@ -267,23 +226,18 @@ export const CloudscapePorosityDisplay: React.FC<CloudscapePorosityDisplayProps>
         domain: [0, 1]
       },
       xaxis: {
-        title: 'GR (API)',
-        domain: [0, 0.22],
+        title: 'RHOB (g/cc)',
+        domain: [0, 0.30],
         side: 'top'
       },
       xaxis2: {
-        title: 'RHOB (g/cc)',
-        domain: [0.26, 0.48],
+        title: 'NPHI (v/v)',
+        domain: [0.35, 0.65],
         side: 'top'
       },
       xaxis3: {
-        title: 'NPHI (v/v)',
-        domain: [0.52, 0.74],
-        side: 'top'
-      },
-      xaxis4: {
         title: 'Porosity (v/v)',
-        domain: [0.78, 1],
+        domain: [0.70, 1],
         side: 'top'
       },
       plot_bgcolor: '#ffffff',

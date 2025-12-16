@@ -1123,7 +1123,8 @@ Available methods: density, neutron, effective porosity`
       const toolResult = await comprehensivePorosityAnalysisTool.func({ 
         wellNames: [wellName],
         analysisType: 'single_well',
-        depthRange: null 
+        depthRange: null
+        // NOTE: sessionId removed - S3 storage not supported in frontend yet
       });
       
       console.log('✅ Tool executed, result type:', typeof toolResult);
@@ -1292,22 +1293,88 @@ Available methods: larionov_tertiary, larionov_pre_tertiary, clavier, linear`
     const calcMethod = method || 'larionov_tertiary';
     console.log('🔄 Proceeding with shale calculation - Well:', wellName, 'Method:', calcMethod);
     
-    const result = await this.callMCPTool('calculate_shale_volume', { wellName, method: calcMethod });
+    // VERBOSE THOUGHT STEP: Data Retrieval
+    const dataStep = this.addDataRetrievalStep(
+      `LAS file for ${wellName}`,
+      this.s3Bucket,
+      `${this.wellDataPath}${wellName}.las`
+    );
     
-    if (result.success) {
-      console.log('✅ Shale Volume Calculation Success for:', wellName);
-      console.log('📊 MCP Tool Result Structure:', {
-        hasArtifacts: Array.isArray(result.artifacts),
-        artifactCount: result.artifacts?.length || 0,
-        hasResult: !!result.result,
-        hasMessage: !!result.message
+    // FIX: Use TypeScript comprehensive shale volume tool directly
+    let result;
+    try {
+      const { comprehensiveShaleVolumeAnalysisTool } = await import('../tools/comprehensiveShaleVolumeAnalysisTool');
+      console.log('✅ Imported comprehensiveShaleVolumeAnalysisTool successfully');
+      
+      const toolResult = await comprehensiveShaleVolumeAnalysisTool.func({ 
+        wellName,
+        method: calcMethod,
+        parameters: {},
+        depthStart: undefined,
+        depthEnd: undefined
       });
       
-      // CRITICAL FIX: Preserve artifacts from enhanced calculateShaleVolumeTool
+      console.log('✅ Tool executed, result type:', typeof toolResult);
+      console.log('📦 Tool result preview:', typeof toolResult === 'string' ? toolResult.substring(0, 200) : 'Not a string');
+      
+      // Parse the tool result (it returns a JSON string)
+      result = JSON.parse(toolResult);
+      console.log('✅ Parsed result successfully:', {
+        success: result.success,
+        hasArtifacts: !!result.artifacts,
+        artifactCount: result.artifacts?.length || 0,
+        hasMessage: !!result.message
+      });
+    } catch (toolError) {
+      console.error('❌ Error calling comprehensiveShaleVolumeAnalysisTool:', toolError);
+      this.errorThoughtStep(dataStep.id, toolError instanceof Error ? toolError : new Error('Tool execution failed'), { wellName });
+      return {
+        success: false,
+        message: `Failed to analyze shale volume for ${wellName}: ${toolError instanceof Error ? toolError.message : 'Unknown error'}`,
+        artifacts: []
+      };
+    }
+    
+    // Complete data retrieval step
+    this.completeThoughtStep(dataStep.id, {
+      details: JSON.stringify({
+        wellName,
+        method: calcMethod,
+        s3Bucket: this.s3Bucket,
+        s3Key: `${this.wellDataPath}${wellName}.las`,
+        toolCalled: 'comprehensiveShaleVolumeAnalysisTool (TypeScript)'
+      }, null, 2)
+    });
+    
+    if (result.success && result.artifacts && result.artifacts.length > 0) {
+      console.log('✅ Comprehensive Shale Volume Analysis Success for:', wellName);
+      console.log('📊 Artifact Structure:', {
+        hasArtifacts: Array.isArray(result.artifacts),
+        artifactCount: result.artifacts?.length || 0,
+        messageContentType: result.artifacts[0]?.messageContentType
+      });
+      
+      // VERBOSE THOUGHT STEP: Calculation
+      const calcStep = this.addCalculationStep(
+        'Comprehensive Shale Volume Analysis',
+        `${calcMethod} method with clean sand interval identification`,
+        { wellName, method: calcMethod }
+      );
+      
+      this.completeThoughtStep(calcStep.id, {
+        details: JSON.stringify({
+          wellName,
+          method: calcMethod,
+          artifactCount: result.artifacts?.length || 0,
+          success: true
+        }, null, 2)
+      });
+      
+      // Preserve artifacts directly - don't format
       const response = {
         success: true,
-        message: this.formatShaleVolumeResponse(result),
-        artifacts: result.artifacts || [] // Preserve artifacts from the tool
+        message: result.message || `Comprehensive shale volume analysis complete for ${wellName}`,
+        artifacts: result.artifacts
       };
       
       console.log('🎉 PRESERVED ARTIFACTS IN SHALE HANDLER RESPONSE:', {
@@ -1322,11 +1389,11 @@ Available methods: larionov_tertiary, larionov_pre_tertiary, clavier, linear`
     console.log('❌ Shale Volume Calculation Failed for:', wellName, result);
     console.log('🪨 === CALCULATE SHALE HANDLER END (FAILED) ===');
     
-    // Ensure message is a string
+    // Handle errors
     return {
       success: false,
-      message: typeof result.message === 'string' ? result.message : JSON.stringify(result.message || result.error || 'Shale volume calculation failed'),
-      error: result.error
+      message: result.message || 'Shale volume calculation failed',
+      artifacts: []
     };
   }
 
@@ -2984,8 +3051,8 @@ Next Steps:
           wellNames: multipleWells,
           includeVisualization: true,
           generateCrossplot: true,
-          identifyReservoirIntervals: true,
-          sessionId: this.sessionId // NEW: Pass sessionId for S3 storage
+          identifyReservoirIntervals: true
+          // NOTE: sessionId removed - S3 storage not supported in frontend yet
         };
       } else if (wellName) {
         console.log('🎯 SINGLE-WELL COMPREHENSIVE ANALYSIS');
@@ -2994,8 +3061,8 @@ Next Steps:
           wellNames: [wellName], // FIXED: Tool expects wellNames (plural) as array
           includeVisualization: true,
           generateCrossplot: true,
-          identifyReservoirIntervals: true,
-          sessionId: this.sessionId // NEW: Pass sessionId for S3 storage
+          identifyReservoirIntervals: true
+          // NOTE: sessionId removed - S3 storage not supported in frontend yet
         };
       } else {
         console.log('🎯 FIELD-WIDE ANALYSIS (no specific wells)');
@@ -3003,12 +3070,15 @@ Next Steps:
           analysisType: 'field_overview',
           includeVisualization: true,
           generateCrossplot: true,
-          identifyReservoirIntervals: true,
-          sessionId: this.sessionId // NEW: Pass sessionId for S3 storage
+          identifyReservoirIntervals: true
+          // NOTE: sessionId removed - S3 storage not supported in frontend yet
+          // Data will be embedded in artifact (limited to 1-2 wells to avoid DynamoDB limits)
         };
       }
       
       console.log('📋 Calling comprehensive_porosity_analysis with parameters:', parameters);
+      console.log('🔍 DEBUG: this.sessionId =', this.sessionId);
+      console.log('🔍 DEBUG: parameters.sessionId =', parameters.sessionId);
       
       // Call comprehensive porosity analysis tool
       const result = await this.callComprehensivePorosityAnalysis(parameters);
@@ -3156,18 +3226,36 @@ Or specify a different well from the list above.`,
    * Call comprehensive porosity analysis using the real MCP tool
    */
   private async callComprehensivePorosityAnalysis(parameters: any): Promise<any> {
-    console.log('🔄 Starting comprehensive porosity analysis using MCP tool...');
+    console.log('🔄 Starting comprehensive porosity analysis using TypeScript MCP tool...');
     
-    // Call the real MCP tool instead of generating mock artifacts
-    const result = await this.callMCPTool('comprehensive_porosity_analysis', parameters);
-    
-    console.log('🔍 Comprehensive porosity MCP tool result:', {
-      success: result.success,
-      hasArtifacts: Array.isArray(result.artifacts),
-      artifactCount: result.artifacts?.length || 0
-    });
-    
-    return result;
+    // CRITICAL FIX: Call the TypeScript tool DIRECTLY instead of proxying to Python Lambda
+    // The comprehensive porosity tool is implemented in TypeScript with S3 storage support
+    // The Python Lambda only supports simple calculations (calculate_porosity, calculate_shale, calculate_saturation)
+    try {
+      const { comprehensivePorosityAnalysisTool } = await import('../tools/comprehensivePorosityAnalysisTool');
+      console.log('✅ Imported comprehensivePorosityAnalysisTool successfully');
+      
+      const toolResult = await comprehensivePorosityAnalysisTool.func(parameters);
+      console.log('✅ Tool execution completed');
+      
+      // Parse the JSON result
+      const result = JSON.parse(toolResult);
+      
+      console.log('🔍 Comprehensive porosity tool result:', {
+        success: result.success,
+        hasArtifacts: Array.isArray(result.artifacts),
+        artifactCount: result.artifacts?.length || 0
+      });
+      
+      return result;
+    } catch (error) {
+      console.error('❌ Error calling comprehensivePorosityAnalysisTool:', error);
+      return {
+        success: false,
+        message: `Comprehensive porosity analysis failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
   }
 
   /**

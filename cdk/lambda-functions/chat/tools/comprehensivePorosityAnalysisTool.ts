@@ -8,7 +8,6 @@ import { z } from "zod";
 import { S3Client, ListObjectsV2Command, GetObjectCommand } from "@aws-sdk/client-s3";
 import { ProfessionalResponseBuilder } from "./professionalResponseTemplates";
 import { plotDataTool } from "./plotDataTool";
-import { writeFile } from "./s3Utils";
 
 // Initialize S3 client
 const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' });
@@ -108,12 +107,14 @@ async function storeLogDataInS3(
       sizeMB: (sizeBytes / 1024 / 1024).toFixed(2)
     });
     
-    // Use writeFile utility to store in S3
-    await writeFile({
-      filename: key,
-      content,
-      contentType: 'application/json'
-    });
+    // Write directly to S3 using PutObjectCommand (bypass writeFile utility which expects different key format)
+    const { PutObjectCommand } = await import("@aws-sdk/client-s3");
+    await s3Client.send(new PutObjectCommand({
+      Bucket: S3_BUCKET,
+      Key: key,
+      Body: content,
+      ContentType: 'application/json'
+    }));
     
     console.log(`✅ Successfully stored log data in S3: ${key}`);
     
@@ -653,8 +654,15 @@ export const comprehensivePorosityAnalysisTool: MCPTool = {
         wellNamesType: typeof wellNames,
         wellNamesIsArray: Array.isArray(wellNames),
         wellNamesLength: wellNames?.length,
-        wellNamesContent: JSON.stringify(wellNames)
+        wellNamesContent: JSON.stringify(wellNames),
+        sessionId: sessionId ? 'provided' : 'missing'
       });
+      
+      // CRITICAL: Validate sessionId is provided for multi-well analysis
+      if (analysisType === 'multi_well' && !sessionId) {
+        console.warn('⚠️ Multi-well analysis requested without sessionId - S3 storage will not be available');
+        console.warn('⚠️ This may cause DynamoDB size limit errors for large datasets');
+      }
       
       // Step 1: Get available wells if not specified
       let targetWells = wellNames;
@@ -677,6 +685,16 @@ export const comprehensivePorosityAnalysisTool: MCPTool = {
         );
         
         console.log(`Found ${allFiles.length} total files, filtered to ${targetWells.length} wells for porosity analysis:`, targetWells);
+      }
+      
+      // CRITICAL SAFETY CHECK: Hard limit to 2 wells maximum to prevent DynamoDB size limit
+      // Even with S3 storage, artifacts can get large with metadata and statistics
+      const MAX_WELLS = 2;
+      if (targetWells && targetWells.length > MAX_WELLS) {
+        console.warn(`⚠️ WELL LIMIT ENFORCED: Requested ${targetWells.length} wells, limiting to ${MAX_WELLS} to prevent DynamoDB size limit`);
+        console.warn(`⚠️ Original wells: ${targetWells.join(', ')}`);
+        targetWells = targetWells.slice(0, MAX_WELLS);
+        console.warn(`⚠️ Limited wells: ${targetWells.join(', ')}`);
       }
 
       if (targetWells.length === 0) {
@@ -1172,7 +1190,7 @@ async function analyzeSingleWellPorosity(
     }
 
     // Build logData with filtered arrays
-    const logData: {
+    let logData: {
       DEPT: number[];
       RHOB: number[];
       NPHI: number[];
@@ -1188,6 +1206,28 @@ async function analyzeSingleWellPorosity(
       PHIN: validIndices.map(i => neutronPorosity[i]),
       PHIE: validIndices.map(i => effectivePorosity[i])
     };
+    
+    // CRITICAL: Downsample log data to avoid DynamoDB 400KB limit
+    // Keep every Nth point to reduce size while maintaining visualization quality
+    const MAX_POINTS = 500; // Target max points for visualization
+    if (logData.DEPT.length > MAX_POINTS) {
+      const step = Math.ceil(logData.DEPT.length / MAX_POINTS);
+      console.log(`📉 Downsampling log data from ${logData.DEPT.length} to ~${Math.floor(logData.DEPT.length / step)} points (step=${step})`);
+      
+      const downsample = (arr: number[]) => arr.filter((_, i) => i % step === 0);
+      
+      logData = {
+        DEPT: downsample(logData.DEPT),
+        RHOB: downsample(logData.RHOB),
+        NPHI: downsample(logData.NPHI),
+        PHID: downsample(logData.PHID),
+        PHIN: downsample(logData.PHIN),
+        PHIE: downsample(logData.PHIE),
+        ...(logData.GR && { GR: downsample(logData.GR) })
+      };
+      
+      console.log(`✅ Downsampled to ${logData.DEPT.length} points`);
+    }
 
     // Handle optional curves (GR) gracefully
     const grCurve = wellData.curves.find((c: any) => 
@@ -1957,11 +1997,33 @@ function generateSingleWellPorosityReport(analysis: WellPorosityAnalysis, plotDa
       qualityControl: "Statistical validation and data quality assessment performed",
       industryStandards: ["SPE Petrophysics Guidelines", "API RP 40", "SPWLA Formation Evaluation"]
     },
-    // NEW: Include log curve data for visualization
-    logData: analysis.logData,
-    // NEW: Include curve metadata
-    curveMetadata: analysis.curveMetadata
+    // CRITICAL FIX: Only include logData if NOT stored in S3
+    // If logDataS3 exists, use S3 reference instead of embedding data
+    ...(analysis.logDataS3 ? { logDataS3: analysis.logDataS3 } : {}),
+    ...(analysis.logData && !analysis.logDataS3 ? { logData: analysis.logData } : {}),
+    // NEW: Include curve metadata (always small, needed for UI)
+    curveMetadata: analysis.curveMetadata,
+    // NEW: Include S3 storage error if present
+    ...(analysis.s3StorageError ? { s3StorageError: analysis.s3StorageError } : {})
   };
+
+  // Validate artifact size BEFORE returning
+  try {
+    validateArtifactSize(artifact);
+  } catch (sizeError) {
+    console.error('❌ Single-well artifact size validation failed:', sizeError);
+    // If artifact is too large, try removing logData and forcing S3 storage
+    if (artifact.logData && !artifact.logDataS3) {
+      console.warn('⚠️ Artifact too large - attempting emergency S3 storage');
+      // This should never happen if sessionId was provided, but handle it gracefully
+      throw new Error(
+        `Artifact size exceeds DynamoDB limit. ` +
+        `Reduce the number of wells analyzed or depth range to decrease artifact size. ` +
+        `Alternatively, ensure sessionId is provided to enable S3 storage for log data.`
+      );
+    }
+    throw sizeError;
+  }
 
   // Validate artifact structure before returning
   logArtifactStructure(artifact, analysis.wellName);
@@ -2066,13 +2128,32 @@ function generateMultiWellPorosityReport(analyses: WellPorosityAnalysis[], plotD
       qualityControl: "Field-wide validation and consistency checks performed",
       industryStandards: ["SPE Multi-Well Analysis Guidelines", "API RP 40"]
     },
-    // NEW: Include log curve data for each well
+    // CRITICAL FIX: Only include logData if NOT stored in S3
+    // For multi-well, use S3 references when available to avoid DynamoDB size limits
     wellsLogData: analyses.map(analysis => ({
       wellName: analysis.wellName,
-      logData: analysis.logData,
-      curveMetadata: analysis.curveMetadata
+      // Use S3 reference if available, otherwise embed log data
+      ...(analysis.logDataS3 ? { logDataS3: analysis.logDataS3 } : {}),
+      ...(analysis.logData && !analysis.logDataS3 ? { logData: analysis.logData } : {}),
+      curveMetadata: analysis.curveMetadata,
+      ...(analysis.s3StorageError ? { s3StorageError: analysis.s3StorageError } : {})
     }))
   };
+
+  // CRITICAL: Validate artifact size BEFORE returning
+  try {
+    validateArtifactSize(artifact);
+  } catch (sizeError) {
+    console.error('❌ Multi-well artifact size validation failed:', sizeError);
+    // If artifact is too large, provide actionable error message
+    const wellsWithEmbeddedData = analyses.filter(a => a.logData && !a.logDataS3).length;
+    throw new Error(
+      `Artifact size ${(JSON.stringify(artifact).length / 1024).toFixed(2)} KB exceeds DynamoDB limit of 400.00 KB. ` +
+      `Reduce the number of wells analyzed or depth range to decrease artifact size. ` +
+      `Currently analyzing ${analyses.length} wells with ${wellsWithEmbeddedData} wells having embedded log data. ` +
+      `Ensure sessionId is provided to enable S3 storage for log data.`
+    );
+  }
 
   // Validate artifact structure
   console.log(`✅ Multi-well artifact structure validation:`, {
@@ -2189,13 +2270,32 @@ function generatePorosityFieldReport(fieldSummary: any, analyses: WellPorosityAn
       qualityControl: "Field-wide validation and geological consistency checks",
       industryStandards: ["SPE Field Development Guidelines", "API RP 40"]
     },
-    // NEW: Include aggregated log curve data for field overview
+    // CRITICAL FIX: Only include logData if NOT stored in S3
+    // For field overview, use S3 references when available to avoid DynamoDB size limits
     fieldLogData: analyses.map(analysis => ({
       wellName: analysis.wellName,
-      logData: analysis.logData,
-      curveMetadata: analysis.curveMetadata
+      // Use S3 reference if available, otherwise embed log data
+      ...(analysis.logDataS3 ? { logDataS3: analysis.logDataS3 } : {}),
+      ...(analysis.logData && !analysis.logDataS3 ? { logData: analysis.logData } : {}),
+      curveMetadata: analysis.curveMetadata,
+      ...(analysis.s3StorageError ? { s3StorageError: analysis.s3StorageError } : {})
     }))
   };
+
+  // CRITICAL: Validate artifact size BEFORE returning
+  try {
+    validateArtifactSize(artifact);
+  } catch (sizeError) {
+    console.error('❌ Field overview artifact size validation failed:', sizeError);
+    // If artifact is too large, provide actionable error message
+    const wellsWithEmbeddedData = analyses.filter(a => a.logData && !a.logDataS3).length;
+    throw new Error(
+      `Artifact size ${(JSON.stringify(artifact).length / 1024).toFixed(2)} KB exceeds DynamoDB limit of 400.00 KB. ` +
+      `Reduce the number of wells analyzed or depth range to decrease artifact size. ` +
+      `Currently analyzing ${analyses.length} wells with ${wellsWithEmbeddedData} wells having embedded log data. ` +
+      `Ensure sessionId is provided to enable S3 storage for log data.`
+    );
+  }
 
   // Validate artifact structure
   console.log(`✅ Field overview artifact structure validation:`, {

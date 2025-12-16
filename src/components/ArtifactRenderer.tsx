@@ -16,6 +16,7 @@ import WakeAnalysisArtifact from './renewable/WakeAnalysisArtifact';
 import { CloudscapePorosityDisplay } from './cloudscape/CloudscapePorosityDisplay';
 import { CloudscapeShaleVolumeDisplay } from './cloudscape/CloudscapeShaleVolumeDisplay';
 import { CloudscapeSaturationDisplay } from './cloudscape/CloudscapeSaturationDisplay';
+import { CloudscapeDataQualityDisplay } from './cloudscape/CloudscapeDataQualityDisplay';
 // Maintenance components
 import WellsEquipmentDashboard from './maintenance/WellsEquipmentDashboard';
 import { EquipmentHealthArtifact } from './maintenance/EquipmentHealthArtifact';
@@ -163,6 +164,13 @@ const ArtifactRenderer: React.FC<ArtifactRendererProps> = ({ artifacts, onFollow
             return (
               <div key={index} style={{ marginBottom: '16px' }}>
                 <CloudscapeSaturationDisplay data={artifact as any} />
+              </div>
+            );
+
+          case 'well_data_quality':
+            return (
+              <div key={index} style={{ marginBottom: '16px' }}>
+                <CloudscapeDataQualityDisplay data={artifact as any} />
               </div>
             );
 
