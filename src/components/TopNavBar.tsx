@@ -8,6 +8,7 @@ import AccountCircle from '@mui/icons-material/AccountCircle';
 import { useUserAttributes } from '@/components/UserAttributesProvider';
 import { createSession } from '@/lib/api/sessions';
 import { Schema } from '@/types/api';
+import { sendMessage } from '@/lib/api';
 
 const TopNavBar: React.FC = () => {
   const navigate = useNavigate();
@@ -27,8 +28,10 @@ const TopNavBar: React.FC = () => {
   const handleCreateNewChat = async () => {
     try {
       // Invoke the lightweight agent for initialization (replaced deprecated reActAgent)
-      const newChatSession = await createSession({});
-      navigate(`/chat/${newChatSession.id}`);
+      const newChatSession = await createSession({
+        name: `Chat ${new Date().toLocaleString()}`
+      });
+      navigate(`/chat/${newChatSession.sessionId}`);
     } catch (error) {
       console.error("Error creating chat session:", error);
       alert("Failed to create chat session.");
@@ -38,9 +41,11 @@ const TopNavBar: React.FC = () => {
   const handleCreatePetrophysicsChat = async () => {
     try {
       // Invoke the lambda function so that MCP servers initialize before the user is waiting for a response
-      const newChatSession = await createSession({});
+      const newChatSession = await createSession({
+        name: `Chat ${new Date().toLocaleString()}`
+      });
       
-      if (newChatSession && newChatSession.id) {
+      if (newChatSession && newChatSession.sessionId) {
         // Send an initial message with petrophysics keywords to trigger the petrophysics system message
         const initialMessage: Schema['ChatMessage']['createType'] = {
           role: 'human' as any,

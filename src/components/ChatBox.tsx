@@ -44,7 +44,8 @@ const ChatBox = (params: {
   messages?: Message[],
   setMessages?: (input: Message[] | ((prevMessages: Message[]) => Message[])) => void,
   selectedAgent?: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft',
-  onAgentChange?: (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft') => void
+  onAgentChange?: (agent: 'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft') => void,
+  collectionAlert?: React.ReactNode
 }) => {
   const { chatSessionId, showChainOfThought } = params
   const [localMessages, setLocalMessages] = useState<Message[]>([]);
@@ -568,18 +569,13 @@ const ChatBox = (params: {
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="messages-container"
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          overflowY: 'auto',
-          overflowX: 'hidden',
-          padding: '20px',
-          paddingBottom: '100px'
-        }}
       >
+        {params.collectionAlert && (
+          <div style={{ marginBottom: '16px' }}>
+            {params.collectionAlert}
+          </div>
+        )}
+
         {isLoadingMore && (
           <div style={{ display: 'flex', justifyContent: 'center' }}>
             <CircularProgress size={24} />

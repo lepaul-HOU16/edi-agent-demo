@@ -115,10 +115,7 @@ body {
   border-color: #2a3642 !important;
 }
 
-/* Fix for table borders */
-[data-awsui-mode="dark"] [class*="awsui_table"] {
-  border-color: #2a3642 !important;
-}
+/* Table borders handled by Cloudscape - DO NOT OVERRIDE */
 
 /* Fix for card borders */
 [data-awsui-mode="dark"] [class*="awsui_card"] {
@@ -208,10 +205,7 @@ body {
   border-color: #d5dbdb !important;
 }
 
-/* Fix for table borders in light mode */
-[data-awsui-theme="light"] [class*="awsui_table"] {
-  border-color: #d5dbdb !important;
-}
+/* Table borders handled by Cloudscape - DO NOT OVERRIDE */
 
 /* Fix for card borders in light mode */
 [data-awsui-theme="light"] [class*="awsui_card"] {

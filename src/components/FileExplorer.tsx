@@ -65,10 +65,32 @@ interface FileItem {
   lastRefreshTime?: number; // Make it optional for backward compatibility
 }
 
+interface CollectionDataItem {
+  id: string;
+  name: string;
+  type: string;
+  dataSource: string;
+  s3Key?: string;
+  osduId?: string;
+  location?: string;
+  operator?: string;
+  depth?: string;
+  curves?: string[];
+  coordinates?: [number, number];
+}
+
+interface CollectionContext {
+  id: string;
+  name: string;
+  dataSourceType: string;
+  dataItems?: CollectionDataItem[];
+}
+
 interface FileExplorerProps {
   chatSessionId: string;
   onFileSelect?: (file: FileItem) => void;
   onPathChange?: (path: string) => void;
+  collectionContext?: CollectionContext | null;
 }
 
 const StyledListItem = styled(ListItemButton)({
@@ -80,7 +102,7 @@ const StyledListItem = styled(ListItemButton)({
   paddingRight: 48,
 });
 
-const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect, onPathChange }) => {
+const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect, onPathChange, collectionContext }) => {
   const { lastRefreshTime, isRefreshing, refreshFiles } = useFileSystem();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -329,6 +351,70 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
       loadFiles(currentPath, true); // Force refresh when triggered by lastRefreshTime
     }
   }, [lastRefreshTime, currentPath, loadFiles]);
+
+  // State to track collection files separately for grouping
+  const [collectionFiles, setCollectionFiles] = useState<FileItem[]>([]);
+
+  // Extract collection files and add them to file structure
+  useEffect(() => {
+    if (!collectionContext || !collectionContext.dataItems || collectionContext.dataItems.length === 0) {
+      setCollectionFiles([]);
+      return;
+    }
+
+    // Only add collection files when viewing root or global directory
+    if (currentPath !== '' && !currentPath.startsWith('global')) {
+      setCollectionFiles([]);
+      return;
+    }
+
+    console.log('📚 Adding collection files to FileExplorer:', collectionContext.dataItems.length, 'items');
+
+    // Extract S3 keys from collection data items
+    const extractedFiles: FileItem[] = collectionContext.dataItems
+      .filter(item => item.s3Key) // Only items with S3 keys
+      .map(item => {
+        const s3Key = item.s3Key!;
+        const fileName = s3Key.split('/').pop() || item.name;
+        
+        return {
+          key: s3Key,
+          path: s3Key,
+          isFolder: false,
+          name: fileName,
+          url: `/preview/${s3Key}`, // Use preview URL
+          lastRefreshTime: Date.now(),
+        };
+      });
+
+    if (extractedFiles.length > 0) {
+      console.log('✅ Adding', extractedFiles.length, 'collection files to file structure');
+      setCollectionFiles(extractedFiles);
+      
+      // Merge collection files with existing file structure
+      // Avoid duplicates by checking keys
+      setFileStructure(prev => {
+        const existingKeys = new Set(prev.map(f => f.key));
+        const newFiles = extractedFiles.filter(f => !existingKeys.has(f.key));
+        
+        if (newFiles.length === 0) {
+          return prev; // No new files to add
+        }
+        
+        // Combine and sort: folders first, then files
+        const combined = [...prev, ...newFiles];
+        combined.sort((a, b) => {
+          if (a.isFolder && !b.isFolder) return -1;
+          if (!a.isFolder && b.isFolder) return 1;
+          return a.name.localeCompare(b.name);
+        });
+        
+        return combined;
+      });
+    } else {
+      setCollectionFiles([]);
+    }
+  }, [collectionContext, currentPath]);
 
   // Update currentPath and notify parent component
   const setCurrentPathAndNotify = (path: string) => {
@@ -913,8 +999,94 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
         flex: 1,
         overflow: 'auto',
       }}>
-        <List dense>
-          {fileStructure.map((item) => (
+        {/* Collection Files Section */}
+        {collectionFiles.length > 0 && collectionContext && (
+          <Box sx={{ mb: 2 }}>
+            <Box sx={{
+              px: 2,
+              py: 1,
+              bgcolor: 'rgba(25, 118, 210, 0.08)',
+              borderBottom: '1px solid rgba(25, 118, 210, 0.2)',
+              position: 'sticky',
+              top: 0,
+              zIndex: 5,
+            }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'primary.main', display: 'flex', alignItems: 'center', gap: 1 }}>
+                <FolderIcon fontSize="small" />
+                Collection: {collectionContext.name}
+                <Badge color="primary" variant="dot" sx={{ ml: 'auto' }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    {collectionFiles.length} files
+                  </Typography>
+                </Badge>
+              </Typography>
+            </Box>
+            <List dense>
+              {collectionFiles.map((item) => (
+                <ListItem
+                  key={item.key}
+                  disablePadding
+                  secondaryAction={
+                    <Tooltip title={`Open ${item.name} in new tab`}>
+                      <IconButton
+                        edge="end"
+                        size="small"
+                        onClick={(e) => handleFileOpen(e, item)}
+                        sx={{
+                          opacity: 0.7,
+                          '&:hover': {
+                            opacity: 1,
+                            color: 'primary.main'
+                          }
+                        }}
+                        color="inherit"
+                      >
+                        <RouterLink to={item.url || ""} target="_blank" rel="noopener noreferrer">
+                          <OpenInNewIcon fontSize="small" />
+                        </RouterLink>
+                      </IconButton>
+                    </Tooltip>
+                  }
+                >
+                  <StyledListItem onClick={() => handleFileClick(item)}>
+                    <ListItemIcon sx={{ minWidth: 36 }}>
+                      {getFileIcon(item.name)}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={item.name}
+                      primaryTypographyProps={{
+                        variant: 'body2',
+                        noWrap: true,
+                        sx: { fontWeight: 500 }
+                      }}
+                    />
+                  </StyledListItem>
+                </ListItem>
+              ))}
+            </List>
+          </Box>
+        )}
+
+        {/* Session Files Section */}
+        {fileStructure.filter(item => !collectionFiles.some(cf => cf.key === item.key)).length > 0 && (
+          <Box>
+            {collectionFiles.length > 0 && (
+              <Box sx={{
+                px: 2,
+                py: 1,
+                bgcolor: 'background.default',
+                borderBottom: '1px solid rgba(0,0,0,0.08)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 5,
+              }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: 'text.secondary' }}>
+                  Session Files
+                </Typography>
+              </Box>
+            )}
+            <List dense>
+              {fileStructure.filter(item => !collectionFiles.some(cf => cf.key === item.key)).map((item) => (
             <ListItem
               key={item.key}
               disablePadding
@@ -968,7 +1140,9 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ chatSessionId, onFileSelect
               </StyledListItem>
             </ListItem>
           ))}
-        </List>
+            </List>
+          </Box>
+        )}
       </Box>
 
       {/* Loading indicator for refreshes */}

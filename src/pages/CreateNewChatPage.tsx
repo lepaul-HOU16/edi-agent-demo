@@ -22,10 +22,10 @@ function CreateNewChatContent() {
         if (fromSessionId && !collectionId) {
           console.log('🔗 Inheriting collection context from session:', fromSessionId);
           try {
-            const currentSession = await getSession(fromSessionId);
+            const currentSessionResponse = await getSession(fromSessionId);
             
-            if (currentSession?.linkedCollectionId) {
-              collectionId = currentSession.linkedCollectionId;
+            if (currentSessionResponse?.session?.linkedCollectionId) {
+              collectionId = currentSessionResponse.session.linkedCollectionId;
               console.log('✅ Inherited collection context:', collectionId);
             } else {
               console.log('ℹ️ Current session has no collection context to inherit');
@@ -41,7 +41,9 @@ function CreateNewChatContent() {
         // The agent will be initialized on first message send via the REST API
 
         // Create chat session with optional collection linkage
-        const sessionData: any = {};
+        const sessionData: any = {
+          name: `Chat ${new Date().toLocaleString()}`
+        };
         
         if (collectionId) {
           sessionData.linkedCollectionId = collectionId;
@@ -60,10 +62,10 @@ function CreateNewChatContent() {
 
         const newChatSession = await createSession(sessionData);
         
-        if (newChatSession && newChatSession.id) {
-          console.log('✅ Canvas created successfully:', newChatSession.id);
+        if (newChatSession && newChatSession.sessionId) {
+          console.log('✅ Canvas created successfully:', newChatSession.sessionId);
           // Navigate to the new chat session
-          navigate(`/chat/${newChatSession.id}`);
+          navigate(`/chat/${newChatSession.sessionId}`);
         }
       } catch (error) {
         console.error("Error creating chat session:", error);

@@ -40,18 +40,41 @@ interface FileItem {
   children?: FileItem[];
 }
 
+interface CollectionDataItem {
+  id: string;
+  name: string;
+  type: string;
+  dataSource: string;
+  s3Key?: string;
+  osduId?: string;
+  location?: string;
+  operator?: string;
+  depth?: string;
+  curves?: string[];
+  coordinates?: [number, number];
+}
+
+interface CollectionContext {
+  id: string;
+  name: string;
+  dataSourceType: string;
+  dataItems?: CollectionDataItem[];
+}
+
 interface FileDrawerProps {
   open: boolean;
   onClose: () => void;
   chatSessionId: string;
   variant?: 'temporary' | 'persistent' | 'permanent';
+  collectionContext?: CollectionContext | null;
 }
 
 const FileDrawer: React.FC<FileDrawerProps> = ({
   open,
   onClose,
   chatSessionId,
-  variant = 'temporary'
+  variant = 'temporary',
+  collectionContext
 }) => {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -351,6 +374,7 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
                   chatSessionId={chatSessionId}
                   onFileSelect={handleFileSelect}
                   onPathChange={handlePathChange}
+                  collectionContext={collectionContext}
                 />
               </Box>
               <Box sx={{ width: '60%', height: '100%', overflow: 'auto', p: 2, backgroundColor: theme.palette.background.paper }}>
@@ -605,6 +629,7 @@ const FileDrawer: React.FC<FileDrawerProps> = ({
                     chatSessionId={chatSessionId}
                     onFileSelect={handleFileSelect}
                     onPathChange={handlePathChange}
+                    collectionContext={collectionContext}
                   />
                 </Box>
               )}

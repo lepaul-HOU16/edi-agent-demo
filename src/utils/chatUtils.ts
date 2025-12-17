@@ -45,6 +45,27 @@ export const sendMessage = async (props: {
       latitude: number;
       longitude: number;
     };
+  },
+  collectionContext?: {
+    collectionId: string;
+    name: string;
+    wellCount: number;
+    dataSourceType: string;
+    dataItems?: Array<{
+      id: string;
+      name: string;
+      type: string;
+      s3Key?: string;
+      osduId?: string;
+      location?: string;
+      coordinates?: [number, number];
+    }>;
+    geographicBounds?: {
+      minLat: number;
+      maxLat: number;
+      minLon: number;
+      maxLon: number;
+    };
   }
 }) => {
   console.log('═══════════════════════════════════════════════════════════');
@@ -54,6 +75,11 @@ export const sendMessage = async (props: {
   console.log('📝 Message:', props.newMessage.content.text);
   console.log('🤖 Agent Type:', props.agentType || 'auto');
   console.log('🎯 Project Context:', props.projectContext);
+  console.log('📚 Collection Context:', props.collectionContext ? {
+    name: props.collectionContext.name,
+    wellCount: props.collectionContext.wellCount,
+    dataSource: props.collectionContext.dataSourceType
+  } : 'None');
   console.log('⏰ Timestamp:', new Date().toISOString());
   console.log('═══════════════════════════════════════════════════════════');
   
@@ -74,7 +100,8 @@ export const sendMessage = async (props: {
       messageText,
       props.chatSessionId,
       [], // conversation history - will be handled by backend
-      props.projectContext // Pass project context to backend
+      props.projectContext, // Pass project context to backend
+      props.collectionContext // Pass collection context to backend
     );
     
     console.log('═══════════════════════════════════════════════════════════');

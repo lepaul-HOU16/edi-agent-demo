@@ -10,6 +10,9 @@ import * as apigatewayv2 from 'aws-cdk-lib/aws-apigatewayv2';
 import * as apigatewayv2_authorizers from 'aws-cdk-lib/aws-apigatewayv2-authorizers';
 import * as apigatewayv2_integrations from 'aws-cdk-lib/aws-apigatewayv2-integrations';
 import * as logs from 'aws-cdk-lib/aws-logs';
+import * as cloudwatch from 'aws-cdk-lib/aws-cloudwatch';
+import * as cloudwatch_actions from 'aws-cdk-lib/aws-cloudwatch-actions';
+import * as sns from 'aws-cdk-lib/aws-sns';
 import * as path from 'path';
 
 /**
@@ -102,6 +105,103 @@ export class MainStack extends cdk.Stack {
       'SessionContextTable',
       'RenewableSessionContext'
     );
+
+    // ============================================================================
+    // Sessions Table (NEW - Collection Data Inheritance)
+    // ============================================================================
+
+    // Create Sessions table for canvas-collection linking
+    const sessionsTable = new dynamodb.Table(this, 'SessionsTable', {
+      tableName: `Sessions-${props.environment}`,
+      partitionKey: {
+        name: 'sessionId',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: props.environment === 'production' 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY,
+      pointInTimeRecovery: props.environment === 'production',
+      timeToLiveAttribute: 'ttl', // Auto-cleanup after 90 days
+    });
+
+    // Add GSI for listing user sessions
+    sessionsTable.addGlobalSecondaryIndex({
+      indexName: 'owner-createdAt-index',
+      partitionKey: {
+        name: 'owner',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'createdAt',
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // Output Sessions table details
+    new cdk.CfnOutput(this, 'SessionsTableName', {
+      value: sessionsTable.tableName,
+      description: 'Sessions DynamoDB table name',
+      exportName: `${id}-SessionsTable`,
+    });
+
+    new cdk.CfnOutput(this, 'SessionsTableArn', {
+      value: sessionsTable.tableArn,
+      description: 'Sessions DynamoDB table ARN',
+      exportName: `${id}-SessionsTableArn`,
+    });
+
+    // ============================================================================
+    // Collections Table (NEW - Collection Data Inheritance)
+    // ============================================================================
+
+    // Create Collections table for persistent collection storage
+    const collectionsTable = new dynamodb.Table(this, 'CollectionsTable', {
+      tableName: `Collections-${props.environment}`,
+      partitionKey: {
+        name: 'collectionId',
+        type: dynamodb.AttributeType.STRING,
+      },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: props.environment === 'production' 
+        ? cdk.RemovalPolicy.RETAIN 
+        : cdk.RemovalPolicy.DESTROY,
+      pointInTimeRecovery: props.environment === 'production',
+    });
+
+    // Add GSI for listing user collections
+    collectionsTable.addGlobalSecondaryIndex({
+      indexName: 'owner-createdAt-index',
+      partitionKey: {
+        name: 'owner',
+        type: dynamodb.AttributeType.STRING,
+      },
+      sortKey: {
+        name: 'createdAt',
+        type: dynamodb.AttributeType.STRING,
+      },
+      projectionType: dynamodb.ProjectionType.ALL,
+    });
+
+    // Output Collections table details
+    new cdk.CfnOutput(this, 'CollectionsTableName', {
+      value: collectionsTable.tableName,
+      description: 'Collections DynamoDB table name',
+      exportName: `${id}-CollectionsTable`,
+    });
+
+    new cdk.CfnOutput(this, 'CollectionsTableArn', {
+      value: collectionsTable.tableArn,
+      description: 'Collections DynamoDB table ARN',
+      exportName: `${id}-CollectionsTableArn`,
+    });
+
+    // ============================================================================
+    // Import Lambda Construct (needed for all Lambda functions below)
+    // ============================================================================
+
+    const { LambdaFunction } = require('./constructs/lambda-function');
 
     // Output table names for verification
     new cdk.CfnOutput(this, 'ChatMessageTableName', {
@@ -327,9 +427,6 @@ export class MainStack extends cdk.Stack {
     // ============================================================================
     // Custom Lambda Authorizer (Phase 1, Task 3.2 + Task 4)
     // ============================================================================
-
-    // Import Lambda construct
-    const { LambdaFunction } = require('./constructs/lambda-function');
 
     // Create custom Lambda authorizer that supports both Cognito JWT and mock tokens
     const authorizerFunction = new LambdaFunction(this, 'AuthorizerFunction', {
@@ -860,6 +957,206 @@ export class MainStack extends cdk.Stack {
     });
 
     // ============================================================================
+    // Sessions Management Lambda and Routes (Collection Data Inheritance)
+    // ============================================================================
+
+    // Create sessions Lambda function
+    const sessionsFunction = new LambdaFunction(this, 'SessionsFunction', {
+      functionName: 'sessions',
+      description: 'Handles session management with collection linking (create, get, update, delete, list)',
+      codePath: 'sessions',
+      timeout: 30,
+      memorySize: 256,
+      environment: {
+        SESSIONS_TABLE_NAME: sessionsTable.tableName,
+      },
+    });
+
+    // Grant DynamoDB permissions to sessions Lambda
+    sessionsTable.grantReadWriteData(sessionsFunction.function);
+
+    // Add routes for sessions API
+    // POST /api/sessions/create
+    this.httpApi.addRoutes({
+      path: '/api/sessions/create',
+      methods: [apigatewayv2.HttpMethod.POST],
+      integration: new apigatewayv2_integrations.HttpLambdaIntegration(
+        'SessionsCreateIntegration',
+        sessionsFunction.function,
+        {
+          payloadFormatVersion: apigatewayv2.PayloadFormatVersion.VERSION_2_0,
+        }
+      ),
+      authorizer: this.authorizer,
+    });
+
+    // GET /api/sessions/list
+    this.httpApi.addRoutes({
+      path: '/api/sessions/list',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: new apigatewayv2_integrations.HttpLambdaIntegration(
+        'SessionsListIntegration',
+        sessionsFunction.function,
+        {
+          payloadFormatVersion: apigatewayv2.PayloadFormatVersion.VERSION_2_0,
+        }
+      ),
+      authorizer: this.authorizer,
+    });
+
+    // GET /api/sessions/{id}
+    this.httpApi.addRoutes({
+      path: '/api/sessions/{id}',
+      methods: [apigatewayv2.HttpMethod.GET],
+      integration: new apigatewayv2_integrations.HttpLambdaIntegration(
+        'SessionsGetIntegration',
+        sessionsFunction.function,
+        {
+          payloadFormatVersion: apigatewayv2.PayloadFormatVersion.VERSION_2_0,
+        }
+      ),
+      authorizer: this.authorizer,
+    });
+
+    // PUT /api/sessions/{id}
+    this.httpApi.addRoutes({
+      path: '/api/sessions/{id}',
+      methods: [apigatewayv2.HttpMethod.PUT],
+      integration: new apigatewayv2_integrations.HttpLambdaIntegration(
+        'SessionsUpdateIntegration',
+        sessionsFunction.function,
+        {
+          payloadFormatVersion: apigatewayv2.PayloadFormatVersion.VERSION_2_0,
+        }
+      ),
+      authorizer: this.authorizer,
+    });
+
+    // DELETE /api/sessions/{id}
+    this.httpApi.addRoutes({
+      path: '/api/sessions/{id}',
+      methods: [apigatewayv2.HttpMethod.DELETE],
+      integration: new apigatewayv2_integrations.HttpLambdaIntegration(
+        'SessionsDeleteIntegration',
+        sessionsFunction.function,
+        {
+          payloadFormatVersion: apigatewayv2.PayloadFormatVersion.VERSION_2_0,
+        }
+      ),
+      authorizer: this.authorizer,
+    });
+
+    // Output sessions Lambda ARN and endpoints
+    new cdk.CfnOutput(this, 'SessionsFunctionArn', {
+      value: sessionsFunction.functionArn,
+      description: 'ARN of sessions management Lambda function',
+      exportName: `${id}-SessionsFunctionArn`,
+    });
+
+    new cdk.CfnOutput(this, 'SessionsApiEndpoint', {
+      value: `${this.httpApi.apiEndpoint}/api/sessions`,
+      description: 'Sessions API base endpoint',
+      exportName: `${id}-SessionsApiEndpoint`,
+    });
+
+    // ============================================================================
+    // CloudWatch Alarms for Sessions API (Task 15.3)
+    // ============================================================================
+
+    // Create SNS topic for alarm notifications (optional - can be configured later)
+    const alarmTopic = new sns.Topic(this, 'SessionsAlarmTopic', {
+      displayName: 'Collection Data Inheritance - Sessions API Alarms',
+      topicName: 'sessions-api-alarms',
+    });
+
+    // Alarm 1: High API Error Rate (> 5%)
+    const errorRateAlarm = new cloudwatch.Alarm(this, 'SessionsHighErrorRate', {
+      alarmName: 'Sessions-HighErrorRate',
+      alarmDescription: 'Sessions API error rate exceeds 5%',
+      metric: new cloudwatch.MathExpression({
+        expression: '(errors / invocations) * 100',
+        usingMetrics: {
+          errors: sessionsFunction.function.metricErrors({
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+          }),
+          invocations: sessionsFunction.function.metricInvocations({
+            statistic: 'Sum',
+            period: cdk.Duration.minutes(5),
+          }),
+        },
+      }),
+      threshold: 5,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    // Alarm 2: High Latency (> 1 second)
+    const latencyAlarm = new cloudwatch.Alarm(this, 'SessionsHighLatency', {
+      alarmName: 'Sessions-HighLatency',
+      alarmDescription: 'Sessions API latency exceeds 1 second',
+      metric: sessionsFunction.function.metricDuration({
+        statistic: 'Average',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 1000, // 1 second in milliseconds
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    // Alarm 3: DynamoDB Throttling
+    const dynamoThrottleAlarm = new cloudwatch.Alarm(this, 'SessionsTableThrottling', {
+      alarmName: 'Sessions-DynamoDBThrottling',
+      alarmDescription: 'Sessions table experiencing throttling',
+      metric: sessionsTable.metricUserErrors({
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 10,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    // Alarm 4: Lambda Errors
+    const lambdaErrorAlarm = new cloudwatch.Alarm(this, 'SessionsLambdaErrors', {
+      alarmName: 'Sessions-LambdaErrors',
+      alarmDescription: 'Sessions Lambda function experiencing errors',
+      metric: sessionsFunction.function.metricErrors({
+        statistic: 'Sum',
+        period: cdk.Duration.minutes(5),
+      }),
+      threshold: 5,
+      evaluationPeriods: 2,
+      comparisonOperator: cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+      treatMissingData: cloudwatch.TreatMissingData.NOT_BREACHING,
+    });
+
+    // Add SNS actions to alarms (optional - can be configured later)
+    errorRateAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    latencyAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    dynamoThrottleAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+    lambdaErrorAlarm.addAlarmAction(new cloudwatch_actions.SnsAction(alarmTopic));
+
+    // Output alarm topic ARN
+    new cdk.CfnOutput(this, 'SessionsAlarmTopicArn', {
+      value: alarmTopic.topicArn,
+      description: 'SNS topic ARN for Sessions API alarms',
+      exportName: `${id}-SessionsAlarmTopicArn`,
+    });
+
+    // Grant CloudWatch permissions to sessions Lambda
+    sessionsFunction.function.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['cloudwatch:PutMetricData'],
+        resources: ['*'],
+      })
+    );
+
+    // ============================================================================
     // Renewable Tools Lambda - COMPLETE ORIGINAL CODE (Must be before orchestrator)
     // ============================================================================
     
@@ -1092,11 +1389,15 @@ export class MainStack extends cdk.Stack {
       memorySize: 512,
       environment: {
         STORAGE_BUCKET_NAME: storageBucket.bucketName,
+        COLLECTIONS_TABLE_NAME: collectionsTable.tableName,
       },
     });
 
     // Grant S3 permissions for collection data storage
     collectionsFunction.grantS3ReadWrite(storageBucket.bucketArn);
+    
+    // Grant DynamoDB permissions to collections Lambda
+    collectionsTable.grantReadWriteData(collectionsFunction.function);
 
     // Add routes for collections API
     // POST /api/collections/create

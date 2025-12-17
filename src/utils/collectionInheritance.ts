@@ -7,6 +7,7 @@
  */
 
 import { getCollection } from '../lib/api/collections';
+import { getSession } from '../lib/api/sessions';
 
 export interface CollectionData {
   id: string;
@@ -20,6 +21,12 @@ export interface CollectionData {
     dataSources?: string[];
     location?: string;
     wellRange?: string;
+    geographicBounds?: {
+      minLat: number;
+      maxLat: number;
+      minLon: number;
+      maxLon: number;
+    };
   };
 }
 
@@ -150,8 +157,12 @@ export async function updateCanvasCollectionContext(
 /**
  * Load collection context from canvas session
  * 
- * Retrieves cached collection data from the ChatSession if available,
- * otherwise loads it fresh from the collection service.
+ * Retrieves the linked collection for a canvas session by:
+ * 1. Getting the session to find linkedCollectionId
+ * 2. Loading the collection data
+ * 3. Transforming to CollectionData format
+ * 
+ * Returns null if session not found, collection deleted, or any errors occur.
  */
 export async function getCanvasCollectionContext(
   chatSessionId: string
@@ -159,12 +170,50 @@ export async function getCanvasCollectionContext(
   try {
     console.log('🔍 Getting collection context for canvas:', chatSessionId);
     
-    // TODO: Implement ChatSession REST API endpoint
-    // For now, return null as ChatSession hasn't been migrated yet
-    console.warn('ChatSession REST API not yet implemented, cannot get collection context');
-    return null;
+    // Step 1: Get session to find linkedCollectionId
+    const sessionResult = await getSession(chatSessionId);
+    
+    if (!sessionResult.success || !sessionResult.session) {
+      console.error('❌ Session not found:', chatSessionId);
+      return null;
+    }
+    
+    const session = sessionResult.session;
+    
+    // Check if session has a linked collection
+    if (!session.linkedCollectionId) {
+      console.log('ℹ️ Session has no linked collection');
+      return null;
+    }
+    
+    console.log('🔗 Session linked to collection:', session.linkedCollectionId);
+    
+    // Step 2: Load collection data
+    const collectionResult = await getCollection(session.linkedCollectionId);
+    
+    if (!collectionResult.success || !collectionResult.collection) {
+      console.error('❌ Collection not found (broken link):', session.linkedCollectionId);
+      console.error('   The linked collection may have been deleted');
+      return null;
+    }
+    
+    // Step 3: Transform to CollectionData format
+    const collection = collectionResult.collection;
+    
+    console.log('✅ Collection context loaded:', {
+      id: collection.id,
+      name: collection.name,
+      wellCount: collection.dataItems?.length || 0,
+      dataSource: collection.dataSourceType
+    });
+    
+    return collection;
   } catch (error) {
     console.error('❌ Error getting canvas collection context:', error);
+    console.error('   Session ID:', chatSessionId);
+    if (error instanceof Error) {
+      console.error('   Error message:', error.message);
+    }
     return null;
   }
 }

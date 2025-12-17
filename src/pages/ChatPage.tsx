@@ -90,6 +90,9 @@ function ChatPageContent() {
     // Collection context state
     const [collectionContext, setCollectionContext] = useState<CollectionData | null>(null);
     const [loadingCollection, setLoadingCollection] = useState(false);
+    const [brokenCollectionLink, setBrokenCollectionLink] = useState<{ id: string; name?: string } | null>(null);
+    const [contextLoadError, setContextLoadError] = useState<string | null>(null);
+    const [collectionAlertDismissed, setCollectionAlertDismissed] = useState(false);
     
     // Agent selection state - updated to include 'edicraft'
     const [selectedAgent, setSelectedAgent] = useState<'auto' | 'petrophysics' | 'maintenance' | 'renewable' | 'edicraft'>('auto');
@@ -145,12 +148,25 @@ function ChatPageContent() {
             
             console.log('🎯 [ChatPage] Sending project context to backend:', projectContext);
             
-            // Send to backend with project context
+            // Prepare collection context for backend
+            const collectionCtx = collectionContext ? {
+                collectionId: collectionContext.id,
+                name: collectionContext.name,
+                wellCount: collectionContext.dataItems?.length || 0,
+                dataSourceType: collectionContext.dataSourceType,
+                dataItems: collectionContext.dataItems,
+                geographicBounds: collectionContext.previewMetadata?.geographicBounds
+            } : undefined;
+            
+            console.log('📚 [ChatPage] Sending collection context to backend:', collectionCtx);
+            
+            // Send to backend with project context and collection context
             await sendMessage({
                 chatSessionId: activeChatSession.id,
                 newMessage: newMessage as any,
                 agentType: selectedAgent,
                 projectContext, // Pass project context to backend
+                collectionContext: collectionCtx, // Pass collection context to backend
             });
             
             // Stop polling when response is complete
@@ -332,9 +348,11 @@ function ChatPageContent() {
                 if (!isMounted || !chatSessionId) return;
                 
                 // Use REST API to get session
-                const sessionData = await getSession(chatSessionId);
+                const response = await getSession(chatSessionId);
                 
-                if (!isMounted || !sessionData) return;
+                if (!isMounted || !response || !response.session) return;
+                
+                const sessionData = response.session;
                 
                 // If no name is provided, create a default name with date and time
                 if (!sessionData.name) {
@@ -398,6 +416,7 @@ function ChatPageContent() {
                 if (sessionData.linkedCollectionId && isMounted) {
                     console.log('🔗 Canvas linked to collection:', sessionData.linkedCollectionId);
                     setLoadingCollection(true);
+                    setContextLoadError(null); // Clear any previous errors
                     
                     try {
                         const collectionData = await getCanvasCollectionContext(chatSessionId);
@@ -408,9 +427,34 @@ function ChatPageContent() {
                                 dataSource: collectionData.dataSourceType
                             });
                             setCollectionContext(collectionData);
+                            setBrokenCollectionLink(null); // Clear any broken link state
+                            setContextLoadError(null); // Clear any errors
+                        } else if (isMounted) {
+                            // Collection not found - broken link
+                            console.warn('⚠️ Collection not found - broken link detected');
+                            setBrokenCollectionLink({
+                                id: sessionData.linkedCollectionId,
+                                name: 'Unknown Collection'
+                            });
                         }
                     } catch (error) {
                         console.error('❌ Error loading collection context:', error);
+                        // Check if it's a 404 (collection deleted) or other error
+                        const errorMessage = error instanceof Error ? error.message : String(error);
+                        if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+                            // Treat as broken link if collection can't be found
+                            if (isMounted) {
+                                setBrokenCollectionLink({
+                                    id: sessionData.linkedCollectionId,
+                                    name: 'Unknown Collection'
+                                });
+                            }
+                        } else {
+                            // Other errors - show retry option
+                            if (isMounted) {
+                                setContextLoadError('Failed to load collection context. The canvas will continue to function normally.');
+                            }
+                        }
                     } finally {
                         if (isMounted) {
                             setLoadingCollection(false);
@@ -502,6 +546,73 @@ function ChatPageContent() {
             alert("Failed to create chat session. Please try again.");
         }
     }
+    
+    const handleRemoveBrokenLink = async () => {
+        try {
+            if (!chatSessionId) return;
+            
+            console.log('🔗 Removing broken collection link from session');
+            const { updateSession } = await import('@/lib/api/sessions');
+            await updateSession(chatSessionId, {
+                linkedCollectionId: undefined
+            });
+            
+            // Clear broken link state
+            setBrokenCollectionLink(null);
+            
+            // Reload session to reflect changes
+            const response = await getSession(chatSessionId);
+            if (response && response.session) {
+                setActiveChatSession(response.session);
+            }
+            
+            console.log('✅ Broken collection link removed');
+        } catch (error) {
+            console.error('❌ Error removing broken link:', error);
+        }
+    }
+    
+    const handleRetryLoadContext = async () => {
+        if (!chatSessionId || !activeChatSession?.linkedCollectionId) return;
+        
+        console.log('🔄 Retrying collection context load');
+        setLoadingCollection(true);
+        setContextLoadError(null);
+        
+        try {
+            const collectionData = await getCanvasCollectionContext(chatSessionId);
+            if (collectionData) {
+                console.log('✅ Collection context loaded on retry:', {
+                    name: collectionData.name,
+                    wellCount: collectionData.dataItems?.length || 0,
+                    dataSource: collectionData.dataSourceType
+                });
+                setCollectionContext(collectionData);
+                setBrokenCollectionLink(null);
+                setContextLoadError(null);
+            } else {
+                // Collection not found - broken link
+                console.warn('⚠️ Collection not found on retry - broken link detected');
+                setBrokenCollectionLink({
+                    id: activeChatSession.linkedCollectionId,
+                    name: 'Unknown Collection'
+                });
+            }
+        } catch (error) {
+            console.error('❌ Error loading collection context on retry:', error);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage.includes('404') || errorMessage.includes('not found')) {
+                setBrokenCollectionLink({
+                    id: activeChatSession.linkedCollectionId,
+                    name: 'Unknown Collection'
+                });
+            } else {
+                setContextLoadError('Failed to load collection context. The canvas will continue to function normally.');
+            }
+        } finally {
+            setLoadingCollection(false);
+        }
+    }
 
     return (
                 <div className='main-container' data-page="chat">
@@ -562,7 +673,15 @@ function ChatPageContent() {
                         </div>
                         <div className="reset-chat-right">
                             <div className="breadcrumb-container" style={{ marginLeft: '23px' }}>
-                                {collectionContext ? (
+                                {brokenCollectionLink ? (
+                                    <div className="breadcrumb-links">
+                                        <span style={{ color: '#d13212', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                            ⚠️ {brokenCollectionLink.name}
+                                        </span>
+                                        <span className="separator">›</span>
+                                        <span className="current">{activeChatSession?.name?.replace(/\s*-\s*\d{1,2}\/\d{1,2}\/\d{4},\s*\d{1,2}:\d{2}:\d{2}\s*[AP]M\s*$/, '') || 'Canvas'}</span>
+                                    </div>
+                                ) : collectionContext ? (
                                     <div className="breadcrumb-links">
                                         <a href={`/collections/${collectionContext.id}`}>{collectionContext.name}</a>
                                         <span className="separator">›</span>
@@ -808,36 +927,57 @@ function ChatPageContent() {
                 <div className='convo'>
                     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
                         <div style={{ height: '100%' }}>
-                            {/* Collection Context Alert */}
-                            {collectionContext && (
+                            {/* Broken Collection Link Warning */}
+                            {brokenCollectionLink && (
                                 <Box margin={{ bottom: 'm' }}>
                                     <Alert
-                                        type="info"
-                                        header={`Collection: ${collectionContext.name}`}
+                                        type="warning"
+                                        header="Collection Unavailable"
+                                        action={
+                                            <Button onClick={handleRemoveBrokenLink}>
+                                                Remove Link
+                                            </Button>
+                                        }
                                     >
                                         <SpaceBetween direction="vertical" size="xs">
                                             <Box>
-                                                {getCollectionSummary(collectionContext)}
+                                                The collection <strong>{brokenCollectionLink.name}</strong> linked to this canvas is no longer available. It may have been deleted.
                                             </Box>
-                                            {collectionContext.dataSourceType === 'S3' && (
-                                                <Box>
-                                                    <strong>📁 File Access:</strong> All {collectionContext.dataItems?.length || 0} well files are accessible in the Session Files panel under <strong>global/well-data/</strong>
-                                                </Box>
-                                            )}
                                             <Box>
-                                                <Button 
-                                                    variant="inline-link" 
-                                                    iconName="external"
-                                                    onClick={() => navigate(`/collections/${collectionContext.id}`)}
-                                                >
-                                                    View Collection Details
-                                                </Button>
+                                                The canvas will continue to function normally, but collection data is not accessible. You can remove this link to clear this warning.
                                             </Box>
                                         </SpaceBetween>
                                     </Alert>
                                 </Box>
                             )}
-
+                            
+                            {/* Context Load Failure Alert */}
+                            {contextLoadError && !brokenCollectionLink && (
+                                <Box margin={{ bottom: 'm' }}>
+                                    <Alert
+                                        type="error"
+                                        header="Failed to Load Collection Context"
+                                        action={
+                                            <Button 
+                                                onClick={handleRetryLoadContext}
+                                                loading={loadingCollection}
+                                            >
+                                                Retry
+                                            </Button>
+                                        }
+                                    >
+                                        <SpaceBetween direction="vertical" size="xs">
+                                            <Box>
+                                                {contextLoadError}
+                                            </Box>
+                                            <Box>
+                                                You can continue using the canvas without collection context, or try loading it again.
+                                            </Box>
+                                        </SpaceBetween>
+                                    </Alert>
+                                </Box>
+                            )}
+                            
                             {/* ChatBox with agent switcher in input area */}
                             <ChatBox
                                 chatSessionId={activeChatSession.id}
@@ -848,6 +988,63 @@ function ChatPageContent() {
                                 setMessages={stableSetMessages}
                                 selectedAgent={selectedAgent}
                                 onAgentChange={handleAgentChange}
+                                collectionAlert={
+                                    collectionContext && !brokenCollectionLink && !contextLoadError && !collectionAlertDismissed ? (
+                                        (!collectionContext.dataItems || collectionContext.dataItems.length === 0) ? (
+                                            <Alert
+                                                type="warning"
+                                                dismissible
+                                                onDismiss={() => setCollectionAlertDismissed(true)}
+                                                header={`Collection: ${collectionContext.name}`}
+                                            >
+                                                <SpaceBetween direction="vertical" size="xs">
+                                                    <Box>
+                                                        This collection is currently empty and contains no data items.
+                                                    </Box>
+                                                    <Box>
+                                                        To use this collection with your canvas, add wells or data items from the catalog.
+                                                    </Box>
+                                                    <Box>
+                                                        <Button 
+                                                            variant="inline-link" 
+                                                            iconName="external"
+                                                            onClick={() => navigate(`/collections/${collectionContext.id}`)}
+                                                        >
+                                                            Add Data to Collection
+                                                        </Button>
+                                                    </Box>
+                                                </SpaceBetween>
+                                            </Alert>
+                                        ) : (
+                                            <Alert
+                                                type="info"
+                                                dismissible
+                                                onDismiss={() => setCollectionAlertDismissed(true)}
+                                                header={`Collection: ${collectionContext.name}`}
+                                            >
+                                                <SpaceBetween direction="vertical" size="xs">
+                                                    <Box>
+                                                        {getCollectionSummary(collectionContext)}
+                                                    </Box>
+                                                    {collectionContext.dataSourceType === 'S3' && (
+                                                        <Box>
+                                                            <strong>📁 File Access:</strong> All {collectionContext.dataItems?.length || 0} well files are accessible in the Session Files panel under <strong>global/well-data/</strong>
+                                                        </Box>
+                                                    )}
+                                                    <Box>
+                                                        <Button 
+                                                            variant="inline-link" 
+                                                            iconName="external"
+                                                            onClick={() => navigate(`/collections/${collectionContext.id}`)}
+                                                        >
+                                                            View Collection Details
+                                                        </Button>
+                                                    </Box>
+                                                </SpaceBetween>
+                                            </Alert>
+                                        )
+                                    ) : undefined
+                                }
                             />
                         </div>
                     </div>
@@ -886,6 +1083,7 @@ function ChatPageContent() {
                         onClose={() => setFileDrawerOpen(false)}
                         chatSessionId={activeChatSession.id}
                         variant={drawerVariant}
+                        collectionContext={collectionContext}
                     />
                 </div>
                 </Grid>

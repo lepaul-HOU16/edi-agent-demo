@@ -21,8 +21,10 @@ import {
   SpaceBetween,
   StatusIndicator
 } from '@cloudscape-design/components';
+import { Typography } from '@mui/material';
 import { withAuth } from '@/components/WithAuth';
 import { getCollection } from '@/lib/api/collections';
+import { listSessions, deleteSession, Session } from '@/lib/api/sessions';
 
 interface CanvasCard {
   id: string;
@@ -81,12 +83,29 @@ function CollectionDetailPageBase() {
       setLoadingCanvases(true);
       console.log('🔍 Loading canvases linked to collection:', collectionId);
       
-      // TODO: Implement ChatSession REST API endpoint
-      // For now, skip as ChatSession hasn't been migrated yet
-      console.warn('ChatSession REST API not yet implemented');
-      setCanvases([]);
+      // Call listSessions() to get all sessions
+      const response = await listSessions();
+      
+      if (response.sessions) {
+        // Filter by linkedCollectionId matching current collection
+        const linkedCanvases = response.sessions
+          .filter((session: Session) => session.linkedCollectionId === collectionId)
+          .map((session: Session) => ({
+            id: session.id,
+            name: session.name,
+            createdAt: session.createdAt,
+            linkedCollectionId: session.linkedCollectionId
+          }));
+        
+        console.log(`✅ Found ${linkedCanvases.length} linked canvases`);
+        setCanvases(linkedCanvases);
+      } else {
+        console.warn('No sessions returned from API');
+        setCanvases([]);
+      }
     } catch (err) {
       console.error('Error loading canvases:', err);
+      setCanvases([]);
     } finally {
       setLoadingCanvases(false);
     }
@@ -191,9 +210,14 @@ function CollectionDetailPageBase() {
                   onClick={async (e) => {
                     e.stopPropagation();
                     if (window.confirm(`Are you sure you want to delete "${item.name}"?`)) {
-                      // TODO: Implement ChatSession REST API endpoint for deletion
-                      console.warn('ChatSession REST API not yet implemented');
-                      await loadLinkedCanvases();
+                      try {
+                        await deleteSession(item.id);
+                        console.log(`✅ Deleted canvas: ${item.name}`);
+                        await loadLinkedCanvases();
+                      } catch (err) {
+                        console.error('Error deleting canvas:', err);
+                        alert('Failed to delete canvas. Please try again.');
+                      }
                     }
                   }}
                 >
@@ -262,32 +286,39 @@ function CollectionDetailPageBase() {
   }
 
   return (
-    <div style={{ margin: '36px 80px 0' }}>
-      <ContentLayout
-        disableOverlap
-        headerVariant="divider"
-        header={
-          <Header
-            variant="h1"
-            actions={
-              <SpaceBetween direction="horizontal" size="s">
-                <Button 
-                  variant="link"
-                  onClick={() => navigate('/collections')}
-                >
-                  ← Back to Collections
-                </Button>
-                <Button iconName="edit">Edit Collection</Button>
-                <Button iconName="copy">Duplicate</Button>
-                <Button iconName="remove">Archive</Button>
-              </SpaceBetween>
-            }
-          >
-            🗂️ {collection.name}
-          </Header>
-        }
-      >
-        <SpaceBetween direction="vertical" size="l">
+    <div className='main-container' data-page="collections" style={{ background: 'transparent' }}>
+      {/* Header with controls matching collections page */}
+      <div className="reset-chat">
+        <Grid
+          disableGutters
+          gridDefinition={[{ colspan: 12 }]}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <div className="reset-chat-left">
+              <Typography variant="h6">Data Collections & Workspaces</Typography>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <Button 
+                variant="normal"
+                onClick={() => navigate('/collections')}
+              >
+                ← Back to Collections
+              </Button>
+              <Button iconName="edit">Edit Collection</Button>
+              <Button iconName="copy">Duplicate</Button>
+              <Button iconName="remove">Archive</Button>
+            </div>
+          </div>
+        </Grid>
+      </div>
+
+      <div style={{ marginTop: '20px' }}>
+        <ContentLayout
+          disableOverlap
+          header={null}
+        >
+          <SpaceBetween direction="vertical" size="l">
+          {/* Breadcrumbs */}
           <BreadcrumbGroup
             items={[
               { text: 'Collections', href: '/collections' },
@@ -296,14 +327,13 @@ function CollectionDetailPageBase() {
             ariaLabel="Breadcrumbs"
           />
 
+          {/* Collection Title */}
+          <Header variant="h1">
+            🗂️ {collection.name}
+          </Header>
+
           {/* Collection Overview */}
-          <Container
-            header={
-              <Header variant="h2">
-                Collection Overview
-              </Header>
-            }
-          >
+          <Box>
             <SpaceBetween direction="vertical" size="l">
               {collection.description && (
                 <Box>
@@ -356,7 +386,15 @@ function CollectionDetailPageBase() {
               </Grid>
 
               <SpaceBetween direction="horizontal" size="m">
-                <Button variant="primary" iconName="external" href="/catalog">
+                <Button 
+                  variant="primary" 
+                  iconName="external" 
+                  onClick={() => {
+                    // Navigate to catalog with collection wells pre-selected
+                    const wellNames = collection.dataItems?.map((item: any) => item.name) || [];
+                    navigate('/catalog', { state: { selectedWells: wellNames, fromCollection: collection.name } });
+                  }}
+                >
                   View Collection Data in Catalog
                 </Button>
                 <Button variant="normal" iconName="add-plus" onClick={() => handleCreateCanvas()}>
@@ -374,7 +412,7 @@ function CollectionDetailPageBase() {
                 </Box>
               )}
             </SpaceBetween>
-          </Container>
+          </Box>
 
           {/* Linked Canvases Section */}
           <Container
@@ -461,16 +499,15 @@ function CollectionDetailPageBase() {
 
           {/* Data Items Section */}
           {collection.dataItems && collection.dataItems.length > 0 && (
-            <Container
-              header={
+            <Box>
+              <div style={{ marginBottom: '20px' }}>
                 <Header 
                   variant="h2"
                   counter={`(${collection.dataItems.length})`}
                 >
                   Collection Data Items
                 </Header>
-              }
-            >
+              </div>
               <Cards
                 items={collection.dataItems}
                 cardDefinition={{
@@ -551,7 +588,7 @@ function CollectionDetailPageBase() {
                 ]}
                 variant="container"
               />
-            </Container>
+            </Box>
           )}
 
           {/* Collection Metadata */}
@@ -590,6 +627,7 @@ function CollectionDetailPageBase() {
           )}
         </SpaceBetween>
       </ContentLayout>
+      </div>
     </div>
   );
 }

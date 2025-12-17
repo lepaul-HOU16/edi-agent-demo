@@ -20,6 +20,7 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@aws-sdk/client-cloudwatch": "^3.953.0",
     "@types/jest": "^29.5.0",
     "@types/node": "^20.11.0",
     "aws-cdk": "^2.140.0",

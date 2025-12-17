@@ -76,7 +76,16 @@ export async function updateCollection(
   collection: Collection;
   message: string;
 }> {
-  return apiPut(`/api/collections/${collectionId}`, data);
+  const result = await apiPut(`/api/collections/${collectionId}`, data);
+  
+  // Invalidate cache when collection is updated
+  if (result.success) {
+    const { collectionContextLoader } = await import('../../services/collectionContextLoader');
+    collectionContextLoader.invalidateCache(collectionId);
+    console.log('🗑️ Cache invalidated for updated collection:', collectionId);
+  }
+  
+  return result;
 }
 
 /**
@@ -86,7 +95,16 @@ export async function deleteCollection(collectionId: string): Promise<{
   success: boolean;
   message: string;
 }> {
-  return apiDelete(`/api/collections/${collectionId}`);
+  const result = await apiDelete(`/api/collections/${collectionId}`);
+  
+  // Invalidate cache when collection is deleted
+  if (result.success) {
+    const { collectionContextLoader } = await import('../../services/collectionContextLoader');
+    collectionContextLoader.invalidateCache(collectionId);
+    console.log('🗑️ Cache invalidated for deleted collection:', collectionId);
+  }
+  
+  return result;
 }
 
 /**

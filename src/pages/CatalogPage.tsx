@@ -922,16 +922,22 @@ function CatalogPageBase() {
   }, [tableSelection, selectedDataItems]);
 
   // Initialize table selection when modal opens
+  // Track if we've initialized to prevent re-initialization when user deselects all
+  const [hasInitializedSelection, setHasInitializedSelection] = React.useState(false);
+  
   React.useEffect(() => {
-    if (showCreateCollectionModal && selectedDataItems.length > 0) {
+    if (showCreateCollectionModal && selectedDataItems.length > 0 && !hasInitializedSelection) {
       // Initially select all items (user can uncheck what they don't want)
+      // Only do this once when modal first opens
       setTableSelection(selectedDataItems);
+      setHasInitializedSelection(true);
       logger.info('Collection modal opened, selecting all items:', selectedDataItems.length);
     } else if (!showCreateCollectionModal) {
-      // Clear selection when modal closes
+      // Clear selection and reset flag when modal closes
       setTableSelection([]);
+      setHasInitializedSelection(false);
     }
-  }, [showCreateCollectionModal, selectedDataItems]);
+  }, [showCreateCollectionModal, selectedDataItems, hasInitializedSelection]);
 
   // Collection creation handler (Phase 2 Advanced Feature)
   const handleCreateCollection = async () => {
@@ -1460,8 +1466,12 @@ function CatalogPageBase() {
         if (isCollectionCreation) {
           logger.info('🗂️ Collection creation intent detected');
 
-          // Prepare data for collection creation
-          setSelectedDataItems(analysisData);
+          // Prepare data for collection creation - ensure unique IDs
+          const itemsWithIds = analysisData.map((item: any) => ({
+            ...item,
+            id: item.id || item.name || uuidv4() // Ensure every item has a unique ID
+          }));
+          setSelectedDataItems(itemsWithIds);
           setShowCreateCollectionModal(true);
 
           const collectionMessage: Message = {
@@ -2338,6 +2348,7 @@ function CatalogPageBase() {
               onClose={() => setFileDrawerOpen(false)}
               chatSessionId={activeChatSession.id || ""}
               variant={drawerVariant}
+              collectionContext={null}
             />
           </div>
         </Grid>

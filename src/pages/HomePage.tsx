@@ -17,21 +17,7 @@ const LandingPage = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   return (
-    <div
-      className="hero-header"
-      style={{
-        backgroundImage: `url("/login/edi-bkgd.jpg")`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        width: '100%',
-        height: '100vh',
-        margin: '0',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-      }}
-    >
+    <div className="hero-header">
       {errorMessage && (
         <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', zIndex: 1000, width: '90%', maxWidth: '600px' }}>
           <Flashbar
@@ -52,10 +38,10 @@ const LandingPage = () => {
         disableOverlap
         headerBackgroundStyle="transparent"
         header={
-          <Box>
+          <Box textAlign="center">
             <Grid
               gridDefinition={[
-                { colspan: { default: 12, s: 8 } }
+                { colspan: { default: 12, s: 8 }, offset: { default: 0, s: 2 } }
               ]}
             >
               <Box>
@@ -91,8 +77,10 @@ const LandingPage = () => {
                         try {
                           setIsCreatingSession(true);
                           setErrorMessage(null);
-                          const newChatSession = await createSession({});
-                          navigate(`/chat/${newChatSession.id}`);
+                          const newChatSession = await createSession({
+                            name: `Chat ${new Date().toLocaleString()}`
+                          });
+                          navigate(`/chat/${newChatSession.sessionId}`);
                         } catch (error) {
                           console.error('Failed to create chat session:', error);
                           setErrorMessage(

@@ -27,6 +27,27 @@ export interface SendMessageRequest {
       longitude: number;
     };
   };
+  collectionContext?: {
+    collectionId: string;
+    name: string;
+    wellCount: number;
+    dataSourceType: string;
+    dataItems?: Array<{
+      id: string;
+      name: string;
+      type: string;
+      s3Key?: string;
+      osduId?: string;
+      location?: string;
+      coordinates?: [number, number];
+    }>;
+    geographicBounds?: {
+      minLat: number;
+      maxLat: number;
+      minLon: number;
+      maxLon: number;
+    };
+  };
 }
 
 export interface SendMessageResponse {
@@ -55,6 +76,27 @@ export async function sendMessage(
       latitude: number;
       longitude: number;
     };
+  },
+  collectionContext?: {
+    collectionId: string;
+    name: string;
+    wellCount: number;
+    dataSourceType: string;
+    dataItems?: Array<{
+      id: string;
+      name: string;
+      type: string;
+      s3Key?: string;
+      osduId?: string;
+      location?: string;
+      coordinates?: [number, number];
+    }>;
+    geographicBounds?: {
+      minLat: number;
+      maxLat: number;
+      minLon: number;
+      maxLon: number;
+    };
   }
 ): Promise<SendMessageResponse> {
   try {
@@ -65,6 +107,12 @@ export async function sendMessage(
     console.log('📝 Message:', message);
     console.log('📚 History Length:', conversationHistory?.length || 0);
     console.log('🎯 Project Context:', projectContext);
+    console.log('📚 Collection Context:', collectionContext ? {
+      name: collectionContext.name,
+      wellCount: collectionContext.wellCount,
+      dataSource: collectionContext.dataSourceType,
+      wellList: collectionContext.dataItems?.map(item => item.name).join(', ')
+    } : 'None');
     console.log('🌐 Endpoint: /api/chat/message');
     console.log('⏰ Timestamp:', new Date().toISOString());
     console.log('═══════════════════════════════════════════════════════════');
@@ -74,6 +122,7 @@ export async function sendMessage(
       chatSessionId,
       conversationHistory,
       projectContext,
+      collectionContext,
     });
     
     console.log('═══════════════════════════════════════════════════════════');

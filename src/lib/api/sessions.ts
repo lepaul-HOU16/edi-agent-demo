@@ -1,155 +1,124 @@
-/**
- * ChatSession REST API Client
- * 
- * Provides methods for ChatSession CRUD operations.
- * Replaces Amplify GraphQL ChatSession model operations.
- */
-
-import { apiGet, apiPost, apiPatch, apiDelete } from './client';
+import { apiPost, apiGet, apiPut, apiDelete } from './client';
 
 /**
- * ChatSession interface matching backend schema
+ * Session interface matching backend schema
  */
-export interface ChatSession {
+export interface Session {
   id: string;
-  name?: string;
-  owner: string;
-  workSteps?: any[];
+  name: string;
   linkedCollectionId?: string;
-  collectionContext?: any;
-  dataAccessLog?: any[];
+  collectionContext?: CollectionContext;
   createdAt: string;
   updatedAt: string;
+  owner: string;
 }
 
 /**
- * ChatMessage interface for session messages
+ * Collection context stored in session
  */
-export interface ChatMessage {
-  id: string;
-  chatSessionId: string;
-  role: string;
-  content: any;
-  artifacts?: any[];
-  responseComplete?: boolean;
-  createdAt: string;
-  updatedAt: string;
+export interface CollectionContext {
+  collectionId: string;
+  name: string;
+  wellCount: number;
+  dataSourceType: string;
+  dataItems: DataItem[];
+  previewMetadata: any;
 }
 
 /**
- * Create session request
+ * Data item in collection
+ */
+export interface DataItem {
+  id: string;
+  name: string;
+  type: string;
+  dataSource: string;
+  s3Key?: string;
+  osduId?: string;
+  location?: string;
+  operator?: string;
+  depth?: string;
+  curves?: string[];
+  coordinates?: [number, number];
+}
+
+/**
+ * Request to create a new session
  */
 export interface CreateSessionRequest {
-  name?: string;
-  workSteps?: any[];
+  name: string;
   linkedCollectionId?: string;
-  collectionContext?: any;
-  dataAccessLog?: any[];
 }
 
 /**
- * Update session request
+ * Request to update a session
  */
 export interface UpdateSessionRequest {
   name?: string;
-  workSteps?: any[];
   linkedCollectionId?: string;
-  collectionContext?: any;
-  dataAccessLog?: any[];
+  collectionContext?: CollectionContext;
 }
 
 /**
- * List sessions response
+ * Create a new session
  */
-export interface ListSessionsResponse {
-  data: ChatSession[];
-  nextToken?: string;
+export async function createSession(data: CreateSessionRequest): Promise<{
+  success: boolean;
+  session: Session;
+  sessionId: string;
+}> {
+  return apiPost('/api/sessions/create', data);
 }
 
 /**
- * List messages response
+ * Get a specific session by ID
  */
-export interface ListMessagesResponse {
-  data: ChatMessage[];
-  nextToken?: string;
+export async function getSession(sessionId: string): Promise<{
+  success: boolean;
+  session: Session;
+}> {
+  return apiGet(`/api/sessions/${sessionId}`);
 }
 
 /**
- * Create a new chat session
+ * Update a session
  */
-export async function createSession(request: CreateSessionRequest = {}): Promise<ChatSession> {
-  const response = await apiPost<{ data: ChatSession }>('/api/chat/sessions', request);
-  return response.data;
-}
-
-/**
- * List user's chat sessions
- */
-export async function listSessions(limit: number = 50, nextToken?: string): Promise<ListSessionsResponse> {
-  const params = new URLSearchParams();
-  params.append('limit', limit.toString());
-  if (nextToken) {
-    params.append('nextToken', nextToken);
-  }
-
-  const response = await apiGet<ListSessionsResponse>(`/api/chat/sessions?${params.toString()}`);
-  return response;
-}
-
-/**
- * Get a specific chat session by ID
- */
-export async function getSession(sessionId: string): Promise<ChatSession> {
-  const response = await apiGet<{ data: ChatSession }>(`/api/chat/sessions/${sessionId}`);
-  return response.data;
-}
-
-/**
- * Update a chat session
- */
-export async function updateSession(sessionId: string, updates: UpdateSessionRequest): Promise<ChatSession> {
-  const response = await apiPatch<{ data: ChatSession }>(`/api/chat/sessions/${sessionId}`, updates);
-  return response.data;
-}
-
-/**
- * Delete a chat session
- */
-export async function deleteSession(sessionId: string): Promise<void> {
-  await apiDelete(`/api/chat/sessions/${sessionId}`);
-}
-
-/**
- * Get messages for a specific session
- */
-export async function getSessionMessages(
+export async function updateSession(
   sessionId: string,
-  limit: number = 100,
-  nextToken?: string
-): Promise<ListMessagesResponse> {
-  const params = new URLSearchParams();
-  params.append('limit', limit.toString());
-  if (nextToken) {
-    params.append('nextToken', nextToken);
-  }
-
-  const response = await apiGet<ListMessagesResponse>(
-    `/api/chat/sessions/${sessionId}/messages?${params.toString()}`
-  );
-  return response;
+  data: UpdateSessionRequest
+): Promise<{
+  success: boolean;
+  session: Session;
+}> {
+  return apiPut(`/api/sessions/${sessionId}`, data);
 }
 
 /**
- * Helper: Create session with default name
+ * Delete a session
  */
-export async function createSessionWithDefaultName(): Promise<ChatSession> {
-  const defaultName = `New Canvas - ${new Date().toLocaleString()}`;
-  return createSession({ name: defaultName });
+export async function deleteSession(sessionId: string): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  return apiDelete(`/api/sessions/${sessionId}`);
 }
 
 /**
- * Helper: Delete multiple sessions
+ * List all sessions for the current user
  */
-export async function deleteSessions(sessionIds: string[]): Promise<void> {
-  await Promise.all(sessionIds.map(id => deleteSession(id)));
+export async function listSessions(): Promise<{
+  sessions: Session[];
+  count: number;
+}> {
+  return apiGet('/api/sessions/list');
+}
+
+/**
+ * Get messages for a session
+ */
+export async function getSessionMessages(sessionId: string): Promise<{
+  success: boolean;
+  data: any[];
+}> {
+  return apiGet(`/api/chat/sessions/${sessionId}/messages`);
 }

@@ -2,6 +2,30 @@
 @import '@cloudscape-design/global-styles/index.css';
 
 /* ============================================
+   HOMEPAGE HERO SECTION
+   ============================================ */
+
+.hero-header {
+  background-image: url('/login/edi-bkgd.jpg');
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  width: 100%;
+  height: 100vh;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; /* Prevent scrollbars during animation */
+}
+
+/* Prevent container from jumping/animating on homepage */
+.hero-header * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* ============================================
    CLOUDSCAPE COMPONENT STYLING FIXES
    ============================================ */
 
@@ -513,6 +537,10 @@
 .breadcrumb-links a {
   color: #0972d3 !important;
   text-decoration: none !important;
+  max-width: 300px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 .breadcrumb-links a:hover {
@@ -521,11 +549,16 @@
 
 .breadcrumb-links .separator {
   color: #545b64 !important;
+  flex-shrink: 0 !important;
 }
 
 .breadcrumb-links .current {
   color: #000716 !important;
   font-weight: 500 !important;
+  max-width: 300px !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
 }
 
 .reset-chat {
@@ -536,6 +569,23 @@
   z-index: 100;
   display: flex;
   align-items: center;
+}
+
+/* Collections page - make reset-chat sticky */
+[data-page="collections"] .reset-chat {
+  position: sticky !important;
+  top: 0 !important;
+  z-index: 1000 !important;
+}
+
+/* Light mode - match body background */
+body[data-awsui-mode="light"] [data-page="collections"] .reset-chat {
+  background: #f2f3f3 !important;
+}
+
+/* Dark mode - match body background */
+body[data-awsui-mode="dark"] [data-page="collections"] .reset-chat {
+  background: #121212 !important;
 }
 
 /* Ensure Grid inside reset-chat stays horizontal */
@@ -635,6 +685,8 @@
   background: transparent !important;
   max-width: 1920px !important;
   margin: 0 auto !important;
+  overflow-y: auto !important;
+  height: 100vh !important;
 }
 
 /* Panel - base styles (overridden by page-specific rules) */
@@ -657,7 +709,7 @@
 
 /* Conversation - base styles (overridden by page-specific rules) */
 .convo {
-  width: calc(100% - 40px);
+  width: 100%;
   height: 100%;
   min-height: 500px;
   overflow: hidden;
@@ -768,7 +820,7 @@
 
 /* Target only the right column with colspan-7 inside .controls */
 .controls > [class*="awsui_grid_"] > [class*="awsui_grid-column_"][class*="awsui_colspan-7"] {
-  padding-left: 40px !important;
+  padding-left: 47px !important;
   padding-right: 77px !important;
 }
 
@@ -909,6 +961,12 @@
   .app-container {
     padding: 0 40px;
   }
+  
+  /* Remove padding for homepage - it has full-width background */
+  .app-container .hero-header {
+    margin: 0 -40px;
+    width: calc(100% + 80px);
+  }
 }
 
 
@@ -980,7 +1038,7 @@
 }
 
 /* Messages container inside convo - use absolute positioning to isolate from layout */
-[data-page="catalog"] .messages-container {
+.messages-container {
   position: absolute;
   top: 0;
   left: 0;
@@ -988,8 +1046,7 @@
   bottom: 0;
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px;
-  padding-bottom: 100px;
+  padding: 20px 40px 100px 0px;
 }
 
 /* Ensure map fills its container */
@@ -1076,8 +1133,65 @@
   padding: 0 8px !important;
 }
 
-/* Bottom container (Workspace Canvases) - white background with border */
-[data-page="collections"] .awsui_root_14iqq_1vhb3_189[class*="awsui_variant-default"] {
+/* Bottom container (Workspace Canvases) - theme-aware background with border */
+/* Light mode */
+body[data-awsui-mode="light"] [data-page="collections"] .awsui_root_14iqq_1vhb3_189[class*="awsui_variant-default"] {
   background: #ffffff !important;
-  border: 1px solid #e5e7eb !important;
+  border: 1px solid #d5dbdb !important;
+}
+
+/* Dark mode */
+body[data-awsui-mode="dark"] [data-page="collections"] .awsui_root_14iqq_1vhb3_189[class*="awsui_variant-default"] {
+  background: #0f1b2a !important;
+  border: 1px solid #2a3642 !important;
+}
+
+
+/* ========================================
+   Collection Creation Modal Overrides
+   ======================================== */
+
+/* Modal overlay - ABOVE TopNavBar so it covers everything */
+[class*="awsui_overlay"][class*="awsui_refresh"] {
+  z-index: 10500 !important;
+}
+
+/* Modal dialog - above overlay and TopNavBar */
+.collection-creation-modal {
+  z-index: 10500 !important;
+  top: 60px !important;
+  bottom: 60px !important;
+  max-height: calc(100vh - 120px) !important;
+  border-radius: 8px !important;
+  overflow: hidden !important;
+}
+
+/* Round footer corners */
+.collection-creation-modal [class*="awsui_footer"] {
+  border-bottom-left-radius: 8px !important;
+  border-bottom-right-radius: 8px !important;
+}
+
+/* Fix selected row borders in modal table */
+/* All cells in selected row - apply top and bottom borders to each cell */
+.collection-creation-modal [class*="awsui_row"][class*="awsui_selected"] [class*="awsui_body-cell"] {
+  background-color: #f0f8ff !important;
+  border-top: 2px solid #0972d3 !important;
+  border-bottom: 2px solid #0972d3 !important;
+  border-left: none !important;
+  border-right: none !important;
+}
+
+/* First cell in selected row - add left border and rounded corners */
+.collection-creation-modal [class*="awsui_row"][class*="awsui_selected"] [class*="awsui_body-cell"]:first-child {
+  border-left: 2px solid #0972d3 !important;
+  border-top-left-radius: 4px !important;
+  border-bottom-left-radius: 4px !important;
+}
+
+/* Last cell in selected row - add right border and rounded corners */
+.collection-creation-modal [class*="awsui_row"][class*="awsui_selected"] [class*="awsui_body-cell"]:last-child {
+  border-right: 2px solid #0972d3 !important;
+  border-top-right-radius: 4px !important;
+  border-bottom-right-radius: 4px !important;
 }

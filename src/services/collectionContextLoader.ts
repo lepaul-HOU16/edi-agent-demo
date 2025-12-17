@@ -7,6 +7,49 @@
 import { getCollection } from '../lib/api/collections';
 import { isCollectionStateRestorationEnabled, isCollectionAnalyticsEnabled } from './featureFlags';
 
+// ============================================================================
+// CloudWatch Metrics Tracking (Frontend)
+// ============================================================================
+
+interface MetricData {
+  metricName: string;
+  value: number;
+  timestamp: number;
+  dimensions?: Record<string, string>;
+}
+
+class MetricsCollector {
+  private metrics: MetricData[] = [];
+  private readonly MAX_METRICS = 100;
+
+  track(metricName: string, value: number, dimensions?: Record<string, string>): void {
+    this.metrics.push({
+      metricName,
+      value,
+      timestamp: Date.now(),
+      dimensions,
+    });
+
+    // Keep only recent metrics
+    if (this.metrics.length > this.MAX_METRICS) {
+      this.metrics.shift();
+    }
+
+    // Log to console for monitoring
+    console.log(`📊 Metric: ${metricName} = ${value}`, dimensions || '');
+  }
+
+  getMetrics(): MetricData[] {
+    return [...this.metrics];
+  }
+
+  clearMetrics(): void {
+    this.metrics = [];
+  }
+}
+
+const metricsCollector = new MetricsCollector();
+
 interface CollectionContext {
   collectionId: string;
   name: string;
@@ -65,6 +108,8 @@ class CollectionContextService {
     chatSessionId: string,
     collectionId?: string
   ): Promise<CollectionContext | null> {
+    const startTime = Date.now();
+    
     try {
       console.log('🎨 Loading canvas context for session:', chatSessionId);
       
@@ -72,11 +117,33 @@ class CollectionContextService {
       if (collectionId) {
         console.log('🗂️ Using provided collection ID:', collectionId);
         const result = await this.loadCollectionContext(collectionId, {}, {});
-        return result.success ? result.context || null : null;
+        
+        const loadTime = Date.now() - startTime;
+        metricsCollector.track('CollectionContextLoadTime', loadTime, {
+          Source: 'DirectCollectionId',
+          Success: result.success ? 'true' : 'false',
+        });
+        
+        if (!result.success) {
+          console.error('❌ Failed to load collection:', collectionId);
+          console.error('Collection may not exist or may have been deleted');
+          metricsCollector.track('CollectionContextLoadError', 1, { ErrorType: 'CollectionNotFound' });
+          return null;
+        }
+        
+        metricsCollector.track('CollectionContextLoaded', 1, { HasCache: 'false' });
+        return result.context || null;
       }
       
       // Otherwise, check if chat session has a linked collection
       const chatSession = await this.getChatSession(chatSessionId);
+      
+      if (!chatSession) {
+        console.error('❌ Session not found:', chatSessionId);
+        console.error('The session may not exist or you may not have access to it');
+        metricsCollector.track('CollectionContextLoadError', 1, { ErrorType: 'SessionNotFound' });
+        return null;
+      }
       
       if (chatSession?.linkedCollectionId) {
         console.log('🗂️ Found linked collection:', chatSession.linkedCollectionId);
@@ -85,13 +152,38 @@ class CollectionContextService {
           {},
           {}
         );
-        return result.success ? result.context || null : null;
+        
+        const loadTime = Date.now() - startTime;
+        metricsCollector.track('CollectionContextLoadTime', loadTime, {
+          Source: 'LinkedCollection',
+          Success: result.success ? 'true' : 'false',
+        });
+        
+        if (!result.success) {
+          console.error('❌ Failed to load linked collection:', chatSession.linkedCollectionId);
+          console.error('The collection may have been deleted (broken link)');
+          metricsCollector.track('CollectionContextLoadError', 1, { ErrorType: 'BrokenLink' });
+          return null;
+        }
+        
+        metricsCollector.track('CollectionContextLoaded', 1, { HasCache: 'unknown' });
+        return result.context || null;
       }
       
       console.log('ℹ️ No collection context for this canvas');
+      metricsCollector.track('CollectionContextLoadTime', Date.now() - startTime, {
+        Source: 'NoCollection',
+        Success: 'true',
+      });
       return null;
     } catch (error) {
       console.error('❌ Error loading canvas context:', error);
+      console.error('API call failed. Canvas will function without collection context.');
+      metricsCollector.track('CollectionContextLoadError', 1, { ErrorType: 'APIFailure' });
+      metricsCollector.track('CollectionContextLoadTime', Date.now() - startTime, {
+        Source: 'Error',
+        Success: 'false',
+      });
       return null;
     }
   }
@@ -158,6 +250,16 @@ class CollectionContextService {
       // 1. First try to get chat session with collection link
       const chatSession = await this.getChatSession(chatSessionId);
       
+      if (!chatSession) {
+        console.error('❌ Session not found:', chatSessionId);
+        return {
+          success: false,
+          fallbackToS3Tools: true,
+          error: 'Session not found',
+          loadTime: Date.now() - startTime
+        };
+      }
+      
       if (chatSession?.linkedCollectionId) {
         console.log('🗂️ Found collection-linked chat session:', chatSession.linkedCollectionId);
         
@@ -175,10 +277,19 @@ class CollectionContextService {
             context: collectionContext.context,
             loadTime: Date.now() - startTime
           };
+        } else {
+          console.error('❌ Failed to load collection context');
+          console.error('Collection may have been deleted (broken link)');
+          return {
+            success: false,
+            fallbackToS3Tools: true,
+            error: 'Collection not found or deleted',
+            loadTime: Date.now() - startTime
+          };
         }
       }
 
-      console.log('⚠️ No collection context available, checking for fallback...');
+      console.log('ℹ️ No collection context available, using fallback');
       
       // 3. Fallback to S3tools for backwards compatibility
       return {
@@ -189,6 +300,7 @@ class CollectionContextService {
 
     } catch (error) {
       console.error('❌ Error loading collection context:', error);
+      console.error('API failure - canvas will function without collection context');
       return {
         success: false,
         fallbackToS3Tools: true, // Always provide fallback
@@ -212,47 +324,62 @@ class CollectionContextService {
       const cached = this.getCachedContext(collectionId);
       if (cached) {
         console.log('📋 Using cached collection context');
+        metricsCollector.track('CacheHit', 1, { CollectionId: collectionId });
         return { success: true, context: cached };
       }
+      
+      metricsCollector.track('CacheMiss', 1, { CollectionId: collectionId });
 
       // Load from collection service via REST API
       const result = await getCollection(collectionId);
 
-      if (result.success && result.collection) {
-        const collection = result.collection;
-          
-        // Build enhanced context
-        const context: CollectionContext = {
-          collectionId,
-          name: collection.name,
-          dataItems: collection.dataItems || [],
-          queryMetadata: collection.queryMetadata || {},
-          savedState: collection.savedState || {},
-          previewMetadata: collection.previewMetadata || {},
-          
-          // Phase 3: Enhanced context loading
-          wellData: this.transformDataItemsToWellData(collection.dataItems || []),
-          geographicContext: this.buildGeographicContext(collection.queryMetadata, collection.savedState),
-          analyticsContext: options.enableAnalytics ? await this.buildAnalyticsContext(collection) : undefined
-        };
-
-        // Cache the context
-        this.setCachedContext(collectionId, context);
-
-        console.log('✅ Collection context built successfully:', {
-          collectionName: context.name,
-          wellCount: context.dataItems.length,
-          hasGeographicContext: !!context.geographicContext,
-          hasAnalytics: !!context.analyticsContext
-        });
-
-        return { success: true, context };
+      if (!result.success) {
+        console.error('❌ Failed to load collection from API:', collectionId);
+        return { success: false };
       }
 
-      return { success: false };
+      if (!result.collection) {
+        console.error('❌ Collection not found:', collectionId);
+        console.error('The collection may have been deleted');
+        return { success: false };
+      }
+
+      const collection = result.collection;
+      
+      // Extract metadata from previewMetadata
+      const queryMetadata = (collection.previewMetadata as any)?.queryMetadata || {};
+      const savedState = (collection.previewMetadata as any)?.savedState || {};
+        
+      // Build enhanced context
+      const context: CollectionContext = {
+        collectionId,
+        name: collection.name,
+        dataItems: collection.dataItems || [],
+        queryMetadata,
+        savedState,
+        previewMetadata: collection.previewMetadata || {},
+        
+        // Phase 3: Enhanced context loading
+        wellData: this.transformDataItemsToWellData(collection.dataItems || []),
+        geographicContext: this.buildGeographicContext(queryMetadata, savedState),
+        analyticsContext: options.enableAnalytics ? await this.buildAnalyticsContext(collection) : undefined
+      };
+
+      // Cache the context
+      this.setCachedContext(collectionId, context);
+
+      console.log('✅ Collection context built successfully:', {
+        collectionName: context.name,
+        wellCount: context.dataItems.length,
+        hasGeographicContext: !!context.geographicContext,
+        hasAnalytics: !!context.analyticsContext
+      });
+
+      return { success: true, context };
 
     } catch (error) {
-      console.error('Error loading collection context:', error);
+      console.error('❌ Error loading collection context:', error);
+      console.error('API call failed or network error occurred');
       return { success: false };
     }
   }
@@ -330,18 +457,21 @@ class CollectionContextService {
   }
 
   /**
-   * Get chat session information
-   * Note: This still uses Amplify models for now as ChatSession hasn't been migrated yet
-   * TODO: Migrate to REST API when ChatSession endpoints are created
+   * Get chat session information using REST API
    */
   private async getChatSession(chatSessionId: string): Promise<any> {
     try {
-      // For now, return null to skip chat session lookup
-      // This will be implemented when ChatSession REST API is created
-      console.warn('ChatSession REST API not yet implemented, skipping session lookup');
+      const { getSession } = await import('../lib/api/sessions');
+      const result = await getSession(chatSessionId);
+      
+      if (result.success && result.session) {
+        return result.session;
+      }
+      
+      console.error('Failed to get session:', result);
       return null;
     } catch (error) {
-      console.warn('Could not retrieve chat session:', error);
+      console.error('Error retrieving chat session:', error);
       return null;
     }
   }
