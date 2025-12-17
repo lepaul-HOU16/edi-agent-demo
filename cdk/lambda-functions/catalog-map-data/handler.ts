@@ -215,6 +215,64 @@ async function fetchWellCoordinatesFromCSV(): Promise<Map<string, { lat: number;
   }
 }
 
+// Function to generate exploration block polygons for Vietnam offshore
+function generateExplorationBlocks(): any[] {
+  const blocks = [
+    {
+      name: "Block 15-1",
+      operator: "PetroVietnam",
+      status: "Active",
+      area_km2: 1250,
+      license: "EP-2023-001",
+      coordinates: [[[106.5, 10.5], [106.8, 10.5], [106.8, 10.8], [106.5, 10.8], [106.5, 10.5]]]
+    },
+    {
+      name: "Block 16-2",
+      operator: "Vietsovpetro",
+      status: "Producing",
+      area_km2: 2100,
+      license: "EP-2021-045",
+      production_bopd: 15000,
+      coordinates: [[[107.0, 10.2], [107.4, 10.3], [107.5, 10.7], [107.2, 10.9], [106.9, 10.6], [107.0, 10.2]]]
+    },
+    {
+      name: "Block 09-3",
+      operator: "Total E&P",
+      status: "Exploration",
+      area_km2: 3400,
+      license: "EP-2024-012",
+      water_depth_m: 85,
+      coordinates: [[[108.1, 11.0], [108.6, 11.1], [108.7, 11.5], [108.5, 11.8], [108.2, 11.7], [107.9, 11.4], [108.1, 11.0]]]
+    },
+    {
+      name: "Block 12-4",
+      operator: "Legacy Oil Co",
+      status: "Inactive",
+      area_km2: 980,
+      license: "EP-2018-089 (Expired)",
+      coordinates: [[[105.5, 9.5], [105.9, 9.5], [105.9, 9.9], [105.5, 9.9], [105.5, 9.5]]]
+    }
+  ];
+
+  return blocks.map(block => ({
+    type: "Feature",
+    geometry: {
+      type: "Polygon",
+      coordinates: block.coordinates
+    },
+    properties: {
+      name: block.name,
+      type: "Exploration Block",
+      operator: block.operator,
+      status: block.status,
+      area_km2: block.area_km2,
+      license: block.license,
+      ...(block.production_bopd && { production_bopd: block.production_bopd }),
+      ...(block.water_depth_m && { water_depth_m: block.water_depth_m })
+    }
+  }));
+}
+
 // Function to fetch LAS files from S3 and create "My Wells"
 async function fetchMyWells(): Promise<any> {
   try {
@@ -351,10 +409,14 @@ export const handler: Handler = async (event) => {
       fetchMyWells()
     ]);
 
-    // Combine OSDU wells and My Wells into a single collection
+    // Generate exploration blocks
+    const explorationBlocks = generateExplorationBlocks();
+
+    // Combine OSDU wells, My Wells, and Exploration Blocks into a single collection
     const combinedWells = {
       type: "FeatureCollection",
       features: [
+        ...explorationBlocks, // Add blocks FIRST so they render under wells
         ...(wellsData?.features || []),
         ...(myWellsData?.features || [])
       ],
@@ -369,10 +431,10 @@ export const handler: Handler = async (event) => {
     };
 
     console.log('Map Data Response:', {
+      explorationBlocksCount: explorationBlocks.length,
       osduWellsCount: wellsData?.features?.length || 0,
       myWellsCount: myWellsData?.features?.length || 0,
-      totalWellsCount: combinedWells.features.length,
-      seismicCount: seismicData?.features?.length || 0
+      totalFeaturesCount: combinedWells.features.length
     });
 
     // Return the JSON string directly (matching the schema expectation)

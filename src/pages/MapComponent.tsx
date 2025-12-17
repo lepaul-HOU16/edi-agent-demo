@@ -69,6 +69,9 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
   // Simple source and layer IDs
   const WELLS_SOURCE_ID = 'wells';
   const WELLS_LAYER_ID = 'wells-layer';
+  const BLOCKS_SOURCE_ID = 'blocks';
+  const BLOCKS_FILL_LAYER_ID = 'blocks-fill-layer';
+  const BLOCKS_OUTLINE_LAYER_ID = 'blocks-outline-layer';
   
   // Weather layer IDs
   const WEATHER_LAYERS = {
@@ -320,6 +323,114 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     mapRef.current.addLayer(layerStyle);
     
     console.log(`✅ Added ${layerType} layer with visibility: ${config.visible}`);
+  }, []);
+
+  // Function to render polygon blocks layer
+  const renderBlocksLayer = useCallback((geoJsonData: any) => {
+    if (!mapRef.current) return;
+    
+    console.log('🔷 Rendering blocks layer with', geoJsonData.features.length, 'features');
+    console.log('🔷 First 3 block names:', geoJsonData.features.slice(0, 3).map((f: any) => f.properties?.name));
+    
+    // Always remove and recreate to ensure clean state
+    try {
+      if (mapRef.current.getLayer(BLOCKS_OUTLINE_LAYER_ID)) {
+        mapRef.current.removeLayer(BLOCKS_OUTLINE_LAYER_ID);
+      }
+      if (mapRef.current.getLayer(BLOCKS_FILL_LAYER_ID)) {
+        mapRef.current.removeLayer(BLOCKS_FILL_LAYER_ID);
+      }
+      if (mapRef.current.getSource(BLOCKS_SOURCE_ID)) {
+        mapRef.current.removeSource(BLOCKS_SOURCE_ID);
+      }
+      console.log('Removed existing blocks layers');
+    } catch (e) {
+      console.warn('Error removing existing blocks layer/source:', e);
+    }
+    
+    // Create fresh source
+    mapRef.current.addSource(BLOCKS_SOURCE_ID, {
+      type: 'geojson',
+      data: geoJsonData
+    });
+    
+    // Add fill layer (semi-transparent)
+    mapRef.current.addLayer({
+      id: BLOCKS_FILL_LAYER_ID,
+      type: 'fill',
+      source: BLOCKS_SOURCE_ID,
+      paint: {
+        'fill-color': [
+          'match',
+          ['get', 'status'],
+          'Active', '#4CAF50',
+          'Producing', '#2196F3',
+          'Exploration', '#FF9800',
+          'Inactive', '#9E9E9E',
+          '#9C27B0' // Default purple
+        ],
+        'fill-opacity': 0.3
+      }
+    });
+    
+    // Add outline layer (solid border)
+    mapRef.current.addLayer({
+      id: BLOCKS_OUTLINE_LAYER_ID,
+      type: 'line',
+      source: BLOCKS_SOURCE_ID,
+      paint: {
+        'line-color': [
+          'match',
+          ['get', 'status'],
+          'Active', '#4CAF50',
+          'Producing', '#2196F3',
+          'Exploration', '#FF9800',
+          'Inactive', '#9E9E9E',
+          '#9C27B0' // Default purple
+        ],
+        'line-width': 2,
+        'line-opacity': 0.8
+      }
+    });
+    
+    console.log('✅ Created blocks layers with', geoJsonData.features.length, 'features');
+    
+    // Add click event for blocks (on fill layer)
+    mapRef.current.on('click', BLOCKS_FILL_LAYER_ID, (e: maplibregl.MapLayerMouseEvent) => {
+      if (!e.features || e.features.length === 0) return;
+      
+      const coordinates = e.lngLat;
+      const properties = e.features[0].properties;
+      const name = properties?.name || 'Unnamed Block';
+      
+      const popupContent = document.createElement('div');
+      popupContent.innerHTML = `
+        <h3>${name}</h3>
+        ${properties ? Object.entries(properties)
+          .filter(([key]) => key !== 'name')
+          .slice(0, 8)
+          .map(([key, value]) => `<p><strong>${key}:</strong> ${value}</p>`)
+          .join('') : 'No additional metadata available'}
+      `;
+      
+      new maplibregl.Popup()
+        .setLngLat(coordinates)
+        .setDOMContent(popupContent)
+        .addTo(mapRef.current!);
+    });
+    
+    // Change cursor on hover
+    mapRef.current.on('mouseenter', BLOCKS_FILL_LAYER_ID, () => {
+      if (mapRef.current) {
+        mapRef.current.getCanvas().style.cursor = 'pointer';
+      }
+    });
+    
+    mapRef.current.on('mouseleave', BLOCKS_FILL_LAYER_ID, () => {
+      if (mapRef.current) {
+        mapRef.current.getCanvas().style.cursor = '';
+      }
+    });
   }, []);
 
   // Function to render wells layer
@@ -613,27 +724,67 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
         `;
       }
       
-      console.log('📍 Standard wells query - rendering well markers');
-      renderWellsLayer(geoJsonData);
+      console.log('📍 Standard query - rendering features');
+      
+      // Separate features by geometry type
+      const pointFeatures = geoJsonData.features.filter((f: any) => f.geometry.type === 'Point');
+      const polygonFeatures = geoJsonData.features.filter((f: any) => f.geometry.type === 'Polygon');
+      
+      console.log('📊 Feature breakdown by geometry:', {
+        points: pointFeatures.length,
+        polygons: polygonFeatures.length,
+        total: geoJsonData.features.length
+      });
+      
+      // Render polygon blocks first (so they appear under points)
+      if (polygonFeatures.length > 0) {
+        const blocksGeoJSON = {
+          type: 'FeatureCollection',
+          features: polygonFeatures
+        };
+        renderBlocksLayer(blocksGeoJSON);
+      }
+      
+      // Render point wells on top
+      if (pointFeatures.length > 0) {
+        const wellsGeoJSON = {
+          type: 'FeatureCollection',
+          features: pointFeatures
+        };
+        renderWellsLayer(wellsGeoJSON);
+      }
     }
     
-    // Function to fit bounds to all wells
-    const fitBoundsToWells = () => {
+    // Function to fit bounds to all features
+    const fitBoundsToFeatures = () => {
       if (geoJsonData.features.length > 0) {
         try {
-          const coordinates = geoJsonData.features.map((feature: any) => feature.geometry.coordinates);
-          console.log('Well coordinates for bounds:', coordinates);
+          // Collect all coordinates from all geometry types
+          const allCoordinates: [number, number][] = [];
           
-          if (coordinates.length === 1) {
-            // Single well - just center on it
-            mapRef.current!.setCenter(coordinates[0]);
+          geoJsonData.features.forEach((feature: any) => {
+            if (feature.geometry.type === 'Point') {
+              allCoordinates.push(feature.geometry.coordinates);
+            } else if (feature.geometry.type === 'Polygon') {
+              // Add all polygon vertices
+              feature.geometry.coordinates[0].forEach((coord: [number, number]) => {
+                allCoordinates.push(coord);
+              });
+            }
+          });
+          
+          console.log('Feature coordinates for bounds:', allCoordinates.length, 'points');
+          
+          if (allCoordinates.length === 1) {
+            // Single point - just center on it
+            mapRef.current!.setCenter(allCoordinates[0]);
             mapRef.current!.setZoom(8);
-            console.log('Centered map on single well at', coordinates[0]);
-          } else {
-            // Multiple wells - fit bounds
-            const bounds = coordinates.reduce((bounds: maplibregl.LngLatBounds, coord: [number, number]) => {
+            console.log('Centered map on single feature at', allCoordinates[0]);
+          } else if (allCoordinates.length > 1) {
+            // Multiple features - fit bounds
+            const bounds = allCoordinates.reduce((bounds: maplibregl.LngLatBounds, coord: [number, number]) => {
               return bounds.extend(coord);
-            }, new maplibregl.LngLatBounds(coordinates[0], coordinates[0]));
+            }, new maplibregl.LngLatBounds(allCoordinates[0], allCoordinates[0]));
             
             console.log('Calculated bounds:', bounds.toArray());
             
@@ -642,7 +793,7 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
               maxZoom: 10,
               duration: 1000  // Smooth animation
             });
-            console.log('Executed fitBounds with animation for', geoJsonData.features.length, 'wells');
+            console.log('Executed fitBounds with animation for', geoJsonData.features.length, 'features');
           }
         } catch (error) {
           console.error('Error fitting bounds:', error);
@@ -651,8 +802,8 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     };
     
     // Fit bounds after rendering
-    setTimeout(fitBoundsToWells, 200);
-  }, []);
+    setTimeout(fitBoundsToFeatures, 200);
+  }, [renderBlocksLayer, renderWellsLayer, renderWeatherLayers, updateWeatherControl]);
 
   // Fit bounds function
   const fitBounds = useCallback((bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number }) => {

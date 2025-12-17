@@ -68,6 +68,64 @@ interface OSDUWellRecord {
   };
 }
 
+// Function to generate exploration block polygons for Vietnam offshore
+function generateExplorationBlocks(): any[] {
+  const blocks = [
+    {
+      name: "Block 15-1",
+      operator: "PetroVietnam",
+      status: "Active",
+      area_km2: 1250,
+      license: "EP-2023-001",
+      coordinates: [[[106.5, 10.5], [106.8, 10.5], [106.8, 10.8], [106.5, 10.8], [106.5, 10.5]]]
+    },
+    {
+      name: "Block 16-2",
+      operator: "Vietsovpetro",
+      status: "Producing",
+      area_km2: 2100,
+      license: "EP-2021-045",
+      production_bopd: 15000,
+      coordinates: [[[107.0, 10.2], [107.4, 10.3], [107.5, 10.7], [107.2, 10.9], [106.9, 10.6], [107.0, 10.2]]]
+    },
+    {
+      name: "Block 09-3",
+      operator: "Total E&P",
+      status: "Exploration",
+      area_km2: 3400,
+      license: "EP-2024-012",
+      water_depth_m: 85,
+      coordinates: [[[108.1, 11.0], [108.6, 11.1], [108.7, 11.5], [108.5, 11.8], [108.2, 11.7], [107.9, 11.4], [108.1, 11.0]]]
+    },
+    {
+      name: "Block 12-4",
+      operator: "Legacy Oil Co",
+      status: "Inactive",
+      area_km2: 980,
+      license: "EP-2018-089 (Expired)",
+      coordinates: [[[105.5, 9.5], [105.9, 9.5], [105.9, 9.9], [105.5, 9.9], [105.5, 9.5]]]
+    }
+  ];
+
+  return blocks.map(block => ({
+    type: "Feature",
+    geometry: {
+      type: "Polygon",
+      coordinates: block.coordinates
+    },
+    properties: {
+      name: block.name,
+      type: "Exploration Block",
+      operator: block.operator,
+      status: block.status,
+      area_km2: block.area_km2,
+      license: block.license,
+      ...(block.production_bopd && { production_bopd: block.production_bopd }),
+      ...(block.water_depth_m && { water_depth_m: block.water_depth_m })
+    }
+  }));
+}
+
 // Function to fetch real coordinates from CSV file in S3
 async function fetchWellCoordinatesFromCSV(): Promise<Map<string, { lat: number; lon: number }>> {
   try {
@@ -1039,6 +1097,10 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
       
       console.log(`📊 Catalog filtering: ${filteredWells.length}/${userWells.length} wells ${isFiltered ? '(Filtered)' : ''}`);
       
+      // Add exploration blocks
+      const explorationBlocks = generateExplorationBlocks();
+      const allFeatures = [...explorationBlocks, ...filteredWells];
+      
       return {
         type: "FeatureCollection",
         metadata: {
@@ -1046,6 +1108,7 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
           searchQuery: searchQuery,
           source: `Personal LAS Files (Real Coordinates)${isFiltered ? ' (Filtered)' : ''}`,
           recordCount: filteredWells.length,
+          blocksCount: explorationBlocks.length,
           originalCount: userWells.length,
           filtered: isFiltered,
           filterCriteria: filters.hasFilters ? filters : undefined,
@@ -1059,7 +1122,7 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
             maxLat: Math.max(...filteredWells.map(f => f.geometry.coordinates[1]))
           } : null
         },
-        features: filteredWells
+        features: allFeatures
       };
     }
     
@@ -1072,8 +1135,12 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
       // Get OSDU wells using fallback data
       const osduResults = generateRealisticOSDUData(searchQuery, parsedQuery);
       
-      // Combine both datasets
+      // Add exploration blocks
+      const explorationBlocks = generateExplorationBlocks();
+      
+      // Combine all datasets - blocks first so they render under wells
       const allFeatures = [
+        ...explorationBlocks,
         ...osduResults.features,
         ...userWells
       ];
@@ -1083,16 +1150,17 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
         metadata: {
           type: "wells",
           searchQuery: searchQuery,
-          source: "OSDU Community Platform + Personal LAS Files",
-          recordCount: allFeatures.length,
+          source: "OSDU Community Platform + Personal LAS Files + Exploration Blocks",
+          recordCount: osduResults.features.length + userWells.length,
+          blocksCount: explorationBlocks.length,
           region: 'all',
           queryType: 'allWells',
           timestamp: new Date().toISOString(),
           coordinateBounds: allFeatures.length > 0 ? {
-            minLon: Math.min(...allFeatures.map(f => f.geometry.coordinates[0])),
-            maxLon: Math.max(...allFeatures.map(f => f.geometry.coordinates[0])),
-            minLat: Math.min(...allFeatures.map(f => f.geometry.coordinates[1])),
-            maxLat: Math.max(...allFeatures.map(f => f.geometry.coordinates[1]))
+            minLon: Math.min(...allFeatures.filter(f => f.geometry.type === 'Point').map(f => f.geometry.coordinates[0])),
+            maxLon: Math.max(...allFeatures.filter(f => f.geometry.type === 'Point').map(f => f.geometry.coordinates[0])),
+            minLat: Math.min(...allFeatures.filter(f => f.geometry.type === 'Point').map(f => f.geometry.coordinates[1])),
+            maxLat: Math.max(...allFeatures.filter(f => f.geometry.type === 'Point').map(f => f.geometry.coordinates[1]))
           } : null
         },
         features: allFeatures
