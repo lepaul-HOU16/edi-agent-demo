@@ -63,7 +63,7 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
 }) => {
   // TASK 17: Pagination state
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
-  const pageSize = 10;
+  const pageSize = 1000; // Show ALL records
   const tableRef = React.useRef<HTMLDivElement>(null);
   
   // TASK 20: Reset pagination when records array changes
@@ -145,41 +145,7 @@ export const OSDUSearchResponse: React.FC<OSDUSearchResponseProps> = ({
 
       {/* Header Section - Removed query block */}
 
-      {/* Summary Statistics */}
-      {hasRecords && (
-        <Container>
-          <ColumnLayout columns={recordCount > records.length ? 5 : 4} variant="text-grid">
-            {recordCount > records.length && (
-              <div>
-                <Box variant="awsui-key-label">Total Found</Box>
-                <Box variant="awsui-value-large">{recordCount}</Box>
-              </div>
-            )}
-            <div>
-              <Box variant="awsui-key-label">{recordCount > records.length ? 'Returned' : 'Total Found'}</Box>
-              <Box variant="awsui-value-large">{records.length}</Box>
-            </div>
-            <div>
-              <Box variant="awsui-key-label">Showing</Box>
-              <Box variant="awsui-value-large">{showingStart}-{showingEnd}</Box>
-            </div>
-            <div>
-              <Box variant="awsui-key-label">Data Source</Box>
-              <Box variant="awsui-value-large">
-                <Badge color="blue">OSDU</Badge>
-              </Box>
-            </div>
-            <div>
-              <Box variant="awsui-key-label">Status</Box>
-              <Box variant="awsui-value-large">
-                <StatusIndicator type="success">
-                  Available
-                </StatusIndicator>
-              </Box>
-            </div>
-          </ColumnLayout>
-        </Container>
-      )}
+      {/* Removed verbose summary statistics - info shown in table header */}
 
       {/* Records Table */}
       {hasRecords ? (

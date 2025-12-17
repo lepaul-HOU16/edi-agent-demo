@@ -201,6 +201,39 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1) !important;
 }
 
+/* Cards Header - Collections Page */
+[data-page="collections"] [class*="awsui_header"][class*="awsui_header-variant-cards"],
+[data-page="collections"] [class*="awsui_refresh"][class*="awsui_header"][class*="awsui_header-variant-cards"] {
+  padding: 20px 0px !important;
+  background: none !important;
+  border: none !important;
+}
+
+/* Cards Component Container - Collections Page */
+[data-page="collections"] [class*="awsui_content-inner"][class*="awsui_with-paddings"] {
+  padding: 20px 0px !important;
+  margin-top: 20px !important;
+  background: none !important;
+  border: none !important;
+}
+
+/* Cards Root Container - Collections Page - ONLY for cards grid view, not detail view */
+[data-page="collections"] .collections-cards-wrapper [class*="awsui_root"][class*="awsui_variant-default"] {
+  border: none !important;
+}
+
+/* Preserve padding for individual card items */
+[data-page="collections"] [class*="awsui-cards-card"] {
+  padding: 16px !important;
+}
+
+/* Preserve padding for card content inside Cards component */
+[data-page="collections"] [class*="awsui-cards-card"] [class*="awsui_content-inner"] {
+  padding: 16px !important;
+  margin-top: 0 !important;
+  background: #ffffff !important;
+}
+
 /* Modal Styling */
 [class*="awsui-modal"] {
   border-radius: 8px !important;
@@ -590,9 +623,18 @@
   margin-top: 0 !important;
 }
 
-/* Canvases list page - compensate for AppLayout padding (5px top, 40px sides) */
+/* Canvases list page - match Collections page styling */
 [data-page="canvases"].main-container {
-  margin: 31px 40px 0 !important; /* 31px + 5px AppLayout padding = 36px total top */
+  background: transparent !important;
+  max-width: 1920px !important;
+  margin: 0 auto !important;
+}
+
+/* Collections page - match Catalog page styling */
+[data-page="collections"].main-container {
+  background: transparent !important;
+  max-width: 1920px !important;
+  margin: 0 auto !important;
 }
 
 /* Panel - base styles (overridden by page-specific rules) */
@@ -982,4 +1024,60 @@
 /* Use page-specific selector instead of canvases-panel class */
 [data-page="chat"] .panel {
   height: calc(100vh - 157px) !important;
+}
+
+/* ============================================
+   CLOUDSCAPE CONTENT INNER PADDING FIX
+   ============================================ */
+
+/* Fix padding and margin for Cloudscape content-inner with specific computed classes */
+.awsui_content-inner_14iqq_1vhb3_500.awsui_content-inner_1mwlm_oyjaq_5.awsui_with-paddings_14iqq_1vhb3_396.awsui_with-header_14iqq_1vhb3_507 {
+  margin-top: 0 !important;
+}
+
+
+
+
+/* Collection detail page - specific container styling */
+/* Top section (Cuu Long Basin Wells) - styled like Container but using plain div */
+.collection-detail-header {
+  border-radius: 8px;
+  padding: 20px 0px;
+  background: transparent;
+  border: none;
+  gap: 30px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Add spacing to the SpaceBetween content inside collection-detail-header */
+.collection-detail-header > [class*="awsui_child"] {
+  margin-top: 20px;
+}
+
+/* Collection detail actions - align buttons to the right */
+.collection-detail-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+/* Tighten gap between grid columns in collection detail */
+.collection-detail-grid {
+  gap: 16px !important;
+}
+
+/* Collection detail grid - tighter column spacing */
+.collection-detail-grid {
+  gap: 16px !important;
+}
+
+.collection-detail-grid > [class*="awsui_grid-column_"] {
+  padding: 0 8px !important;
+}
+
+/* Bottom container (Workspace Canvases) - white background with border */
+[data-page="collections"] .awsui_root_14iqq_1vhb3_189[class*="awsui_variant-default"] {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
 }

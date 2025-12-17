@@ -5,6 +5,7 @@ import {
   Button,
   Cards,
   ContentLayout,
+  Grid,
   Header,
   Pagination,
   Select,
@@ -12,6 +13,7 @@ import {
   StatusIndicator,
   Icon
 } from '@cloudscape-design/components';
+import { Typography } from '@mui/material';
 import { withAuth } from '@/components/WithAuth';
 import { cognitoAuth } from '@/lib/auth/cognitoAuth';
 import { listCollections } from '@/lib/api/collections';
@@ -266,36 +268,40 @@ function CanvasListPageBase() {
   };
 
   return (
-    <div className="main-container" data-page="canvases">
+    <div className="main-container" data-page="canvases" style={{ background: 'transparent' }}>
+      {/* Header with controls matching collections page */}
+      <div className="reset-chat" style={{ marginBottom: '20px' }}>
+        <Grid
+          disableGutters
+          gridDefinition={[{ colspan: 12 }]}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <div className="reset-chat-left">
+              <Typography variant="h6">All Canvases ({filteredCanvases.length})</Typography>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <Button 
+                iconName="refresh" 
+                onClick={loadCanvases}
+                disabled={loading}
+              >
+                Refresh
+              </Button>
+              <Button 
+                variant="primary" 
+                href="/create-new-chat"
+                iconName="add-plus"
+              >
+                Create New Canvas
+              </Button>
+            </div>
+          </div>
+        </Grid>
+      </div>
+
       <ContentLayout
         disableOverlap
-        headerVariant="divider"
-        header={
-          <Header
-            variant="h1"
-            counter={`(${filteredCanvases.length})`}
-            actions={
-              <SpaceBetween direction="horizontal" size="m">
-                <Button 
-                  iconName="refresh" 
-                  onClick={loadCanvases}
-                  disabled={loading}
-                >
-                  Refresh
-                </Button>
-                <Button 
-                  variant="primary" 
-                  href="/create-new-chat"
-                  iconName="add-plus"
-                >
-                  Create New Canvas
-                </Button>
-              </SpaceBetween>
-            }
-          >
-            All Canvases
-          </Header>
-        }
+        header={null}
       >
         <SpaceBetween direction="vertical" size="l">
           {/* Error Message */}

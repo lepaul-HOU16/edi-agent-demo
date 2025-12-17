@@ -213,7 +213,7 @@ export const handler = async (
             statusCode: 200,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              answer: data.response || `Found ${totalFound} wells in OSDU`,
+              answer: firstData.response || `Found ${totalFound} wells in OSDU`,
               recordCount: totalFound,
               records: transformedWells
             }),
@@ -247,7 +247,7 @@ export const handler = async (
         { name: 'Caspian Sea', basin: 'South Caspian Basin', country: 'Kazakhstan', latBase: 42, lonBase: 51, spread: 2 }
       ];
       
-      const allDemoRecords = Array.from({ length: Math.min(maxResults, 50) }, (_, i) => {
+      const allDemoRecords = Array.from({ length: Math.min(maxResults, 100) }, (_, i) => {
         const region = regions[i % regions.length];
         const wellsInRegion = Math.floor(i / regions.length);
         

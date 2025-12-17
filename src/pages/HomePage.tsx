@@ -24,9 +24,12 @@ const LandingPage = () => {
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        width: 'calc(100% + 80px)',
-        height: 'calc(100% + 80px)',
-        margin: '-40px',
+        width: '100%',
+        height: '100vh',
+        margin: '0',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
       }}
     >
       {errorMessage && (
@@ -55,7 +58,7 @@ const LandingPage = () => {
                 { colspan: { default: 12, s: 8 } }
               ]}
             >
-              <Box margin={{ top: 'xxxl' }}>
+              <Box>
                 <Container>
                   <Box padding="s">
                   <Box

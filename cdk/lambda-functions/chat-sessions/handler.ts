@@ -17,6 +17,7 @@ import {
 } from '@aws-sdk/lib-dynamodb';
 import { APIGatewayProxyEventV2, APIGatewayProxyResultV2 } from 'aws-lambda';
 import { randomUUID } from 'crypto';
+import { getUserId } from '../shared/auth-utils';
 
 // Initialize DynamoDB client
 const client = new DynamoDBClient({});
@@ -38,33 +39,6 @@ interface ChatSession {
   dataAccessLog?: any[];
   createdAt: string;
   updatedAt: string;
-}
-
-/**
- * Extract user ID from JWT claims or custom authorizer context
- */
-function getUserId(event: APIGatewayProxyEventV2): string {
-  // Try JWT claims first (standard Cognito authorizer)
-  const claims = event.requestContext.authorizer?.jwt?.claims;
-  if (claims && claims.sub) {
-    return claims.sub as string;
-  }
-  
-  // Try custom Lambda authorizer context (mock auth or custom authorizer)
-  const authContext = event.requestContext.authorizer as any;
-  if (authContext && authContext.lambda) {
-    // Lambda authorizer puts context in 'lambda' property
-    if (authContext.lambda.userId) {
-      return authContext.lambda.userId as string;
-    }
-  }
-  
-  // Try direct context (fallback)
-  if (authContext && authContext.userId) {
-    return authContext.userId as string;
-  }
-  
-  throw new Error('Unauthorized: No user ID in token');
 }
 
 /**
@@ -147,12 +121,12 @@ async function listSessions(event: APIGatewayProxyEventV2): Promise<APIGatewayPr
     const limit = queryParams.limit ? parseInt(queryParams.limit) : 50;
     const nextToken = queryParams.nextToken;
 
-    // Query by owner (GSI required on owner field)
+    // Use Scan with filter since byOwner GSI doesn't exist
+    // This is less efficient but works without GSI
     const result = await docClient.send(
-      new QueryCommand({
+      new ScanCommand({
         TableName: CHAT_SESSION_TABLE,
-        IndexName: 'byOwner', // GSI on owner field
-        KeyConditionExpression: '#owner = :owner',
+        FilterExpression: '#owner = :owner',
         ExpressionAttributeNames: {
           '#owner': 'owner',
         },
@@ -161,12 +135,16 @@ async function listSessions(event: APIGatewayProxyEventV2): Promise<APIGatewayPr
         },
         Limit: limit,
         ExclusiveStartKey: nextToken ? JSON.parse(Buffer.from(nextToken, 'base64').toString()) : undefined,
-        ScanIndexForward: false, // Most recent first
       })
     );
 
+    // Sort by createdAt descending (most recent first)
+    const sortedItems = (result.Items || []).sort((a: any, b: any) => {
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+
     const response: any = {
-      data: result.Items || [],
+      data: sortedItems,
     };
 
     if (result.LastEvaluatedKey) {

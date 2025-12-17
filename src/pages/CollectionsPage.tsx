@@ -16,14 +16,16 @@ import {
   StatusIndicator,
   Icon
 } from '@cloudscape-design/components';
+import { Typography } from '@mui/material';
 import CollectionCreationModal from '@/components/CollectionCreationModal';
 import { withAuth } from '@/components/WithAuth';
 import { isCollectionsEnabled, isCollectionCreationEnabled } from '@/services/featureFlags';
-import { listCollections, createCollection } from '@/lib/api/collections';
+import { listCollections, createCollection, deleteCollection } from '@/lib/api/collections';
 
 function CollectionManagementPageBase() {
   const [collections, setCollections] = useState<any[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<any | null>(null);
+  const [selectedCollections, setSelectedCollections] = useState<any[]>([]); // For bulk delete
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [viewMode, setViewMode] = useState<'collections' | 'all-sessions'>('collections');
@@ -59,12 +61,12 @@ function CollectionManagementPageBase() {
     const loadChatSessions = async () => {
       try {
         setLoadingSessions(true);
-        // TODO: Implement ChatSession REST API endpoint
-        // For now, skip as ChatSession hasn't been migrated yet
-        console.warn('ChatSession REST API not yet implemented');
-        setChatSessions([]);
+        const { listSessions } = await import('@/lib/api/sessions');
+        const response = await listSessions(100);
+        setChatSessions(response.data || []);
       } catch (error) {
         console.error('Error loading chat sessions:', error);
+        setChatSessions([]);
       } finally {
         setLoadingSessions(false);
       }
@@ -136,6 +138,36 @@ function CollectionManagementPageBase() {
     setSelectedCollection(collection);
   };
 
+  const handleDeleteSelectedCollections = async () => {
+    if (selectedCollections.length === 0) return;
+
+    if (window.confirm(`Are you sure you want to delete ${selectedCollections.length} selected collection${selectedCollections.length > 1 ? 's' : ''}?`)) {
+      try {
+        // Delete all selected collections
+        await Promise.all(
+          selectedCollections.map(collection => deleteCollection(collection.id))
+        );
+        
+        // Refresh the collections list
+        await loadCollections();
+        setSelectedCollections([]);
+      } catch (error) {
+        console.error('Error deleting collections:', error);
+        alert('Failed to delete some collections. Please try again.');
+      }
+    }
+  };
+
+  const handleSelectAllCollections = () => {
+    if (selectedCollections.length === paginatedCollections.length) {
+      // If all on current page are selected, deselect all
+      setSelectedCollections([]);
+    } else {
+      // Otherwise, select all on current page
+      setSelectedCollections([...paginatedCollections]);
+    }
+  };
+
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -162,18 +194,22 @@ function CollectionManagementPageBase() {
   // Feature flag fallback - redirect to catalog if collections disabled
   if (!collectionsEnabled) {
     return (
-      <div style={{ margin: '36px 80px 0' }}>
+      <div className='main-container' data-page="collections" style={{ background: 'transparent' }}>
+        <div className="reset-chat">
+          <Grid
+            disableGutters
+            gridDefinition={[{ colspan: 12 }]}
+          >
+            <div className="reset-chat-left">
+              <Typography variant="h6">Data Collections</Typography>
+            </div>
+          </Grid>
+        </div>
         <ContentLayout
           disableOverlap
-          headerVariant="divider"
-          header={
-            <Header variant="h1">
-              Data Collections
-            </Header>
-          }
+          header={null}
         >
           <Alert
-            statusIconAriaLabel="Info"
             type="info"
             header="Collection Management"
           >
@@ -194,21 +230,42 @@ function CollectionManagementPageBase() {
 
   if (viewMode === 'collections') {
     return (
-      <div style={{ margin: '36px 80px 0', marginBottom: '20px' }}>
-        <ContentLayout
-          disableOverlap
-          headerVariant="divider"
-          header={
-            <Header
-              variant="h1"
-              actions={
-                <SpaceBetween direction="horizontal" size="m">
-                  <Button
-                    variant="normal"
-                    onClick={() => setViewMode('all-sessions')}
-                  >
-                    Show All Sessions
-                  </Button>
+      <div className='main-container' data-page="collections" style={{ background: 'transparent' }}>
+        {/* Header with controls matching catalog page */}
+        <div className="reset-chat">
+          <Grid
+            disableGutters
+            gridDefinition={[{ colspan: 12 }]}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+              <div className="reset-chat-left">
+                <Typography variant="h6">Data Collections & Workspaces</Typography>
+              </div>
+              <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                {/* Bulk Actions Group */}
+                {selectedCollections.length > 0 && (
+                  <div style={{ display: 'flex', gap: '8px', alignItems: 'center', paddingRight: '12px', borderRight: '1px solid #e5e7eb' }}>
+                    <Box variant="span" color="text-body-secondary">
+                      {selectedCollections.length} selected
+                    </Box>
+                    <Button
+                      variant="normal"
+                      iconName="remove"
+                      onClick={handleDeleteSelectedCollections}
+                    >
+                      Delete
+                    </Button>
+                    <Button
+                      variant="normal"
+                      onClick={() => setSelectedCollections([])}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
+                
+                {/* Main Actions Group */}
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   {creationEnabled && (
                     <Button
                       variant="primary"
@@ -217,56 +274,69 @@ function CollectionManagementPageBase() {
                       Create New Collection
                     </Button>
                   )}
-                </SpaceBetween>
-              }
-            >
-              Data Collections & Workspaces
-            </Header>
-          }
+                  <Button
+                    variant="normal"
+                    onClick={() => setViewMode('all-sessions')}
+                  >
+                    Show All Sessions
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </Grid>
+        </div>
+
+        <ContentLayout
+          disableOverlap
+          header={null}
         >
           {selectedCollection ? (
             // Selected Collection View with Canvases
             <SpaceBetween direction="vertical" size="l">
-              <Container
-                header={
-                  <Header
-                    variant="h2"
-                    actions={
-                      <SpaceBetween direction="horizontal" size="s">
-                        <Button
-                          variant="link"
-                          onClick={() => setSelectedCollection(null)}
-                        >
-                          ← Back to Collections
-                        </Button>
-                        <Button iconName="edit">Edit Collection</Button>
-                        <Button iconName="copy">Duplicate</Button>
-                        <Button iconName="remove">Archive</Button>
-                      </SpaceBetween>
-                    }
-                  >
-                    🗂️ {selectedCollection.name}
-                  </Header>
-                }
-              >
+              <div className="collection-detail-header">
+                <Header
+                  variant="h2"
+                  actions={
+                    <SpaceBetween direction="horizontal" size="s">
+                      <Button
+                        variant="link"
+                        onClick={() => setSelectedCollection(null)}
+                      >
+                        ← Back to Collections
+                      </Button>
+                      <Button iconName="edit">Edit Collection</Button>
+                      <Button iconName="copy">Duplicate</Button>
+                      <Button iconName="remove">Archive</Button>
+                    </SpaceBetween>
+                  }
+                >
+                  🗂️ {selectedCollection.name}
+                </Header>
                 <SpaceBetween direction="vertical" size="l">
                   <Grid
+                    className="collection-detail-grid"
                     gridDefinition={[
-                      { colspan: { default: 12, xs: 4 } },
-                      { colspan: { default: 12, xs: 4 } },
-                      { colspan: { default: 12, xs: 4 } }
+                      { colspan: 3 },
+                      { colspan: 3 },
+                      { colspan: 3 }
                     ]}
                   >
                     <Box>
                       <Box variant="h3">📊 Data Summary</Box>
-                      <Box>
-                        {selectedCollection.previewMetadata?.wellCount || 0} Wells •
-                        {selectedCollection.previewMetadata?.dataPointCount || 0} Data Points
-                      </Box>
+                      <SpaceBetween direction="horizontal" size="xs">
+                        <Badge color={getDataSourceBadgeColor(selectedCollection.dataSourceType)}>
+                          {selectedCollection.previewMetadata?.wellCount || 0} Wells
+                        </Badge>
+                        <Badge color="grey">
+                          {selectedCollection.previewMetadata?.dataPointCount || 0} Data Points
+                        </Badge>
+                      </SpaceBetween>
                     </Box>
                     <Box>
                       <Box variant="h3">🗺️ Data Sources</Box>
-                      <Box>{selectedCollection.previewMetadata?.dataSources?.join(', ') || selectedCollection.dataSourceType}</Box>
+                      <Badge color="grey">
+                        {selectedCollection.dataSourceType}
+                      </Badge>
                     </Box>
                     <Box>
                       <Box variant="h3">📅 Last Modified</Box>
@@ -274,19 +344,19 @@ function CollectionManagementPageBase() {
                     </Box>
                   </Grid>
 
-                  <SpaceBetween direction="horizontal" size="m">
+                  <div className="collection-detail-actions">
                     <Button variant="primary" iconName="external" href="/catalog">
                       View Collection Data
                     </Button>
                     <Button variant="normal" iconName="add-plus" href="/create-new-chat">
                       Create New Canvas
                     </Button>
-                  </SpaceBetween>
+                  </div>
                 </SpaceBetween>
-              </Container>
+              </div>
 
-              {/* Canvas Cards Section */}
-              <Container
+            {/* Canvas Cards Section */}
+            <Container
                 header={
                   <Header variant="h3">
                     Workspace Canvases
@@ -312,8 +382,9 @@ function CollectionManagementPageBase() {
           ) : (
             // Collections Grid View with Pagination
             <SpaceBetween direction="vertical" size="l">
-              <Cards
-                cardDefinition={{
+              <div className="collections-cards-wrapper">
+                <Cards
+                  cardDefinition={{
                   header: item => (
                     <SpaceBetween direction="vertical" size="xs">
                       <Box variant="h3">{item.name}</Box>
@@ -356,9 +427,36 @@ function CollectionManagementPageBase() {
                               {item.dataSourceType}
                             </Badge>
                           </SpaceBetween>
-                          <Box variant="small" color="text-body-secondary">
-                            Click to view details
-                          </Box>
+                          <SpaceBetween direction="horizontal" size="xs">
+                            <Button
+                              variant="inline-link"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCollectionSelect(item);
+                              }}
+                            >
+                              View Details
+                            </Button>
+                            <Button
+                              variant="inline-link"
+                              iconName="remove"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Are you sure you want to delete "${item.name}"?`)) {
+                                  try {
+                                    await deleteCollection(item.id);
+                                    await loadCollections();
+                                    setSelectedCollections([]);
+                                  } catch (error) {
+                                    console.error('Error deleting collection:', error);
+                                    alert('Failed to delete collection. Please try again.');
+                                  }
+                                }
+                              }}
+                            >
+                              Delete
+                            </Button>
+                          </SpaceBetween>
                         </SpaceBetween>
                       )
                     }
@@ -372,19 +470,28 @@ function CollectionManagementPageBase() {
                 items={paginatedCollections}
                 loadingText="Loading collections"
                 loading={loading}
-                selectionType="single"
+                selectionType="multi"
+                selectedItems={selectedCollections}
                 onSelectionChange={({ detail }) => {
-                  if (detail.selectedItems[0]) {
-                    handleCollectionSelect(detail.selectedItems[0]);
-                  }
+                  setSelectedCollections(detail.selectedItems);
                 }}
                 header={
                   <Header
                     counter={`(${collections.length})`}
                     actions={
-                      <Button iconName="refresh" onClick={loadCollections}>
-                        Refresh
-                      </Button>
+                      <SpaceBetween direction="horizontal" size="s">
+                        <Button
+                          onClick={handleSelectAllCollections}
+                          variant="normal"
+                        >
+                          {selectedCollections.length === paginatedCollections.length && paginatedCollections.length > 0
+                            ? 'Deselect All'
+                            : 'Select All'}
+                        </Button>
+                        <Button iconName="refresh" onClick={loadCollections}>
+                          Refresh
+                        </Button>
+                      </SpaceBetween>
                     }
                   >
                     Your Data Collections
@@ -413,6 +520,7 @@ function CollectionManagementPageBase() {
                   </Box>
                 }
               />
+              </div>
 
               {/* Pagination Controls */}
               {collections.length > ITEMS_PER_PAGE && (
@@ -450,43 +558,50 @@ function CollectionManagementPageBase() {
   }
 
   return (
-    <div style={{ margin: '36px 80px 0', marginBottom: '20px' }}>
+    <div className='main-container' data-page="collections" style={{ background: 'transparent' }}>
+      {/* Header with controls matching catalog page */}
+      <div className="reset-chat">
+        <Grid
+          disableGutters
+          gridDefinition={[{ colspan: 12 }]}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', width: '100%' }}>
+            <div className="reset-chat-left">
+              <Typography variant="h6">All Workspace Sessions & Canvases</Typography>
+            </div>
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+              <Button
+                variant="normal"
+                iconName="undo"
+                onClick={() => setViewMode('collections')}
+              >
+                Return to Collections
+              </Button>
+              <Button
+                variant="primary"
+                href="/create-new-chat"
+              >
+                Create New Session
+              </Button>
+            </div>
+          </div>
+        </Grid>
+      </div>
+
       <ContentLayout
         disableOverlap
-        headerVariant="divider"
-        header={
-          <Header
-            variant="h1"
-            actions={
-              <SpaceBetween direction="horizontal" size="m">
-                <Button
-                  variant="normal"
-                  iconName="undo"
-                  onClick={() => setViewMode('collections')}
-                >
-                  Return to Collections
-                </Button>
-                <Button
-                  variant="primary"
-                  href="/create-new-chat"
-                >
-                  Create New Session
-                </Button>
-              </SpaceBetween>
-            }
-          >
-            All Workspace Sessions & Canvases
-          </Header>
-        }
+        header={null}
       >
         <SpaceBetween direction="vertical" size="l">
-          <Alert
-            type="info"
-            dismissible={false}
-            header="Collection Integration Available"
-          >
-            Your existing chat sessions are preserved as "Unlinked Canvases." Link them to Collections for enhanced AI context and organization.
-          </Alert>
+          <div style={{ marginTop: '20px' }}>
+            <Alert
+              type="info"
+              dismissible={false}
+              header="Collection Integration Available"
+            >
+              Your existing chat sessions are preserved as "Unlinked Canvases." Link them to Collections for enhanced AI context and organization.
+            </Alert>
+          </div>
 
           <Cards
             cardDefinition={{

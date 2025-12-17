@@ -133,10 +133,27 @@ const CustomAIMessage = React.memo(({ message, originalSearchQuery }: { message:
       : '';
     
     if (!messageText) return "";
-    return messageText
+    
+    let cleanedText = messageText
       .replace(/```json-table-data\n[\s\S]*?\n```/g, "")
       .replace(/```osdu-search-response\n[\s\S]*?\n```/g, "")
       .replace(/```osdu-error-response\n[\s\S]*?\n```/g, "");
+    
+    // NUCLEAR OPTION: Strip ALL verbose OSDU text - keep ONLY the first line
+    // If message contains OSDU dataset info, extract ONLY the summary line before any detailed descriptions
+    if (cleanedText.includes('OSDU') || cleanedText.includes('wells from') || cleanedText.includes('Well Log Records') || cleanedText.includes('Well Records Overview')) {
+      // Find the first line with ✅ or the first non-empty line
+      const lines = cleanedText.split('\n');
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (trimmed && (trimmed.startsWith('✅') || trimmed.startsWith('**'))) {
+          // Return ONLY this line, nothing else
+          return trimmed;
+        }
+      }
+    }
+    
+    return cleanedText;
   };
   
   // Extract OSDU response data if present

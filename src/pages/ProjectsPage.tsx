@@ -1,5 +1,6 @@
 import React, { useEffect, useState, Suspense, lazy } from 'react';
 import { getProjects, updateProject, deleteProject, type Project } from '@/lib/api/projects';
+import { Grid as CloudscapeGrid, ContentLayout } from '@cloudscape-design/components';
 import {
     Box,
     Button,
@@ -315,9 +316,25 @@ const Page = () => {
     };
 
     return (
-        <Box p={3}>
-            {/* Summary Statistics */}
-            <Grid container spacing={3} sx={{ justifyContent: 'center' }}>
+        <div className='main-container' data-page="canvases" style={{ background: 'transparent' }}>
+            {/* Header with controls matching collections page */}
+            <div className="reset-chat">
+                <CloudscapeGrid
+                    disableGutters
+                    gridDefinition={[{ colspan: 12 }]}
+                >
+                    <div className="reset-chat-left">
+                        <Typography variant="h6">All Canvases</Typography>
+                    </div>
+                </CloudscapeGrid>
+            </div>
+
+            <ContentLayout
+                disableOverlap
+                header={null}
+            >
+                {/* Summary Statistics */}
+                <Grid container spacing={3} sx={{ justifyContent: 'center' }}>
                 <Grid>
                     <Paper
                         elevation={3}
@@ -648,7 +665,8 @@ const Page = () => {
                     )}
                 </Grid>
             </Grid>
-        </Box>
+            </ContentLayout>
+        </div>
     );
 }
 
