@@ -397,6 +397,14 @@ function CollectionDetailPageBase() {
                 >
                   View Collection Data in Catalog
                 </Button>
+                <Button 
+                  variant="normal" 
+                  iconName="share"
+                  disabled={!collection.dataItems || collection.dataItems.length === 0}
+                  onClick={() => navigate(`/collections/${collectionId}/knowledge-graph`)}
+                >
+                  🔗 Knowledge Graph Explorer
+                </Button>
                 <Button variant="normal" iconName="add-plus" onClick={() => handleCreateCanvas()}>
                   Create New Canvas from Collection
                 </Button>
@@ -462,38 +470,40 @@ function CollectionDetailPageBase() {
                 </SpaceBetween>
               </Box>
             ) : (
-              <SpaceBetween direction="vertical" size="l">
-                <Cards
-                  items={paginatedCanvases}
-                  cardDefinition={canvasCardDefinition}
-                  cardsPerRow={[
-                    { cards: 1 },
-                    { minWidth: 300, cards: 5 }
-                  ]}
-                  variant="container"
-                  stickyHeader={true}
-                  onSelectionChange={({ detail }) => {
-                    if (detail.selectedItems[0]) {
-                      handleCanvasClick(detail.selectedItems[0].id);
-                    }
-                  }}
-                  className="fixed-height-cards"
-                />
-
-                {/* Pagination Controls */}
-                {canvases.length > CANVASES_PER_PAGE && (
-                  <Pagination
-                    currentPageIndex={currentCanvasPage}
-                    pagesCount={Math.ceil(canvases.length / CANVASES_PER_PAGE)}
-                    onChange={({ detail }) => setCurrentCanvasPage(detail.currentPageIndex)}
-                    ariaLabels={{
-                      nextPageLabel: "Next page",
-                      previousPageLabel: "Previous page",
-                      pageLabel: pageNumber => `Page ${pageNumber} of ${Math.ceil(canvases.length / CANVASES_PER_PAGE)}`
+              <Box padding={{ horizontal: 'l', vertical: 's' }}>
+                <SpaceBetween direction="vertical" size="l">
+                  <Cards
+                    items={paginatedCanvases}
+                    cardDefinition={canvasCardDefinition}
+                    cardsPerRow={[
+                      { cards: 1 },
+                      { minWidth: 300, cards: 5 }
+                    ]}
+                    variant="container"
+                    stickyHeader={true}
+                    onSelectionChange={({ detail }) => {
+                      if (detail.selectedItems[0]) {
+                        handleCanvasClick(detail.selectedItems[0].id);
+                      }
                     }}
+                    className="fixed-height-cards"
                   />
-                )}
-              </SpaceBetween>
+
+                  {/* Pagination Controls */}
+                  {canvases.length > CANVASES_PER_PAGE && (
+                    <Pagination
+                      currentPageIndex={currentCanvasPage}
+                      pagesCount={Math.ceil(canvases.length / CANVASES_PER_PAGE)}
+                      onChange={({ detail }) => setCurrentCanvasPage(detail.currentPageIndex)}
+                      ariaLabels={{
+                        nextPageLabel: "Next page",
+                        previousPageLabel: "Previous page",
+                        pageLabel: pageNumber => `Page ${pageNumber} of ${Math.ceil(canvases.length / CANVASES_PER_PAGE)}`
+                      }}
+                    />
+                  )}
+                </SpaceBetween>
+              </Box>
             )}
           </Container>
 

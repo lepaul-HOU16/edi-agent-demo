@@ -8,6 +8,7 @@ import HomePage from './pages/HomePage';
 import ChatPage from './pages/ChatPage';
 import CollectionsPage from './pages/CollectionsPage';
 import CollectionDetailPage from './pages/CollectionDetailPage';
+import KnowledgeGraphExplorerPage from './pages/KnowledgeGraphExplorerPage';
 import CatalogPage from './pages/CatalogPage';
 import CreateNewChatPage from './pages/CreateNewChatPage';
 import ListChatsPage from './pages/ListChatsPage';
@@ -37,6 +38,7 @@ function App() {
         <Route path="/chat/:chatSessionId" element={<ProtectedRoute><ChatPage /></ProtectedRoute>} />
         <Route path="/collections" element={<ProtectedRoute><CollectionsPage /></ProtectedRoute>} />
         <Route path="/collections/:collectionId" element={<ProtectedRoute><CollectionDetailPage /></ProtectedRoute>} />
+        <Route path="/collections/:collectionId/knowledge-graph" element={<ProtectedRoute><KnowledgeGraphExplorerPage /></ProtectedRoute>} />
         <Route path="/catalog" element={<ProtectedRoute><CatalogPage /></ProtectedRoute>} />
         <Route path="/canvases" element={<ProtectedRoute><CanvasesPage /></ProtectedRoute>} />
         <Route path="/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />

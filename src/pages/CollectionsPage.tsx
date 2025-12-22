@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Alert,
   Badge,
@@ -23,6 +24,7 @@ import { isCollectionsEnabled, isCollectionCreationEnabled } from '@/services/fe
 import { listCollections, createCollection, deleteCollection } from '@/lib/api/collections';
 
 function CollectionManagementPageBase() {
+  const navigate = useNavigate();
   const [collections, setCollections] = useState<any[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<any | null>(null);
   const [selectedCollections, setSelectedCollections] = useState<any[]>([]); // For bulk delete
@@ -135,7 +137,8 @@ function CollectionManagementPageBase() {
   };
 
   const handleCollectionSelect = (collection: any) => {
-    setSelectedCollection(collection);
+    // Navigate to collection detail page
+    navigate(`/collections/${collection.id}`);
   };
 
   const handleDeleteSelectedCollections = async () => {
