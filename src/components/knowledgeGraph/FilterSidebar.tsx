@@ -13,6 +13,9 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
   graphData,
   onFilterChange
 }) => {
+  const [wellSearchQuery, setWellSearchQuery] = React.useState('');
+  const [showAllWells, setShowAllWells] = React.useState(true);
+
   const calculateCounts = () => {
     const nodeTypeCounts: Record<string, number> = {
       well: 0,
@@ -58,6 +61,12 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
 
   const counts = calculateCounts();
 
+  // Get all well nodes
+  const allWells = graphData.nodes.filter(n => n.type === 'well');
+  const filteredWells = wellSearchQuery
+    ? allWells.filter(w => w.name.toLowerCase().includes(wellSearchQuery.toLowerCase()))
+    : allWells;
+
   const handleNodeTypeToggle = (nodeType: string) => {
     const newTypes = new Set(filters.nodeTypes);
     if (newTypes.has(nodeType)) {
@@ -88,9 +97,77 @@ export const FilterSidebar: React.FC<FilterSidebarProps> = ({
     onFilterChange({ ...filters, qualityLevels: newLevels });
   };
 
+  const handleWellToggle = (wellId: string) => {
+    const newSelectedWells = new Set(filters.selectedWells || new Set());
+    if (newSelectedWells.has(wellId)) {
+      newSelectedWells.delete(wellId);
+    } else {
+      newSelectedWells.add(wellId);
+    }
+    onFilterChange({ ...filters, selectedWells: newSelectedWells });
+    setShowAllWells(false);
+  };
+
+  const handleSelectAllWells = () => {
+    if (showAllWells) {
+      // Deselect all
+      onFilterChange({ ...filters, selectedWells: new Set() });
+      setShowAllWells(false);
+    } else {
+      // Select all
+      const allWellIds = new Set(allWells.map(w => w.id));
+      onFilterChange({ ...filters, selectedWells: allWellIds });
+      setShowAllWells(true);
+    }
+  };
+
   return (
     <div className="filter-sidebar">
       <h2 className="filter-sidebar-title">FILTERS</h2>
+      
+      <div className="filter-group">
+        <h3 className="filter-group-title">Select Wells</h3>
+        <div style={{ marginBottom: '8px' }}>
+          <input
+            type="text"
+            placeholder="Search wells..."
+            value={wellSearchQuery}
+            onChange={(e) => setWellSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '6px 8px',
+              fontSize: '12px',
+              border: '1px solid #30363d',
+              borderRadius: '4px',
+              background: '#0d1117',
+              color: '#e6edf3'
+            }}
+          />
+        </div>
+        <div className="filter-item" onClick={handleSelectAllWells}>
+          <input
+            type="checkbox"
+            checked={showAllWells}
+            onChange={() => {}}
+            className="filter-checkbox"
+          />
+          <label className="filter-label">All Wells</label>
+          <span className="filter-count">{allWells.length}</span>
+        </div>
+        <div style={{ maxHeight: '200px', overflowY: 'auto', marginTop: '4px' }}>
+          {filteredWells.map(well => (
+            <div key={well.id} className="filter-item" onClick={() => handleWellToggle(well.id)}>
+              <input
+                type="checkbox"
+                checked={filters.selectedWells?.has(well.id) || showAllWells}
+                onChange={() => {}}
+                className="filter-checkbox"
+              />
+              <label className="filter-label" style={{ fontSize: '11px' }}>{well.name}</label>
+            </div>
+          ))}
+        </div>
+      </div>
       
       <div className="filter-group">
         <h3 className="filter-group-title">Node Types</h3>

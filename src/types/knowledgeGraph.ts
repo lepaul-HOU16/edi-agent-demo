@@ -99,6 +99,7 @@ export interface FilterState {
   qualityLevels: Set<string>;
   searchQuery: string;
   showDuplicatesOnly: boolean; // Show only nodes with duplicate links
+  selectedWells?: Set<string>; // Specific wells to show (if empty, show all)
 }
 
 export interface FilterCounts {

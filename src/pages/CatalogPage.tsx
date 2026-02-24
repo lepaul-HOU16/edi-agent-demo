@@ -16,9 +16,7 @@ import { Message } from '@/utils/types';
 import { withAuth } from '@/components/WithAuth';
 import booleanPointInPolygon from '@turf/boolean-point-in-polygon';
 import { isCollectionsEnabled, isCollectionCreationEnabled } from '@/services/featureFlags';
-import { executeOSDUQuery, convertOSDUToWellData } from '@/utils/osduQueryExecutor';
-import { OSDUQueryBuilder } from '@/components/OSDUQueryBuilder';
-import type { QueryCriterion } from '@/components/OSDUQueryBuilder';
+
 import { createCollection } from '@/lib/api/collections';
 import { searchCatalog, searchOSDU } from '@/lib/api/catalog';
 
@@ -58,6 +56,25 @@ interface PolygonFilter {
   metadata?: any;
   createdAt: Date;
   area?: number;
+}
+
+/** Returns true only when both lng and lat are finite numbers (not NaN, null, undefined, Infinity) */
+function isValidCoordinate(lng: unknown, lat: unknown): boolean {
+  return Number.isFinite(lng) && Number.isFinite(lat);
+}
+
+/** Filters out Point features with non-finite coordinates from a GeoJSON FeatureCollection */
+function sanitizeGeoJsonCoordinates(geoJson: any): any {
+  if (!geoJson || geoJson.type !== 'FeatureCollection' || !geoJson.features) return geoJson;
+  return {
+    ...geoJson,
+    features: geoJson.features.filter((f: any) => {
+      if (f.geometry?.type === 'Point') {
+        return isValidCoordinate(f.geometry.coordinates?.[0], f.geometry.coordinates?.[1]);
+      }
+      return true;
+    })
+  };
 }
 
 function CatalogPageBase() {
@@ -140,7 +157,7 @@ function CatalogPageBase() {
     type: string;
     operator?: string;
     location?: string;
-    depth?: number;
+    depth?: number | string;
     depthUnit?: 'm' | 'ft';
     wellName?: string;
     dataSource: string;
@@ -208,6 +225,7 @@ function CatalogPageBase() {
     locations: string[];
     operators: string[];
     wellPrefixes: string[];
+    specificWells: string[]; // NEW: Specific well names
     minDepth?: number;
     depthUnit?: 'm' | 'ft';
   } => {
@@ -215,7 +233,8 @@ function CatalogPageBase() {
     const result: any = {
       locations: [],
       operators: [],
-      wellPrefixes: []
+      wellPrefixes: [],
+      specificWells: [] // NEW
     };
 
     // Location keywords
@@ -280,6 +299,15 @@ function CatalogPageBase() {
       result.wellPrefixes.push('WELL');
     }
 
+    // NEW: Extract specific well names (e.g., "WELL-001", "USA-042", "NOR-123")
+    // Match patterns like: WELL-001, USA-042, NOR-123, etc.
+    const wellNamePattern = /\b([A-Z]{2,4})-(\d{3,4})\b/gi;
+    const wellNameMatches = query.match(wellNamePattern);
+    if (wellNameMatches) {
+      result.specificWells = wellNameMatches.map((name: string) => name.toUpperCase());
+      logger.info('🎯 Extracted specific well names:', result.specificWells);
+    }
+
     // Parse depth criteria
     const depthPatterns = [
       /deeper\s+than\s+(\d+)\s*(m|meters?|ft|feet?)?/i,
@@ -315,6 +343,16 @@ function CatalogPageBase() {
     // Detect reset commands
     const resetKeywords = ['show all', 'reset', 'clear filter', 'remove filter', 'all wells'];
     const isResetCommand = resetKeywords.some(keyword => lowerQuery.includes(keyword));
+    
+    // NEW: Check if query contains specific well names (e.g., "WELL-001", "USA-042")
+    // If so, this should be a NEW search, not a filter
+    const wellNamePattern = /\b([A-Z]{2,4})-(\d{3,4})\b/gi;
+    const hasSpecificWellNames = wellNamePattern.test(query);
+    
+    if (hasSpecificWellNames) {
+      logger.info('🎯 Specific well names detected - treating as NEW search, not filter');
+      return { hasFilterIntent: false, contextType: 'none', isResetCommand: false };
+    }
     
     // Detect filter intent keywords
     const filterKeywords = [
@@ -376,11 +414,13 @@ function CatalogPageBase() {
     filteredCount: number;
     originalCount: number;
     filterDescription: string;
+    filteredTableItems?: Array<{id: string; name: string; type: string; location: string; depth: string; operator: string}>;
   } => {
     const filters = parseFilterQuery(query);
     const hasFilters = filters.locations.length > 0 || 
                       filters.operators.length > 0 || 
                       filters.wellPrefixes.length > 0 || 
+                      filters.specificWells.length > 0 || // NEW
                       filters.minDepth !== undefined;
 
     if (!hasFilters) {
@@ -415,8 +455,21 @@ function CatalogPageBase() {
           if (!prefixMatch) return false;
         }
 
+        // NEW: Specific well name filter (exact match)
+        if (filters.specificWells.length > 0) {
+          const exactMatch = filters.specificWells.some(wellName =>
+            record.wellName?.toUpperCase() === wellName.toUpperCase() ||
+            record.name?.toUpperCase() === wellName.toUpperCase()
+          );
+          if (!exactMatch) return false;
+        }
+
         // Depth filter - handle both number and string depth values
-        if (filters.minDepth !== undefined && record.depth !== undefined) {
+        // If minDepth filter is active, EXCLUDE records without depth data
+        if (filters.minDepth !== undefined) {
+          if (record.depth === undefined || record.depth === null) {
+            return false; // No depth data = exclude from depth filter results
+          }
           let depthValue: number;
           
           if (typeof record.depth === 'number') {
@@ -438,6 +491,13 @@ function CatalogPageBase() {
         return true;
       });
 
+      console.log('🔍 FILTER DEBUG:', {
+        originalCount: recordsToFilter.length,
+        filteredCount: filtered.length,
+        minDepth: filters.minDepth,
+        sampleDepths: recordsToFilter.slice(0, 5).map(r => ({ name: r.name, depth: r.depth, type: typeof r.depth }))
+      });
+
       // Update catalog context with filtered results
       setCatalogContext({
         ...catalogContext,
@@ -449,28 +509,31 @@ function CatalogPageBase() {
         ]
       });
 
-      // Update analysis data to match filtered results
-      const filteredWellData = filtered.map(record => ({
+      // Filter to only records with valid finite coordinates
+      const validFiltered = filtered.filter(record => isValidCoordinate(record.longitude, record.latitude));
+
+      // Update analysis data to match filtered results (only valid coords)
+      const filteredWellData = validFiltered.map(record => ({
         name: record.name,
         type: record.type,
         depth: record.depth?.toString() || 'Unknown',
         location: record.location || 'Unknown',
         operator: record.operator || 'Unknown',
-        coordinates: [record.longitude || 0, record.latitude || 0] as [number, number],
+        coordinates: [record.longitude, record.latitude] as [number, number],
         category: 'search_result',
         dataSource: 'catalog'
       }));
 
       setAnalysisData(filteredWellData);
 
-      // 🔥 FIX: Update map with filtered data
+      // 🔥 FIX: Update map with filtered data (only valid coordinates)
       const filteredGeoJSON = {
         type: "FeatureCollection" as const,
-        features: filtered.map((record, index) => ({
+        features: validFiltered.map((record, index) => ({
           type: "Feature" as const,
           geometry: {
             type: "Point" as const,
-            coordinates: [record.longitude || 0, record.latitude || 0]
+            coordinates: [record.longitude, record.latitude]
           },
           properties: {
             name: record.name,
@@ -485,8 +548,8 @@ function CatalogPageBase() {
         }))
       };
 
-      // Update map state
-      const coordinates = filtered.map(r => [r.longitude || 0, r.latitude || 0]);
+      // Update map state - bounds only from valid coordinates
+      const coordinates = validFiltered.map(r => [r.longitude, r.latitude]);
       const bounds = coordinates.length > 0 ? {
         minLon: Math.min(...coordinates.map(c => c[0])),
         maxLon: Math.max(...coordinates.map(c => c[0])),
@@ -518,13 +581,24 @@ function CatalogPageBase() {
       if (filters.locations.length > 0) filterParts.push(`location: ${filters.locations.join(', ')}`);
       if (filters.operators.length > 0) filterParts.push(`operator: ${filters.operators.join(', ')}`);
       if (filters.wellPrefixes.length > 0) filterParts.push(`well prefix: ${filters.wellPrefixes.join(', ')}`);
+      if (filters.specificWells.length > 0) filterParts.push(`wells: ${filters.specificWells.join(', ')}`); // NEW
       if (filters.minDepth) filterParts.push(`depth > ${filters.minDepth}${filters.depthUnit}`);
+
+      const filteredTableItems = filtered.map((record, index) => ({
+        id: record.id || `filtered-${index}`,
+        name: record.name || 'Unknown Well',
+        type: record.type || 'Unknown',
+        location: record.location || 'Unknown',
+        depth: record.depth?.toString() || 'Unknown',
+        operator: record.operator || 'Unknown'
+      }));
 
       return {
         success: true,
         filteredCount: filtered.length,
         originalCount: recordsToFilter.length,
-        filterDescription: filterParts.join(', ')
+        filterDescription: filterParts.join(', '),
+        filteredTableItems
       };
     } else if (contextType === 'osdu' && osduContext) {
       // Filter OSDU records (similar logic)
@@ -555,8 +629,20 @@ function CatalogPageBase() {
           if (!prefixMatch) return false;
         }
 
+        // NEW: Specific well name filter (exact match)
+        if (filters.specificWells.length > 0) {
+          const exactMatch = filters.specificWells.some(wellName =>
+            record.name?.toUpperCase() === wellName.toUpperCase()
+          );
+          if (!exactMatch) return false;
+        }
+
         // Depth filter - handle both number and string depth values
-        if (filters.minDepth !== undefined && record.depth) {
+        // If minDepth filter is active, EXCLUDE records without depth data
+        if (filters.minDepth !== undefined) {
+          if (record.depth === undefined || record.depth === null) {
+            return false; // No depth data = exclude from depth filter results
+          }
           let depthValue: number;
           
           if (typeof record.depth === 'number') {
@@ -591,28 +677,31 @@ function CatalogPageBase() {
         ]
       });
 
-      // Update analysis data to match filtered results
-      const filteredWellData = filtered.map(record => ({
+      // Filter to only records with valid finite coordinates
+      const validFiltered = filtered.filter(record => isValidCoordinate(record.longitude, record.latitude));
+
+      // Update analysis data to match filtered results (only valid coords)
+      const filteredWellData = validFiltered.map(record => ({
         name: record.name,
         type: record.type,
         depth: record.depth || 'Unknown',
         location: record.location || 'Unknown',
         operator: record.operator || 'Unknown',
-        coordinates: [record.longitude || 0, record.latitude || 0] as [number, number],
+        coordinates: [record.longitude, record.latitude] as [number, number],
         category: 'search_result',
         dataSource: 'OSDU'
       }));
 
       setAnalysisData(filteredWellData);
 
-      // 🔥 FIX: Update map with filtered OSDU data
+      // 🔥 FIX: Update map with filtered OSDU data (only valid coordinates)
       const filteredGeoJSON = {
         type: "FeatureCollection" as const,
-        features: filtered.map((record, index) => ({
+        features: validFiltered.map((record, index) => ({
           type: "Feature" as const,
           geometry: {
             type: "Point" as const,
-            coordinates: [record.longitude || 0, record.latitude || 0]
+            coordinates: [record.longitude, record.latitude]
           },
           properties: {
             name: record.name,
@@ -627,8 +716,8 @@ function CatalogPageBase() {
         }))
       };
 
-      // Update map state
-      const coordinates = filtered.map(r => [r.longitude || 0, r.latitude || 0]);
+      // Update map state - bounds only from valid coordinates
+      const coordinates = validFiltered.map(r => [r.longitude, r.latitude]);
       const bounds = coordinates.length > 0 ? {
         minLon: Math.min(...coordinates.map(c => c[0])),
         maxLon: Math.max(...coordinates.map(c => c[0])),
@@ -660,13 +749,24 @@ function CatalogPageBase() {
       if (filters.locations.length > 0) filterParts.push(`location: ${filters.locations.join(', ')}`);
       if (filters.operators.length > 0) filterParts.push(`operator: ${filters.operators.join(', ')}`);
       if (filters.wellPrefixes.length > 0) filterParts.push(`well prefix: ${filters.wellPrefixes.join(', ')}`);
+      if (filters.specificWells.length > 0) filterParts.push(`wells: ${filters.specificWells.join(', ')}`); // NEW
       if (filters.minDepth) filterParts.push(`depth > ${filters.minDepth}${filters.depthUnit}`);
+
+      const filteredTableItems = filtered.map((record, index) => ({
+        id: record.id || `filtered-osdu-${index}`,
+        name: record.name || 'Unknown Well',
+        type: record.type || 'Unknown',
+        location: record.location || record.basin || 'Unknown',
+        depth: record.depth?.toString() || 'Unknown',
+        operator: record.operator || 'Unknown'
+      }));
 
       return {
         success: true,
         filteredCount: filtered.length,
         originalCount: recordsToFilter.length,
-        filterDescription: filterParts.join(', ')
+        filterDescription: filterParts.join(', '),
+        filteredTableItems
       };
     }
 
@@ -810,7 +910,7 @@ function CatalogPageBase() {
                 firstFeature: mapState.wellData.features?.[0],
                 allFeatureNames: mapState.wellData.features?.slice(0, 5).map((f: any) => f.properties?.name)
               });
-              mapComponentRef.current.updateMapData(mapState.wellData);
+              mapComponentRef.current.updateMapData(sanitizeGeoJsonCoordinates(mapState.wellData));
 
               // Then restore bounds immediately with requestAnimationFrame
               if (mapState.bounds && mapComponentRef.current.fitBounds) {
@@ -1103,12 +1203,9 @@ function CatalogPageBase() {
     }
   };
 
-  // Query Builder Execution Handler (Task 6.2)
-  const handleQueryBuilderExecution = useCallback(async (query: string, criteria: QueryCriterion[]) => {
-    logger.debug('Query Builder: Executing structured query', {
-      query,
-      criteriaCount: criteria.length
-    });
+  // Query Builder Execution Handler — uses same searchOSDU path as NLP flow
+  const handleQueryBuilderExecution = useCallback(async (query: string) => {
+    logger.info('🔍 Query Builder: Executing via searchOSDU (catalog.ts)', { query });
 
     setIsLoadingMapData(true);
     setShowQueryBuilder(false); // Close query builder
@@ -1129,40 +1226,21 @@ function CatalogPageBase() {
     setMessages(prevMessages => [...prevMessages, userMessage]);
 
     try {
-      // Determine data type from criteria (use first criterion's field to infer type)
-      let dataType = 'well'; // default
-      if (criteria.length > 0) {
-        const firstField = criteria[0].field;
-        if (firstField.includes('wellbore')) dataType = 'wellbore';
-        else if (firstField.includes('log')) dataType = 'log';
-        else if (firstField.includes('seismic') || firstField.includes('survey')) dataType = 'seismic';
-      }
+      // Use same API path as NLP OSDU flow: searchOSDU from catalog.ts
+      const osduResponse = await searchOSDU(query, 1000);
 
-      // Execute query directly against OSDU API (bypasses AI agent)
-      // Pass analytics parameters for tracking
-      // Request up to 1000 records to ensure we get the full result set
-      const result = await executeOSDUQuery(
-        query,
-        'osdu',
-        1000,
-        dataType,
-        criteria.length,
-        undefined // templateUsed - would need to be passed from query builder
-      );
-
-      logger.info('Query Builder: Query executed', {
-        success: result.success,
-        recordCount: result.recordCount,
-        executionTime: `${result.executionTime.toFixed(2)}ms`
+      logger.info('✅ Query Builder OSDU Response:', {
+        recordCount: osduResponse.recordCount,
+        hasError: !!osduResponse.error
       });
 
-      if (!result.success) {
-        // Display error message
+      // Handle error — same pattern as NLP OSDU block
+      if (osduResponse.error) {
         const errorMessage: Message = {
           id: uuidv4() as any,
           role: "ai" as any,
           content: {
-            text: `⚠️ **Query Execution Failed**\n\n${result.error || 'Unknown error'}\n\nPlease check your query criteria and try again.`
+            text: `❌ **OSDU Search Error**\n\n${osduResponse.answer}\n\n**Details:** ${osduResponse.error}\n\n**Suggestions:**\n- Contact your administrator to set up OSDU integration\n- Verify the OSDU API configuration\n- Check system status with your IT team\n\n💡 **Alternative:** Try a regular catalog search by removing "OSDU" from your query to search local data instead.`
           } as any,
           responseComplete: true as any,
           createdAt: new Date().toISOString() as any,
@@ -1175,85 +1253,114 @@ function CatalogPageBase() {
         return;
       }
 
-      // Convert OSDU records to well data format
-      const wellData = convertOSDUToWellData(result.records);
+      // Convert OSDU records to GeoJSON — identical to NLP OSDU block
+      const wellsWithCoords = osduResponse.records.filter((r: any) => isValidCoordinate(r.longitude, r.latitude));
 
-      // Save OSDU results to context for filtering
-      setOsduContext({
-        query,
-        timestamp: new Date(),
-        recordCount: wellData.length,
-        records: wellData,
-        filteredRecords: undefined,
-        activeFilters: []
+      logger.info('🗺️ Query Builder: Converting OSDU records to GeoJSON:', {
+        totalRecords: osduResponse.recordCount,
+        withCoordinates: wellsWithCoords.length
       });
 
-      // Format OSDU response data for OSDUSearchResponse component
-      const osduResponseData = {
-        answer: result.answer,
-        recordCount: result.recordCount,
-        records: wellData,
-        query,
-        executionTime: result.executionTime,
-        queryBuilder: true // Flag to indicate this came from query builder
+      const osduGeoJSON = {
+        type: "FeatureCollection" as const,
+        features: wellsWithCoords.map((record: any, index: number) => ({
+          type: "Feature" as const,
+          geometry: {
+            type: "Point" as const,
+            coordinates: [record.longitude, record.latitude]
+          },
+          properties: {
+            name: record.name || `OSDU Record ${index + 1}`,
+            type: record.type || 'OSDU Well',
+            operator: record.operator || 'Unknown',
+            location: record.location || record.basin || record.country || 'Unknown',
+            depth: record.depth || 'Unknown',
+            status: record.status || 'Unknown',
+            dataSource: 'OSDU',
+            category: 'osdu',
+            id: record.id || `osdu-${index}`
+          }
+        }))
       };
 
-      // Use osdu-search-response format for existing OSDUSearchResponse component
-      const messageText = `\`\`\`osdu-search-response\n${JSON.stringify(osduResponseData, null, 2)}\n\`\`\``;
+      // Create table data for chat display — identical to NLP OSDU block
+      const tableItems = wellsWithCoords.map((record: any, index: number) => ({
+        id: record.id || `osdu-${index}`,
+        name: record.name || `OSDU Record ${index + 1}`,
+        type: record.type || 'OSDU Well',
+        location: record.location || record.basin || record.country || 'Unknown',
+        depth: record.depth || 'Unknown',
+        operator: record.operator || 'Unknown',
+        dataSource: 'OSDU'
+      }));
 
-      // Create AI message with results
-      const resultMessage: Message = {
+      // Create compact success message with json-table-data — identical to NLP OSDU block
+      const messageText = `✅ **${osduResponse.answer}** • ${wellsWithCoords.length} wells on map\n\n\`\`\`json-table-data\n${JSON.stringify(tableItems, null, 2)}\n\`\`\``;
+
+      const successMessage: Message = {
         id: uuidv4() as any,
         role: "ai" as any,
-        content: { text: messageText } as any,
+        content: {
+          text: messageText
+        } as any,
         responseComplete: true as any,
         createdAt: new Date().toISOString() as any,
         chatSessionId: '' as any,
         owner: '' as any
       } as any;
 
-      setMessages(prevMessages => [...prevMessages, resultMessage]);
+      setMessages(prevMessages => [...prevMessages, successMessage]);
 
-      // Update map with results
-      const wellsWithCoords = wellData.filter(w => w.latitude && w.longitude);
+      // Update map with OSDU results — identical to NLP OSDU block
       if (wellsWithCoords.length > 0) {
-        const osduGeoJSON = {
-          type: "FeatureCollection" as const,
-          features: wellsWithCoords.map((well, index) => ({
-            type: "Feature" as const,
-            geometry: {
-              type: "Point" as const,
-              coordinates: [well.longitude!, well.latitude!]
-            },
-            properties: {
-              name: well.name,
-              type: well.type,
-              operator: well.operator,
-              location: well.location,
-              depth: well.depth,
-              status: well.status,
-              dataSource: 'OSDU',
-              category: 'osdu',
-              id: well.id || `osdu-${index}`
-            }
-          }))
+        const coordinates = wellsWithCoords.map((r: any) => [r.longitude, r.latitude]);
+        const bounds = {
+          minLon: Math.min(...coordinates.map((c: number[]) => c[0])),
+          maxLon: Math.max(...coordinates.map((c: number[]) => c[0])),
+          minLat: Math.min(...coordinates.map((c: number[]) => c[1])),
+          maxLat: Math.max(...coordinates.map((c: number[]) => c[1]))
         };
 
-        setMapState(prev => ({
-          ...prev,
+        const centerLon = (bounds.minLon + bounds.maxLon) / 2;
+        const centerLat = (bounds.minLat + bounds.maxLat) / 2;
+
+        setMapState({
+          center: [centerLon, centerLat],
+          zoom: 5,
+          bounds,
           wellData: osduGeoJSON,
           hasSearchResults: true
-        }));
+        });
 
         if (selectedId === "seg-1" && mapComponentRef.current?.updateMapData) {
           mapComponentRef.current.updateMapData(osduGeoJSON);
-        }
-      }
 
-      // Add to analysis data for visualization panel
-      if (wellData.length > 0) {
-        setAnalysisData(wellData);
-        setAnalysisQueryType('osdu-query-builder');
+          setTimeout(() => {
+            if (mapComponentRef.current?.fitBounds) {
+              mapComponentRef.current.fitBounds(bounds);
+            }
+          }, 500);
+        }
+
+        // Update analysis data — identical to NLP OSDU block
+        const analysisWellData = wellsWithCoords.map((record: any) => ({
+          name: record.name || 'Unknown',
+          type: record.type || 'OSDU Well',
+          depth: record.depth || 'Unknown',
+          location: record.location || record.basin || record.country || 'Unknown',
+          operator: record.operator || 'Unknown',
+          coordinates: [record.longitude, record.latitude] as [number, number],
+          dataSource: 'OSDU',
+          category: 'osdu'
+        }));
+
+        setAnalysisData(analysisWellData);
+        setAnalysisQueryType('osdu');
+
+        logger.info('✅ Query Builder OSDU data integrated:', {
+          mapFeatures: osduGeoJSON.features.length,
+          analysisRecords: analysisWellData.length
+        });
       }
 
     } catch (error) {
@@ -1263,7 +1370,7 @@ function CatalogPageBase() {
         id: uuidv4() as any,
         role: "ai" as any,
         content: {
-          text: `⚠️ **Query Execution Failed**\n\nAn unexpected error occurred: ${error instanceof Error ? error.message : String(error)}\n\nPlease try again or contact support if the issue persists.`
+          text: `❌ **OSDU search failed** • ${error instanceof Error ? error.message : String(error)}`
         } as any,
         responseComplete: true as any,
         createdAt: new Date().toISOString() as any,
@@ -1275,7 +1382,7 @@ function CatalogPageBase() {
     } finally {
       setIsLoadingMapData(false);
     }
-  }, [selectedId, setMessages, setOsduContext, setMapState, setAnalysisData, setAnalysisQueryType]);
+  }, [selectedId, setMessages, setMapState, setAnalysisData, setAnalysisQueryType]);
 
   // Intent detection function for routing queries
   const detectSearchIntent = useCallback((query: string): 'osdu' | 'catalog' => {
@@ -1506,14 +1613,16 @@ function CatalogPageBase() {
           activeFilters: []
         });
 
-        // Restore analysis data to original records
-        const restoredWellData = catalogContext.records.map(record => ({
+        // Restore analysis data to original records (only valid coordinates)
+        const restoredWellData = catalogContext.records
+          .filter(record => isValidCoordinate(record.longitude, record.latitude))
+          .map(record => ({
           name: record.name,
           type: record.type,
           depth: record.depth?.toString() || 'Unknown',
           location: record.location || 'Unknown',
           operator: record.operator || 'Unknown',
-          coordinates: [record.longitude || 0, record.latitude || 0] as [number, number],
+          coordinates: [record.longitude, record.latitude] as [number, number],
           category: 'search_result',
           dataSource: 'catalog'
         }));
@@ -1546,11 +1655,15 @@ function CatalogPageBase() {
         const filterResult = applyContextFilter(prompt, filterIntent.contextType);
         
         if (filterResult.success) {
+          const tableDataStr = filterResult.filteredTableItems && filterResult.filteredTableItems.length > 0
+            ? `\n\n**📊 Filtered Well Data:**\n\n\`\`\`json-table-data\n${JSON.stringify(filterResult.filteredTableItems, null, 2)}\n\`\`\``
+            : '';
+
           const filterMessage: Message = {
             id: uuidv4() as any,
             role: "ai" as any,
             content: {
-              text: `**🔍 Filtered Results**\n\nFiltered from **${filterResult.originalCount} wells** down to **${filterResult.filteredCount} wells**.\n\n**Active Filters:** ${filterResult.filterDescription}\n\n💡 Say "show all" to restore the original ${filterResult.originalCount} wells.`
+              text: `**🔍 Filtered Results**\n\nFiltered from **${filterResult.originalCount} wells** down to **${filterResult.filteredCount} wells**.\n\n**Active Filters:** ${filterResult.filterDescription}${tableDataStr}\n\n💡 Say "show all" to restore the original ${filterResult.originalCount} wells.`
             } as any,
             responseComplete: true as any,
             createdAt: new Date().toISOString() as any,
@@ -1645,8 +1758,8 @@ function CatalogPageBase() {
             return;
           }
           
-          // Convert OSDU records to GeoJSON for map display
-          const wellsWithCoords = osduResponse.records.filter((r: any) => r.latitude && r.longitude);
+          // Convert OSDU records to GeoJSON for map display (only valid finite coordinates)
+          const wellsWithCoords = osduResponse.records.filter((r: any) => isValidCoordinate(r.longitude, r.latitude));
           
           logger.info('🗺️ Converting OSDU records to GeoJSON:', {
             totalRecords: osduResponse.recordCount,
@@ -1858,7 +1971,10 @@ function CatalogPageBase() {
 
         // Enhanced analysis data management for proper context continuity
         if (wellFeatures.length > 0) {
-          const analysisWellData = wellFeatures.map((feature: any, index: number) => ({
+          const validWellFeatures = wellFeatures.filter((feature: any) =>
+            feature.geometry?.coordinates && isValidCoordinate(feature.geometry.coordinates[0], feature.geometry.coordinates[1])
+          );
+          const analysisWellData = validWellFeatures.map((feature: any, index: number) => ({
             name: feature.properties?.name || 'Unknown Well',
             type: feature.properties?.type || 'Unknown',
             depth: feature.properties?.depth || 'Unknown',
@@ -1879,7 +1995,7 @@ function CatalogPageBase() {
             type: feature.properties?.type || 'Unknown',
             operator: feature.properties?.operator,
             location: feature.properties?.location,
-            depth: typeof feature.properties?.depth === 'number' ? feature.properties.depth : undefined,
+            depth: feature.properties?.depth !== undefined && feature.properties?.depth !== null ? feature.properties.depth : undefined,
             depthUnit: feature.properties?.depthUnit || 'm',
             wellName: feature.properties?.name,
             dataSource: 'catalog',
@@ -1922,7 +2038,8 @@ function CatalogPageBase() {
           if (geoJsonData.features && geoJsonData.features.length > 0) {
             const coordinates = geoJsonData.features
               .filter((f: any) => f && f.geometry && f.geometry.coordinates && Array.isArray(f.geometry.coordinates))
-              .map((f: any) => f.geometry.coordinates);
+              .map((f: any) => f.geometry.coordinates)
+              .filter((c: any) => isValidCoordinate(c[0], c[1]));
 
             if (coordinates.length > 0) {
               const bounds = {
@@ -1986,7 +2103,7 @@ function CatalogPageBase() {
                 center: center,
                 zoom: 8,
                 bounds: bounds,
-                wellData: geoJsonData,
+                wellData: sanitizeGeoJsonCoordinates(geoJsonData),
                 hasSearchResults: true,
                 weatherLayers: weatherLayers
               });
@@ -2009,7 +2126,7 @@ function CatalogPageBase() {
               if (mapComponentRef.current.clearMap) {
                 mapComponentRef.current.clearMap();
               }
-              mapComponentRef.current.updateMapData(geoJsonData);
+              mapComponentRef.current.updateMapData(sanitizeGeoJsonCoordinates(geoJsonData));
             } catch (error) {
               logger.error('❌ Error updating map immediately:', error);
             }

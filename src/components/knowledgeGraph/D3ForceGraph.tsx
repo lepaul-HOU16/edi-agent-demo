@@ -80,6 +80,28 @@ export const D3ForceGraph: React.FC<D3ForceGraphProps> = ({
         return false;
       }
       
+      // Specific well selection filter (most important!)
+      if (filters.selectedWells && filters.selectedWells.size > 0) {
+        // If this is a well node, it must be in the selected set
+        if (node.type === 'well' && !filters.selectedWells.has(node.id)) {
+          return false;
+        }
+        // If this is NOT a well node, check if it's connected to any selected well
+        if (node.type !== 'well') {
+          const connectedToSelectedWell = data.links.some(link => {
+            const sourceId = typeof link.source === 'string' ? link.source : link.source.id;
+            const targetId = typeof link.target === 'string' ? link.target : link.target.id;
+            
+            // Check if this node is connected to a selected well
+            if (sourceId === node.id && filters.selectedWells!.has(targetId)) return true;
+            if (targetId === node.id && filters.selectedWells!.has(sourceId)) return true;
+            return false;
+          });
+          
+          if (!connectedToSelectedWell) return false;
+        }
+      }
+      
       // Quality level filter
       if (filters.qualityLevels.size > 0 && node.qualityLevel) {
         if (!filters.qualityLevels.has(node.qualityLevel)) {

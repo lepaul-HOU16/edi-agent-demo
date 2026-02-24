@@ -13,8 +13,7 @@ import {
 } from '@cloudscape-design/components';
 import ExpandablePromptInput from './ExpandablePromptInput';
 import { OSDUSearchResponse, OSDUErrorResponse } from './OSDUSearchResponse';
-import { OSDUQueryBuilder } from './OSDUQueryBuilder';
-import type { QueryCriterion } from './OSDUQueryBuilder';
+import { SimplifiedOSDUQueryBuilder } from './SimplifiedOSDUQueryBuilder';
 import { ExpandableSection, Grid } from '@cloudscape-design/components';
 import { PushToTalkButton } from './PushToTalkButton';
 import { VoiceTranscriptionDisplay } from './VoiceTranscriptionDisplay';
@@ -260,7 +259,7 @@ const CatalogChatBoxCloudscape = (params: {
   onSendMessage: (message: string) => Promise<void>,
   onOpenQueryBuilder?: () => void,
   showQueryBuilder?: boolean,
-  onExecuteQuery?: (query: string, criteria: any[]) => void
+  onExecuteQuery?: (query: string) => void
 }) => {
   const { onInputChange, userInput, messages, setMessages, onSendMessage, onOpenQueryBuilder, showQueryBuilder, onExecuteQuery } = params;
   
@@ -386,46 +385,49 @@ const CatalogChatBoxCloudscape = (params: {
 
   return (
     <div className="catalog-chat-container">
-      {/* Messages container with query builder at top */}
+      {/* Query Builder - ABOVE scrollable container so it stays fixed/visible */}
+      {showQueryBuilder && (
+        <div style={{ 
+          position: 'relative',
+          zIndex: 10,
+          boxSizing: 'border-box',
+          marginTop: '1px',
+          padding: '10px 8px',
+          overflow: 'visible',
+          width: 'calc(100% - 40px)'
+        }}>
+          <ExpandableSection
+            headerText="OSDU Query Builder"
+            variant="container"
+            defaultExpanded={true}
+            headerDescription="Build structured OSDU queries with dropdown selections - guaranteed to succeed"
+          >
+            <SimplifiedOSDUQueryBuilder
+              onExecute={(query: string) => {
+                if (onExecuteQuery) {
+                  onExecuteQuery(query);
+                }
+                if (onOpenQueryBuilder) {
+                  onOpenQueryBuilder(); // Close the query builder
+                }
+              }}
+              onClose={() => {
+                if (onOpenQueryBuilder) {
+                  onOpenQueryBuilder(); // Toggle to close
+                }
+              }}
+            />
+          </ExpandableSection>
+        </div>
+      )}
+
+      {/* Messages container - scrollable area */}
       <div
         ref={messagesContainerRef}
         onScroll={handleScroll}
         className="messages-container"
       >
         <div>
-          {/* Query Builder - Inline at top of messages, full width */}
-          {showQueryBuilder && (
-            <div style={{ 
-              width: '100%',
-              marginBottom: '16px',
-              borderRadius: '0',
-              backgroundColor: '#ffffff'
-            }}>
-              <ExpandableSection
-                headerText="OSDU Query Builder"
-                variant="container"
-                defaultExpanded={true}
-                headerDescription="Build structured OSDU queries with dropdown selections - guaranteed to succeed"
-              >
-                <OSDUQueryBuilder
-                  onExecute={(query: string, criteria: QueryCriterion[]) => {
-                    if (onExecuteQuery) {
-                      onExecuteQuery(query, criteria);
-                    }
-                    if (onOpenQueryBuilder) {
-                      onOpenQueryBuilder(); // Close the query builder
-                    }
-                  }}
-                  onClose={() => {
-                    if (onOpenQueryBuilder) {
-                      onOpenQueryBuilder(); // Toggle to close
-                    }
-                  }}
-                />
-              </ExpandableSection>
-            </div>
-          )}
-          
           {/* Chat Messages */}
           {messages.map((message, index) => (
             <div 

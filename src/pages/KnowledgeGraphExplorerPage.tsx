@@ -37,11 +37,12 @@ function KnowledgeGraphExplorerPage() {
   const [graphDimensions, setGraphDimensions] = useState({ width: 800, height: 400 });
   
   const [filters, setFilters] = useState<FilterState>({
-    nodeTypes: new Set(['well']),
+    nodeTypes: new Set(['well', 'event', 'formation', 'equipment']),
     relationshipTypes: new Set(['correlation', 'hierarchy', 'event-link', 'duplicate']),
     qualityLevels: new Set(['high', 'medium', 'low']),
     searchQuery: '',
-    showDuplicatesOnly: false
+    showDuplicatesOnly: false,
+    selectedWells: new Set() // Empty = show all wells
   });
 
   useEffect(() => {

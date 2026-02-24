@@ -9,6 +9,7 @@ export interface ParsedQuery {
   locations: string[];
   operators: string[];
   wellPrefixes: string[];
+  specificWells: string[]; // NEW: Exact well names like "WELL-001"
   minDepth?: number;
   depthUnit?: 'm' | 'ft';
   confidence: number;
@@ -27,6 +28,7 @@ export function parseNaturalLanguageQuery(query: string): ParsedQuery {
     locations: [],
     operators: [],
     wellPrefixes: [],
+    specificWells: [], // NEW
     confidence: 0,
     hasFilters: false
   };
@@ -86,6 +88,16 @@ export function parseNaturalLanguageQuery(query: string): ParsedQuery {
       result.wellPrefixes.push(prefix);
       matchCount++;
     }
+  }
+
+  // NEW: Extract specific well names (e.g., "WELL-001", "USA-042", "NOR-123")
+  // Match patterns like: WELL-001, USA-042, NOR-123, etc.
+  const wellNamePattern = /\b([A-Z]{2,4})-(\d{3,4})\b/gi;
+  const wellNameMatches = query.match(wellNamePattern);
+  if (wellNameMatches) {
+    result.specificWells = wellNameMatches.map(name => name.toUpperCase());
+    matchCount += wellNameMatches.length;
+    console.log('🎯 Extracted specific well names:', result.specificWells);
   }
 
   // Parse depth criteria - merged from catalog handler
@@ -199,6 +211,15 @@ export function applyFilters<T>(
         itemWellName.toUpperCase().startsWith(prefix.toUpperCase())
       );
       if (!prefixMatch) return false;
+    }
+
+    // NEW: Specific well name filter (exact match)
+    if (filters.specificWells.length > 0 && extractors.wellName) {
+      const itemWellName = extractors.wellName(item);
+      const exactMatch = filters.specificWells.some(wellName =>
+        itemWellName.toUpperCase() === wellName.toUpperCase()
+      );
+      if (!exactMatch) return false;
     }
 
     // Depth filter

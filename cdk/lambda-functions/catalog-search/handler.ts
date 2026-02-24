@@ -198,7 +198,7 @@ async function fetchUserWells(): Promise<any[]> {
     
     const userWellsFeatures = lasFiles.map((file, index) => {
       const fileName = file.Key?.replace(S3_PREFIX, '') || `Well-${index + 1}`;
-      const wellName = fileName.replace('.las', '').replace(/_/g, ' ').toUpperCase();
+      const wellName = fileName.replace('.las', '').toUpperCase(); // FIXED: Keep hyphens, don't replace with spaces
       
       // Use real coordinates from CSV if available, otherwise fallback
       let coordinates;
@@ -252,7 +252,8 @@ async function fetchUserWells(): Promise<any[]> {
 function filterCatalogData(wells: any[], filters: ParsedQuery): any[] {
   console.log('🔍 Filtering catalog data with shared parser');
   console.log('📊 Input wells:', wells.length);
-  console.log('🎯 Filters:', filters);
+  console.log('🎯 Filters:', JSON.stringify(filters, null, 2));
+  console.log('🎯 Specific wells filter:', filters.specificWells);
   
   if (!filters.hasFilters) {
     console.log('✅ No filters detected, returning all wells');
@@ -263,7 +264,11 @@ function filterCatalogData(wells: any[], filters: ParsedQuery): any[] {
   const filtered = applyFilters(wells, filters, {
     location: (well) => well.properties?.location || '',
     operator: (well) => well.properties?.operator || '',
-    wellName: (well) => well.properties?.name || '',
+    wellName: (well) => {
+      const name = well.properties?.name || '';
+      console.log(`  Checking well: "${name}"`);
+      return name;
+    },
     depth: (well) => {
       const depthStr = well.properties?.depth || '0m';
       const depthMatch = depthStr.match(/(\d+(?:\.\d+)?)/);
@@ -272,6 +277,7 @@ function filterCatalogData(wells: any[], filters: ParsedQuery): any[] {
   });
   
   console.log('✅ Filtered catalog data:', filtered.length, 'wells match criteria');
+  console.log('✅ Filtered well names:', filtered.map(w => w.properties?.name));
   return filtered;
 }
 
@@ -391,6 +397,22 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
     };
   }
 
+  // Check for specific well names (e.g., "WELL-001", "USA-042") - HIGH PRIORITY
+  const wellNamePattern = /\b([A-Z]{2,4})-(\d{3,4})\b/gi;
+  const hasSpecificWellNames = wellNamePattern.test(searchQuery);
+  
+  if (hasSpecificWellNames) {
+    console.log('🎯 SPECIFIC WELL NAMES DETECTED - Treating as myWells query with filters');
+    return {
+      queryType: 'myWells',
+      confidence: 0.95,
+      parameters: {
+        region: 'malaysia',
+        coordinates: { minLon: 100.25, maxLon: 104.5, minLat: 1.0, maxLat: 6.5 }
+      }
+    };
+  }
+  
   // Check for "my wells" queries  
   if (lowerQuery.includes('my wells') || lowerQuery.includes('show me my wells') ||
       lowerQuery.includes('personal wells') || lowerQuery.includes('user wells')) {

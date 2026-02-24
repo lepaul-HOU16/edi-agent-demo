@@ -34,6 +34,10 @@ export interface MapComponentRef {
   clearMap: () => void;
 }
 
+// Defense-in-depth: validate coordinates before passing to maplibre-gl APIs
+const isFiniteCoord = (coord: [number, number]): boolean =>
+  Number.isFinite(coord[0]) && Number.isFinite(coord[1]);
+
 const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
   mapColorScheme,
   onPolygonCreate,
@@ -773,18 +777,25 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
             }
           });
           
-          console.log('Feature coordinates for bounds:', allCoordinates.length, 'points');
+          // Filter out any non-finite coordinates (defense-in-depth against NaN/Infinity)
+          const validCoordinates = allCoordinates.filter(isFiniteCoord);
           
-          if (allCoordinates.length === 1) {
+          console.log('Feature coordinates for bounds:', allCoordinates.length, 'total,', validCoordinates.length, 'valid');
+          
+          if (validCoordinates.length === 0 && allCoordinates.length > 0) {
+            console.warn('⚠️ All coordinates were non-finite, skipping bounds fitting');
+          }
+          
+          if (validCoordinates.length === 1) {
             // Single point - just center on it
-            mapRef.current!.setCenter(allCoordinates[0]);
+            mapRef.current!.setCenter(validCoordinates[0]);
             mapRef.current!.setZoom(8);
-            console.log('Centered map on single feature at', allCoordinates[0]);
-          } else if (allCoordinates.length > 1) {
+            console.log('Centered map on single feature at', validCoordinates[0]);
+          } else if (validCoordinates.length > 1) {
             // Multiple features - fit bounds
-            const bounds = allCoordinates.reduce((bounds: maplibregl.LngLatBounds, coord: [number, number]) => {
+            const bounds = validCoordinates.reduce((bounds: maplibregl.LngLatBounds, coord: [number, number]) => {
               return bounds.extend(coord);
-            }, new maplibregl.LngLatBounds(allCoordinates[0], allCoordinates[0]));
+            }, new maplibregl.LngLatBounds(validCoordinates[0], validCoordinates[0]));
             
             console.log('Calculated bounds:', bounds.toArray());
             
@@ -809,6 +820,13 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
   const fitBounds = useCallback((bounds: { minLon: number; maxLon: number; minLat: number; maxLat: number }) => {
     if (!mapRef.current) {
       console.error('Map not available for fitBounds');
+      return;
+    }
+
+    // Defense-in-depth: reject non-finite bounds before they reach maplibre-gl
+    if (!Number.isFinite(bounds.minLon) || !Number.isFinite(bounds.maxLon) ||
+        !Number.isFinite(bounds.minLat) || !Number.isFinite(bounds.maxLat)) {
+      console.warn('⚠️ fitBounds called with non-finite bounds, skipping:', bounds);
       return;
     }
 
@@ -862,6 +880,16 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
         pitch: state.pitch || 0,
         bearing: state.bearing || 0
       }));
+      return;
+    }
+
+    // Guard against NaN/non-finite center coordinates and zoom
+    if (!Number.isFinite(state.center[0]) || !Number.isFinite(state.center[1])) {
+      console.warn('⚠️ restoreMapState: Invalid non-finite center coordinates, skipping jumpTo:', state.center);
+      return;
+    }
+    if (!Number.isFinite(state.zoom)) {
+      console.warn('⚠️ restoreMapState: Invalid non-finite zoom value, skipping jumpTo:', state.zoom);
       return;
     }
 
