@@ -37,6 +37,7 @@ const s3Client = new S3Client({ region: process.env.AWS_REGION || 'us-east-1' })
 const OSDU_TOOLS_API_URL = process.env.OSDU_TOOLS_API_URL || 'https://f1qn9bdfye.execute-api.us-east-1.amazonaws.com/development/tools';
 const OSDU_TOOLS_API_KEY = process.env.OSDU_TOOLS_API_KEY || 'sF1oCz1FfjOo9YY7OBmCaZM8TxpqzzS46JYbIvEb';
 
+
 interface OSDUSearchRequest {
   kind: string;
   query?: string;
@@ -282,30 +283,21 @@ function filterCatalogData(wells: any[], filters: ParsedQuery): any[] {
 }
 
 // Enhanced NLP query parser with conservative intent detection to prevent hallucinations
+// Simplified NLP parser - only detects frontend-specific query types
+// All OSDU queries are forwarded raw to the backend's Strands agent which handles NLP
 function parseNLPQuery(searchQuery: string): { queryType: string; parameters: any; confidence: number } {
   const lowerQuery = searchQuery.toLowerCase().trim();
   
-  console.log('🔍 === CONSERVATIVE PARSING QUERY ===');
-  console.log('📝 Original query:', searchQuery);
-  console.log('🔤 Lowercase query:', lowerQuery);
+  console.log('🔍 === QUERY ROUTING ===');
+  console.log('📝 Query:', searchQuery);
   
-  // CONSERVATIVE APPROACH: Only respond to queries we can handle with high confidence
+  // Weather maps detection
+  const hasWeather = lowerQuery.includes('weather');
+  const hasWells = lowerQuery.includes('wells') || lowerQuery.includes('well');
+  const hasMap = lowerQuery.includes('map') || lowerQuery.includes('maps');
   
-  // High confidence weather detection - must be very explicit
-  const explicitWeatherQueries = [
-    'show me weather maps',
-    'weather maps near wells', 
-    'weather data for wells',
-    'weather overlay on map',
-    'weather information near my wells'
-  ];
-  
-  const hasExplicitWeatherQuery = explicitWeatherQueries.some(pattern => lowerQuery.includes(pattern));
-  const hasWeatherAndWells = lowerQuery.includes('weather') && (lowerQuery.includes('wells') || lowerQuery.includes('well'));
-  const hasWeatherMaps = lowerQuery.includes('weather map') || lowerQuery.includes('weather maps');
-  
-  if (hasExplicitWeatherQuery || hasWeatherMaps || hasWeatherAndWells) {
-    console.log('✅ HIGH CONFIDENCE: Weather query detected');
+  if (hasWeather && (hasWells || hasMap)) {
+    console.log('🌤️ Weather query detected');
     return {
       queryType: 'weatherMaps',
       confidence: 0.9,
@@ -320,177 +312,63 @@ function parseNLPQuery(searchQuery: string): { queryType: string; parameters: an
     };
   }
   
-  // PRIORITY 1: SUPER AGGRESSIVE weather pattern detection
-  const hasWeather = lowerQuery.includes('weather');
-  const hasMap = lowerQuery.includes('map') || lowerQuery.includes('maps');
-  const hasNear = lowerQuery.includes('near');
-  const hasWells = lowerQuery.includes('wells') || lowerQuery.includes('well');
-  const hasShow = lowerQuery.includes('show') || lowerQuery.includes('can you');
-  
-  // Multiple weather detection strategies
-  const weatherPattern1 = lowerQuery.includes('weather map') || lowerQuery.includes('weather maps');
-  const weatherPattern2 = (hasWeather && hasMap);
-  const weatherPattern3 = (hasWeather && hasNear && hasWells);
-  const weatherPattern4 = (hasWeather && hasShow && hasWells);
-  
-  console.log('🎯 Weather pattern analysis:');
-  console.log('  - Pattern 1 (weather map/maps):', weatherPattern1);
-  console.log('  - Pattern 2 (weather + map):', weatherPattern2);
-  console.log('  - Pattern 3 (weather + near + wells):', weatherPattern3);  
-  console.log('  - Pattern 4 (weather + show + wells):', weatherPattern4);
-  
-  const isWeatherQuery = weatherPattern1 || weatherPattern2 || weatherPattern3 || weatherPattern4;
-  console.log('🌤️ FINAL WEATHER DECISION:', isWeatherQuery);
-  
-  if (isWeatherQuery) {
-    console.log('✅ WEATHER MAPS QUERY DETECTED - RETURNING WEATHER TYPE');
-    return {
-      queryType: 'weatherMaps',
-      confidence: 0.9,
-      parameters: {
-        includeUserWells: true,
-        weatherTypes: ['temperature', 'precipitation'], // Top 2 as requested
-        additionalWeatherTypes: ['wind', 'pressure', 'humidity'], // Progressive disclosure
-        radius: 50, // 50km radius as specified
-        region: 'user_wells_area',
-        coordinates: null // Will be calculated from well locations
-      }
-    };
-  }
-  
-  console.log('❌ Weather pattern NOT matched, checking other patterns...');
-  
-  // Check for "show all wells" or similar queries that should include user wells
+  // "Show all wells" / "all data" - combines OSDU + S3 user wells
   if (lowerQuery.includes('show all wells') || lowerQuery.includes('all wells') || 
-      lowerQuery.includes('show me all wells') || lowerQuery.includes('list all wells')) {
+      lowerQuery.includes('show me all wells') || lowerQuery.includes('list all wells') ||
+      lowerQuery.includes('all available data') || lowerQuery.includes('what data do you have') ||
+      lowerQuery.includes('show me everything') || lowerQuery.includes('all data')) {
+    console.log('📊 All wells query detected');
     return {
       queryType: 'allWells',
       confidence: 0.8,
       parameters: {
         includeUserWells: true,
         region: 'all',
-        coordinates: { minLon: 99, maxLon: 121, minLat: 1, maxLat: 23 }
       }
     };
   }
   
-  // Check for polygon queries - HIGH PRIORITY
+  // Polygon search detection
   const polygonPatterns = [
     /(?:wells?|data|points?)\s*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i,
     /(?:filter|show)\s*(?:by|using)\s*(?:polygon|area|selection)/i,
     /(?:polygon|area)\s*(?:filter|selection)/i,
-    /(?:find|search|show).*wells?.*(?:in|within|inside)\s*(?:the\s*)?(?:polygon|area|selection|boundary)/i
   ];
   
-  const isPolygonQuery = polygonPatterns.some(pattern => pattern.test(lowerQuery));
-  
-  if (isPolygonQuery) {
-    console.log('🔷 POLYGON QUERY DETECTED:', searchQuery);
+  if (polygonPatterns.some(pattern => pattern.test(lowerQuery))) {
+    console.log('🔷 Polygon query detected');
     return {
       queryType: 'polygonSearch',
       confidence: 0.8,
-      parameters: {
-        includeUserWells: true,
-        searchType: 'polygon_filter',
-        region: 'polygon_area'
-      }
+      parameters: { includeUserWells: true, searchType: 'polygon_filter', region: 'polygon_area' }
     };
   }
 
-  // Check for specific well names (e.g., "WELL-001", "USA-042") - HIGH PRIORITY
-  const wellNamePattern = /\b([A-Z]{2,4})-(\d{3,4})\b/gi;
-  const hasSpecificWellNames = wellNamePattern.test(searchQuery);
-  
-  if (hasSpecificWellNames) {
-    console.log('🎯 SPECIFIC WELL NAMES DETECTED - Treating as myWells query with filters');
-    return {
-      queryType: 'myWells',
-      confidence: 0.95,
-      parameters: {
-        region: 'malaysia',
-        coordinates: { minLon: 100.25, maxLon: 104.5, minLat: 1.0, maxLat: 6.5 }
-      }
-    };
-  }
-  
-  // Check for "my wells" queries  
+  // "My wells" - personal S3 LAS files only
   if (lowerQuery.includes('my wells') || lowerQuery.includes('show me my wells') ||
       lowerQuery.includes('personal wells') || lowerQuery.includes('user wells')) {
+    console.log('👤 My wells query detected');
     return {
       queryType: 'myWells',
       confidence: 0.9,
-      parameters: {
-        region: 'malaysia',
-        coordinates: { minLon: 100.25, maxLon: 104.5, minLat: 1.0, maxLat: 6.5 }
-      }
+      parameters: { region: 'personal' }
     };
   }
   
-  // Geographic search patterns
-  if (lowerQuery.includes('south china sea') || lowerQuery.includes('scs')) {
+  // Depth filtering on existing context
+  const depthMatch = lowerQuery.match(/(?:depth|deeper)\s*(?:>|greater\s*than|more\s*than|over)\s*(\d+)/);
+  if (depthMatch) {
+    console.log('📏 Depth filter detected:', depthMatch[1]);
     return {
-      queryType: 'geographic',
+      queryType: 'depth',
       confidence: 0.8,
-      parameters: {
-        region: 'south-china-sea',
-        coordinates: { minLon: 99, maxLon: 121, minLat: 3, maxLat: 23 }
-      }
+      parameters: { minDepth: parseInt(depthMatch[1]), operator: 'greater_than', unit: 'm' }
     };
   }
   
-  if (lowerQuery.includes('vietnam') || lowerQuery.includes('vietnamese')) {
-    return {
-      queryType: 'geographic',
-      confidence: 0.8,
-      parameters: {
-        region: 'vietnam',
-        coordinates: { minLon: 102, maxLon: 110, minLat: 8, maxLat: 17 }
-      }
-    };
-  }
-  
-  if (lowerQuery.includes('malaysia') || lowerQuery.includes('malaysian')) {
-    return {
-      queryType: 'geographic',
-      confidence: 0.8,
-      parameters: {
-        region: 'malaysia',
-        coordinates: { minLon: 99, maxLon: 119, minLat: 1, maxLat: 7 }
-      }
-    };
-  }
-  
-  // Well type searches
-  if (lowerQuery.includes('production')) {
-    return { queryType: 'wellType', confidence: 0.7, parameters: { type: 'Production' } };
-  }
-  
-  if (lowerQuery.includes('exploration')) {
-    return { queryType: 'wellType', confidence: 0.7, parameters: { type: 'Exploration' } };
-  }
-  
-  // Log type searches
-  const logTypes = ['gr', 'gamma ray', 'dtc', 'density', 'rhob', 'neutron', 'nphi', 'resistivity'];
-  const foundLogs = logTypes.filter(log => lowerQuery.includes(log));
-  if (foundLogs.length > 0) {
-    return { queryType: 'logs', confidence: 0.7, parameters: { logs: foundLogs } };
-  }
-  
-  // Enhanced depth searches with filtering operators
-  const depthCriteria = parseDepthCriteria(lowerQuery);
-  if (depthCriteria) {
-    return { queryType: 'depth', confidence: 0.8, parameters: depthCriteria };
-  }
-  
-  // Specific well name searches
-  const wellMatch = lowerQuery.match(/well[\s\-]*(\w+)/);
-  if (wellMatch) {
-    return { queryType: 'wellName', confidence: 0.6, parameters: { name: wellMatch[1] } };
-  }
-  
-  // Default to general search - LOW CONFIDENCE to prevent hallucinations
-  console.log('⚠️ LOW CONFIDENCE: Defaulting to general search');
-  return { queryType: 'general', confidence: 0.3, parameters: { text: searchQuery } };
+  // Everything else → forward raw to OSDU Tools API (backend agent handles NLP)
+  console.log('🔄 Forwarding to OSDU Tools API (backend agent handles NLP)');
+  return { queryType: 'osdu', confidence: 0.9, parameters: { rawQuery: searchQuery } };
 }
 
 // Function to handle weather maps queries - combines wells with weather overlay
@@ -886,12 +764,7 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
   const lowerPrompt = (searchQuery || '').toLowerCase();
   
   try {
-    // Build search parameters based on parsed query
-    const searchParams: OSDUSearchRequest = {
-      kind: 'osdu:wks:master-data--Wellbore:*',
-      limit: 100,
-      returnedFields: ['data.WellboreID', 'data.FacilityName', 'data.FacilityState', 'data.GeoLocation', 'data.VerticalMeasurement', 'data.WellType']
-    };
+    // searchParams no longer needed - backend agent handles query interpretation
     
     // Handle special query types before OSDU search
     if (parsedQuery.queryType === 'weatherMaps') {
@@ -1049,42 +922,16 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
         console.log(`✅ User wells depth filtering: ${filteredUserWells.length}/${userWells.length} wells match criteria`);
       }
       
-      // Get OSDU wells and apply SAME depth filtering
-      console.log('🔍 Getting OSDU wells for depth filtering...');
-      const osduResults = generateRealisticOSDUData(searchQuery, parsedQuery);
-      
-      // Apply depth filtering to OSDU wells too
-      let filteredOsduWells = osduResults.features;
-      if (parsedQuery.parameters.minDepth && parsedQuery.parameters.operator === 'greater_than') {
-        const minDepth = parsedQuery.parameters.minDepth;
-        console.log(`🔍 Filtering OSDU wells with depth > ${minDepth}m`);
-        
-        filteredOsduWells = osduResults.features.filter(well => {
-          const depthStr = well.properties.depth || '0m';
-          // Enhanced depth parsing to handle multiple formats
-          const depthMatch = depthStr.match(/(\d+(?:\.\d+)?)/);
-          const depthValue = depthMatch ? parseFloat(depthMatch[1]) : 0;
-          const passesFilter = depthValue > minDepth;
-          
-          console.log(`  - ${well.properties.name}: "${depthStr}" -> ${depthValue}m ${passesFilter ? '✅ PASS' : '❌ FAIL'}`);
-          return passesFilter;
-        });
-        
-        console.log(`✅ OSDU wells depth filtering: ${filteredOsduWells.length}/${osduResults.features.length} wells match criteria`);
-      }
-      
-      // Combine filtered user wells with filtered OSDU results
-      const allFilteredFeatures = [
-        ...filteredUserWells,
-        ...filteredOsduWells
-      ];
+      // Only use user wells from S3 for depth filtering (no mock data)
+      console.log('🔍 Using only real S3 user wells for depth filtering');
+      const allFilteredFeatures = [...filteredUserWells];
       
       return {
         type: "FeatureCollection",
         metadata: {
           type: "wells",
           searchQuery: searchQuery,
-          source: "Personal LAS Files + OSDU Community Platform (Depth Filtered)",
+          source: "Personal LAS Files (Depth Filtered)",
           recordCount: allFilteredFeatures.length,
           region: 'offshore-brunei-malaysia',
           queryType: 'depth',
@@ -1154,16 +1001,68 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
       // Get user wells first
       const userWells = await fetchUserWells();
       
-      // Get OSDU wells using fallback data
-      const osduResults = generateRealisticOSDUData(searchQuery, parsedQuery);
-      
+      // Fetch real OSDU wells via Tools API
+      let osduFeatures: any[] = [];
+      try {
+        console.log('Fetching real OSDU wells via Tools API for allWells query');
+        const osduResponse = await fetch(OSDU_TOOLS_API_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': OSDU_TOOLS_API_KEY,
+          },
+          body: JSON.stringify({
+            toolName: 'searchWells',
+            input: {
+              filters: {},
+              maxResults: 100,
+            }
+          })
+        });
+
+        if (osduResponse.ok) {
+          const osduResult = await osduResponse.json();
+          if (osduResult.statusCode === 200 && osduResult.body?.records?.length) {
+            osduFeatures = osduResult.body.records
+              .filter((r: any) => r.location?.lat && r.location?.lon)
+              .map((record: any) => ({
+                type: "Feature",
+                geometry: { type: "Point", coordinates: [record.location.lon, record.location.lat] },
+                properties: {
+                  name: record.WellName || record.name,
+                  type: record.LogType || 'Well Log',
+                  depth: record.TopDepth && record.BottomDepth ? `${record.TopDepth}-${record.BottomDepth}m` : 'Unknown',
+                  location: `${record.field || ''} (${record.basin || ''})`,
+                  operator: record.company || 'Unknown',
+                  category: 'osdu',
+                  dataSource: 'OSDU Platform (Live)',
+                  osduId: record.osduRecordId || record.recordId,
+                  country: record.country,
+                  field: record.field,
+                  basin: record.basin,
+                  logType: record.LogType,
+                  latitude: record.location.lat.toFixed(6),
+                  longitude: record.location.lon.toFixed(6),
+                }
+              }));
+            console.log(`Fetched ${osduFeatures.length} real OSDU wells`);
+          } else {
+            console.warn('OSDU Tools API returned no records for allWells query');
+          }
+        } else {
+          console.warn(`OSDU Tools API error for allWells: ${osduResponse.status}`);
+        }
+      } catch (osduError) {
+        console.warn('Error fetching OSDU wells for allWells query:', osduError);
+      }
+
       // Add exploration blocks
       const explorationBlocks = generateExplorationBlocks();
       
       // Combine all datasets - blocks first so they render under wells
       const allFeatures = [
         ...explorationBlocks,
-        ...osduResults.features,
+        ...osduFeatures,
         ...userWells
       ];
       
@@ -1172,8 +1071,8 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
         metadata: {
           type: "wells",
           searchQuery: searchQuery,
-          source: "OSDU Community Platform + Personal LAS Files + Exploration Blocks",
-          recordCount: osduResults.features.length + userWells.length,
+          source: osduFeatures.length > 0 ? "OSDU Platform (Live) + Personal LAS Files + Exploration Blocks" : "Personal LAS Files + Exploration Blocks",
+          recordCount: osduFeatures.length + userWells.length,
           blocksCount: explorationBlocks.length,
           region: 'all',
           queryType: 'allWells',
@@ -1189,302 +1088,173 @@ async function searchOSDUWells(searchQuery: string, existingContext?: any): Prom
       };
     }
     
-    // Build query string based on parsed intent for OSDU searches
-    switch (parsedQuery.queryType) {
-      case 'geographic':
-        const coords = parsedQuery.parameters.coordinates;
-        searchParams.query = `data.GeoLocation.Wgs84Coordinates.Longitude:[${coords.minLon} TO ${coords.maxLon}] AND data.GeoLocation.Wgs84Coordinates.Latitude:[${coords.minLat} TO ${coords.maxLat}]`;
-        break;
-        
-      case 'wellType':
-        searchParams.query = `data.WellType:("${parsedQuery.parameters.type}")`;
-        break;
-        
-      case 'logs':
-        // For log searches, search for wells that likely have these logs
-        searchParams.query = 'data.WellType:("Production" OR "Exploration")';
-        break;
-        
-      case 'depth':
-        searchParams.query = `data.VerticalMeasurement.Depth.Value:[${parsedQuery.parameters.minDepth} TO *]`;
-        break;
-        
-      case 'wellName':
-        searchParams.query = `data.FacilityName:("*${parsedQuery.parameters.name}*") OR data.WellboreID:("*${parsedQuery.parameters.name}*")`;
-        break;
-        
-      default:
-        // General search - search across multiple fields
-        searchParams.query = `data.FacilityName:(*${searchQuery}*) OR data.WellboreID:(*${searchQuery}*) OR data.FacilityState:(*${searchQuery}*)`;
+    // Extract structured filters from natural language query
+    const filters: any = {};
+    const lowerSearch = searchQuery.toLowerCase();
+    
+    // Known companies in the OSDU backend
+    const knownCompanies: { pattern: RegExp; name: string }[] = [
+      { pattern: /\bshell\b/i, name: 'Shell' },
+      { pattern: /\bchevron\b/i, name: 'Chevron' },
+      { pattern: /\bpetrobras\b/i, name: 'Petrobras' },
+      { pattern: /\bsaudi\s*aramco\b/i, name: 'Saudi Aramco' },
+      { pattern: /\bequinor\b/i, name: 'Equinor' },
+      { pattern: /\bconocophillips\b/i, name: 'ConocoPhillips' },
+      { pattern: /\bcontinental\s*resources\b/i, name: 'Continental Resources' },
+    ];
+    
+    // Known locations/fields in the OSDU backend
+    const knownLocations: { pattern: RegExp; name: string }[] = [
+      { pattern: /\bvolve\b/i, name: 'Volve' },
+      { pattern: /\bbrent\b/i, name: 'Brent' },
+      { pattern: /\bdelaware\s*basin\b/i, name: 'Delaware Basin' },
+      { pattern: /\beagle\s*ford\b/i, name: 'Eagle Ford Shale' },
+      { pattern: /\bsafaniya\b/i, name: 'Safaniya' },
+      { pattern: /\bmars\b/i, name: 'Mars' },
+      { pattern: /\blula\b/i, name: 'Lula' },
+    ];
+    
+    const matchedCompany = knownCompanies.find(c => c.pattern.test(searchQuery));
+    const matchedLocation = knownLocations.find(l => l.pattern.test(searchQuery));
+    
+    if (matchedCompany) {
+      filters.company = matchedCompany.name;
+      console.log('🏢 Company filter:', filters.company);
+    } else if (matchedLocation) {
+      filters.location = matchedLocation.name;
+      console.log('📍 Location filter:', filters.location);
+    } else {
+      console.log('🔄 No specific filter detected, doing full scan');
     }
-
-    console.log('OSDU Search Parameters:', JSON.stringify(searchParams, null, 2));
-
-    // Make request to OSDU Search API
-    const response = await fetch(`${OSDU_BASE_URL}/api/search/${OSDU_API_VERSION}/query`, {
+    
+    // Call OSDU Tools API with structured filters
+    console.log('📡 Calling searchWells with filters:', JSON.stringify(filters));
+    const response = await fetch(OSDU_TOOLS_API_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'data-partition-id': OSDU_PARTITION_ID,
-        'Accept': 'application/json',
-        'Authorization': `Bearer ${process.env.OSDU_ACCESS_TOKEN || ''}`,
+        'x-api-key': OSDU_TOOLS_API_KEY,
       },
-      body: JSON.stringify(searchParams)
+      body: JSON.stringify({
+        toolName: 'searchWells',
+        input: {
+          filters,
+          maxResults: 100,
+        }
+      })
     });
 
-    console.log(`OSDU API Response Status: ${response.status} ${response.statusText}`);
-
     if (!response.ok) {
-      const errorText = await response.text();
-      console.warn(`OSDU API Error: ${response.status} - ${errorText}`);
-      
-      // If OSDU is not available, fall back to realistic demonstration data
-      console.log('OSDU API not accessible, using realistic South China Sea demonstration data');
-      return generateRealisticOSDUData(searchQuery, parsedQuery);
+      console.warn(`OSDU Tools API returned ${response.status}: ${response.statusText}`);
+      return {
+        type: "FeatureCollection",
+        metadata: {
+          type: "error",
+          searchQuery,
+          error: `OSDU Tools API returned ${response.status}: ${response.statusText}`,
+          message: 'Failed to fetch well data from OSDU.',
+          suggestion: 'Try again later or search for "my wells" to see your personal S3 well data.',
+          queryType: parsedQuery?.queryType || 'osdu',
+          timestamp: new Date().toISOString(),
+        },
+        features: [],
+      };
     }
 
-    const osduResults = await response.json();
-    console.log('OSDU Results Count:', osduResults.results?.length || 0);
-    console.log('OSDU Results Sample:', JSON.stringify(osduResults.results?.slice(0, 2), null, 2));
+    const toolsResult = await response.json();
+    console.log('OSDU Tools API result:', { statusCode: toolsResult.statusCode, recordCount: toolsResult.body?.records?.length });
 
-    // Transform OSDU results to GeoJSON
-    const geoJsonResults = transformOSDUToGeoJSON(osduResults.results || [], searchQuery, parsedQuery);
-    
-    if (!geoJsonResults.features || geoJsonResults.features.length === 0) {
-      console.log('No OSDU results found, using realistic demonstration data');
-      return generateRealisticOSDUData(searchQuery, parsedQuery);
+    if (toolsResult.statusCode !== 200 || !toolsResult.body?.records?.length) {
+      console.log('No results from OSDU Tools API');
+      return {
+        type: "FeatureCollection",
+        metadata: {
+          type: "wells",
+          searchQuery,
+          source: "OSDU Platform (Live)",
+          recordCount: 0,
+          message: `No wells found${matchedCompany ? ` for company "${matchedCompany.name}"` : matchedLocation ? ` in "${matchedLocation.name}"` : ''}.`,
+          suggestion: 'Try a broader search or use "my wells" to see your personal S3 well data.',
+          queryType: parsedQuery?.queryType || 'osdu',
+          timestamp: new Date().toISOString(),
+        },
+        features: [],
+      };
     }
-    
-    return geoJsonResults;
+
+    // Transform records to GeoJSON features (only records with coordinates get map pins)
+    const features = toolsResult.body.records
+      .filter((r: any) => r.location?.lat && r.location?.lon)
+      .map((record: any) => ({
+        type: "Feature",
+        geometry: { type: "Point", coordinates: [record.location.lon, record.location.lat] },
+        properties: {
+          name: record.WellName || record.name,
+          type: record.LogType || 'Well Log',
+          depth: record.TopDepth && record.BottomDepth ? `${record.TopDepth}-${record.BottomDepth}m` : 'Unknown',
+          location: `${record.field || ''} (${record.basin || ''})`,
+          operator: record.company || 'Unknown',
+          category: 'osdu',
+          dataSource: 'OSDU Platform (Live)',
+          osduId: record.osduRecordId || record.recordId,
+          country: record.country,
+          field: record.field,
+          basin: record.basin,
+          logType: record.LogType,
+          latitude: record.location.lat.toFixed(6),
+          longitude: record.location.lon.toFixed(6),
+        }
+      }));
+
+    const totalRecords = toolsResult.body.records.length;
+    const unmappableRecords = totalRecords - features.length;
+    if (unmappableRecords > 0) {
+      console.log(`📊 ${unmappableRecords} records without coordinates (will show in table but not on map)`);
+    }
+
+    return {
+      type: "FeatureCollection",
+      metadata: {
+        type: "wells",
+        searchQuery,
+        source: "OSDU Platform (Live)",
+        recordCount: features.length,
+        totalRecords,
+        unmappableRecords,
+        totalFound: toolsResult.body.metadata?.totalFound,
+        queryType: parsedQuery?.queryType || 'osdu',
+        timestamp: new Date().toISOString(),
+        ...(features.length > 0 && {
+          coordinateBounds: {
+            minLon: Math.min(...features.map((f: any) => f.geometry.coordinates[0])),
+            maxLon: Math.max(...features.map((f: any) => f.geometry.coordinates[0])),
+            minLat: Math.min(...features.map((f: any) => f.geometry.coordinates[1])),
+            maxLat: Math.max(...features.map((f: any) => f.geometry.coordinates[1])),
+          }
+        })
+      },
+      features,
+    };
 
   } catch (error) {
-    console.warn('Error in OSDU search, falling back to demonstration data:', error);
-    
-    // Fall back to realistic demonstration data instead of throwing error
-    return generateRealisticOSDUData(searchQuery, parsedQuery);
-  }
-}
-
-// Generate realistic OSDU demonstration data for South China Sea region
-function generateRealisticOSDUData(searchQuery: string, parsedQuery?: any): any {
-  console.log('Generating realistic South China Sea demonstration data');
-  
-  // Define realistic well locations in South China Sea
-  const realisticWells = [
-    // Vietnamese waters
-    { name: "Cuu Long Basin Well-001", lat: 10.5, lon: 107.8, type: "Production", depth: 3650, operator: "PetroVietnam", block: "Block 15-1" },
-    { name: "Bach Ho Field Well-A2", lat: 10.3, lon: 107.2, type: "Production", depth: 2890, operator: "Vietsovpetro", block: "Block 09-1" },
-    { name: "Su Tu Den Field Well-B1", lat: 9.8, lon: 106.9, type: "Production", depth: 3200, operator: "PetroVietnam", block: "Block 16-1" },
-    { name: "Nam Con Son Well-E3", lat: 9.2, lon: 108.1, type: "Exploration", depth: 4100, operator: "PVEP", block: "Block 06-1" },
-    
-    // Malaysian waters
-    { name: "Sarawak Basin Well-M1", lat: 4.2, lon: 113.5, type: "Production", depth: 3450, operator: "Petronas", block: "Block SK-07" },
-    { name: "Sabah Well-Deep-1", lat: 5.8, lon: 115.2, type: "Exploration", depth: 4800, operator: "Shell Malaysia", block: "Block SB-12" },
-    { name: "Kimanis Field Well-K3", lat: 5.4, lon: 115.8, type: "Production", depth: 2750, operator: "Petronas Carigali", block: "Block PM-3" },
-    
-    // Brunei waters
-    { name: "Champion West Well-C1", lat: 4.8, lon: 114.1, type: "Production", depth: 3100, operator: "BSP", block: "Block B" },
-    
-    // Philippine waters
-    { name: "Malampaya Field Well-P2", lat: 11.2, lon: 119.8, type: "Production", depth: 3850, operator: "Shell Philippines", block: "SC 38" },
-    { name: "Reed Bank Well-R1", lat: 10.8, lon: 116.2, type: "Exploration", depth: 4250, operator: "Forum Energy", block: "SC 72" },
-    
-    // Indonesian waters (Natuna Sea)
-    { name: "East Natuna Field Well-N4", lat: 3.5, lon: 108.8, type: "Production", depth: 3300, operator: "Pertamina", block: "Natuna Block" },
-    { name: "Anambas Basin Well-A1", lat: 2.8, lon: 106.1, type: "Exploration", depth: 3900, operator: "Medco Energi", block: "Anambas Block" },
-    
-    // Chinese waters (South China Sea)
-    { name: "Liwan Gas Field Well-L2", lat: 19.5, lon: 112.8, type: "Production", depth: 4500, operator: "CNOOC", block: "Block 29/26" },
-    { name: "Panyu Field Well-PY3", lat: 21.2, lon: 113.5, type: "Production", depth: 2950, operator: "CNOOC", block: "Block 16/08" },
-    { name: "Wenchang Field Well-WC1", lat: 19.8, lon: 111.2, type: "Production", depth: 3680, operator: "CNOOC", block: "Block 13/22" }
-  ];
-  
-  // Filter wells based on search criteria
-  let filteredWells = [...realisticWells];
-  
-  if (parsedQuery) {
-    switch (parsedQuery.queryType) {
-      case 'geographic':
-        const coords = parsedQuery.parameters.coordinates;
-        filteredWells = realisticWells.filter(well => 
-          well.lon >= coords.minLon && well.lon <= coords.maxLon &&
-          well.lat >= coords.minLat && well.lat <= coords.maxLat
-        );
-        break;
-        
-      case 'wellType':
-        const targetType = parsedQuery.parameters.type;
-        filteredWells = realisticWells.filter(well => 
-          well.type.toLowerCase() === targetType.toLowerCase()
-        );
-        break;
-        
-      case 'depth':
-        const minDepth = parsedQuery.parameters.minDepth;
-        const operator = parsedQuery.parameters.operator || 'greater_than';
-        console.log(`🔍 OSDU Data: Filtering wells with depth ${operator} ${minDepth}m`);
-        
-        filteredWells = realisticWells.filter(well => {
-          let passesFilter = false;
-          switch (operator) {
-            case 'greater_than':
-              passesFilter = well.depth > minDepth;
-              break;
-            case 'less_than':
-              passesFilter = well.depth < minDepth;
-              break;
-            case 'equal_to':
-              passesFilter = well.depth === minDepth;
-              break;
-            default:
-              passesFilter = well.depth > minDepth; // Default to greater than
-          }
-          
-          console.log(`    - OSDU ${well.name}: ${well.depth}m ${passesFilter ? '✅ PASS' : '❌ FAIL'}`);
-          return passesFilter;
-        });
-        
-        console.log(`✅ OSDU realistic data filtering: ${filteredWells.length}/${realisticWells.length} wells match depth criteria`);
-        break;
-        
-      case 'wellName':
-        const namePattern = parsedQuery.parameters.name.toLowerCase();
-        filteredWells = realisticWells.filter(well => 
-          well.name.toLowerCase().includes(namePattern)
-        );
-        break;
-        
-      case 'logs':
-        // For log searches, return wells that would typically have these logs
-        filteredWells = realisticWells.filter(well => well.type === 'Production' || well.type === 'Exploration');
-        break;
-    }
-  }
-  
-  // Convert to OSDU-like records and then to GeoJSON
-  const osduRecords: OSDUWellRecord[] = filteredWells.map((well, index) => ({
-    id: `osdu:work-product-component--Wellbore:scs-${index + 1}:${well.name.replace(/\s+/g, '-').toLowerCase()}`,
-    kind: 'osdu:wks:master-data--Wellbore:1.0.0',
-    data: {
-      WellboreID: `SCS-${(index + 1).toString().padStart(3, '0')}`,
-      FacilityName: well.name,
-      FacilityState: well.block,
-      GeoLocation: {
-        Wgs84Coordinates: {
-          Latitude: well.lat,
-          Longitude: well.lon
-        }
-      },
-      VerticalMeasurement: {
-        Depth: {
-          Value: well.depth,
-          UOM: 'm'
-        }
-      },
-      WellType: well.type
-    }
-  }));
-  
-  return transformOSDUToGeoJSON(osduRecords, searchQuery, parsedQuery);
-}
-
-// Transform OSDU well records to GeoJSON format with enhanced South China Sea mapping
-function transformOSDUToGeoJSON(osduRecords: OSDUWellRecord[], searchQuery: string, parsedQuery?: any): any {
-  // South China Sea coordinate bounds for fallback positioning
-  const scsRegion = {
-    minLon: 99.0,
-    maxLon: 121.0,
-    minLat: 3.0,
-    maxLat: 23.0
-  };
-  
-  const features = osduRecords.map((record, index) => {
-    const wellData = record.data;
-    
-    // Enhanced coordinate handling with South China Sea focus
-    let coordinates;
-    if (wellData.GeoLocation?.Wgs84Coordinates) {
-      coordinates = [
-        wellData.GeoLocation.Wgs84Coordinates.Longitude, 
-        wellData.GeoLocation.Wgs84Coordinates.Latitude
-      ];
-    } else {
-      // Intelligent fallback based on parsed query region
-      let fallbackRegion = scsRegion;
-      
-      if (parsedQuery?.queryType === 'geographic') {
-        const queryCoords = parsedQuery.parameters.coordinates;
-        if (queryCoords) {
-          fallbackRegion = queryCoords;
-        }
-      }
-      
-      // Distribute wells across the region with some variation
-      const lonRange = fallbackRegion.maxLon - fallbackRegion.minLon;
-      const latRange = fallbackRegion.maxLat - fallbackRegion.minLat;
-      
-      coordinates = [
-        fallbackRegion.minLon + (lonRange * 0.2) + ((index % 5) * lonRange * 0.15),
-        fallbackRegion.minLat + (latRange * 0.3) + (Math.floor(index / 5) * latRange * 0.15)
-      ];
-    }
-    
-    // Enhanced well properties with additional metadata
-    const wellProperties: any = {
-      name: wellData.FacilityName || wellData.WellboreID || `SCS-Well-${index + 1}`,
-      type: wellData.WellType || 'Unknown',
-      depth: wellData.VerticalMeasurement?.Depth ? 
-        `${wellData.VerticalMeasurement.Depth.Value} ${wellData.VerticalMeasurement.Depth.UOM}` : 
-        'Unknown',
-      location: wellData.FacilityState || 'South China Sea',
-      osduId: record.id,
-      kind: record.kind,
-      // Additional enhanced properties
-      region: parsedQuery?.parameters?.region || 'south-china-sea',
-      latitude: coordinates[1]?.toFixed(6),
-      longitude: coordinates[0]?.toFixed(6),
-      searchCriteria: searchQuery,
-      dataSource: 'OSDU Community'
-    };
-    
-    // Add log information if this was a log-based search
-    if (parsedQuery?.queryType === 'logs' && parsedQuery.parameters?.logs) {
-      wellProperties.availableLogs = parsedQuery.parameters.logs.join(', ');
-    }
+    console.error('Error in OSDU search:', error);
     
     return {
-      type: "Feature",
-      geometry: {
-        type: "Point",
-        coordinates: coordinates
+      type: "FeatureCollection",
+      metadata: {
+        type: "error",
+        searchQuery,
+        error: `OSDU search failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        message: 'An error occurred while searching OSDU.',
+        suggestion: 'Try again later or search for "my wells" to see your personal S3 well data.',
+        queryType: 'error',
+        timestamp: new Date().toISOString(),
       },
-      properties: wellProperties
+      features: [],
     };
-  });
-
-  // Enhanced metadata with regional information
-  const metadata = {
-    type: "wells",
-    searchQuery: searchQuery,
-    source: "OSDU Community Platform",
-    recordCount: features.length,
-    region: parsedQuery?.parameters?.region || 'south-china-sea',
-    queryType: parsedQuery?.queryType || 'general',
-    timestamp: new Date().toISOString(),
-    coordinateBounds: {
-      minLon: Math.min(...features.map(f => f.geometry.coordinates[0])),
-      maxLon: Math.max(...features.map(f => f.geometry.coordinates[0])),
-      minLat: Math.min(...features.map(f => f.geometry.coordinates[1])),
-      maxLat: Math.max(...features.map(f => f.geometry.coordinates[1]))
-    }
-  };
-
-  return {
-    type: "FeatureCollection",
-    metadata: metadata,
-    features: features
-  };
+  }
 }
+
 
 
 export const handler: Handler = async (event) => {

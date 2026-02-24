@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  SpaceBetween,
   FormField,
   Select,
   Input,
@@ -42,7 +41,7 @@ export const SimplifiedOSDUQueryBuilder: React.FC<SimplifiedOSDUQueryBuilderProp
 
   return (
     <Box padding="s">
-      <SpaceBetween size="s">
+      <div style={{ marginBottom: '8px' }}>
         <FormField label="Data type">
           <Select
             selectedOption={selectedDataType}
@@ -52,8 +51,9 @@ export const SimplifiedOSDUQueryBuilder: React.FC<SimplifiedOSDUQueryBuilderProp
             options={DATA_TYPES}
           />
         </FormField>
-
-        <SpaceBetween size="xs" direction="horizontal">
+      </div>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '8px' }}>
+        <div style={{ flex: '1 1 auto' }}>
           <FormField label="Field name (optional)">
             <Input
               value={fieldName}
@@ -61,6 +61,8 @@ export const SimplifiedOSDUQueryBuilder: React.FC<SimplifiedOSDUQueryBuilderProp
               placeholder="e.g. operator"
             />
           </FormField>
+        </div>
+        <div style={{ flex: '1 1 auto' }}>
           <FormField label="Value (optional)">
             <Input
               value={fieldValue}
@@ -68,17 +70,16 @@ export const SimplifiedOSDUQueryBuilder: React.FC<SimplifiedOSDUQueryBuilderProp
               placeholder="e.g. Shell"
             />
           </FormField>
-        </SpaceBetween>
-
-        <SpaceBetween size="xs" direction="horizontal">
-          <Button variant="primary" onClick={handleSearch}>
-            Search
-          </Button>
+        </div>
+        <div style={{ display: 'flex', gap: '4px', flexShrink: 0, paddingBottom: '2px' }}>
           <Button variant="normal" onClick={onClose}>
             Close
           </Button>
-        </SpaceBetween>
-      </SpaceBetween>
+          <Button variant="primary" onClick={handleSearch}>
+            Search
+          </Button>
+        </div>
+      </div>
     </Box>
   );
 };

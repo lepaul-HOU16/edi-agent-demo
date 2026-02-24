@@ -26,6 +26,8 @@ const ProfessionalGeoscientistDisplay = React.memo(({
   tableData: any[]
 }) => {
   const [currentPageIndex, setCurrentPageIndex] = useState(1);
+  const [sortingColumn, setSortingColumn] = useState<any>(null);
+  const [sortingDescending, setSortingDescending] = useState(false);
   const pageSize = 10;
 
   // Generate column definitions dynamically based on the first item's keys
@@ -43,11 +45,23 @@ const ProfessionalGeoscientistDisplay = React.memo(({
       }));
   }, [tableData]);
 
-  // Calculate pagination
+  // Sort data, then paginate
+  const sortedData = useMemo(() => {
+    if (!sortingColumn?.sortingField) return tableData;
+    const field = sortingColumn.sortingField;
+    return [...tableData].sort((a, b) => {
+      const aVal = (a[field] ?? '').toString().toLowerCase();
+      const bVal = (b[field] ?? '').toString().toLowerCase();
+      const cmp = aVal.localeCompare(bVal, undefined, { numeric: true });
+      return sortingDescending ? -cmp : cmp;
+    });
+  }, [tableData, sortingColumn, sortingDescending]);
+
+  // Calculate pagination on sorted data
   const startIndex = (currentPageIndex - 1) * pageSize;
   const endIndex = startIndex + pageSize;
-  const paginatedData = tableData.slice(startIndex, endIndex);
-  const totalPages = Math.ceil(tableData.length / pageSize);
+  const paginatedData = sortedData.slice(startIndex, endIndex);
+  const totalPages = Math.ceil(sortedData.length / pageSize);
 
   return (
     <div 
@@ -70,7 +84,14 @@ const ProfessionalGeoscientistDisplay = React.memo(({
         <Table
           columnDefinitions={columnDefinitions}
           items={paginatedData}
-          trackBy={(item) => item.name || item.id || JSON.stringify(item)}
+          trackBy={(item) => item.osduId || item.id || `${item.name}-${item.type}-${item.depth}` || JSON.stringify(item)}
+          sortingColumn={sortingColumn}
+          sortingDescending={sortingDescending}
+          onSortingChange={({ detail }) => {
+            setSortingColumn(detail.sortingColumn);
+            setSortingDescending(detail.isDescending ?? false);
+            setCurrentPageIndex(1); // Reset to page 1 on sort
+          }}
           pagination={
             <Pagination
               currentPageIndex={currentPageIndex}
@@ -394,7 +415,7 @@ const CatalogChatBoxCloudscape = (params: {
           marginTop: '1px',
           padding: '10px 8px',
           overflow: 'visible',
-          width: 'calc(100% - 40px)'
+          width: 'calc(100% - 32px)'
         }}>
           <ExpandableSection
             headerText="OSDU Query Builder"

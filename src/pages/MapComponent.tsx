@@ -480,8 +480,8 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
     
     console.log('✅ Created wells layer with', geoJsonData.features.length, 'features');
     
-    // Add click event for wells layer (only once)
-    mapRef.current.once('click', WELLS_LAYER_ID, (e: maplibregl.MapLayerMouseEvent) => {
+    // Add click event for wells layer
+    mapRef.current.on('click', WELLS_LAYER_ID, (e: maplibregl.MapLayerMouseEvent) => {
       if (!e.features || e.features.length === 0) return;
       
       const coordinates = e.lngLat;
@@ -1110,6 +1110,12 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
       mapRef.current.once('styledata', () => {
         console.log('🎨 Style loaded, restoring state');
         
+        // Force mercator projection after style reload — style descriptor sets globe
+        if (mapRef.current) {
+          (mapRef.current as any).setProjection({ type: 'mercator' });
+          console.log('🗺️ Re-forced mercator projection after theme change');
+        }
+        
         // Restore camera position
         if (mapRef.current) {
           mapRef.current.jumpTo({
@@ -1153,6 +1159,13 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
         style: `https://maps.geo.${REGION}.amazonaws.com/v2/styles/${style}/descriptor?key=${apiKey}&color-scheme=${mapColorScheme}`,
         center: [106.9, 10.2], // Center on Vietnamese territorial waters
         zoom: 5,
+      } as any);
+
+      // Force mercator on every style load — the style descriptor can override the constructor
+      mapRef.current.on('styledata', () => {
+        if (mapRef.current) {
+          (mapRef.current as any).setProjection({ type: 'mercator' });
+        }
       });
 
       // Add controls
@@ -1306,6 +1319,12 @@ const MapComponent = forwardRef<MapComponentRef, MapComponentProps>(({
       // Wait for the map to load before setup
       mapRef.current.on('load', () => {
         console.log('Map loaded successfully - wells will only appear when searched');
+        
+        // Force mercator projection — Amazon Location style descriptor sets globe by default
+        if (mapRef.current) {
+          (mapRef.current as any).setProjection({ type: 'mercator' });
+          console.log('🗺️ Forced mercator projection (no globe)');
+        }
         
         // Add polygon event listeners
         mapRef.current!.on('draw.create', handlePolygonCreate);
