@@ -1734,6 +1734,20 @@ export class MainStack extends cdk.Stack {
     // Use CloudFormation Select and Split to extract domain without https://
     const apiDomain = cdk.Fn.select(1, cdk.Fn.split('://', apiDomainWithProtocol));
 
+    // Response Headers Policy for iframe embedding (UserTesting platform)
+    const responseHeadersPolicy = new cloudfront.CfnResponseHeadersPolicy(this, 'IframeResponseHeadersPolicy', {
+      responseHeadersPolicyConfig: {
+        name: `${id}-iframe-csp-policy`,
+        comment: 'Allow iframe embedding for UserTesting platform',
+        securityHeadersConfig: {
+          contentSecurityPolicy: {
+            contentSecurityPolicy: "frame-ancestors 'self' https://d2hkqpgqguj4do.cloudfront.net; script-src 'self'; object-src 'none'",
+            override: true,
+          },
+        },
+      },
+    });
+
     // Create CloudFront distribution using L1 construct for full control
     // This avoids the origin ID colon issue with L2 constructs
     const distribution = new cloudfront.CfnDistribution(this, 'FrontendDistribution', {
@@ -1773,6 +1787,7 @@ export class MainStack extends cdk.Stack {
           compress: true,
           cachePolicyId: cloudfront.CachePolicy.CACHING_OPTIMIZED.cachePolicyId,
           originRequestPolicyId: cloudfront.OriginRequestPolicy.CORS_S3_ORIGIN.originRequestPolicyId,
+          responseHeadersPolicyId: responseHeadersPolicy.attrId,
         },
         
         // Additional cache behaviors
@@ -1786,6 +1801,7 @@ export class MainStack extends cdk.Stack {
             compress: false,
             cachePolicyId: cloudfront.CachePolicy.CACHING_DISABLED.cachePolicyId,
             originRequestPolicyId: cloudfront.OriginRequestPolicy.ALL_VIEWER.originRequestPolicyId,
+            responseHeadersPolicyId: responseHeadersPolicy.attrId,
           },
         ],
         
