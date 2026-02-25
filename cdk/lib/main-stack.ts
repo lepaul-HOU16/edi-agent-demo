@@ -1738,10 +1738,10 @@ export class MainStack extends cdk.Stack {
     const responseHeadersPolicy = new cloudfront.CfnResponseHeadersPolicy(this, 'IframeResponseHeadersPolicy', {
       responseHeadersPolicyConfig: {
         name: `${id}-iframe-csp-policy`,
-        comment: 'Allow iframe embedding for UserTesting platform',
+        comment: 'Allow iframe embedding and scripts for UserTesting platform',
         securityHeadersConfig: {
           contentSecurityPolicy: {
-            contentSecurityPolicy: "frame-ancestors 'self' https://d2hkqpgqguj4do.cloudfront.net; script-src 'self'; object-src 'none'",
+            contentSecurityPolicy: "frame-ancestors 'self' https://dj36v52iydye2.cloudfront.net https://*.usertesting.com; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://dj36v52iydye2.cloudfront.net https://*.usertesting.com; object-src 'none'",
             override: true,
           },
         },
